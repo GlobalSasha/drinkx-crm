@@ -56,14 +56,25 @@ PostgreSQL via Supabase, Redis via Upstash, and CI to Vercel + Railway.
 ### 1.0.5 Local dev environment
 - [x] `infra/docker/docker-compose.yml` — local Postgres 16 + Redis 7 + Mailhog
 - [x] Root `Makefile` with `make dev`, `make api`, `make web`, `make db.up`, `make db.migrate`
-- [ ] Verify `make dev` starts everything locally and `/health` returns 200
+- [-] Local verification — skipped, verified directly on production server (deploy.sh + /health → 200)
+
+### 1.0.5b Production server (NEW — added on 2026-05-05)
+Bare-metal Ubuntu 22.04 at `77.105.168.227` / `crm.drinkx.tech`. Provisioned in one session:
+- [x] Apt update, 2GB swap, UFW (22/80/443), fail2ban
+- [x] Docker 29.4, Compose v5.1.3
+- [x] nginx 1.18 + certbot 1.21, Let's Encrypt cert for crm.drinkx.tech (auto-renews)
+- [x] `deploy` user with docker group; SSH key for GitHub Actions
+- [x] `/opt/drinkx-crm` cloned from main; `infra/production/.env` with autogen Postgres password
+- [x] Full stack running: drinkx-{postgres, redis, api, web} all healthy, all bound 127.0.0.1
+- [x] nginx reverse-proxy: `/` → web:3000, `/api/*` → api:8000, `/ws/*` → api:8000 WebSocket
+- [x] HSTS + security headers
+- [x] `infra/production/deploy.sh` (pull + rebuild + health check)
 
 ### 1.0.6 CI / CD
+- [x] `.github/workflows/deploy.yml` — SSH to crm.drinkx.tech on push to main, runs deploy.sh, verifies /health
+- [-] Vercel/Railway — skipped, deployed to bare-metal server (77.105.168.227 / crm.drinkx.tech)
 - [ ] `.github/workflows/web.yml` — lint + typecheck + build on PR
 - [ ] `.github/workflows/api.yml` — ruff + mypy + pytest on PR
-- [ ] Vercel project linked to repo, root = `apps/web`
-- [ ] Railway project with one service per app (api, worker, beat)
-- [ ] Confirm a push to `main` auto-deploys both
 
 ### 1.0.7 Observability
 - [ ] Sentry projects for web and api; DSNs in env
