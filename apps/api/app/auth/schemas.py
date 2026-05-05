@@ -1,0 +1,45 @@
+"""Pydantic DTOs for auth endpoints."""
+from __future__ import annotations
+
+import uuid
+from datetime import datetime
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+
+class WorkspaceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    plan: str
+    sprint_capacity_per_week: int
+
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    email: EmailStr
+    name: str
+    role: str
+    timezone: str
+    max_active_deals: int
+    specialization: list[str]
+    working_hours_json: dict[str, Any] = Field(default_factory=dict)
+    onboarding_completed: bool
+    last_login_at: datetime | None
+    workspace: WorkspaceOut
+
+
+class UserUpdateIn(BaseModel):
+    """Body for PATCH /auth/me — used by Onboarding step 2."""
+
+    name: str | None = None
+    role: str | None = None
+    timezone: str | None = None
+    max_active_deals: int | None = Field(default=None, ge=1, le=100)
+    specialization: list[str] | None = None
+    working_hours_json: dict[str, Any] | None = None
+    mark_onboarding_complete: bool = False

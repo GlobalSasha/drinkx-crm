@@ -18,18 +18,24 @@ export default function HomePage() {
           </a>
           .
         </p>
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
           <Link
-            href="/today"
+            href="/sign-in"
             className="inline-flex items-center gap-2 bg-ink text-white rounded-pill px-5 py-3 font-semibold transition-transform duration-700 ease-soft active:scale-[0.98]"
           >
-            Today →
+            Войти →
+          </Link>
+          <Link
+            href="/today"
+            className="inline-flex items-center gap-2 bg-black/5 text-ink rounded-pill px-5 py-3 font-semibold transition-transform duration-700 ease-soft active:scale-[0.98]"
+          >
+            Today (preview)
           </Link>
           <Link
             href="/pipeline"
             className="inline-flex items-center gap-2 bg-black/5 text-ink rounded-pill px-5 py-3 font-semibold transition-transform duration-700 ease-soft active:scale-[0.98]"
           >
-            Pipeline →
+            Pipeline (preview)
           </Link>
         </div>
       </div>

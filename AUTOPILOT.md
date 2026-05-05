@@ -95,12 +95,12 @@ onboarding flow, and land on an empty `/today`.
 - [ ] Configure Row Level Security default-deny
 
 ### 1.1.2 DB schema — Sprint 1 entities
-- [ ] Alembic init + first migration
-- [ ] `workspaces` table (PRD §8.3)
-- [ ] `users` table with `working_hours_json`, `max_active_deals`, `onboarding_completed`
-- [ ] `pipelines` table
-- [ ] `stages` table
-- [ ] Seed: default pipeline "Новые клиенты" with 6 stages on workspace creation
+- [x] Alembic init + first migration (`0001_initial`)
+- [x] `workspaces` table (with `sprint_capacity_per_week` from PRD-addition v2.1)
+- [x] `users` table with `working_hours_json`, `max_active_deals`, `onboarding_completed`, `supabase_user_id`, `specialization`, `timezone`
+- [x] `pipelines` table
+- [x] `stages` table (with `is_won`, `is_lost`, `probability`, `rot_days`, `color`)
+- [x] Seed: default pipeline "Новые клиенты" with 7 stages on workspace creation (services.upsert_user_from_token)
 
 ### 1.1.3 Web — auth flow
 - [ ] `apps/web/middleware.ts` — redirect unauthed users to `/sign-in`
@@ -113,11 +113,15 @@ onboarding flow, and land on an empty `/today`.
   - [ ] Step 4: done + 4 CTAs
 
 ### 1.1.4 API — auth endpoints
-- [ ] `apps/api/app/auth/routers.py`:
-  - [ ] `POST /auth/exchange` — verify Supabase JWT, upsert user, return server JWT
-  - [ ] `GET /auth/me` — current user with workspace
-  - [ ] `PATCH /auth/me` — update profile (name, role, spec, working_hours, ...)
-- [ ] Workspace bootstrap on first sign-in (create workspace + default pipeline + add user as admin)
+- [x] `apps/api/app/auth/jwt.py` — TokenClaims + Supabase JWT verifier (HS256) with stub-mode fallback when SUPABASE_JWT_SECRET is empty
+- [x] `apps/api/app/auth/dependencies.py` — `current_user` and `require_admin` deps
+- [x] `apps/api/app/auth/services.py` — `upsert_user_from_token` (auto-bootstrap workspace + 7 stages on first sign-in)
+- [x] `apps/api/app/auth/schemas.py` — `UserOut`, `WorkspaceOut`, `UserUpdateIn`
+- [x] `apps/api/app/auth/routers.py`:
+  - [x] `GET /auth/me` — current user with workspace
+  - [x] `PATCH /auth/me` — update profile (name, role, spec, working_hours, mark_onboarding_complete)
+  - [-] `POST /auth/exchange` — not needed; Supabase JWT used directly via `Authorization: Bearer`
+- [x] Workspace bootstrap on first sign-in: creates Workspace + default Pipeline + 7 Stages + makes user admin
 
 ### 1.1.5 Tests
 - [ ] api: pytest fixture for authed client

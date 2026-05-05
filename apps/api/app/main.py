@@ -49,8 +49,9 @@ def create_app() -> FastAPI:
     async def version() -> dict[str, str]:
         return {"version": "0.1.0", "env": s.app_env}
 
-    # Domain routers wired here as they ship.
-    # See AUTOPILOT.md §1.1.4 (auth), §1.2.2 (leads/pipelines/contacts/activities/followups).
+    # Domain routers — see AUTOPILOT.md
+    from app.auth.routers import router as auth_router
+    app.include_router(auth_router)
 
     return app
 
