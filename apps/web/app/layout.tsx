@@ -3,7 +3,7 @@ import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin", "cyrillic"],
+  subsets: ["latin", "latin-ext"],
   variable: "--font-jakarta",
   weight: ["400", "500", "600", "700", "800"],
 });
