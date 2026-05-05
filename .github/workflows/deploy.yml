@@ -1,0 +1,43 @@
+name: Deploy to crm.drinkx.tech
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Trigger deploy
+        run: |
+          ssh -i ~/.ssh/deploy_key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
+            "bash /opt/drinkx-crm/infra/production/deploy.sh"
+
+      - name: Verify health
+        run: |
+          sleep 5
+          # Web: HTTP 200
+          STATUS=$(curl -s -o /dev/null -w '%{http_code}' https://crm.drinkx.tech/)
+          echo "Web HTTP $STATUS"
+          test "$STATUS" = "200" || (echo "Web is not 200" && exit 1)
+
+          # API: /api/health → {"status":"ok"}
+          API_STATUS=$(curl -s -o /dev/null -w '%{http_code}' https://crm.drinkx.tech/api/health)
+          echo "API HTTP $API_STATUS"
+          test "$API_STATUS" = "200" || (echo "API health failed" && exit 1)
+
+          echo "✅ Deploy verified"
