@@ -49,5 +49,8 @@ htmlcov/
 logs/
 *.log
 
+# Git worktrees
+.worktrees/
+
 # Misc
 .DS_Store

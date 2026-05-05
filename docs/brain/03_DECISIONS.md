@@ -17,6 +17,8 @@
 | ADR-013 | Bare-metal hosting (not Vercel/Railway) | ✅ |
 | ADR-014 | Stub-mode auth before Supabase keys | ✅ |
 | ADR-015 | Lead Pool + Weekly Sprint System (PRD-addition v2.1) | ✅ |
+| ADR-016 | B2B model (index-b2b.html) is official target; PRD v2.0 outdated | ✅ |
+| ADR-017 | Scoring criteria = separate table `scoring_criteria`, per-workspace | ✅ |
 
 ---
 
@@ -104,6 +106,49 @@ all those still **valid migration targets**, but bare-metal is current state.
 All endpoints work end-to-end without external auth provider.
 Switches to real Google OAuth verification when secret is set — zero code change.
 Allows full backend development before Supabase project is created.
+
+## ADR-016 B2B model (index-b2b.html) is the official target
+
+`crm-prototype/index-b2b.html` supersedes PRD v2.0 on the following points.
+Work from brain files (`00_CURRENT_STATE.md`, `04_NEXT_SPRINT.md`) — NOT from PRD v2.0 — for:
+- Pipeline stages (6-stage → 11-stage B2B cycle)
+- Priority A/B/C/D (replaces tier labels 1/2/3)
+- Deal Type field (required, 6 enum values)
+- Scoring 0–100 with 8 weighted criteria
+- Multi-stakeholder contact roles (Economic Buyer / Champion / Technical / Operational)
+- Pilot Success Contract (Stage 9+)
+
+PRD v2.0 remains authoritative for everything else (IA, enrichment, daily plan, phase/billing structure).
+
+## ADR-017 Scoring criteria = separate table, per-workspace
+
+Scoring config is NOT a JSON blob on `workspaces` — it lives in a dedicated table.
+
+```sql
+scoring_criteria (
+  id          UUID PK,
+  workspace_id UUID FK → workspaces.id CASCADE,
+  criterion_key  VARCHAR(60) NOT NULL,   -- e.g. "scale_potential"
+  label          VARCHAR(120) NOT NULL,  -- display name
+  weight         INTEGER NOT NULL,       -- points out of 100 (all sum to 100)
+  max_value      INTEGER NOT NULL DEFAULT 5  -- slider max (1-5 by default)
+)
+```
+
+Default seed (8 criteria from index-b2b.html) applied in workspace bootstrap:
+| key | label | weight |
+|---|---|---|
+| scale_potential | Масштаб потенциала | 20 |
+| pilot_probability_90d | Вероятность пилота 90д | 15 |
+| economic_buyer | Экономический покупатель | 15 |
+| reference_value | Референсная ценность | 15 |
+| standard_product | Стандартный продукт | 10 |
+| data_readiness | Готовность данных | 10 |
+| partner_potential | Партнёрский потенциал | 10 |
+| budget_confirmed | Бюджет подтверждён | 5 |
+
+Rationale: JSON config can't be typed, queried, or validated. Separate table allows
+per-workspace label customisation, future audit trail of weight changes, and typed API responses.
 
 ## ADR-015 Lead Pool + Weekly Sprint System
 (per PRD-addition v2.1 in prototype repo)
