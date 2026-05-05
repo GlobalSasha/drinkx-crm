@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --canvas: #f2f2f0;
+  --ink: #0a0a0a;
+  --accent: #1f4d3f;
+  --accent-glow: #5a8c7a;
+}
+
+html, body { background: var(--canvas); color: var(--ink); }
+body { -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+
+/* Soft scrollbar */
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-thumb { background: rgba(10,10,10,0.12); border-radius: 999px; }

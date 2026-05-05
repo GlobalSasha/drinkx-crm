@@ -1,0 +1,328 @@
+# AUTOPILOT.md — sequential roadmap for DrinkX Smart AI CRM
+
+> **For any Claude session:** Read CLAUDE.md first. Then come here. Find the first
+> `- [ ]` under the active sprint, do that one item, tick the box, commit, repeat.
+> One item = one commit. If blocked, write `> [BLOCKED]` under it.
+
+Conventions: `- [x]` done · `- [ ]` todo · `- [-]` skipped (with reason) ·
+`- [⚠]` partial / needs follow-up
+
+Last updated: 2026-05-05 by initial bootstrap.
+
+---
+
+## Sprint 1.0 — Foundation (target: 1 week)
+
+Goal: empty but deployable monorepo with Next.js frontend, FastAPI backend,
+PostgreSQL via Supabase, Redis via Upstash, and CI to Vercel + Railway.
+
+### 1.0.1 Repo skeleton
+- [x] `git init` + initial directory layout
+- [x] CLAUDE.md
+- [x] AUTOPILOT.md (this file)
+- [x] root `.gitignore`
+- [x] root `README.md` with one-paragraph intro and links to prototype + PRD
+- [x] `pnpm-workspace.yaml` for `apps/*` and `packages/*`
+- [x] `package.json` at root with shared scripts (`dev`, `build`, `lint`, `format`)
+
+### 1.0.2 Web app skeleton (apps/web)
+- [x] `apps/web/package.json` with Next.js 15, React 19, TypeScript, Tailwind, shadcn/ui
+- [x] `apps/web/tsconfig.json` (strict)
+- [x] `apps/web/next.config.mjs`
+- [x] `apps/web/tailwind.config.ts` with taste-soft tokens (silver canvas, deep sage, etc — see prototype CSS)
+- [x] `apps/web/app/layout.tsx` (root layout, font imports, providers)
+- [x] `apps/web/app/page.tsx` (placeholder homepage that links to /today, /pipeline)
+- [x] `apps/web/app/today/page.tsx` (placeholder)
+- [x] `apps/web/app/pipeline/page.tsx` (placeholder)
+- [x] `apps/web/lib/api-client.ts` (typed fetch wrapper with auth header)
+- [x] `apps/web/.env.local.example` (NEXT_PUBLIC_API_URL, SUPABASE_URL, ...)
+
+### 1.0.3 API skeleton (apps/api)
+- [x] `apps/api/pyproject.toml` (uv-managed, Python 3.12+)
+- [x] `apps/api/app/main.py` — FastAPI app factory with /health, /version
+- [x] `apps/api/app/config.py` — Pydantic Settings (env vars)
+- [x] `apps/api/app/db.py` — SQLAlchemy 2.0 async engine + session
+- [x] `apps/api/app/auth/` package (empty modules: models, schemas, repositories, services, routers, events)
+- [x] `apps/api/app/leads/` package (empty modules)
+- [x] `apps/api/app/common/` (base model class with id, timestamps; pagination helpers)
+- [x] `apps/api/.env.example`
+- [x] `apps/api/Dockerfile`
+
+### 1.0.4 GitHub repo and remote
+- [ ] Create public GitHub repo `GlobalSasha/drinkx-crm`
+- [ ] Push initial commit
+- [ ] Add branch protection on `main` (require PR review, status checks)
+
+### 1.0.5 Local dev environment
+- [x] `infra/docker/docker-compose.yml` — local Postgres 16 + Redis 7 + Mailhog
+- [x] Root `Makefile` with `make dev`, `make api`, `make web`, `make db.up`, `make db.migrate`
+- [ ] Verify `make dev` starts everything locally and `/health` returns 200
+
+### 1.0.6 CI / CD
+- [ ] `.github/workflows/web.yml` — lint + typecheck + build on PR
+- [ ] `.github/workflows/api.yml` — ruff + mypy + pytest on PR
+- [ ] Vercel project linked to repo, root = `apps/web`
+- [ ] Railway project with one service per app (api, worker, beat)
+- [ ] Confirm a push to `main` auto-deploys both
+
+### 1.0.7 Observability
+- [ ] Sentry projects for web and api; DSNs in env
+- [ ] Structured JSON logging in api (loguru or structlog)
+- [ ] Liveness `/health` + readiness `/ready` endpoints
+
+---
+
+## Sprint 1.1 — Auth + Onboarding (1 week)
+
+Goal: a real human can sign in with Google, get a workspace, complete the 4-step
+onboarding flow, and land on an empty `/today`.
+
+### 1.1.1 Supabase setup
+- [ ] Create Supabase project; copy URL + anon key + service role key into envs
+- [ ] Enable Google OAuth provider; configure redirect URLs for local + production
+- [ ] Enable email auth as fallback (magic link)
+- [ ] Configure Row Level Security default-deny
+
+### 1.1.2 DB schema — Sprint 1 entities
+- [ ] Alembic init + first migration
+- [ ] `workspaces` table (PRD §8.3)
+- [ ] `users` table with `working_hours_json`, `max_active_deals`, `onboarding_completed`
+- [ ] `pipelines` table
+- [ ] `stages` table
+- [ ] Seed: default pipeline "Новые клиенты" with 6 stages on workspace creation
+
+### 1.1.3 Web — auth flow
+- [ ] `apps/web/middleware.ts` — redirect unauthed users to `/sign-in`
+- [ ] `apps/web/app/sign-in/page.tsx` (Google button + magic link)
+- [ ] Session hook + provider
+- [ ] `apps/web/app/onboarding/...` — 4 steps from prototype:
+  - [ ] Step 1: Welcome (after OAuth)
+  - [ ] Step 2: profile + role + spec chips + schedule grid + timezone + max_active_deals
+  - [ ] Step 3: channels (defer Telegram to Phase 2; Gmail OAuth scope here)
+  - [ ] Step 4: done + 4 CTAs
+
+### 1.1.4 API — auth endpoints
+- [ ] `apps/api/app/auth/routers.py`:
+  - [ ] `POST /auth/exchange` — verify Supabase JWT, upsert user, return server JWT
+  - [ ] `GET /auth/me` — current user with workspace
+  - [ ] `PATCH /auth/me` — update profile (name, role, spec, working_hours, ...)
+- [ ] Workspace bootstrap on first sign-in (create workspace + default pipeline + add user as admin)
+
+### 1.1.5 Tests
+- [ ] api: pytest fixture for authed client
+- [ ] api: test workspace creation + user upsert flow
+- [ ] web: e2e (Playwright) "sign in → finish onboarding → land on /today"
+
+---
+
+## Sprint 1.2 — Core CRUD + Lead Pool (2 weeks)
+
+Goal: real pipeline with real leads, real drag-drop, real lead card.
+**+ Lead Pool & Weekly Sprint System** (per PRD-addition-v2.1-lead-pool.md).
+No AI yet.
+
+### 1.2.1 DB schema — leads layer
+- [ ] `leads` table (PRD §8.3 spec) — base columns
+- [ ] **Lead Pool fields:** `assignment_status` ENUM('pool', 'assigned', 'transferred'),
+  `assigned_to` (nullable), `assigned_at`, `transferred_from`, `transferred_at`
+- [ ] `contacts` table (unified ЛПР, with `verified_status`)
+- [ ] `activities` table (polymorphic per `type`)
+- [ ] `followups` table
+- [ ] `workspaces.sprint_capacity_per_week` int default 20
+- [ ] Indexes: `(workspace_id, stage_id)`, `(assigned_user_id)`,
+  `(workspace_id, assignment_status)`, `(is_rotting)`, full-text on `company_name`
+
+### 1.2.2 API — leads + pipelines
+- [ ] `app/leads/`: schemas, repository, service, router with `GET/POST/PATCH/DELETE /leads`,
+  `GET /leads?stage=&assigned_to=&segment=&city=&q=&page=`
+- [ ] **Lead Pool endpoints:**
+  - [ ] `GET /leads/pool?city=&segment=&fit_min=&page=` (only `assignment_status=pool`)
+  - [ ] `POST /leads/sprint` body: `{cities, segment?, limit}` → returns assigned leads
+        Implementation: SELECT N from pool ordered by fit_score DESC → tier ASC → created_at ASC,
+        then atomic UPDATE WHERE assignment_status='pool' (race-safe lock)
+  - [ ] `POST /leads/{id}/claim` (single manual take from pool)
+  - [ ] `POST /leads/{id}/transfer` body: `{to_user_id, comment?}`
+- [ ] `app/pipelines/`: list + reorder stages
+- [ ] `app/contacts/`: per-lead nested CRUD
+- [ ] `app/activities/`: feed endpoints (list with cursor pagination, post comment/task/reminder/file)
+- [ ] `app/followups/`: list/create/edit/complete; auto-seed on lead create
+- [ ] WebSocket connection at `/ws/{user_id}` (Redis pub/sub)
+- [ ] Stage change goes through `app/automation/stage_change.py`
+- [ ] Notifications: `lead_transferred` event → dispatcher → notify new manager
+
+### 1.2.3 Web — Pipeline screen
+- [ ] `apps/web/app/pipeline/page.tsx` with TanStack Query hooks
+- [ ] Filter row: segment chips + city chips + search input (port from prototype)
+- [ ] Drag-drop with @dnd-kit, optimistic update + rollback on error
+- [ ] Page-level scroll + per-column scroll (port CSS pattern)
+- [ ] Won-confirmation modal with detail capture
+- [ ] AI Brief drawer on click (port from prototype) — for now reads `lead.ai_data` JSON
+- [ ] **«Сформировать план на неделю»** button in Pipeline header
+- [ ] **SprintModal** component (city multi-select + segment + preview N + create)
+- [ ] **Empty state** for new manager (CTA to open SprintModal)
+- [ ] **TransferModal** in LeadCard menu (⋯ → «Передать менеджеру»)
+
+### 1.2.3.b Web — Lead Pool page (new sidebar section)
+- [ ] `apps/web/app/leads-pool/page.tsx` — table view: компания, город, сегмент, tier, fit_score, статус
+- [ ] Filters: city, segment, tier, fit_min, status (default: pool only)
+- [ ] Search by company name
+- [ ] «Взять в работу» button per row (optimistic UI + race-safe)
+- [ ] Sidebar nav: 📋 База лидов (visible to all roles)
+- [ ] Manager sees only `pool` status; admin/head sees all with «Ответственный» column
+
+### 1.2.4 Web — Today screen
+- [ ] `apps/web/app/today/page.tsx` reads from a `daily_plans` table (Sprint 1.4 fills it)
+- [ ] Empty state when no plan exists
+- [ ] Task click opens lead
+
+### 1.2.5 Web — Lead Card
+- [ ] `apps/web/app/leads/[id]/page.tsx`
+- [ ] Tabs: Информация / Переписка / AI Brief / КП / Активности
+- [ ] Left column: editable contacts (port modal from prototype)
+- [ ] Activity feed with composer (4 modes)
+- [ ] Follow-up stages section above feed
+
+### 1.2.6 Migration script
+- [ ] `apps/api/scripts/import_prototype_data.py` — one-shot loader that reads the
+  prototype's `data.js` file, parses it, and inserts a starter dataset for testing
+
+### 1.2.7 Tests
+- [ ] api: lead CRUD coverage
+- [ ] api: stage change hook
+- [ ] api: contact CRUD with verified_status
+- [ ] web: e2e "create lead → drag to next stage → add comment → mark task done"
+
+---
+
+## Sprint 1.3 — AI Enrichment (2 weeks)
+
+Goal: a new lead's AI Brief actually gets filled by real research over real sources.
+
+### 1.3.1 Provider abstraction
+- [ ] `app/enrichment/providers/base.py` — `LLMProvider` Protocol
+- [ ] `DeepSeekProvider`, `OpenAIProvider`, `GeminiProvider` implementations
+- [ ] `get_llm_provider()` factory reading `CRM_AI_BACKEND` env
+
+### 1.3.2 Sources
+- [ ] `app/enrichment/sources/brave.py` with 24h Redis cache by query hash
+- [ ] `app/enrichment/sources/hh.py` (HH.ru public API)
+- [ ] `app/enrichment/sources/web_fetch.py` (httpx with timeout + size cap)
+- [ ] Per-source 15s timeout, fail-soft
+
+### 1.3.3 Research Agent
+- [ ] `app/enrichment/orchestrator.py` — pre-filter → query builder → parallel fetch →
+  relevance filter → synthesis (PRD §7.1)
+- [ ] `enrichment_runs` table + Celery task with cost tracking (cost_tokens, cost_usd, duration_ms)
+- [ ] Output via Pydantic `ResearchOutput` with fallback defaults
+- [ ] WebSocket progress events: `enrichment.started`, `enrichment.source_done`,
+  `enrichment.completed`
+
+### 1.3.4 Knowledge Base + business profile
+- [ ] `knowledge/drinkx/*.md` initial files (playbook_horeca, objections, etc — copy from prototype Knowledge Base UI examples)
+- [ ] `config/drinkx_profile.yaml` populated with real DrinkX info
+- [ ] Loader at api startup: reads files into Redis, watches for changes
+- [ ] Tag matcher selects relevant files for the synthesis prompt
+
+### 1.3.5 Cost control
+- [ ] Quality pre-filter (regex stop-list + mini-LLM go/no-go)
+- [ ] Rate limit: max 1 enrichment / lead / 24h; max 5 parallel jobs / workspace
+- [ ] Daily budget guard with circuit-breaker (Settings → AI budget)
+
+### 1.3.6 Web — enrichment UI
+- [ ] Lead create → POST returns lead with `enrichment_run_id`
+- [ ] Subscribe to progress via WebSocket → render the source list with checkmarks
+- [ ] On done → reload AI Brief panel
+
+### 1.3.7 Tests
+- [ ] api: vcr-style fixtures for Brave/HH responses
+- [ ] api: orchestrator handles single-source failures
+- [ ] api: cache hit on repeated company_name within 24h
+
+---
+
+## Sprint 1.4 — Daily Plan + Follow-ups (1 week)
+
+Goal: every morning every user gets a personalized prioritized plan; follow-up
+reminders auto-generate tasks.
+
+### 1.4.1 Celery beat
+- [ ] `app/scheduled/jobs.py` — central registry
+- [ ] `daily_plan_generator` runs at 08:00 in each workspace's timezone
+- [ ] `followup_reminder_dispatcher` runs every 15 minutes
+
+### 1.4.2 Daily plan generator
+- [ ] PriorityScorer: urgency × deal_size × stage_probability × ai_data.urgency_score
+- [ ] Pack into the user's available work hours
+- [ ] LLM produces a single-line task hint per item
+- [ ] Persist to `daily_plans` table
+
+### 1.4.3 Follow-up reminders
+- [ ] Cron iterates `followups` with `due_at <= now() + 24h`
+- [ ] Creates `activities` entries (type=task or type=reminder) and notifications
+- [ ] If `reminder_kind = auto_email` — generates a draft, requires manager approve
+  before send (NEVER auto-send in v1)
+
+### 1.4.4 Activity feed real-time
+- [ ] WebSocket `activity.created` events → invalidate query
+- [ ] Optimistic posts from composer with rollback on server reject
+
+### 1.4.5 Tests
+- [ ] Time-frozen test of plan generation
+- [ ] Reminder dispatcher idempotent (reruns don't double-create)
+
+---
+
+## Sprint 1.5 — Polish + Launch (1 week)
+
+Goal: DrinkX team can actually use this for real work.
+
+- [ ] Notifications: in-app drawer + email digest (morning brief + weekly report)
+- [ ] Audit log table + admin UI
+- [ ] Empty states + error boundaries (port from prototype)
+- [ ] Mobile responsive pass on Today and Lead Card
+- [ ] Performance: Pipeline column virtualization (>200 cards)
+- [ ] Accessibility pass (keyboard nav for drag-drop, contrast, focus rings)
+- [ ] Soft launch checklist (production env vars, domain, sentry alerts, on-call rotation)
+
+---
+
+## Phase 2 — Inbox + Advanced (after MVP, ~6 weeks)
+
+Tracked here only as a placeholder so we don't lose context. Each item gets a
+sprint when we get there.
+
+- [ ] Email IMAP idle (incoming) + SMTP (outgoing) per user
+- [ ] Telegram Business webhook + match-by-username/phone
+- [ ] Quote/КП builder with PDF generation
+- [ ] WebForm public submit endpoint + admin builder
+- [ ] Bulk Import/Export with all formats (YAML/CSV/Excel/Markdown ZIP)
+- [ ] Knowledge Base CRUD UI + version history
+- [ ] Apify integration as enrichment source
+- [ ] Push notifications + Telegram bot delivery channel
+- [ ] Multi-pipeline switcher
+- [ ] Settings: team management, channel CRUD, AI provider config, custom-fields
+
+---
+
+## Phase 3 — Scale + Polish (~4 weeks)
+
+- [ ] MCP server over FastAPI (so Claude Desktop / Cursor can drive the CRM)
+- [ ] Public signal monitoring (HH.ru watcher per pipeline company)
+- [ ] NL search over pipeline (whitelisted views only)
+- [ ] AI Sales Coach chat sidebar
+- [ ] Visit-card OCR parser
+- [ ] Vector DB for "find similar past deals"
+- [ ] Stalled-deal detector with reasons
+- [ ] Apify-driven lead-gen wizard in UI
+
+---
+
+## Open decisions to revisit when relevant
+
+1. MCP-server timing — Phase 2 vs v1.5
+2. Multi-tenancy isolation — Postgres RLS vs schema-per-workspace
+3. Vector DB on v1.0 — Pinecone / pgvector / defer
+4. Quote line items — fixed-product catalog or freeform
+5. WebForm publishing — REST vs embed-script
+6. Telegram Business account ownership at DrinkX
+7. Hosting in Russia — Selectel/Timeweb fallback if Vercel/Railway blocked

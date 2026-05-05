@@ -1,0 +1,20 @@
+{
+  "name": "drinkx-crm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DrinkX Smart AI CRM — production monorepo",
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "lint": "pnpm --filter web lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  }
+}
