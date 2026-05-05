@@ -31,10 +31,13 @@ def _is_stub_mode() -> bool:
 
 
 def _stub_claims() -> TokenClaims:
-    """Anonymous stub identity for local dev. Always returns the same user."""
+    """Anonymous stub identity for local dev. Always returns the same user.
+
+    Note: email domain must pass Pydantic EmailStr validation (so no `.local`).
+    """
     return TokenClaims(
         sub="00000000-0000-0000-0000-000000000001",
-        email="dev@drinkx.local",
+        email="dev@drinkx.tech",
         name="Dev User",
         is_stub=True,
     )
