@@ -49,8 +49,8 @@ PostgreSQL via Supabase, Redis via Upstash, and CI to Vercel + Railway.
 - [x] `apps/api/Dockerfile`
 
 ### 1.0.4 GitHub repo and remote
-- [ ] Create public GitHub repo `GlobalSasha/drinkx-crm`
-- [ ] Push initial commit
+- [x] Create public GitHub repo `GlobalSasha/drinkx-crm`
+- [x] Push initial commit
 - [ ] Add branch protection on `main` (require PR review, status checks)
 
 ### 1.0.5 Local dev environment
