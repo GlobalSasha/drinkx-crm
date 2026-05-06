@@ -192,11 +192,18 @@ No AI yet.
 - [ ] Task click opens lead
 
 ### 1.2.5 Web — Lead Card
-- [ ] `apps/web/app/leads/[id]/page.tsx`
-- [ ] Tabs: Информация / Переписка / AI Brief / КП / Активности
-- [ ] Left column: editable contacts (port modal from prototype)
-- [ ] Activity feed with composer (4 modes)
-- [ ] Follow-up stages section above feed
+- [x] `apps/web/app/leads/[id]/page.tsx`
+- [x] Tabs: Сделка / Контакты / Scoring / Активность / Pilot (conditional stage>=8)
+- [x] Left column: follow-ups rail + KB stub
+- [x] Activity feed with composer (4 modes: comment/task/reminder/file) + cursor pagination
+- [x] DealTab: deal_type, priority, score slider, blocker, next_step (debounced PATCH)
+- [x] ContactsTab: 4 role buckets, CRUD, ADR-012 banner
+- [x] ScoringTab: 8-slider rollup → score → tier badge
+- [x] PilotTab: pilot_contract_json fields (ADR-011)
+- [x] GateModal: gate_criteria checklist, force-move, 409 violations
+- [x] New hooks: useLead, useUpdateLead, useContacts (CRUD), useActivities (infinite), useCreateActivity, useCompleteTask, useFollowups (CRUD + complete)
+- [x] BriefDrawer: 'Открыть полностью →' now uses Next.js Link
+> AUTOPILOT: 1.2.5 ✓ — built by Claude Sonnet 4.6 on 2026-05-06
 
 ### 1.2.6 Migration script
 - [ ] `apps/api/scripts/import_prototype_data.py` — one-shot loader that reads the

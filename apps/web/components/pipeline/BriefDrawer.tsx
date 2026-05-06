@@ -1,5 +1,6 @@
 "use client";
 import { useEffect } from "react";
+import Link from "next/link";
 import { X, ChevronLeft, ChevronRight, ArrowRight, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { usePipelineStore } from "@/lib/store/pipeline-store";
 import type { LeadOut } from "@/lib/types";
@@ -91,13 +92,13 @@ export function BriefDrawer() {
 
         {/* Footer action */}
         <div className="px-6 py-4 border-t border-black/5 shrink-0">
-          <a
+          <Link
             href={`/leads/${selectedLead.id}`}
             className="flex items-center justify-center gap-2 w-full bg-ink text-white rounded-pill py-3 text-sm font-semibold transition-all duration-300 hover:bg-ink/90 active:scale-[0.98]"
           >
             Открыть полностью
             <ArrowRight size={15} />
-          </a>
+          </Link>
         </div>
       </div>
     </>

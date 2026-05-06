@@ -1,0 +1,412 @@
+"use client";
+import { useState, useRef } from "react";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  ChevronDown,
+  Loader2,
+  AlertTriangle,
+} from "lucide-react";
+import { useLead, useUpdateLead } from "@/lib/hooks/use-lead";
+import { usePipelines, DEFAULT_STAGES } from "@/lib/hooks/use-pipelines";
+import { useMoveStage } from "@/lib/hooks/use-leads";
+import type { Stage } from "@/lib/types";
+import { tierFromScore } from "@/lib/types";
+import { DealTab } from "./DealTab";
+import { ContactsTab } from "./ContactsTab";
+import { ScoringTab } from "./ScoringTab";
+import { ActivityTab } from "./ActivityTab";
+import { PilotTab } from "./PilotTab";
+import { FollowupsRail } from "./FollowupsRail";
+import { GateModal } from "./GateModal";
+
+const PRIORITY_STYLES: Record<string, string> = {
+  A: "bg-accent/10 text-accent",
+  B: "bg-success/10 text-success",
+  C: "bg-warning/10 text-warning",
+  D: "bg-black/5 text-muted",
+};
+
+const TIER_COLORS: Record<string, string> = {
+  A: "bg-accent text-white",
+  B: "bg-success text-white",
+  C: "bg-warning text-white",
+  D: "bg-muted text-white",
+};
+
+const DEAL_TYPE_LABELS: Record<string, string> = {
+  enterprise_direct:  "Enterprise",
+  qsr:               "QSR",
+  distributor_partner: "Дистрибьютор",
+  raw_materials:     "Сырьё",
+  private_small:     "Малый бизнес",
+  service_repeat:    "Сервис",
+};
+
+type TabKey = "deal" | "contacts" | "scoring" | "activity" | "pilot";
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "deal",     label: "Сделка" },
+  { key: "contacts", label: "Контакты" },
+  { key: "scoring",  label: "Scoring" },
+  { key: "activity", label: "Активность" },
+  { key: "pilot",    label: "Pilot" },
+];
+
+interface Props {
+  leadId: string;
+}
+
+export function LeadCard({ leadId }: Props) {
+  const { data: lead, isLoading, isError } = useLead(leadId);
+  const pipelinesQuery = usePipelines();
+  const updateLead = useUpdateLead(leadId);
+  const moveStage = useMoveStage();
+
+  const [activeTab, setActiveTab] = useState<TabKey>("deal");
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState("");
+  const [stageDropdownOpen, setStageDropdownOpen] = useState(false);
+  const [gateTarget, setGateTarget] = useState<Stage | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  // Get stages from pipelines or fallback
+  const stages: Stage[] =
+    pipelinesQuery.data?.[0]?.stages ??
+    DEFAULT_STAGES.map((s, i) => ({
+      ...s,
+      id: `fallback-${i}`,
+      pipeline_id: "default",
+    }));
+
+  // Find current stage for this lead
+  const currentStage = stages.find((s) => s.id === lead?.stage_id);
+  // Fallback: match by first stage if no id match (fallback IDs)
+  const displayStage = currentStage ?? stages[0];
+
+  const showPilotTab = displayStage ? displayStage.position >= 8 : false;
+  const visibleTabs = TABS.filter(
+    (t) => t.key !== "pilot" || showPilotTab
+  );
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2500);
+  }
+
+  function startEditName() {
+    if (!lead) return;
+    setNameValue(lead.company_name);
+    setEditingName(true);
+    setTimeout(() => nameInputRef.current?.focus(), 50);
+  }
+
+  function commitName() {
+    const trimmed = nameValue.trim();
+    if (trimmed && lead && trimmed !== lead.company_name) {
+      updateLead.mutate({ company_name: trimmed });
+    }
+    setEditingName(false);
+  }
+
+  function handleStageSelect(stage: Stage) {
+    setStageDropdownOpen(false);
+    if (!lead) return;
+    // Check if target stage has gate criteria
+    const hasCriteria =
+      (stage.gate_criteria_json?.length ?? 0) > 0 ||
+      stage.position > 0;
+    if (hasCriteria) {
+      setGateTarget(stage);
+    } else {
+      moveStage.mutate({ leadId, body: { stage_id: stage.id } });
+    }
+  }
+
+  function handleWon() {
+    const wonStage = stages.find((s) => s.is_won);
+    if (!wonStage || !lead) return;
+    moveStage.mutate({ leadId, body: { stage_id: wonStage.id } });
+  }
+
+  function handleLost() {
+    const lostStage = stages.find((s) => s.is_lost);
+    if (!lostStage || !lead) return;
+    const reason = prompt("Причина закрытия:");
+    if (reason === null) return;
+    moveStage.mutate({
+      leadId,
+      body: { stage_id: lostStage.id, lost_reason: reason || null },
+    });
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-canvas flex items-center justify-center">
+        <Loader2 size={24} className="animate-spin text-muted-2" />
+      </div>
+    );
+  }
+
+  if (isError || !lead) {
+    return (
+      <div className="min-h-screen bg-canvas flex flex-col items-center justify-center gap-4">
+        <AlertTriangle size={24} className="text-rose" />
+        <p className="text-sm text-rose">Лид не найден или ошибка загрузки</p>
+        <Link
+          href="/pipeline"
+          className="text-sm text-accent hover:underline"
+        >
+          ← Назад к воронке
+        </Link>
+      </div>
+    );
+  }
+
+  const tier = tierFromScore(lead.score);
+
+  return (
+    <div className="min-h-screen bg-canvas flex flex-col">
+      {/* Sticky header */}
+      <header className="sticky top-0 z-20 bg-white border-b border-black/5 shadow-soft">
+        <div className="max-w-6xl mx-auto px-6 py-3">
+          <div className="flex items-start gap-4">
+            {/* Back */}
+            <Link
+              href="/pipeline"
+              className="mt-1 p-1.5 rounded-lg hover:bg-canvas text-muted transition-colors shrink-0"
+              aria-label="Назад"
+            >
+              <ArrowLeft size={18} />
+            </Link>
+
+            {/* Company name — editable */}
+            <div className="flex-1 min-w-0">
+              {editingName ? (
+                <input
+                  ref={nameInputRef}
+                  value={nameValue}
+                  onChange={(e) => setNameValue(e.target.value)}
+                  onBlur={commitName}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") commitName();
+                    if (e.key === "Escape") setEditingName(false);
+                  }}
+                  className="text-2xl font-extrabold tracking-tight text-ink bg-transparent border-b-2 border-accent outline-none w-full"
+                />
+              ) : (
+                <h1
+                  onClick={startEditName}
+                  className="text-2xl font-extrabold tracking-tight text-ink cursor-text hover:text-ink/80 transition-colors truncate"
+                  title="Нажмите для редактирования"
+                >
+                  {lead.company_name}
+                </h1>
+              )}
+
+              {/* Meta row */}
+              <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                {/* Stage chip */}
+                <span
+                  className="text-xs font-semibold px-2.5 py-1 rounded-pill text-white"
+                  style={{ backgroundColor: displayStage?.color ?? "#a1a1a6" }}
+                >
+                  {displayStage?.name ?? "—"}
+                </span>
+
+                {/* Priority */}
+                {lead.priority && (
+                  <span
+                    className={`text-xs font-bold px-2 py-0.5 rounded-md ${
+                      PRIORITY_STYLES[lead.priority] ?? "bg-black/5 text-muted"
+                    }`}
+                  >
+                    {lead.priority}
+                  </span>
+                )}
+
+                {/* Deal type */}
+                {lead.deal_type && (
+                  <span className="text-xs text-muted-2 bg-black/5 px-2 py-0.5 rounded-md">
+                    {DEAL_TYPE_LABELS[lead.deal_type] ?? lead.deal_type}
+                  </span>
+                )}
+
+                {/* Score + tier */}
+                <span className="font-mono text-xs text-muted">
+                  score{" "}
+                  <span className="font-bold text-ink">{lead.score}</span>
+                </span>
+                <span
+                  className={`text-xs font-bold px-2 py-0.5 rounded-pill ${TIER_COLORS[tier]}`}
+                >
+                  {tier}
+                </span>
+
+                {/* Fit score */}
+                {lead.fit_score != null && (
+                  <span className="font-mono text-xs text-accent bg-accent/10 px-2 py-0.5 rounded-md">
+                    fit {lead.fit_score}
+                  </span>
+                )}
+
+                {/* Rotting */}
+                {(lead.is_rotting_stage || lead.is_rotting_next_step) && (
+                  <span className="flex items-center gap-1 text-xs text-warning">
+                    <AlertTriangle size={12} />
+                    Протухает
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Right actions */}
+            <div className="flex items-center gap-2 shrink-0 mt-1">
+              {/* Transfer placeholder */}
+              <button
+                onClick={() => showToast("Функция передачи в разработке")}
+                className="px-3 py-1.5 text-sm font-semibold text-muted bg-canvas border border-black/10 rounded-pill hover:bg-canvas-2 transition-all"
+              >
+                Передать
+              </button>
+
+              {/* Won */}
+              {!displayStage?.is_won && !displayStage?.is_lost && (
+                <button
+                  onClick={handleWon}
+                  disabled={moveStage.isPending}
+                  className="px-3 py-1.5 text-sm font-semibold bg-success text-white rounded-pill hover:bg-success/90 disabled:opacity-50 transition-all"
+                >
+                  Won
+                </button>
+              )}
+
+              {/* Lost */}
+              {!displayStage?.is_won && !displayStage?.is_lost && (
+                <button
+                  onClick={handleLost}
+                  disabled={moveStage.isPending}
+                  className="px-3 py-1.5 text-sm font-semibold bg-rose text-white rounded-pill hover:bg-rose/90 disabled:opacity-50 transition-all"
+                >
+                  Lost
+                </button>
+              )}
+
+              {/* Move stage dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setStageDropdownOpen((v) => !v)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold bg-ink text-white rounded-pill hover:bg-ink/90 transition-all"
+                >
+                  Стадия
+                  <ChevronDown size={13} />
+                </button>
+                {stageDropdownOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setStageDropdownOpen(false)}
+                    />
+                    <div className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-black/10 rounded-2xl shadow-soft z-20 overflow-hidden">
+                      {stages
+                        .filter((s) => !s.is_won && !s.is_lost)
+                        .map((stage) => (
+                          <button
+                            key={stage.id}
+                            onClick={() => handleStageSelect(stage)}
+                            className={`flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-left hover:bg-canvas transition-colors ${
+                              stage.id === lead.stage_id ? "bg-canvas" : ""
+                            }`}
+                          >
+                            <span
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{ backgroundColor: stage.color }}
+                            />
+                            <span
+                              className={
+                                stage.id === lead.stage_id
+                                  ? "font-semibold text-ink"
+                                  : "text-ink"
+                              }
+                            >
+                              {stage.name}
+                            </span>
+                          </button>
+                        ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Tab strip */}
+          <div className="flex gap-0 mt-4 border-b border-black/5 -mb-px">
+            {visibleTabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-all ${
+                  activeTab === tab.key
+                    ? "border-accent text-accent"
+                    : "border-transparent text-muted-2 hover:text-ink"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      {/* Body */}
+      <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-6">
+        <div className="flex gap-6">
+          {/* Left rail */}
+          <div className="w-60 shrink-0 space-y-4">
+            <FollowupsRail leadId={lead.id} />
+            {/* KB stub */}
+            <div className="bg-white border border-black/5 rounded-2xl p-4 shadow-soft">
+              <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-3 mb-2">
+                База знаний
+              </p>
+              <p className="text-xs text-muted-2 italic">
+                Релевантные материалы появятся здесь
+              </p>
+            </div>
+          </div>
+
+          {/* Right tab body */}
+          <div className="flex-1 min-w-0">
+            {activeTab === "deal" && <DealTab lead={lead} />}
+            {activeTab === "contacts" && <ContactsTab lead={lead} />}
+            {activeTab === "scoring" && <ScoringTab lead={lead} />}
+            {activeTab === "activity" && <ActivityTab leadId={lead.id} />}
+            {activeTab === "pilot" && showPilotTab && <PilotTab lead={lead} />}
+          </div>
+        </div>
+      </main>
+
+      {/* Gate modal */}
+      {gateTarget && (
+        <GateModal
+          leadId={lead.id}
+          targetStage={gateTarget}
+          onClose={() => setGateTarget(null)}
+          onSuccess={() => {
+            setGateTarget(null);
+          }}
+        />
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-ink text-white text-sm font-semibold px-5 py-2.5 rounded-pill shadow-soft z-50 transition-all">
+          {toast}
+        </div>
+      )}
+    </div>
+  );
+}
