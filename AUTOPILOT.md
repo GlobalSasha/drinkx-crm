@@ -103,14 +103,15 @@ onboarding flow, and land on an empty `/today`.
 - [x] Seed: default pipeline "Новые клиенты" with 7 stages on workspace creation (services.upsert_user_from_token)
 
 ### 1.1.3 Web — auth flow
-- [ ] `apps/web/middleware.ts` — redirect unauthed users to `/sign-in`
-- [ ] `apps/web/app/sign-in/page.tsx` (Google button + magic link)
-- [ ] Session hook + provider
-- [ ] `apps/web/app/onboarding/...` — 4 steps from prototype:
+- [x] `apps/web/middleware.ts` — redirect unauthed users to `/sign-in`
+- [x] `apps/web/app/sign-in/page.tsx` (Google button + magic link)
+- [x] Session hook + provider (Supabase browser/server/middleware clients in lib/supabase/; api-client auto-attaches Bearer; AppShell shows real user + sign-out)
+- [ ] `apps/web/app/onboarding/...` — 4 steps from prototype (deferred — own task):
   - [ ] Step 1: Welcome (after OAuth)
   - [ ] Step 2: profile + role + spec chips + schedule grid + timezone + max_active_deals
   - [ ] Step 3: channels (defer Telegram to Phase 2; Gmail OAuth scope here)
   - [ ] Step 4: done + 4 CTAs
+> AUTOPILOT: 1.1.3 ✓ (middleware, sign-in page, session hook, onboarding deferred) — built by Claude Sonnet 4.6 on 2026-05-06
 
 ### 1.1.4 API — auth endpoints
 - [x] `apps/api/app/auth/jwt.py` — TokenClaims + Supabase JWT verifier (HS256) with stub-mode fallback when SUPABASE_JWT_SECRET is empty
