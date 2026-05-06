@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, Integer, JSON, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -55,6 +55,7 @@ class Stage(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     probability: Mapped[int] = mapped_column(Integer, default=10, nullable=False)  # 0-100
     is_won: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_lost: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    gate_criteria_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
 
     pipeline: Mapped[Pipeline] = relationship(back_populates="stages")
 
@@ -62,11 +63,29 @@ class Stage(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
 # Default seed for the first pipeline created per workspace.
 # Used by app/auth/services.py:bootstrap_workspace().
 DEFAULT_STAGES = [
-    {"name": "Новые лиды", "position": 0, "color": "#a1a1a6", "rot_days": 7, "probability": 5},
-    {"name": "Квалификация", "position": 1, "color": "#0a84ff", "rot_days": 5, "probability": 20},
-    {"name": "КП отправлено", "position": 2, "color": "#af52de", "rot_days": 3, "probability": 40},
-    {"name": "Переговоры", "position": 3, "color": "#ff9f0a", "rot_days": 5, "probability": 60},
-    {"name": "Согласование", "position": 4, "color": "#34c759", "rot_days": 7, "probability": 80},
-    {"name": "Закрыто (won)", "position": 5, "color": "#34c759", "rot_days": 0, "probability": 100, "is_won": True},
-    {"name": "Закрыто (lost)", "position": 6, "color": "#ff3b30", "rot_days": 0, "probability": 0, "is_lost": True},
+    {"name": "Новый контакт",      "position": 0,  "color": "#a1a1a6", "rot_days": 3,  "probability": 5},
+    {"name": "Квалификация",       "position": 1,  "color": "#0a84ff", "rot_days": 5,  "probability": 15},
+    {"name": "Discovery",          "position": 2,  "color": "#5e5ce6", "rot_days": 7,  "probability": 25},
+    {"name": "Solution Fit",       "position": 3,  "color": "#bf5af2", "rot_days": 7,  "probability": 40},
+    {"name": "Business Case / КП", "position": 4,  "color": "#ff9f0a", "rot_days": 5,  "probability": 50},
+    {"name": "Multi-stakeholder",  "position": 5,  "color": "#ff6b00", "rot_days": 7,  "probability": 60},
+    {"name": "Договор / пилот",    "position": 6,  "color": "#ff3b30", "rot_days": 5,  "probability": 75},
+    {"name": "Производство",       "position": 7,  "color": "#ff2d55", "rot_days": 10, "probability": 85},
+    {"name": "Пилот",              "position": 8,  "color": "#34c759", "rot_days": 14, "probability": 90},
+    {"name": "Scale / серия",      "position": 9,  "color": "#30d158", "rot_days": 14, "probability": 95},
+    {"name": "Закрыто (won)",      "position": 10, "color": "#32d74b", "rot_days": 0,  "probability": 100, "is_won": True},
+    {"name": "Закрыто (lost)",     "position": 11, "color": "#ff3b30", "rot_days": 0,  "probability": 0,   "is_lost": True},
 ]
+
+DEFAULT_GATE_CRITERIA: dict[int, list[str]] = {
+    1: ["ICP соответствие подтверждено", "ЛПР идентифицирован", "Сегмент и тип сделки определены", "Приоритет A/B/C/D присвоен"],
+    2: ["Проведён discovery-звонок (≥30 мин)", "Боль/потребность зафиксирована", "Бюджет предварительно обсуждён"],
+    3: ["Solution fit подтверждён", "Pilot feasibility оценена", "Технический покупатель вовлечён"],
+    4: ["КП отправлено", "ROI-расчёт согласован", "Следующий шаг назначен с датой"],
+    5: ["Экономический покупатель идентифицирован", "Все стейкхолдеры вовлечены", "Внутренний чемпион активен"],
+    6: ["Договор отправлен", "Юридическое согласование начато", "Пилот-план согласован"],
+    7: ["Договор подписан", "Производство запущено", "Pilot Success Contract заполнен"],
+    8: ["Оборудование доставлено", "Установка подтверждена", "Пилотные цели зафиксированы"],
+    9: ["Пилот завершён", "KPI зафиксированы", "Решение о масштабировании принято"],
+    10: [],
+}

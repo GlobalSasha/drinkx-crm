@@ -14,6 +14,10 @@ from app.config import get_settings
 from app.common.models import Base
 from app.auth import models as _auth_models  # noqa: F401
 from app.pipelines import models as _pipeline_models  # noqa: F401
+from app.leads import models as _leads_models        # noqa: F401
+from app.contacts import models as _contacts_models  # noqa: F401
+from app.activity import models as _activity_models  # noqa: F401
+from app.followups import models as _followups_models  # noqa: F401
 
 config = context.config
 

@@ -7,7 +7,7 @@
 Conventions: `- [x]` done · `- [ ]` todo · `- [-]` skipped (with reason) ·
 `- [⚠]` partial / needs follow-up
 
-Last updated: 2026-05-05 by initial bootstrap.
+Last updated: 2026-05-06 — Sprint 1.2.1 complete (schema migration 0002_b2b_model).
 
 ---
 
@@ -137,32 +137,32 @@ Goal: real pipeline with real leads, real drag-drop, real lead card.
 No AI yet.
 
 ### 1.2.1 DB schema — leads layer
-- [ ] `leads` table (PRD §8.3 spec) — base columns
-- [ ] **Lead Pool fields:** `assignment_status` ENUM('pool', 'assigned', 'transferred'),
+- [x] `leads` table (B2B model per ADR-016) — base columns + B2B fields
+- [x] **Lead Pool fields:** `assignment_status` ENUM('pool', 'assigned', 'transferred'),
   `assigned_to` (nullable), `assigned_at`, `transferred_from`, `transferred_at`
-- [ ] `contacts` table (unified ЛПР, with `verified_status`)
-- [ ] `activities` table (polymorphic per `type`)
-- [ ] `followups` table
-- [ ] `workspaces.sprint_capacity_per_week` int default 20
-- [ ] Indexes: `(workspace_id, stage_id)`, `(assigned_user_id)`,
-  `(workspace_id, assignment_status)`, `(is_rotting)`, full-text on `company_name`
+- [x] `contacts` table (unified ЛПР, with `verified_status`)
+- [x] `activities` table (polymorphic per `type`)
+- [x] `followups` table
+- [x] `scoring_criteria` table per-workspace (ADR-017); `workspaces.sprint_capacity_per_week` already in 0001
+- [x] Indexes: `(workspace_id, stage_id)`, `(assigned_to)`,
+  `(workspace_id, assignment_status)`, `(is_rotting_stage, is_rotting_next_step)`, GIN full-text on `company_name`
 
 ### 1.2.2 API — leads + pipelines
-- [ ] `app/leads/`: schemas, repository, service, router with `GET/POST/PATCH/DELETE /leads`,
-  `GET /leads?stage=&assigned_to=&segment=&city=&q=&page=`
-- [ ] **Lead Pool endpoints:**
-  - [ ] `GET /leads/pool?city=&segment=&fit_min=&page=` (only `assignment_status=pool`)
-  - [ ] `POST /leads/sprint` body: `{cities, segment?, limit}` → returns assigned leads
-        Implementation: SELECT N from pool ordered by fit_score DESC → tier ASC → created_at ASC,
-        then atomic UPDATE WHERE assignment_status='pool' (race-safe lock)
-  - [ ] `POST /leads/{id}/claim` (single manual take from pool)
-  - [ ] `POST /leads/{id}/transfer` body: `{to_user_id, comment?}`
+- [x] `app/leads/`: schemas, repository, service, router with `GET/POST/PATCH/DELETE /leads`,
+  `GET /leads?stage_id=&assigned_to=&segment=&city=&priority=&deal_type=&q=&page=`
+- [x] **Lead Pool endpoints:**
+  - [x] `GET /leads/pool?city=&segment=&fit_min=&page=` (only `assignment_status=pool`)
+  - [x] `POST /leads/sprint` body: `{cities, segment?, limit}` → returns assigned leads
+        Implementation: SELECT N from pool ordered by fit_score DESC NULLS LAST → created_at ASC
+        with `FOR UPDATE SKIP LOCKED`, then per-row atomic UPDATE WHERE assignment_status='pool'
+  - [x] `POST /leads/{id}/claim` (single manual take from pool)
+  - [x] `POST /leads/{id}/transfer` body: `{to_user_id, comment?}`
 - [ ] `app/pipelines/`: list + reorder stages
-- [ ] `app/contacts/`: per-lead nested CRUD
-- [ ] `app/activities/`: feed endpoints (list with cursor pagination, post comment/task/reminder/file)
-- [ ] `app/followups/`: list/create/edit/complete; auto-seed on lead create
+- [x] `app/contacts/`: per-lead nested CRUD
+- [x] `app/activities/`: feed endpoints (cursor pagination, composer, complete-task)
+- [x] `app/followups/`: list/create/edit/complete; auto-seed on lead create (3 defaults)
 - [ ] WebSocket connection at `/ws/{user_id}` (Redis pub/sub)
-- [ ] Stage change goes through `app/automation/stage_change.py`
+- [x] Stage change goes through `app/automation/stage_change.py`
 - [ ] Notifications: `lead_transferred` event → dispatcher → notify new manager
 
 ### 1.2.3 Web — Pipeline screen
