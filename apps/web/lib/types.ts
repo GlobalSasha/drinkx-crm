@@ -324,8 +324,8 @@ export type EnrichmentStatus = "running" | "succeeded" | "failed" | "skipped";
 export interface DecisionMakerHint {
   name: string;
   title: string;
-  role: string; // economic_buyer / champion / technical_buyer / operational_buyer / ""
-  confidence: "high" | "medium" | "low";
+  role: string; // canonical: economic_buyer/champion/technical_buyer/operational_buyer/"" — but backend accepts any
+  confidence: string; // canonical: high/medium/low — backend permissive
   source: string;
 }
 
@@ -333,14 +333,18 @@ export interface ResearchOutput {
   company_profile: string;
   network_scale: string;
   geography: string;
-  formats: string;
-  coffee_signals: string;
+  // Backend may return either a string or a list of strings — frontend
+  // normalizes via asList/asText helpers in AIBriefTab.
+  formats: string | string[];
+  coffee_signals: string | string[];
   growth_signals: string[];
   risk_signals: string[];
   decision_maker_hints: DecisionMakerHint[];
   fit_score: number;
   next_steps: string[];
-  urgency: "high" | "medium" | "low" | "";
+  // Loosened from Literal — backend accepts any string now (LLMs return
+  // Russian words sometimes); UI maps known values, leaves rest as-is.
+  urgency: string;
   sources_used: string[];
   notes: string;
 }
