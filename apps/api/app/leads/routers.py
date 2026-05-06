@@ -18,6 +18,7 @@ from app.leads.schemas import (
     LeadListOut,
     LeadOut,
     LeadUpdate,
+    MoveStageBlockedDetail,
     MoveStageIn,
     SprintCreateIn,
     SprintCreateOut,
@@ -230,12 +231,16 @@ async def move_stage(
     except StageTransitionInvalid as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except StageTransitionBlocked as e:
+        detail = MoveStageBlockedDetail(
+            message="Stage transition blocked by gate criteria",
+            violations=[
+                GateViolationOut(code=v.code, message=v.message, hard=v.hard)
+                for v in e.violations
+            ],
+        )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "message": "Stage transition blocked by gate criteria",
-                "violations": [{"code": v.code, "message": v.message} for v in e.violations],
-            },
+            detail=detail.model_dump(),
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

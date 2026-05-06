@@ -6,7 +6,15 @@ import os
 import uuid
 
 import pytest
-import pytest_asyncio
+
+# pytest_asyncio is only needed for DB-backed async fixtures (Postgres tests).
+# Pure unit tests (e.g., test_0002_b2b_models.py) should run without it.
+try:
+    import pytest_asyncio
+    PYTEST_ASYNCIO_AVAILABLE = True
+except ImportError:
+    pytest_asyncio = None  # type: ignore[assignment]
+    PYTEST_ASYNCIO_AVAILABLE = False
 
 # ---------------------------------------------------------------------------
 # Postgres availability probe
@@ -36,9 +44,9 @@ except Exception:
 
 
 # ---------------------------------------------------------------------------
-# SQLAlchemy engine + session factory (Postgres only)
+# SQLAlchemy engine + session factory (Postgres + pytest_asyncio only)
 # ---------------------------------------------------------------------------
-if POSTGRES_AVAILABLE:
+if POSTGRES_AVAILABLE and PYTEST_ASYNCIO_AVAILABLE:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
     from app.common.models import Base

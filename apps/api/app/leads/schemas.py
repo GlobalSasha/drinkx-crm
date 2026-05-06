@@ -113,5 +113,13 @@ class MoveStageIn(BaseModel):
 
 
 class GateViolationOut(BaseModel):
+    """Shape of one violation returned in 409 detail.violations[]."""
     code: str
     message: str
+    hard: bool = False
+
+
+class MoveStageBlockedDetail(BaseModel):
+    """Body of the 409 response when a stage transition is blocked by gates."""
+    message: str
+    violations: list[GateViolationOut]

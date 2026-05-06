@@ -1,6 +1,7 @@
 """Stage-transition rule engine (ADR-003, ADR-011, ADR-012)."""
 from __future__ import annotations
 
+import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -14,12 +15,21 @@ from app.contacts.models import Contact
 from app.leads.models import Lead
 from app.pipelines.models import Stage
 
+log = logging.getLogger(__name__)
+
 
 @dataclass
 class GateViolation:
-    """One reason a transition cannot proceed without gate_skipped."""
+    """One reason a transition cannot proceed.
+
+    `hard=True` means the violation cannot be bypassed by `gate_skipped`
+    (e.g., structural integrity issues like cross-pipeline moves).
+    `hard=False` means a manager may force-move with `gate_skipped=True` + reason
+    (e.g., missing economic buyer per ADR-012).
+    """
     code: str
     message: str
+    hard: bool = False
 
 
 @dataclass
@@ -54,13 +64,15 @@ PostAction = Callable[[TransitionContext, AsyncSession], Awaitable[None]]
 # Pre-checks
 # ---------------------------------------------------------------------------
 
-async def check_economic_buyer_for_stage_7(
+async def check_economic_buyer_for_stage_6_plus(
     ctx: TransitionContext, db: AsyncSession
 ) -> list[GateViolation]:
-    """ADR-012: from stage position >= 6 → 7 (Договор / пилот) requires Economic Buyer contact."""
-    # to_stage.position is 0-indexed in DEFAULT_STAGES; "Договор / пилот" is position 6.
-    # Spec wording "stage>=7" treats positions as 1-indexed; we follow the 0-indexed model
-    # (positions 0..11), so the rule fires when to_stage.position >= 6.
+    """ADR-012: entering "Договор / пилот" or later requires an Economic Buyer contact.
+
+    Positions are 0-indexed in DEFAULT_STAGES; "Договор / пилот" is position 6.
+    Spec wording "stage>=7" treats positions as 1-indexed.
+    Soft gate: skippable with `gate_skipped=True` + reason.
+    """
     if ctx.to_stage.position < 6:
         return []
 
@@ -74,6 +86,7 @@ async def check_economic_buyer_for_stage_7(
         return [GateViolation(
             code="economic_buyer_required",
             message="Economic Buyer contact required for stage 6+ (ADR-012)",
+            hard=False,
         )]
     return []
 
@@ -81,20 +94,21 @@ async def check_economic_buyer_for_stage_7(
 async def check_pipeline_match(
     ctx: TransitionContext, db: AsyncSession
 ) -> list[GateViolation]:
-    """to_stage must belong to the lead's pipeline."""
+    """to_stage must belong to the lead's pipeline. Hard gate (not skippable)."""
     if ctx.lead.pipeline_id is None:
         return []  # lead detached from pipeline — allow (no constraint)
     if ctx.to_stage.pipeline_id != ctx.lead.pipeline_id:
         return [GateViolation(
             code="stage_wrong_pipeline",
             message="Target stage belongs to a different pipeline",
+            hard=True,
         )]
     return []
 
 
 PRE_CHECKS: list[PreCheck] = [
     check_pipeline_match,
-    check_economic_buyer_for_stage_7,
+    check_economic_buyer_for_stage_6_plus,
 ]
 
 
@@ -188,14 +202,21 @@ async def move_stage(
     for check in PRE_CHECKS:
         ctx.violations.extend(await check(ctx, db))
 
-    # Hard violations (pipeline mismatch) cannot be skipped
-    hard_violations = [v for v in ctx.violations if v.code == "stage_wrong_pipeline"]
-    if hard_violations:
-        raise StageTransitionBlocked(hard_violations)
+    # Hard violations cannot be skipped — return all violations so caller sees the full picture
+    if any(v.hard for v in ctx.violations):
+        raise StageTransitionBlocked(ctx.violations)
 
     # Soft violations can be skipped with a reason
     if ctx.violations and not gate_skipped:
         raise StageTransitionBlocked(ctx.violations)
+
+    # ADR-003: log force-moves to operational logger so ops can audit gate bypasses
+    if ctx.violations and gate_skipped:
+        log.warning(
+            "stage_change.gate_skipped lead_id=%s user_id=%s to_stage=%s reason=%r violations=%s",
+            lead.id, user_id, to_stage.name, skip_reason,
+            [v.code for v in ctx.violations],
+        )
 
     # Apply transition
     lead.stage_id = to_stage.id

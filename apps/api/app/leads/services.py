@@ -206,11 +206,26 @@ async def move_lead_stage(
     skip_reason: str | None = None,
     lost_reason: str | None = None,
 ) -> Lead:
+    """Move a lead to a new stage.
+
+    Note: re-moving a won/lost lead is intentionally allowed — managers
+    sometimes need to undo a mistakenly closed deal. The won_at/lost_at
+    timestamps are preserved on re-entry (see `set_won_lost_timestamps`).
+    """
     lead = await repo.get_by_id(db, lead_id, workspace_id)
     if lead is None:
         raise LeadNotFound(lead_id)
 
-    stage_result = await db.execute(select(Stage).where(Stage.id == to_stage_id))
+    # Workspace isolation: only allow stages whose pipeline belongs to this workspace.
+    # Defends against cross-workspace stage moves when lead.pipeline_id is NULL
+    # (which short-circuits the in-engine check_pipeline_match).
+    from app.pipelines.models import Pipeline
+
+    stage_result = await db.execute(
+        select(Stage)
+        .join(Pipeline, Stage.pipeline_id == Pipeline.id)
+        .where(Stage.id == to_stage_id, Pipeline.workspace_id == workspace_id)
+    )
     to_stage = stage_result.scalar_one_or_none()
     if to_stage is None:
         raise StageNotFound(to_stage_id)
