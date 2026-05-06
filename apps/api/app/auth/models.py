@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -17,6 +17,17 @@ if TYPE_CHECKING:
 
 # Roles used across the app — keep in sync with web/lib/types.ts (Sprint 1.2)
 USER_ROLES = ("admin", "head", "manager")
+
+DEFAULT_SCORING_CRITERIA = [
+    {"criterion_key": "scale_potential",       "label": "Масштаб потенциала",       "weight": 20, "max_value": 5},
+    {"criterion_key": "pilot_probability_90d", "label": "Вероятность пилота 90д",   "weight": 15, "max_value": 5},
+    {"criterion_key": "economic_buyer",        "label": "Экономический покупатель", "weight": 15, "max_value": 5},
+    {"criterion_key": "reference_value",       "label": "Референсная ценность",     "weight": 15, "max_value": 5},
+    {"criterion_key": "standard_product",      "label": "Стандартный продукт",      "weight": 10, "max_value": 5},
+    {"criterion_key": "data_readiness",        "label": "Готовность данных",        "weight": 10, "max_value": 5},
+    {"criterion_key": "partner_potential",     "label": "Партнёрский потенциал",    "weight": 10, "max_value": 5},
+    {"criterion_key": "budget_confirmed",      "label": "Бюджет подтверждён",       "weight": 5,  "max_value": 5},
+]
 
 
 class Workspace(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
@@ -34,6 +45,9 @@ class Workspace(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     pipelines: Mapped[list[Pipeline]] = relationship(  # noqa: F821
         back_populates="workspace",
         cascade="all, delete-orphan",
+    )
+    scoring_criteria: Mapped[list["ScoringCriteria"]] = relationship(
+        back_populates="workspace", cascade="all, delete-orphan"
     )
 
 
@@ -63,3 +77,24 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     workspace: Mapped[Workspace] = relationship(back_populates="users")
+
+
+class ScoringCriteria(Base, UUIDPrimaryKeyMixin):
+    __tablename__ = "scoring_criteria"
+
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    criterion_key: Mapped[str] = mapped_column(String(60), nullable=False)
+    label: Mapped[str] = mapped_column(String(120), nullable=False)
+    weight: Mapped[int] = mapped_column(Integer, nullable=False)
+    max_value: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+
+    workspace: Mapped["Workspace"] = relationship(back_populates="scoring_criteria")
+
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "criterion_key", name="uq_scoring_criteria_workspace_key"),
+    )
