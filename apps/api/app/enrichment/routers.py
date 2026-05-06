@@ -13,7 +13,11 @@ from app.db import get_db, get_session_factory
 from app.enrichment import services
 from app.enrichment.api_schemas import EnrichmentRunOut, EnrichmentTriggerOut
 from app.enrichment.orchestrator import run_enrichment
-from app.enrichment.services import EnrichmentAlreadyRunning
+from app.enrichment.services import (
+    EnrichmentAlreadyRunning,
+    EnrichmentBudgetExceeded,
+    EnrichmentConcurrencyLimit,
+)
 from app.leads.services import LeadNotFound
 
 router = APIRouter(prefix="/leads/{lead_id}/enrichment", tags=["enrichment"])
@@ -47,6 +51,16 @@ async def trigger(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={"detail": "enrichment already in progress", "run_id": str(e.run_id)},
+        )
+    except EnrichmentConcurrencyLimit:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Слишком много одновременных enrichment в этом workspace",
+        )
+    except EnrichmentBudgetExceeded as e:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Дневной AI-бюджет исчерпан: ${e.spent:.2f} / ${e.cap:.2f}",
         )
 
     await db.commit()

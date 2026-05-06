@@ -95,7 +95,11 @@ _stub_sqlalchemy()
 # ---------------------------------------------------------------------------
 
 import app.enrichment.services as svc_mod  # noqa: E402
-from app.enrichment.services import EnrichmentAlreadyRunning  # noqa: E402
+from app.enrichment.services import (  # noqa: E402
+    EnrichmentAlreadyRunning,
+    EnrichmentBudgetExceeded,
+    EnrichmentConcurrencyLimit,
+)
 from app.leads.services import LeadNotFound  # noqa: E402
 
 
@@ -153,7 +157,11 @@ async def test_trigger_creates_running_row_returns_202():
     db.execute = AsyncMock(side_effect=[lead_result, no_running_result])
     db.flush = AsyncMock()
 
-    with patch("app.enrichment.services.EnrichmentRun", return_value=run):
+    with (
+        patch("app.enrichment.services.EnrichmentRun", return_value=run),
+        patch("app.enrichment.services.is_at_concurrency_limit", new=AsyncMock(return_value=False)),
+        patch("app.enrichment.services.has_budget_remaining", new=AsyncMock(return_value=True)),
+    ):
         result = await svc_mod.trigger_enrichment(
             db, workspace_id=workspace_id, user_id=uuid.uuid4(), lead_id=lead_id,
         )
@@ -218,10 +226,14 @@ async def test_trigger_returns_409_when_running_run_exists():
 
     db.execute = AsyncMock(side_effect=[lead_result, running_result])
 
-    with pytest.raises(EnrichmentAlreadyRunning) as exc_info:
-        await svc_mod.trigger_enrichment(
-            db, workspace_id=workspace_id, user_id=uuid.uuid4(), lead_id=lead_id,
-        )
+    with (
+        patch("app.enrichment.services.is_at_concurrency_limit", new=AsyncMock(return_value=False)),
+        patch("app.enrichment.services.has_budget_remaining", new=AsyncMock(return_value=True)),
+    ):
+        with pytest.raises(EnrichmentAlreadyRunning) as exc_info:
+            await svc_mod.trigger_enrichment(
+                db, workspace_id=workspace_id, user_id=uuid.uuid4(), lead_id=lead_id,
+            )
 
     assert exc_info.value.run_id == existing_run.id
 
@@ -251,7 +263,11 @@ async def test_trigger_creates_new_run_when_previous_is_succeeded():
     db.execute = AsyncMock(side_effect=[lead_result, no_running_result])
     db.flush = AsyncMock()
 
-    with patch("app.enrichment.services.EnrichmentRun", return_value=new_run):
+    with (
+        patch("app.enrichment.services.EnrichmentRun", return_value=new_run),
+        patch("app.enrichment.services.is_at_concurrency_limit", new=AsyncMock(return_value=False)),
+        patch("app.enrichment.services.has_budget_remaining", new=AsyncMock(return_value=True)),
+    ):
         result = await svc_mod.trigger_enrichment(
             db, workspace_id=workspace_id, user_id=uuid.uuid4(), lead_id=lead_id,
         )
@@ -279,3 +295,99 @@ async def test_list_returns_runs_in_descending_started_at():
     assert len(results) == 2
     assert results[0].status == "succeeded"
     assert results[1].status == "failed"
+
+
+# ---------------------------------------------------------------------------
+# Sprint 1.3.D — concurrency + budget guard tests
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_trigger_returns_429_when_concurrency_limit_reached():
+    """trigger_enrichment raises EnrichmentConcurrencyLimit when workspace is at limit."""
+    lead_id = uuid.uuid4()
+    workspace_id = uuid.uuid4()
+
+    lead = MagicMock()
+    lead.id = lead_id
+    lead.workspace_id = workspace_id
+
+    db = AsyncMock()
+    lead_result = MagicMock()
+    lead_result.scalar_one_or_none.return_value = lead
+    db.execute = AsyncMock(return_value=lead_result)
+
+    with (
+        patch("app.enrichment.services.is_at_concurrency_limit", new=AsyncMock(return_value=True)),
+        patch("app.enrichment.services.has_budget_remaining", new=AsyncMock(return_value=True)),
+    ):
+        with pytest.raises(EnrichmentConcurrencyLimit):
+            await svc_mod.trigger_enrichment(
+                db, workspace_id=workspace_id, user_id=uuid.uuid4(), lead_id=lead_id,
+            )
+
+
+@pytest.mark.asyncio
+async def test_trigger_returns_429_when_daily_budget_exceeded():
+    """trigger_enrichment raises EnrichmentBudgetExceeded when daily cap is reached."""
+    lead_id = uuid.uuid4()
+    workspace_id = uuid.uuid4()
+
+    lead = MagicMock()
+    lead.id = lead_id
+    lead.workspace_id = workspace_id
+
+    db = AsyncMock()
+    lead_result = MagicMock()
+    lead_result.scalar_one_or_none.return_value = lead
+    db.execute = AsyncMock(return_value=lead_result)
+
+    with (
+        patch("app.enrichment.services.is_at_concurrency_limit", new=AsyncMock(return_value=False)),
+        patch("app.enrichment.services.has_budget_remaining", new=AsyncMock(return_value=False)),
+        patch("app.enrichment.services.get_daily_spend_usd", new=AsyncMock(return_value=7.5)),
+        patch("app.enrichment.services._daily_cap_usd", return_value=6.67),
+    ):
+        with pytest.raises(EnrichmentBudgetExceeded) as exc_info:
+            await svc_mod.trigger_enrichment(
+                db, workspace_id=workspace_id, user_id=uuid.uuid4(), lead_id=lead_id,
+            )
+
+    assert exc_info.value.spent == 7.5
+    assert abs(exc_info.value.cap - 6.67) < 1e-6
+
+
+@pytest.mark.asyncio
+async def test_concurrency_limit_does_not_count_succeeded_runs():
+    """trigger_enrichment succeeds when only succeeded runs exist (not at concurrency limit)."""
+    lead_id = uuid.uuid4()
+    workspace_id = uuid.uuid4()
+
+    lead = MagicMock()
+    lead.id = lead_id
+    lead.workspace_id = workspace_id
+
+    new_run = _make_run(lead_id=lead_id, status="running")
+
+    db = AsyncMock()
+
+    lead_result = MagicMock()
+    lead_result.scalar_one_or_none.return_value = lead
+
+    no_running_result = MagicMock()
+    no_running_result.scalar_one_or_none.return_value = None
+
+    db.execute = AsyncMock(side_effect=[lead_result, no_running_result])
+    db.flush = AsyncMock()
+
+    # Concurrency limit returns False (not at limit — only succeeded runs)
+    with (
+        patch("app.enrichment.services.is_at_concurrency_limit", new=AsyncMock(return_value=False)),
+        patch("app.enrichment.services.has_budget_remaining", new=AsyncMock(return_value=True)),
+        patch("app.enrichment.services.EnrichmentRun", return_value=new_run),
+    ):
+        result = await svc_mod.trigger_enrichment(
+            db, workspace_id=workspace_id, user_id=uuid.uuid4(), lead_id=lead_id,
+        )
+
+    assert result.status == "running"
+    db.flush.assert_called_once()
