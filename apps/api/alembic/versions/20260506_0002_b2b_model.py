@@ -209,6 +209,7 @@ def upgrade() -> None:
     op.create_index("ix_leads_workspace_id", "leads", ["workspace_id"])
     op.create_index("ix_leads_workspace_stage", "leads", ["workspace_id", "stage_id"])
     op.create_index("ix_leads_workspace_assignment", "leads", ["workspace_id", "assignment_status"])
+    op.create_index("ix_leads_rotting", "leads", ["is_rotting_stage", "is_rotting_next_step"])
 
     # GIN full-text index on company_name
     conn.execute(
@@ -305,6 +306,7 @@ def downgrade() -> None:
     op.drop_table("contacts")
 
     conn.execute(sa.text("DROP INDEX IF EXISTS ix_leads_company_name_fts"))
+    op.drop_index("ix_leads_rotting", table_name="leads")
     op.drop_index("ix_leads_workspace_assignment", table_name="leads")
     op.drop_index("ix_leads_workspace_stage", table_name="leads")
     op.drop_index("ix_leads_workspace_id", table_name="leads")

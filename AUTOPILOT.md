@@ -7,7 +7,7 @@
 Conventions: `- [x]` done · `- [ ]` todo · `- [-]` skipped (with reason) ·
 `- [⚠]` partial / needs follow-up
 
-Last updated: 2026-05-05 by initial bootstrap.
+Last updated: 2026-05-06 — Sprint 1.2.1 complete (schema migration 0002_b2b_model).
 
 ---
 
@@ -137,15 +137,15 @@ Goal: real pipeline with real leads, real drag-drop, real lead card.
 No AI yet.
 
 ### 1.2.1 DB schema — leads layer
-- [ ] `leads` table (PRD §8.3 spec) — base columns
-- [ ] **Lead Pool fields:** `assignment_status` ENUM('pool', 'assigned', 'transferred'),
+- [x] `leads` table (B2B model per ADR-016) — base columns + B2B fields
+- [x] **Lead Pool fields:** `assignment_status` ENUM('pool', 'assigned', 'transferred'),
   `assigned_to` (nullable), `assigned_at`, `transferred_from`, `transferred_at`
-- [ ] `contacts` table (unified ЛПР, with `verified_status`)
-- [ ] `activities` table (polymorphic per `type`)
-- [ ] `followups` table
-- [ ] `workspaces.sprint_capacity_per_week` int default 20
-- [ ] Indexes: `(workspace_id, stage_id)`, `(assigned_user_id)`,
-  `(workspace_id, assignment_status)`, `(is_rotting)`, full-text on `company_name`
+- [x] `contacts` table (unified ЛПР, with `verified_status`)
+- [x] `activities` table (polymorphic per `type`)
+- [x] `followups` table
+- [x] `scoring_criteria` table per-workspace (ADR-017); `workspaces.sprint_capacity_per_week` already in 0001
+- [x] Indexes: `(workspace_id, stage_id)`, `(assigned_to)`,
+  `(workspace_id, assignment_status)`, `(is_rotting_stage, is_rotting_next_step)`, GIN full-text on `company_name`
 
 ### 1.2.2 API — leads + pipelines
 - [ ] `app/leads/`: schemas, repository, service, router with `GET/POST/PATCH/DELETE /leads`,

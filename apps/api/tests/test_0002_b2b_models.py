@@ -82,3 +82,10 @@ def test_lead_relationship_attrs():
 
 def test_verified_status_values():
     assert set(v.value for v in VerifiedStatus) == {"verified", "to_verify"}
+
+
+def test_gate_criteria_values_are_lists_of_strings():
+    for position, criteria in DEFAULT_GATE_CRITERIA.items():
+        assert isinstance(criteria, list), f"position {position}: expected list"
+        for item in criteria:
+            assert isinstance(item, str), f"position {position}: expected str, got {type(item)}"
