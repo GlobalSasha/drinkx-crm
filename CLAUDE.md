@@ -80,7 +80,7 @@ CLAUDE.md      # this file
 
 | Service | Used for | How to get creds |
 |---|---|---|
-| Supabase | Postgres + Auth + Storage | env: `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_SERVICE_KEY` |
+| Supabase | Postgres + Auth + Storage | env: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `SUPABASE_JWT_SECRET` |
 | Upstash | Redis (Celery broker) | env: `REDIS_URL` |
 | DeepSeek | Primary LLM | env: `DEEPSEEK_API_KEY` |
 | OpenAI | Vision + high-value carts | env: `OPENAI_API_KEY` |

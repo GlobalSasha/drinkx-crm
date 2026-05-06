@@ -16,15 +16,28 @@ Decision deviation from PRD: **bare-metal hosting** chosen instead of Vercel+Rai
 because user provided own server. Same Docker stack, same architecture, just
 different hosting target. See ADR-013 in `03_DECISIONS.md`.
 
-## AI Stack (planned)
+## AI Stack (ADR-018 — MiMo primary)
 
-| Use case | Primary | Fallback |
+OpenAI-compatible MiMo endpoint at `https://api.xiaomimimo.com/v1`. Two SKUs:
+- `mimo-v2-pro` — heavy reasoning, high-value tasks
+- `mimo-v2-flash` — bulk / cheap, default for high-volume work
+
+Fallback chain (any provider that returns 5xx, rate-limit, or auth-error advances to next):
+**MiMo → Anthropic → Gemini → DeepSeek**. OpenAI GPT-4o reserved for vision (visit-card OCR) only.
+
+| Use case | Primary | Fallback chain |
 |---|---|---|
-| Bulk Research Agent | DeepSeek V3 | OpenAI GPT-4o-mini |
-| High-fit (≥8) re-enrichment | OpenAI GPT-4o | Gemini 1.5 Pro |
-| Sales Coach chat | DeepSeek V3 | — |
-| Daily Plan generation | DeepSeek V3 | OpenAI GPT-4o-mini |
-| Visit-card OCR | OpenAI GPT-4o vision | Gemini 1.5 Pro |
+| Bulk Research Agent (synthesis) | MiMo V2 Flash | Anthropic → Gemini → DeepSeek |
+| Daily Plan generation | MiMo V2 Flash | Anthropic → Gemini → DeepSeek |
+| Quality pre-filter (regex+mini-LLM) | MiMo V2 Flash | Anthropic → Gemini → DeepSeek |
+| High-fit (≥8) re-enrichment | MiMo V2 Pro | Anthropic → Gemini → DeepSeek |
+| Sales Coach chat | MiMo V2 Pro | Anthropic → Gemini → DeepSeek |
+| Lead scoring assistance (0–100) | MiMo V2 Pro | Anthropic → Gemini → DeepSeek |
+| Visit-card OCR (vision) | OpenAI GPT-4o | Gemini 1.5 Pro |
+
+Implementation will land in Sprint 1.3 as `app/enrichment/providers/{mimo,anthropic,gemini,deepseek,openai}.py`,
+each implementing a common `LLMProvider` Protocol; `get_llm_provider()` factory reads
+`CRM_AI_BACKEND` + `LLM_FALLBACK_CHAIN` from env.
 
 External data sources for Research Agent:
 - Brave Search API (web research)
@@ -120,7 +133,10 @@ Each package: `models.py` + `schemas.py` + `repositories.py` + `services.py`
 ## Estimated Infrastructure Cost (DrinkX scale, 500 leads/day)
 
 ~$130–180 / month total · AI portion ~$50–70 / month
-- DeepSeek V3: ~$0.0003/1K tokens (synthesis)
+- MiMo V2 Flash (primary, bulk): pricing similar to DeepSeek tier (~$0.0003-0.0005/1K)
+- MiMo V2 Pro (high-value tasks): ~3–5× Flash, ~$0.001-0.002/1K
+- Anthropic / Gemini / DeepSeek (fallbacks): only billed on MiMo failure or explicit fit≥8 promotion
+- OpenAI GPT-4o (vision only): ~$0.005/1K input, used only for visit-card OCR
 - Brave Search: $7.50/day raw → cache reduces to ~$3-5/day
 - HH.ru: free
 - Apify: $5-15/month
