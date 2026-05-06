@@ -19,7 +19,6 @@ TEST_DB_URL = os.environ.get(
 POSTGRES_AVAILABLE = False
 try:
     import asyncpg  # noqa: F401
-    import asyncio as _asyncio
 
     async def _probe() -> bool:
         dsn = TEST_DB_URL.replace("postgresql+asyncpg://", "postgresql://")
@@ -28,9 +27,10 @@ try:
             await conn.close()
             return True
         except Exception:
+            # Probe-only suppression: any connection failure means "not available"
             return False
 
-    POSTGRES_AVAILABLE = _asyncio.get_event_loop().run_until_complete(_probe())
+    POSTGRES_AVAILABLE = asyncio.run(_probe())
 except Exception:
     POSTGRES_AVAILABLE = False
 

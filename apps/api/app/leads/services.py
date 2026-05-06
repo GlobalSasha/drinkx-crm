@@ -95,7 +95,7 @@ async def update_lead(
     if lead is None:
         raise LeadNotFound(lead_id)
     _validate_enum_fields(payload.priority, payload.deal_type)
-    patch = {k: v for k, v in payload.model_dump().items() if v is not None}
+    patch = payload.model_dump(exclude_unset=True)
     return await repo.update_lead(db, lead, patch)
 
 
@@ -129,13 +129,16 @@ async def claim_sprint(
     cities: list[str],
     segment: str | None,
     limit: int | None,
-) -> list[Lead]:
+) -> tuple[list[Lead], int]:
+    """Claim N leads from pool. Returns (claimed_leads, resolved_limit)."""
     if limit is None:
         ws_result = await db.execute(select(Workspace).where(Workspace.id == workspace_id))
         workspace = ws_result.scalar_one_or_none()
-        limit = workspace.sprint_capacity_per_week if workspace else 20
+        if workspace is None:
+            raise ValueError(f"Workspace {workspace_id} not found")
+        limit = workspace.sprint_capacity_per_week
 
-    return await repo.claim_sprint(
+    items = await repo.claim_sprint(
         db,
         workspace_id,
         user_id,
@@ -143,6 +146,7 @@ async def claim_sprint(
         segment=segment,
         limit=limit,
     )
+    return items, limit
 
 
 async def transfer_lead(

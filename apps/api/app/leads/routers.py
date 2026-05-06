@@ -39,7 +39,7 @@ async def list_leads(
     deal_type: str | None = None,
     assigned_to: UUID | None = None,
     q: str | None = None,
-    page: int = 1,
+    page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
     user: Annotated[User, Depends(current_user)] = ...,
@@ -75,7 +75,7 @@ async def list_pool(
     city: str | None = None,
     segment: str | None = None,
     fit_min: float | None = None,
-    page: int = 1,
+    page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
     user: Annotated[User, Depends(current_user)] = ...,
@@ -91,7 +91,7 @@ async def create_sprint(
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
     user: Annotated[User, Depends(current_user)] = ...,
 ) -> SprintCreateOut:
-    items = await services.claim_sprint(
+    items, requested = await services.claim_sprint(
         db,
         user.workspace_id,
         user.id,
@@ -99,9 +99,10 @@ async def create_sprint(
         segment=payload.segment,
         limit=payload.limit,
     )
+    await db.commit()
     return SprintCreateOut(
         claimed_count=len(items),
-        requested=payload.limit or 0,
+        requested=requested,
         items=items,  # type: ignore[arg-type]
     )
 
@@ -163,6 +164,7 @@ async def claim_lead(
             status_code=status.HTTP_409_CONFLICT,
             detail="Эту карточку только что взял другой менеджер",
         )
+    await db.commit()
     return lead  # type: ignore[return-value]
 
 

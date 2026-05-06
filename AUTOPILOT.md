@@ -148,15 +148,15 @@ No AI yet.
   `(workspace_id, assignment_status)`, `(is_rotting_stage, is_rotting_next_step)`, GIN full-text on `company_name`
 
 ### 1.2.2 API — leads + pipelines
-- [ ] `app/leads/`: schemas, repository, service, router with `GET/POST/PATCH/DELETE /leads`,
-  `GET /leads?stage=&assigned_to=&segment=&city=&q=&page=`
-- [ ] **Lead Pool endpoints:**
-  - [ ] `GET /leads/pool?city=&segment=&fit_min=&page=` (only `assignment_status=pool`)
-  - [ ] `POST /leads/sprint` body: `{cities, segment?, limit}` → returns assigned leads
-        Implementation: SELECT N from pool ordered by fit_score DESC → tier ASC → created_at ASC,
-        then atomic UPDATE WHERE assignment_status='pool' (race-safe lock)
-  - [ ] `POST /leads/{id}/claim` (single manual take from pool)
-  - [ ] `POST /leads/{id}/transfer` body: `{to_user_id, comment?}`
+- [x] `app/leads/`: schemas, repository, service, router with `GET/POST/PATCH/DELETE /leads`,
+  `GET /leads?stage_id=&assigned_to=&segment=&city=&priority=&deal_type=&q=&page=`
+- [x] **Lead Pool endpoints:**
+  - [x] `GET /leads/pool?city=&segment=&fit_min=&page=` (only `assignment_status=pool`)
+  - [x] `POST /leads/sprint` body: `{cities, segment?, limit}` → returns assigned leads
+        Implementation: SELECT N from pool ordered by fit_score DESC NULLS LAST → created_at ASC
+        with `FOR UPDATE SKIP LOCKED`, then per-row atomic UPDATE WHERE assignment_status='pool'
+  - [x] `POST /leads/{id}/claim` (single manual take from pool)
+  - [x] `POST /leads/{id}/transfer` body: `{to_user_id, comment?}`
 - [ ] `app/pipelines/`: list + reorder stages
 - [ ] `app/contacts/`: per-lead nested CRUD
 - [ ] `app/activities/`: feed endpoints (list with cursor pagination, post comment/task/reminder/file)

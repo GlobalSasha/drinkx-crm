@@ -326,58 +326,85 @@ async def test_sprint_filters_by_segment(db, workspace, user):
 
 
 @skip_no_pg
-async def test_sprint_concurrent_no_double_claim(workspace, user, admin_user):
+async def test_sprint_concurrent_no_double_claim():
     """Two concurrent sprints on an overlapping pool → no lead claimed twice.
 
     This test requires FOR UPDATE SKIP LOCKED support (Postgres-only).
-    Uses its own committed sessions to avoid cross-connection isolation issues.
+    Uses fully committed setup to ensure cross-connection visibility for the
+    workspace + user FKs and the pool leads themselves. Cleans up after.
     """
     from tests.conftest import _test_session_factory
+    from app.auth.models import User, Workspace
     from app.leads.models import Lead
     from app.leads import repositories as repo
+    from sqlalchemy import delete
 
-    ws_id = workspace.id
-    user_id = user.id
-    admin_id = admin_user.id
+    ws_id: uuid.UUID
+    user_id: uuid.UUID
+    admin_id: uuid.UUID
 
-    # Setup: insert pool leads and commit so all connections can see them
-    lead_ids = []
-    async with _test_session_factory() as setup_session:
+    # Setup: commit workspace + users + pool leads so independent sessions see them
+    async with _test_session_factory() as setup:
+        ws = Workspace(name=f"Concurrent WS {uuid.uuid4().hex[:6]}", plan="pro")
+        setup.add(ws)
+        await setup.flush()
+        ws_id = ws.id
+
+        u = User(
+            workspace_id=ws_id,
+            email=f"cmgr-{uuid.uuid4().hex[:8]}@test.com",
+            name="ConcurrentManager",
+            role="manager",
+        )
+        a = User(
+            workspace_id=ws_id,
+            email=f"cadm-{uuid.uuid4().hex[:8]}@test.com",
+            name="ConcurrentAdmin",
+            role="admin",
+        )
+        setup.add_all([u, a])
+        await setup.flush()
+        user_id = u.id
+        admin_id = a.id
+
         for i in range(10):
-            lead = Lead(
-                workspace_id=ws_id,
-                company_name=f"Concurrent {i}",
-                assignment_status="pool",
-                city="Novosibirsk",
+            setup.add(
+                Lead(
+                    workspace_id=ws_id,
+                    company_name=f"Concurrent {i}",
+                    assignment_status="pool",
+                    city="Novosibirsk",
+                )
             )
-            setup_session.add(lead)
-        await setup_session.flush()
-        await setup_session.commit()
+        await setup.commit()
 
-    async def sprint_for(uid):
+    async def sprint_for(uid: uuid.UUID) -> list[Lead]:
         async with _test_session_factory() as session:
-            return await repo.claim_sprint(
+            items = await repo.claim_sprint(
                 session, ws_id, uid,
                 cities=["Novosibirsk"], limit=8,
             )
+            await session.commit()
+            return items
 
-    results = await asyncio.gather(
-        sprint_for(user_id),
-        sprint_for(admin_id),
-    )
-    all_ids = [lead.id for batch in results for lead in batch]
-    # No duplicates — each lead claimed at most once
-    assert len(all_ids) == len(set(all_ids))
-    # Together they cannot claim more than the 10 available
-    assert len(all_ids) <= 10
-
-    # Cleanup committed data
-    async with _test_session_factory() as cleanup:
-        from sqlalchemy import delete
-        await cleanup.execute(
-            delete(Lead).where(Lead.workspace_id == ws_id, Lead.city == "Novosibirsk")
+    try:
+        results = await asyncio.gather(
+            sprint_for(user_id),
+            sprint_for(admin_id),
         )
-        await cleanup.commit()
+        all_ids = [lead.id for batch in results for lead in batch]
+        # No duplicates — each lead claimed at most once
+        assert len(all_ids) == len(set(all_ids))
+        # Together they cannot claim more than the 10 available
+        assert len(all_ids) <= 10
+        # And both should have claimed something (proving SKIP LOCKED isn't blocking)
+        assert len(results[0]) > 0 and len(results[1]) > 0
+    finally:
+        async with _test_session_factory() as cleanup:
+            await cleanup.execute(delete(Lead).where(Lead.workspace_id == ws_id))
+            await cleanup.execute(delete(User).where(User.workspace_id == ws_id))
+            await cleanup.execute(delete(Workspace).where(Workspace.id == ws_id))
+            await cleanup.commit()
 
 
 # ---------------------------------------------------------------------------
@@ -476,3 +503,38 @@ async def test_transfer_lead_not_owned_403(db, workspace, user, admin_user):
             to_user_id=admin_user.id,
             comment=None,
         )
+
+
+@skip_no_pg
+async def test_transfer_admin_can_bypass_ownership(db, workspace, user, admin_user):
+    """Admin/head can transfer a lead they don't own (privilege bypass)."""
+    from app.auth.models import User
+    from app.leads import services
+
+    # A third manager owns the lead; admin transfers it without owning
+    third = User(
+        workspace_id=workspace.id,
+        email=f"third-{uuid.uuid4().hex[:8]}@test.com",
+        name="ThirdOwner",
+        role="manager",
+    )
+    db.add(third)
+    await db.flush()
+
+    lead = await _make_lead(
+        db, workspace.id, company_name="Admin Bypass",
+        assignment_status="assigned", assigned_to=third.id,
+    )
+
+    transferred = await services.transfer_lead(
+        db,
+        workspace.id,
+        current_user_id=admin_user.id,
+        current_user_role="admin",
+        lead_id=lead.id,
+        to_user_id=user.id,
+        comment="admin reassign",
+    )
+
+    assert transferred.assigned_to == user.id
+    assert transferred.transferred_from == third.id

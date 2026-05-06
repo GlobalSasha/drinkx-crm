@@ -153,7 +153,7 @@ async def claim_lead(
         .returning(Lead)
     )
     result = await db.execute(stmt)
-    await db.commit()
+    await db.flush()
     return result.scalar_one_or_none()
 
 
@@ -179,7 +179,7 @@ async def claim_sprint(
         params["cities"] = cities
 
     if segment is not None:
-        where_parts.append("(segment IS NULL OR segment = :segment)")
+        where_parts.append("segment = :segment")
         params["segment"] = segment
 
     where_clause = " AND ".join(where_parts)
@@ -209,7 +209,7 @@ async def claim_sprint(
         if lead is not None:
             claimed.append(lead)
 
-    await db.commit()
+    await db.flush()
     return claimed
 
 
