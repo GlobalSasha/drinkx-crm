@@ -238,10 +238,12 @@ Goal: a new lead's AI Brief actually gets filled by real research over real sour
 > AUTOPILOT: 1.3.1 ✓ — built by Claude Sonnet 4.6 on 2026-05-06
 
 ### 1.3.2 Sources
-- [ ] `app/enrichment/sources/brave.py` with 24h Redis cache by query hash
-- [ ] `app/enrichment/sources/hh.py` (HH.ru public API)
-- [ ] `app/enrichment/sources/web_fetch.py` (httpx with timeout + size cap)
-- [ ] Per-source 15s timeout, fail-soft
+- [x] `app/enrichment/sources/brave.py` with 24h Redis cache by query hash
+- [x] `app/enrichment/sources/hh.py` (HH.ru public API)
+- [x] `app/enrichment/sources/web_fetch.py` (httpx with timeout + size cap)
+- [x] Per-source 15s timeout, fail-soft
+
+> AUTOPILOT: 1.3.2 ✓ (web_fetch + brave + hh) — built by Claude Sonnet 4.6 on 2026-05-06
 
 ### 1.3.3 Research Agent
 - [ ] `app/enrichment/orchestrator.py` — pre-filter → query builder → parallel fetch →
