@@ -212,8 +212,9 @@ No AI yet.
 > AUTOPILOT: 1.2.5 ✓ — built by Claude Sonnet 4.6 on 2026-05-06
 
 ### 1.2.6 Migration script
-- [ ] `apps/api/scripts/import_prototype_data.py` — one-shot loader that reads the
+- [x] `apps/api/scripts/import_prototype_data.py` — one-shot loader that reads the
   prototype's `data.js` file, parses it, and inserts a starter dataset for testing
+> AUTOPILOT: 1.2.6 ✓ — built by Claude Sonnet 4.6 on 2026-05-06
 
 ### 1.2.7 Tests
 - [ ] api: lead CRUD coverage
