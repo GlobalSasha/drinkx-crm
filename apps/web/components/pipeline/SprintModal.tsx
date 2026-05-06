@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { X, Loader2 } from "lucide-react";
 import { usePipelineStore } from "@/lib/store/pipeline-store";
 import { usePoolLeads, useCreateSprint } from "@/lib/hooks/use-leads";
-import { Toast } from "./Toast";
+import { Toast } from "@/components/ui/Toast";
 
 const SPRINT_CAPACITY = 20; // fallback if workspace value unavailable
 
@@ -22,8 +22,18 @@ interface ToastState {
   type: "error" | "success";
 }
 
-export function SprintModal() {
+interface Props {
+  /** When provided, component is used standalone (not driven by pipeline store). */
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export function SprintModal({ isOpen: isOpenProp, onClose: onCloseProp }: Props = {}) {
+  // Standalone mode: props override; pipeline mode: read from store.
   const { sprintModalOpen, closeSprintModal } = usePipelineStore();
+  const isOpen = isOpenProp !== undefined ? isOpenProp : sprintModalOpen;
+  const closeModal = onCloseProp ?? closeSprintModal;
+
   const [selectedCities, setSelectedCities] = useState<string[]>([]);
   const [selectedSegment, setSelectedSegment] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastState[]>([]);
@@ -39,13 +49,13 @@ export function SprintModal() {
 
   // Close on Esc
   useEffect(() => {
-    if (!sprintModalOpen) return;
+    if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeSprintModal();
+      if (e.key === "Escape") closeModal();
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [sprintModalOpen, closeSprintModal]);
+  }, [isOpen, closeModal]);
 
   const poolQuery = usePoolLeads({
     segment: selectedSegment ?? undefined,
@@ -89,7 +99,7 @@ export function SprintModal() {
           addToast(`Добавлено ${data.claimed_count} карточек в ваш спринт`, "success");
           setSelectedCities([]);
           setSelectedSegment(null);
-          setTimeout(closeSprintModal, 1500);
+          setTimeout(closeModal, 1500);
         },
         onError: () => {
           addToast("Ошибка при формировании спринта", "error");
@@ -98,14 +108,14 @@ export function SprintModal() {
     );
   }
 
-  if (!sprintModalOpen) return null;
+  if (!isOpen) return null;
 
   return (
     <>
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/30 z-40 backdrop-blur-sm"
-        onClick={closeSprintModal}
+        onClick={closeModal}
       />
 
       {/* Dialog */}
@@ -117,7 +127,7 @@ export function SprintModal() {
               Новый спринт
             </h2>
             <button
-              onClick={closeSprintModal}
+              onClick={closeModal}
               className="text-muted hover:text-ink transition-colors p-1 rounded-lg hover:bg-black/5"
             >
               <X size={18} />
@@ -192,7 +202,7 @@ export function SprintModal() {
           {/* Actions */}
           <div className="flex gap-2 justify-end">
             <button
-              onClick={closeSprintModal}
+              onClick={closeModal}
               className="px-4 py-2 rounded-pill text-sm font-semibold text-muted bg-canvas hover:bg-canvas-2 transition-all duration-200"
             >
               Отмена
