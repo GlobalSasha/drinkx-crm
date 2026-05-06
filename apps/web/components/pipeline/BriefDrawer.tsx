@@ -1,8 +1,9 @@
 "use client";
 import { useEffect } from "react";
 import Link from "next/link";
-import { X, ChevronLeft, ChevronRight, ArrowRight, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, ArrowRight, AlertTriangle, CheckCircle2, Sparkles, Loader2 } from "lucide-react";
 import { usePipelineStore } from "@/lib/store/pipeline-store";
+import { useTriggerEnrichment } from "@/lib/hooks/use-enrichment";
 import type { LeadOut } from "@/lib/types";
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -149,9 +150,7 @@ function DrawerBody({ lead }: { lead: LeadOut }) {
         {lead.ai_data ? (
           <AiBriefContent data={lead.ai_data} />
         ) : (
-          <p className="text-sm text-muted-2 italic">
-            AI Brief появится после enrichment
-          </p>
+          <EnrichmentCTA leadId={lead.id} />
         )}
       </Section>
 
@@ -185,6 +184,29 @@ function DrawerBody({ lead }: { lead: LeadOut }) {
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+function EnrichmentCTA({ leadId }: { leadId: string }) {
+  const trigger = useTriggerEnrichment(leadId);
+  return (
+    <div className="flex items-center gap-3">
+      <p className="text-sm text-muted-2 italic flex-1">
+        AI Brief появится после enrichment
+      </p>
+      <button
+        onClick={() => trigger.mutate()}
+        disabled={trigger.isPending}
+        className="flex items-center gap-1.5 text-xs font-semibold text-accent hover:text-accent/80 disabled:opacity-50 shrink-0 transition-colors"
+      >
+        {trigger.isPending ? (
+          <Loader2 size={12} className="animate-spin" />
+        ) : (
+          <Sparkles size={12} />
+        )}
+        Запустить
+      </button>
     </div>
   );
 }

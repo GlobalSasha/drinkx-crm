@@ -230,23 +230,31 @@ No AI yet.
 Goal: a new lead's AI Brief actually gets filled by real research over real sources.
 
 ### 1.3.1 Provider abstraction
-- [ ] `app/enrichment/providers/base.py` — `LLMProvider` Protocol
-- [ ] `DeepSeekProvider`, `OpenAIProvider`, `GeminiProvider` implementations
-- [ ] `get_llm_provider()` factory reading `CRM_AI_BACKEND` env
+- [x] `app/enrichment/providers/base.py` — `LLMProvider` Protocol, `TaskType` enum, Flash/Pro split
+- [x] `MiMoProvider`, `AnthropicProvider`, `GeminiProvider`, `DeepSeekProvider` implementations (httpx, no SDKs)
+- [x] `get_llm_provider()` factory + `complete_with_fallback()` with structured logging
+- [x] `ResearchOutput` Pydantic schema with fallback defaults everywhere (PRD §7.2)
+- [x] 15 tests via `_FakeAsyncClient` — no real network calls
+> AUTOPILOT: 1.3.1 ✓ — built by Claude Sonnet 4.6 on 2026-05-06
 
 ### 1.3.2 Sources
-- [ ] `app/enrichment/sources/brave.py` with 24h Redis cache by query hash
-- [ ] `app/enrichment/sources/hh.py` (HH.ru public API)
-- [ ] `app/enrichment/sources/web_fetch.py` (httpx with timeout + size cap)
-- [ ] Per-source 15s timeout, fail-soft
+- [x] `app/enrichment/sources/brave.py` with 24h Redis cache by query hash
+- [x] `app/enrichment/sources/hh.py` (HH.ru public API)
+- [x] `app/enrichment/sources/web_fetch.py` (httpx with timeout + size cap)
+- [x] Per-source 15s timeout, fail-soft
+
+> AUTOPILOT: 1.3.2 ✓ (web_fetch + brave + hh) — built by Claude Sonnet 4.6 on 2026-05-06
 
 ### 1.3.3 Research Agent
-- [ ] `app/enrichment/orchestrator.py` — pre-filter → query builder → parallel fetch →
-  relevance filter → synthesis (PRD §7.1)
-- [ ] `enrichment_runs` table + Celery task with cost tracking (cost_tokens, cost_usd, duration_ms)
-- [ ] Output via Pydantic `ResearchOutput` with fallback defaults
-- [ ] WebSocket progress events: `enrichment.started`, `enrichment.source_done`,
-  `enrichment.completed`
+- [x] `app/enrichment/orchestrator.py` — query builder → parallel fetch →
+  synthesis via complete_with_fallback(research_synthesis) → save to lead.ai_data
+- [x] `enrichment_runs` table (migration 0003) + ORM model + service layer with cost tracking (cost_tokens, cost_usd, duration_ms)
+- [x] Output via Pydantic `ResearchOutput` with fallback defaults
+- [x] Router: POST /leads/{id}/enrichment (202), GET /latest, GET list — BackgroundTasks
+- [-] Celery task — deferred to Phase E
+- [-] WebSocket progress events — deferred to Phase E
+
+> AUTOPILOT: 1.3.3 ✓ (orchestrator + DB persistence; Celery + WS deferred to 1.3.E) — built by Claude Sonnet 4.6 on 2026-05-06
 
 ### 1.3.4 Knowledge Base + business profile
 - [ ] `knowledge/drinkx/*.md` initial files (playbook_horeca, objections, etc — copy from prototype Knowledge Base UI examples)
@@ -256,10 +264,20 @@ Goal: a new lead's AI Brief actually gets filled by real research over real sour
 
 ### 1.3.5 Cost control
 - [ ] Quality pre-filter (regex stop-list + mini-LLM go/no-go)
+- [x] Rate limit: max 1 in-flight enrichment per lead (409 if already running) — Phase E
 - [ ] Rate limit: max 1 enrichment / lead / 24h; max 5 parallel jobs / workspace
 - [ ] Daily budget guard with circuit-breaker (Settings → AI budget)
 
 ### 1.3.6 Web — enrichment UI
+- [x] AI Brief tab in LeadCard (between Сделка and Контакты) — Phase E
+- [x] "Запустить enrichment" / "Обновить" trigger button — Phase E
+- [x] Polling every 2s while status=running (TanStack refetchInterval) — Phase E
+- [x] Running skeleton + elapsed timer — Phase E
+- [x] Failed banner with "Попробовать снова" — Phase E
+- [x] Empty state CTA — Phase E
+- [x] ResultBody: profile, scale/geo/formats, growth/risk chips, fit_score badge, urgency, DM hints, next_steps, sources — Phase E
+- [x] 409 → toast "Enrichment уже запущен" + refetch — Phase E
+- [x] BriefDrawer: "Запустить enrichment" affordance when ai_data empty — Phase E
 - [ ] Lead create → POST returns lead with `enrichment_run_id`
 - [ ] Subscribe to progress via WebSocket → render the source list with checkmarks
 - [ ] On done → reload AI Brief panel

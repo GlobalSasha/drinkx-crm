@@ -41,7 +41,9 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-5"
     gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.0-flash-exp"
     deepseek_api_key: str = ""
+    deepseek_model: str = "deepseek-chat"
     openai_api_key: str = ""                 # vision (GPT-4o) + emergency only
     brave_api_key: str = ""
     apify_token: str = ""
