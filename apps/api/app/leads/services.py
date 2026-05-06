@@ -8,9 +8,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User, Workspace
+from app.automation.stage_change import (
+    StageTransitionBlocked,
+    StageTransitionInvalid,
+    move_stage as automation_move_stage,
+)
 from app.leads import repositories as repo
 from app.leads.models import DealType, Lead, Priority
 from app.leads.schemas import LeadCreate, LeadUpdate
+from app.pipelines.models import Stage
 
 
 # ---------------------------------------------------------------------------
@@ -31,6 +37,18 @@ class LeadNotOwnedByUser(Exception):
 
 class TransferTargetInvalid(Exception):
     pass
+
+
+class StageNotFound(Exception):
+    pass
+
+
+# Re-export so callers can catch without importing from automation directly
+__all__ = [
+    "StageNotFound",
+    "StageTransitionBlocked",
+    "StageTransitionInvalid",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -176,3 +194,31 @@ async def transfer_lead(
         raise TransferTargetInvalid(to_user_id)
 
     return await repo.transfer_lead(db, lead, to_user_id, comment=comment)
+
+
+async def move_lead_stage(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    user_id: uuid.UUID,
+    lead_id: uuid.UUID,
+    to_stage_id: uuid.UUID,
+    gate_skipped: bool = False,
+    skip_reason: str | None = None,
+    lost_reason: str | None = None,
+) -> Lead:
+    lead = await repo.get_by_id(db, lead_id, workspace_id)
+    if lead is None:
+        raise LeadNotFound(lead_id)
+
+    stage_result = await db.execute(select(Stage).where(Stage.id == to_stage_id))
+    to_stage = stage_result.scalar_one_or_none()
+    if to_stage is None:
+        raise StageNotFound(to_stage_id)
+
+    if lost_reason is not None:
+        lead.lost_reason = lost_reason
+
+    return await automation_move_stage(
+        db, lead, to_stage, user_id,
+        gate_skipped=gate_skipped, skip_reason=skip_reason,
+    )

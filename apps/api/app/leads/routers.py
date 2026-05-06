@@ -9,13 +9,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import current_user
 from app.auth.models import User
+from app.automation.stage_change import StageTransitionBlocked, StageTransitionInvalid
 from app.db import get_db
 from app.leads import services
 from app.leads.schemas import (
+    GateViolationOut,
     LeadCreate,
     LeadListOut,
     LeadOut,
     LeadUpdate,
+    MoveStageIn,
     SprintCreateIn,
     SprintCreateOut,
     TransferIn,
@@ -24,6 +27,7 @@ from app.leads.services import (
     LeadAlreadyClaimed,
     LeadNotFound,
     LeadNotOwnedByUser,
+    StageNotFound,
     TransferTargetInvalid,
 )
 
@@ -197,5 +201,43 @@ async def transfer_lead(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Transfer target user not found in this workspace",
         )
+    await db.commit()
+    return lead  # type: ignore[return-value]
+
+
+@router.post("/{lead_id}/move-stage", response_model=LeadOut)
+async def move_stage(
+    lead_id: UUID,
+    payload: MoveStageIn,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> LeadOut:
+    try:
+        lead = await services.move_lead_stage(
+            db,
+            user.workspace_id,
+            user.id,
+            lead_id,
+            payload.stage_id,
+            gate_skipped=payload.gate_skipped,
+            skip_reason=payload.skip_reason,
+            lost_reason=payload.lost_reason,
+        )
+    except LeadNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+    except StageNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stage not found")
+    except StageTransitionInvalid as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except StageTransitionBlocked as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": "Stage transition blocked by gate criteria",
+                "violations": [{"code": v.code, "message": v.message} for v in e.violations],
+            },
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     await db.commit()
     return lead  # type: ignore[return-value]

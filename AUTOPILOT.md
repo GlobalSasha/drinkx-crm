@@ -162,7 +162,7 @@ No AI yet.
 - [ ] `app/activities/`: feed endpoints (list with cursor pagination, post comment/task/reminder/file)
 - [ ] `app/followups/`: list/create/edit/complete; auto-seed on lead create
 - [ ] WebSocket connection at `/ws/{user_id}` (Redis pub/sub)
-- [ ] Stage change goes through `app/automation/stage_change.py`
+- [x] Stage change goes through `app/automation/stage_change.py`
 - [ ] Notifications: `lead_transferred` event → dispatcher → notify new manager
 
 ### 1.2.3 Web — Pipeline screen

@@ -103,3 +103,15 @@ class SprintCreateOut(BaseModel):
 class TransferIn(BaseModel):
     to_user_id: UUID
     comment: str | None = None
+
+
+class MoveStageIn(BaseModel):
+    stage_id: UUID
+    gate_skipped: bool = False
+    skip_reason: str | None = None
+    lost_reason: str | None = None  # only used when entering lost stage
+
+
+class GateViolationOut(BaseModel):
+    code: str
+    message: str
