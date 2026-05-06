@@ -39,18 +39,24 @@ async def complete_with_fallback(
     task_type: TaskType,
     max_tokens: int = 1024,
     temperature: float = 0.4,
-    timeout_seconds: float = 30.0,
+    timeout_seconds: float = 90.0,
     chain: list[str] | None = None,
 ) -> CompletionResult:
-    """Try each provider in the chain until one succeeds. Raises LLMError if all fail."""
+    """Try each provider in the chain until one succeeds. Raises LLMError if all fail.
+
+    The error raised when all providers fail summarizes EVERY attempt's reason —
+    not just the last one — so operators don't see misleading
+    'DEEPSEEK_API_KEY not set' when MiMo silently timed out two providers earlier.
+    """
     s = get_settings()
     chain = chain or s.llm_fallback_chain
-    last_error: LLMError | None = None
+    attempts: list[tuple[str, str]] = []  # (provider, short reason)
     for provider_name in chain:
         try:
             provider = get_llm_provider(provider_name)
         except KeyError:
             log.warning("llm.unknown_provider_in_chain", provider=provider_name)
+            attempts.append((provider_name, "unknown provider"))
             continue
         try:
             log.info("llm.attempt", provider=provider_name, task_type=task_type.value)
@@ -71,13 +77,11 @@ async def complete_with_fallback(
             )
             return result
         except LLMError as e:
-            log.warning(
-                "llm.fallback",
-                provider=provider_name,
-                error_type=type(e).__name__,
-                status=e.status,
-                message=str(e)[:200],
-            )
-            last_error = e
+            reason = f"{type(e).__name__}({e.status or '-'}): {str(e)[:120]}"
+            log.warning("llm.fallback", provider=provider_name, reason=reason)
+            attempts.append((provider_name, reason))
             continue
-    raise last_error or LLMError("no providers in chain", provider="factory")
+
+    # All providers failed — surface the full chain in the raised error
+    summary = "; ".join(f"{name}={reason}" for name, reason in attempts) or "empty chain"
+    raise LLMError(f"all providers failed: {summary}", provider="factory")
