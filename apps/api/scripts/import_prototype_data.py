@@ -33,6 +33,12 @@ from app.db import get_session_factory
 from app.leads.models import Lead
 from app.pipelines.models import Pipeline, Stage
 
+# Side-effect imports so the SQLAlchemy mapper registry can resolve string-based
+# relationships from Lead -> Activity / Followup. Without these the very first
+# query against any model trips: "expression 'Activity' failed to locate a name".
+from app.activity import models as _activity_models  # noqa: F401
+from app.followups import models as _followups_models  # noqa: F401
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -70,6 +76,19 @@ def _derive_role_type(role: str | None) -> str | None:
     if any(hint in role_lower for hint in _ECONOMIC_BUYER_HINTS):
         return ContactRoleType.economic_buyer.value
     return None
+
+
+def _normalize_confidence(raw: str | None) -> str:
+    """Coerce a free-form confidence string ('Medium (2022, current?)', 'High')
+    into one of {"high", "medium", "low"} so it fits Contact.confidence VARCHAR(20)."""
+    if not raw:
+        return "medium"
+    head = raw.strip().split()[0].lower() if raw.strip() else ""
+    if head.startswith("high"):
+        return "high"
+    if head.startswith("low"):
+        return "low"
+    return "medium"
 
 
 def _build_ai_data(lead: dict[str, Any]) -> dict[str, Any]:
@@ -114,7 +133,7 @@ def _build_dry_run_row(lead: dict[str, Any]) -> dict[str, Any]:
                 "title": c.get("title"),
                 "role_type": _derive_role_type(c.get("role")),
                 "source": "research",
-                "confidence": c.get("confidence", "medium"),
+                "confidence": _normalize_confidence(c.get("confidence")),
                 "verified_status": "verified",
                 "notes": c.get("source"),
             }
@@ -265,11 +284,11 @@ async def main(args: argparse.Namespace) -> None:
                         continue
                     contact = Contact(
                         lead_id=new_lead.id,
-                        name=name,
-                        title=c.get("title"),
+                        name=name[:120],
+                        title=(c.get("title") or "")[:120] or None,
                         role_type=_derive_role_type(c.get("role")),
                         source="research",
-                        confidence=c.get("confidence", "medium"),
+                        confidence=_normalize_confidence(c.get("confidence")),
                         verified_status="verified",
                         notes=c.get("source"),
                     )
@@ -283,8 +302,8 @@ async def main(args: argparse.Namespace) -> None:
                         continue
                     contact = Contact(
                         lead_id=new_lead.id,
-                        name=name,
-                        title=c.get("title"),
+                        name=name[:120],
+                        title=(c.get("title") or "")[:120] or None,
                         role_type=_derive_role_type(c.get("role")),
                         source="research",
                         confidence="low",
