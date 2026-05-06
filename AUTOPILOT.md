@@ -264,10 +264,20 @@ Goal: a new lead's AI Brief actually gets filled by real research over real sour
 
 ### 1.3.5 Cost control
 - [ ] Quality pre-filter (regex stop-list + mini-LLM go/no-go)
+- [x] Rate limit: max 1 in-flight enrichment per lead (409 if already running) — Phase E
 - [ ] Rate limit: max 1 enrichment / lead / 24h; max 5 parallel jobs / workspace
 - [ ] Daily budget guard with circuit-breaker (Settings → AI budget)
 
 ### 1.3.6 Web — enrichment UI
+- [x] AI Brief tab in LeadCard (between Сделка and Контакты) — Phase E
+- [x] "Запустить enrichment" / "Обновить" trigger button — Phase E
+- [x] Polling every 2s while status=running (TanStack refetchInterval) — Phase E
+- [x] Running skeleton + elapsed timer — Phase E
+- [x] Failed banner with "Попробовать снова" — Phase E
+- [x] Empty state CTA — Phase E
+- [x] ResultBody: profile, scale/geo/formats, growth/risk chips, fit_score badge, urgency, DM hints, next_steps, sources — Phase E
+- [x] 409 → toast "Enrichment уже запущен" + refetch — Phase E
+- [x] BriefDrawer: "Запустить enrichment" affordance when ai_data empty — Phase E
 - [ ] Lead create → POST returns lead with `enrichment_run_id`
 - [ ] Subscribe to progress via WebSocket → render the source list with checkmarks
 - [ ] On done → reload AI Brief panel

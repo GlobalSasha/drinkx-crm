@@ -95,6 +95,7 @@ _stub_sqlalchemy()
 # ---------------------------------------------------------------------------
 
 import app.enrichment.services as svc_mod  # noqa: E402
+from app.enrichment.services import EnrichmentAlreadyRunning  # noqa: E402
 from app.leads.services import LeadNotFound  # noqa: E402
 
 
@@ -140,9 +141,16 @@ async def test_trigger_creates_running_row_returns_202():
     lead.workspace_id = workspace_id
 
     db = AsyncMock()
-    execute_result = MagicMock()
-    execute_result.scalar_one_or_none.return_value = lead
-    db.execute = AsyncMock(return_value=execute_result)
+
+    # First execute: lead lookup → returns lead
+    # Second execute: running-run check → returns None (no existing running run)
+    lead_result = MagicMock()
+    lead_result.scalar_one_or_none.return_value = lead
+
+    no_running_result = MagicMock()
+    no_running_result.scalar_one_or_none.return_value = None
+
+    db.execute = AsyncMock(side_effect=[lead_result, no_running_result])
     db.flush = AsyncMock()
 
     with patch("app.enrichment.services.EnrichmentRun", return_value=run):
@@ -184,6 +192,72 @@ async def test_latest_returns_most_recent_run():
 
     assert result is run
     assert result.status == "succeeded"
+
+
+@pytest.mark.asyncio
+async def test_trigger_returns_409_when_running_run_exists():
+    """trigger_enrichment raises EnrichmentAlreadyRunning when a 'running' run exists."""
+    lead_id = uuid.uuid4()
+    workspace_id = uuid.uuid4()
+
+    lead = MagicMock()
+    lead.id = lead_id
+    lead.workspace_id = workspace_id
+
+    existing_run = _make_run(lead_id=lead_id, status="running")
+
+    db = AsyncMock()
+
+    # First execute: lead lookup → returns lead
+    # Second execute: running-run check → returns the existing run
+    lead_result = MagicMock()
+    lead_result.scalar_one_or_none.return_value = lead
+
+    running_result = MagicMock()
+    running_result.scalar_one_or_none.return_value = existing_run
+
+    db.execute = AsyncMock(side_effect=[lead_result, running_result])
+
+    with pytest.raises(EnrichmentAlreadyRunning) as exc_info:
+        await svc_mod.trigger_enrichment(
+            db, workspace_id=workspace_id, user_id=uuid.uuid4(), lead_id=lead_id,
+        )
+
+    assert exc_info.value.run_id == existing_run.id
+
+
+@pytest.mark.asyncio
+async def test_trigger_creates_new_run_when_previous_is_succeeded():
+    """trigger_enrichment creates a new run when previous run has status 'succeeded'."""
+    lead_id = uuid.uuid4()
+    workspace_id = uuid.uuid4()
+
+    lead = MagicMock()
+    lead.id = lead_id
+    lead.workspace_id = workspace_id
+
+    new_run = _make_run(lead_id=lead_id, status="running")
+
+    db = AsyncMock()
+
+    # First execute: lead lookup → returns lead
+    # Second execute: running-run check → returns None (previous run was succeeded)
+    lead_result = MagicMock()
+    lead_result.scalar_one_or_none.return_value = lead
+
+    no_running_result = MagicMock()
+    no_running_result.scalar_one_or_none.return_value = None
+
+    db.execute = AsyncMock(side_effect=[lead_result, no_running_result])
+    db.flush = AsyncMock()
+
+    with patch("app.enrichment.services.EnrichmentRun", return_value=new_run):
+        result = await svc_mod.trigger_enrichment(
+            db, workspace_id=workspace_id, user_id=uuid.uuid4(), lead_id=lead_id,
+        )
+
+    assert result.status == "running"
+    db.flush.assert_called_once()
 
 
 @pytest.mark.asyncio

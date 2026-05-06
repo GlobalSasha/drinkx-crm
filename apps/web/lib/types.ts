@@ -316,3 +316,56 @@ export function tierFromScore(score: number): "A" | "B" | "C" | "D" {
   if (score >= 40) return "C";
   return "D";
 }
+
+// ---- Enrichment ----
+
+export type EnrichmentStatus = "running" | "succeeded" | "failed" | "skipped";
+
+export interface DecisionMakerHint {
+  name: string;
+  title: string;
+  role: string; // economic_buyer / champion / technical_buyer / operational_buyer / ""
+  confidence: "high" | "medium" | "low";
+  source: string;
+}
+
+export interface ResearchOutput {
+  company_profile: string;
+  network_scale: string;
+  geography: string;
+  formats: string;
+  coffee_signals: string;
+  growth_signals: string[];
+  risk_signals: string[];
+  decision_maker_hints: DecisionMakerHint[];
+  fit_score: number;
+  next_steps: string[];
+  urgency: "high" | "medium" | "low" | "";
+  sources_used: string[];
+  notes: string;
+}
+
+export interface EnrichmentRun {
+  id: string;
+  lead_id: string;
+  user_id: string | null;
+  status: EnrichmentStatus;
+  provider: string | null;
+  model: string | null;
+  prompt_tokens: number;
+  completion_tokens: number;
+  cost_usd: number; // Decimal serialized as string by pydantic; coerce on read
+  duration_ms: number;
+  sources_used: string[];
+  error: string | null;
+  result_json: ResearchOutput | null;
+  started_at: string;
+  finished_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EnrichmentTriggerResponse {
+  enrichment_run_id: string;
+  status: EnrichmentStatus;
+}

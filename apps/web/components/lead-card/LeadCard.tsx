@@ -17,6 +17,7 @@ import { ContactsTab } from "./ContactsTab";
 import { ScoringTab } from "./ScoringTab";
 import { ActivityTab } from "./ActivityTab";
 import { PilotTab } from "./PilotTab";
+import { AIBriefTab } from "./AIBriefTab";
 import { FollowupsRail } from "./FollowupsRail";
 import { GateModal } from "./GateModal";
 
@@ -43,10 +44,11 @@ const DEAL_TYPE_LABELS: Record<string, string> = {
   service_repeat:    "Сервис",
 };
 
-type TabKey = "deal" | "contacts" | "scoring" | "activity" | "pilot";
+type TabKey = "deal" | "ai-brief" | "contacts" | "scoring" | "activity" | "pilot";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "deal",     label: "Сделка" },
+  { key: "ai-brief", label: "AI Brief" },
   { key: "contacts", label: "Контакты" },
   { key: "scoring",  label: "Scoring" },
   { key: "activity", label: "Активность" },
@@ -381,6 +383,7 @@ export function LeadCard({ leadId }: Props) {
           {/* Right tab body */}
           <div className="flex-1 min-w-0">
             {activeTab === "deal" && <DealTab lead={lead} />}
+            {activeTab === "ai-brief" && <AIBriefTab leadId={lead.id} />}
             {activeTab === "contacts" && <ContactsTab lead={lead} />}
             {activeTab === "scoring" && <ScoringTab lead={lead} />}
             {activeTab === "activity" && <ActivityTab leadId={lead.id} />}

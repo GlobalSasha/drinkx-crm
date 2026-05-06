@@ -13,6 +13,7 @@ from app.db import get_db, get_session_factory
 from app.enrichment import services
 from app.enrichment.api_schemas import EnrichmentRunOut, EnrichmentTriggerOut
 from app.enrichment.orchestrator import run_enrichment
+from app.enrichment.services import EnrichmentAlreadyRunning
 from app.leads.services import LeadNotFound
 
 router = APIRouter(prefix="/leads/{lead_id}/enrichment", tags=["enrichment"])
@@ -42,6 +43,11 @@ async def trigger(
         )
     except LeadNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+    except EnrichmentAlreadyRunning as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"detail": "enrichment already in progress", "run_id": str(e.run_id)},
+        )
 
     await db.commit()
     background.add_task(_bg_run, run.id)

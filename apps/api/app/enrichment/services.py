@@ -1,6 +1,7 @@
 """Enrichment service layer — workspace-scoped EnrichmentRun management."""
 from __future__ import annotations
 
+import uuid as _uuid_mod
 from uuid import UUID
 
 from sqlalchemy import desc, select
@@ -9,6 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.enrichment.models import EnrichmentRun
 from app.leads.models import Lead
 from app.leads.services import LeadNotFound
+
+
+class EnrichmentAlreadyRunning(Exception):
+    def __init__(self, run_id: UUID):
+        super().__init__(f"enrichment already running: {run_id}")
+        self.run_id = run_id
 
 
 async def trigger_enrichment(
@@ -22,6 +29,7 @@ async def trigger_enrichment(
 
     Caller schedules the orchestrator via FastAPI BackgroundTasks.
     Raises LeadNotFound if lead is missing or belongs to a different workspace.
+    Raises EnrichmentAlreadyRunning if there is already a 'running' run for this lead.
     """
     # Verify lead exists in this workspace
     result = await db.execute(
@@ -30,6 +38,16 @@ async def trigger_enrichment(
     lead = result.scalar_one_or_none()
     if lead is None:
         raise LeadNotFound(lead_id)
+
+    # Rate limit: at most one in-flight run per lead
+    existing = await db.execute(
+        select(EnrichmentRun)
+        .where(EnrichmentRun.lead_id == lead_id, EnrichmentRun.status == "running")
+        .limit(1)
+    )
+    running_run = existing.scalar_one_or_none()
+    if running_run is not None:
+        raise EnrichmentAlreadyRunning(running_run.id)
 
     run = EnrichmentRun(
         lead_id=lead_id,
