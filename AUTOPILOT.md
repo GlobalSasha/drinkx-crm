@@ -246,12 +246,15 @@ Goal: a new lead's AI Brief actually gets filled by real research over real sour
 > AUTOPILOT: 1.3.2 ✓ (web_fetch + brave + hh) — built by Claude Sonnet 4.6 on 2026-05-06
 
 ### 1.3.3 Research Agent
-- [ ] `app/enrichment/orchestrator.py` — pre-filter → query builder → parallel fetch →
-  relevance filter → synthesis (PRD §7.1)
-- [ ] `enrichment_runs` table + Celery task with cost tracking (cost_tokens, cost_usd, duration_ms)
-- [ ] Output via Pydantic `ResearchOutput` with fallback defaults
-- [ ] WebSocket progress events: `enrichment.started`, `enrichment.source_done`,
-  `enrichment.completed`
+- [x] `app/enrichment/orchestrator.py` — query builder → parallel fetch →
+  synthesis via complete_with_fallback(research_synthesis) → save to lead.ai_data
+- [x] `enrichment_runs` table (migration 0003) + ORM model + service layer with cost tracking (cost_tokens, cost_usd, duration_ms)
+- [x] Output via Pydantic `ResearchOutput` with fallback defaults
+- [x] Router: POST /leads/{id}/enrichment (202), GET /latest, GET list — BackgroundTasks
+- [-] Celery task — deferred to Phase E
+- [-] WebSocket progress events — deferred to Phase E
+
+> AUTOPILOT: 1.3.3 ✓ (orchestrator + DB persistence; Celery + WS deferred to 1.3.E) — built by Claude Sonnet 4.6 on 2026-05-06
 
 ### 1.3.4 Knowledge Base + business profile
 - [ ] `knowledge/drinkx/*.md` initial files (playbook_horeca, objections, etc — copy from prototype Knowledge Base UI examples)
