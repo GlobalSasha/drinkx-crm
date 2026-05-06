@@ -1,6 +1,8 @@
 // Typed wrapper around fetch for the FastAPI backend.
 // Adds JWT from Supabase session and unwraps JSON.
 
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 type Method = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
@@ -16,10 +18,17 @@ async function request<T>(
   path: string,
   options: { body?: unknown; token?: string; signal?: AbortSignal } = {},
 ): Promise<T> {
+  let token = options.token;
+  if (!token && typeof window !== "undefined") {
+    const supabase = getSupabaseBrowserClient();
+    const { data } = await supabase.auth.getSession();
+    token = data.session?.access_token ?? undefined;
+  }
+
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
-  if (options.token) headers.Authorization = `Bearer ${options.token}`;
+  if (token) headers.Authorization = `Bearer ${token}`;
 
   const res = await fetch(`${API_URL}${path}`, {
     method,
