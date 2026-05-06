@@ -1,0 +1,418 @@
+"use client";
+import { useState } from "react";
+import { CheckSquare, Square, ChevronDown, Loader2, ArrowRight } from "lucide-react";
+import {
+  useActivities,
+  useCreateActivity,
+  useCompleteTask,
+} from "@/lib/hooks/use-activities";
+import type { ActivityOut } from "@/lib/types";
+
+const FILTER_OPTIONS = [
+  { label: "Все", value: "" },
+  { label: "Комментарии", value: "comment" },
+  { label: "Задачи", value: "task" },
+  { label: "Звонки", value: "call" },
+  { label: "Email", value: "email" },
+  { label: "Телеграм", value: "telegram" },
+  { label: "Этапы", value: "stage_change" },
+  { label: "Файлы", value: "file" },
+];
+
+const COMPOSER_MODES = ["comment", "task", "reminder", "file"] as const;
+type ComposerMode = (typeof COMPOSER_MODES)[number];
+
+const MODE_LABELS: Record<ComposerMode, string> = {
+  comment: "Комментарий",
+  task: "Задача",
+  reminder: "Напоминание",
+  file: "Файл",
+};
+
+interface Props {
+  leadId: string;
+}
+
+export function ActivityTab({ leadId }: Props) {
+  const [filterType, setFilterType] = useState("");
+  const [mode, setMode] = useState<ComposerMode>("comment");
+
+  // Composer state
+  const [commentText, setCommentText] = useState("");
+  const [taskName, setTaskName] = useState("");
+  const [taskDueAt, setTaskDueAt] = useState("");
+  const [reminderText, setReminderText] = useState("");
+  const [reminderAt, setReminderAt] = useState("");
+  const [fileUrl, setFileUrl] = useState("");
+  const [fileKind, setFileKind] = useState("document");
+
+  const activitiesQuery = useActivities(leadId, filterType || undefined);
+  const createActivity = useCreateActivity(leadId);
+  const completeTask = useCompleteTask(leadId);
+
+  const allItems: ActivityOut[] = activitiesQuery.data
+    ? activitiesQuery.data.pages.flatMap((p) => p.items)
+    : [];
+
+  function handlePublish() {
+    if (mode === "comment") {
+      if (!commentText.trim()) return;
+      createActivity.mutate(
+        { type: "comment", payload_json: { text: commentText.trim() } },
+        { onSuccess: () => setCommentText("") }
+      );
+    } else if (mode === "task") {
+      if (!taskName.trim()) return;
+      createActivity.mutate(
+        {
+          type: "task",
+          payload_json: { name: taskName.trim() },
+          task_due_at: taskDueAt || null,
+        },
+        { onSuccess: () => { setTaskName(""); setTaskDueAt(""); } }
+      );
+    } else if (mode === "reminder") {
+      if (!reminderText.trim()) return;
+      createActivity.mutate(
+        {
+          type: "reminder",
+          payload_json: { text: reminderText.trim() },
+          reminder_trigger_at: reminderAt || null,
+        },
+        { onSuccess: () => { setReminderText(""); setReminderAt(""); } }
+      );
+    } else if (mode === "file") {
+      if (!fileUrl.trim()) return;
+      createActivity.mutate(
+        {
+          type: "file",
+          file_url: fileUrl.trim(),
+          file_kind: fileKind,
+          payload_json: {},
+        },
+        { onSuccess: () => { setFileUrl(""); } }
+      );
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Composer */}
+      <div className="bg-canvas rounded-2xl border border-black/5 p-4">
+        {/* Mode tabs */}
+        <div className="flex gap-0.5 mb-3 bg-white/60 rounded-lg p-0.5 w-fit">
+          {COMPOSER_MODES.map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                mode === m
+                  ? "bg-white text-ink shadow-soft"
+                  : "text-muted-2 hover:text-ink"
+              }`}
+            >
+              {MODE_LABELS[m]}
+            </button>
+          ))}
+        </div>
+
+        {/* Comment */}
+        {mode === "comment" && (
+          <div className="space-y-2">
+            <textarea
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder="Напишите комментарий..."
+              rows={3}
+              className="w-full px-3 py-2.5 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 resize-none transition-all"
+            />
+            <div className="flex justify-end">
+              <button
+                onClick={handlePublish}
+                disabled={!commentText.trim() || createActivity.isPending}
+                className="px-4 py-1.5 rounded-pill text-sm font-semibold bg-ink text-white hover:bg-ink/90 disabled:opacity-40 transition-all"
+              >
+                {createActivity.isPending ? "..." : "Опубликовать"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Task */}
+        {mode === "task" && (
+          <div className="space-y-2">
+            <input
+              type="text"
+              value={taskName}
+              onChange={(e) => setTaskName(e.target.value)}
+              placeholder="Название задачи..."
+              className="w-full px-3 py-2.5 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+            />
+            <input
+              type="datetime-local"
+              value={taskDueAt}
+              onChange={(e) => setTaskDueAt(e.target.value)}
+              className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+            />
+            <div className="flex justify-end">
+              <button
+                onClick={handlePublish}
+                disabled={!taskName.trim() || createActivity.isPending}
+                className="px-4 py-1.5 rounded-pill text-sm font-semibold bg-ink text-white hover:bg-ink/90 disabled:opacity-40 transition-all"
+              >
+                {createActivity.isPending ? "..." : "Создать задачу"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Reminder */}
+        {mode === "reminder" && (
+          <div className="space-y-2">
+            <input
+              type="text"
+              value={reminderText}
+              onChange={(e) => setReminderText(e.target.value)}
+              placeholder="Текст напоминания..."
+              className="w-full px-3 py-2.5 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+            />
+            <input
+              type="datetime-local"
+              value={reminderAt}
+              onChange={(e) => setReminderAt(e.target.value)}
+              className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+            />
+            <div className="flex justify-end">
+              <button
+                onClick={handlePublish}
+                disabled={!reminderText.trim() || createActivity.isPending}
+                className="px-4 py-1.5 rounded-pill text-sm font-semibold bg-ink text-white hover:bg-ink/90 disabled:opacity-40 transition-all"
+              >
+                {createActivity.isPending ? "..." : "Создать"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* File */}
+        {mode === "file" && (
+          <div className="space-y-2">
+            <input
+              type="url"
+              value={fileUrl}
+              onChange={(e) => setFileUrl(e.target.value)}
+              placeholder="URL файла..."
+              className="w-full px-3 py-2.5 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+            />
+            <select
+              value={fileKind}
+              onChange={(e) => setFileKind(e.target.value)}
+              className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+            >
+              <option value="document">Документ</option>
+              <option value="presentation">Презентация</option>
+              <option value="contract">Договор</option>
+              <option value="other">Другое</option>
+            </select>
+            <div className="flex justify-end">
+              <button
+                onClick={handlePublish}
+                disabled={!fileUrl.trim() || createActivity.isPending}
+                className="px-4 py-1.5 rounded-pill text-sm font-semibold bg-ink text-white hover:bg-ink/90 disabled:opacity-40 transition-all"
+              >
+                {createActivity.isPending ? "..." : "Прикрепить"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Filter row */}
+      <div className="flex flex-wrap gap-1">
+        {FILTER_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => setFilterType(opt.value)}
+            className={`px-3 py-1 text-xs font-semibold rounded-pill transition-all ${
+              filterType === opt.value
+                ? "bg-ink text-white"
+                : "bg-canvas text-muted hover:bg-canvas-2"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Feed */}
+      {activitiesQuery.isLoading ? (
+        <div className="flex justify-center py-8">
+          <Loader2 size={20} className="animate-spin text-muted-2" />
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {allItems.length === 0 && (
+            <p className="text-sm text-muted-2 text-center py-6">
+              Активностей нет
+            </p>
+          )}
+          {allItems.map((activity) => (
+            <ActivityItem
+              key={activity.id}
+              activity={activity}
+              onCompleteTask={() => completeTask.mutate(activity.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Load more */}
+      {activitiesQuery.hasNextPage && (
+        <div className="flex justify-center">
+          <button
+            onClick={() => activitiesQuery.fetchNextPage()}
+            disabled={activitiesQuery.isFetchingNextPage}
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-muted hover:text-ink bg-canvas hover:bg-canvas-2 rounded-pill transition-all"
+          >
+            {activitiesQuery.isFetchingNextPage ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <ChevronDown size={14} />
+            )}
+            Загрузить ещё
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ActivityItem({
+  activity,
+  onCompleteTask,
+}: {
+  activity: ActivityOut;
+  onCompleteTask: () => void;
+}) {
+  const date = new Date(activity.created_at);
+  const dateStr = date.toLocaleDateString("ru-RU", {
+    day: "2-digit",
+    month: "short",
+  });
+  const timeStr = date.toLocaleTimeString("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  if (activity.type === "task") {
+    return (
+      <div
+        className={`flex items-start gap-3 p-3 rounded-xl border transition-colors ${
+          activity.task_done
+            ? "bg-success/5 border-success/10"
+            : "bg-canvas border-black/5"
+        }`}
+      >
+        <button
+          onClick={onCompleteTask}
+          disabled={activity.task_done}
+          className="mt-0.5 shrink-0"
+        >
+          {activity.task_done ? (
+            <CheckSquare size={16} className="text-success" />
+          ) : (
+            <Square size={16} className="text-muted-2 hover:text-accent transition-colors" />
+          )}
+        </button>
+        <div className="flex-1 min-w-0">
+          <p
+            className={`text-sm font-medium ${
+              activity.task_done ? "line-through text-muted-2" : "text-ink"
+            }`}
+          >
+            {activity.payload_json?.name ?? "Задача"}
+          </p>
+          {activity.task_due_at && (
+            <p className="text-xs text-muted-2 mt-0.5">
+              Срок:{" "}
+              {new Date(activity.task_due_at).toLocaleDateString("ru-RU")}
+            </p>
+          )}
+          {activity.task_done && activity.task_completed_at && (
+            <p className="text-xs text-success mt-0.5">
+              Выполнено:{" "}
+              {new Date(activity.task_completed_at).toLocaleDateString("ru-RU")}
+            </p>
+          )}
+        </div>
+        <span className="font-mono text-[10px] text-muted-3 shrink-0">
+          {dateStr} {timeStr}
+        </span>
+      </div>
+    );
+  }
+
+  if (activity.type === "stage_change") {
+    const payload = activity.payload_json ?? {};
+    return (
+      <div className="flex items-center gap-2 py-2 px-3 bg-canvas/50 rounded-xl border border-black/5">
+        <span className="text-xs text-muted-2">
+          {payload.from_stage ?? "—"}
+        </span>
+        <ArrowRight size={12} className="text-muted-3 shrink-0" />
+        <span className="text-xs font-semibold text-ink">
+          {payload.to_stage ?? "—"}
+        </span>
+        {payload.gate_skipped && (
+          <span className="text-[10px] font-semibold text-rose bg-rose/10 px-1.5 py-0.5 rounded-pill ml-1">
+            gate skipped
+          </span>
+        )}
+        <span className="font-mono text-[10px] text-muted-3 ml-auto shrink-0">
+          {dateStr} {timeStr}
+        </span>
+      </div>
+    );
+  }
+
+  // Default: comment / reminder / file / other
+  const text =
+    activity.payload_json?.text ??
+    activity.body ??
+    activity.subject ??
+    activity.file_url ??
+    "";
+
+  const TYPE_LABELS: Record<string, string> = {
+    comment: "Комментарий",
+    reminder: "Напоминание",
+    file: "Файл",
+    call: "Звонок",
+    email: "Email",
+    telegram: "Telegram",
+  };
+
+  return (
+    <div className="p-3 bg-canvas rounded-xl border border-black/5">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] font-mono text-muted-3">
+          {TYPE_LABELS[activity.type] ?? activity.type}
+        </span>
+        <span className="font-mono text-[10px] text-muted-3">
+          {dateStr} {timeStr}
+        </span>
+      </div>
+      {text && <p className="text-sm text-ink leading-relaxed">{text}</p>}
+      {activity.type === "file" && activity.file_url && (
+        <a
+          href={activity.file_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-accent hover:underline"
+        >
+          {activity.file_kind ?? "Файл"}: {activity.file_url}
+        </a>
+      )}
+    </div>
+  );
+}

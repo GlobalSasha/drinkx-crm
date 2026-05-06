@@ -65,6 +65,9 @@ def create_app() -> FastAPI:
     from app.followups.routers import router as followups_router
     app.include_router(followups_router)
 
+    from app.pipelines.routers import router as pipelines_router
+    app.include_router(pipelines_router)
+
     return app
 
 

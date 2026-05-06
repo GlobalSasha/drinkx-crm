@@ -81,9 +81,18 @@ async def create_lead(
     payload: LeadCreate,
 ) -> Lead:
     from app.followups import services as followups_services  # lazy: avoid circular import
+    from app.pipelines import repositories as pipelines_repo
 
     _validate_enum_fields(payload.priority, payload.deal_type)
     data = payload.model_dump(exclude_none=False)
+
+    # Default placement: position-0 stage of the workspace's default pipeline.
+    # Without this, manager-created leads land in no column on the Kanban.
+    if data.get("stage_id") is None and data.get("pipeline_id") is None:
+        first = await pipelines_repo.get_default_first_stage(db, workspace_id)
+        if first is not None:
+            data["pipeline_id"], data["stage_id"] = first
+
     lead = await repo.create_lead(
         db,
         workspace_id,
