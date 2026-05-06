@@ -57,7 +57,7 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     website: Mapped[str | None] = mapped_column(String(512), nullable=True)
     inn: Mapped[str | None] = mapped_column(String(20), nullable=True)
     source: Mapped[str | None] = mapped_column(String(60), nullable=True)
-    tags_json: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    tags_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
 
     # B2B (ADR-004, ADR-016)
     deal_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
@@ -66,6 +66,9 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     fit_score: Mapped[float | None] = mapped_column(Numeric(4, 2), nullable=True)
 
     # Lead Pool (ADR-015)
+    # assigned_to / transferred_from are FKs to users but have no ORM relationship —
+    # loading the user is done in the service layer via a JOIN to avoid coupling the
+    # leads domain to the auth domain (package-per-domain, ADR-009).
     assignment_status: Mapped[str] = mapped_column(String(20), default="pool", nullable=False)
     assigned_to: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True

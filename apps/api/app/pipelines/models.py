@@ -55,7 +55,7 @@ class Stage(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     probability: Mapped[int] = mapped_column(Integer, default=10, nullable=False)  # 0-100
     is_won: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_lost: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    gate_criteria_json: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    gate_criteria_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
 
     pipeline: Mapped[Pipeline] = relationship(back_populates="stages")
 
