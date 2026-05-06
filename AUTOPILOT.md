@@ -230,9 +230,12 @@ No AI yet.
 Goal: a new lead's AI Brief actually gets filled by real research over real sources.
 
 ### 1.3.1 Provider abstraction
-- [ ] `app/enrichment/providers/base.py` — `LLMProvider` Protocol
-- [ ] `DeepSeekProvider`, `OpenAIProvider`, `GeminiProvider` implementations
-- [ ] `get_llm_provider()` factory reading `CRM_AI_BACKEND` env
+- [x] `app/enrichment/providers/base.py` — `LLMProvider` Protocol, `TaskType` enum, Flash/Pro split
+- [x] `MiMoProvider`, `AnthropicProvider`, `GeminiProvider`, `DeepSeekProvider` implementations (httpx, no SDKs)
+- [x] `get_llm_provider()` factory + `complete_with_fallback()` with structured logging
+- [x] `ResearchOutput` Pydantic schema with fallback defaults everywhere (PRD §7.2)
+- [x] 15 tests via `_FakeAsyncClient` — no real network calls
+> AUTOPILOT: 1.3.1 ✓ — built by Claude Sonnet 4.6 on 2026-05-06
 
 ### 1.3.2 Sources
 - [ ] `app/enrichment/sources/brave.py` with 24h Redis cache by query hash
