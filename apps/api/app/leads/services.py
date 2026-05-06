@@ -13,6 +13,7 @@ from app.automation.stage_change import (
     StageTransitionInvalid,
     move_stage as automation_move_stage,
 )
+from app.followups import services as followups_services
 from app.leads import repositories as repo
 from app.leads.models import DealType, Lead, Priority
 from app.leads.schemas import LeadCreate, LeadUpdate
@@ -78,13 +79,15 @@ async def create_lead(
 ) -> Lead:
     _validate_enum_fields(payload.priority, payload.deal_type)
     data = payload.model_dump(exclude_none=False)
-    return await repo.create_lead(
+    lead = await repo.create_lead(
         db,
         workspace_id,
         data,
         assigned_to=user_id,
         assignment_status="assigned",
     )
+    await followups_services.seed_for_lead(db, lead.id)
+    return lead
 
 
 async def list_leads(
