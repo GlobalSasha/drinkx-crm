@@ -166,16 +166,17 @@ No AI yet.
 - [ ] Notifications: `lead_transferred` event → dispatcher → notify new manager
 
 ### 1.2.3 Web — Pipeline screen
-- [ ] `apps/web/app/pipeline/page.tsx` with TanStack Query hooks
-- [ ] Filter row: segment chips + city chips + search input (port from prototype)
-- [ ] Drag-drop with @dnd-kit, optimistic update + rollback on error
-- [ ] Page-level scroll + per-column scroll (port CSS pattern)
-- [ ] Won-confirmation modal with detail capture
-- [ ] AI Brief drawer on click (port from prototype) — for now reads `lead.ai_data` JSON
-- [ ] **«Сформировать план на неделю»** button in Pipeline header
-- [ ] **SprintModal** component (city multi-select + segment + preview N + create)
-- [ ] **Empty state** for new manager (CTA to open SprintModal)
-- [ ] **TransferModal** in LeadCard menu (⋯ → «Передать менеджеру»)
+- [x] `apps/web/app/pipeline/page.tsx` with TanStack Query hooks
+- [x] Filter row: segment chips + city chips + search input (port from prototype)
+- [x] Drag-drop with @dnd-kit, optimistic update + rollback on error
+- [x] Page-level scroll + per-column scroll (port CSS pattern)
+- [-] Won-confirmation modal with detail capture — skipped (Task 6 scope)
+- [x] AI Brief drawer on click (port from prototype) — for now reads `lead.ai_data` JSON
+- [x] **«Сформировать план на неделю»** button in Pipeline header
+- [x] **SprintModal** component (city multi-select + segment + preview N + create)
+- [x] **Empty state** for new manager (empty columns show dashed drop zone)
+- [-] **TransferModal** in LeadCard menu (⋯ → «Передать менеджеру») — skipped (Task 6 scope)
+> AUTOPILOT: 1.2.3 ✓ — built by Claude Sonnet 4.6 on 2026-05-05
 
 ### 1.2.3.b Web — Lead Pool page (new sidebar section)
 - [ ] `apps/web/app/leads-pool/page.tsx` — table view: компания, город, сегмент, tier, fit_score, статус
