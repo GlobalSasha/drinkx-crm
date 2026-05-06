@@ -9,7 +9,7 @@
 | ADR-005 | Deal Type = required field, 6 values | ✅ |
 | ADR-006 | Priority A/B/C/D (replaces tier 1/2/3 numeric) | ✅ |
 | ADR-007 | AI proposes, human approves — always | ✅ |
-| ADR-008 | DeepSeek V3 primary, GPT-4o for vision/high-value | ✅ |
+| ADR-008 | DeepSeek V3 primary, GPT-4o for vision/high-value | ⚠ superseded by ADR-018 |
 | ADR-009 | Package-per-domain backend (not layered) | ✅ |
 | ADR-010 | Rotting = two independent rules | ✅ |
 | ADR-011 | Pilot Success Contract activates at Stage 9 | ✅ |
@@ -19,6 +19,7 @@
 | ADR-015 | Lead Pool + Weekly Sprint System (PRD-addition v2.1) | ✅ |
 | ADR-016 | B2B model (index-b2b.html) is official target; PRD v2.0 outdated | ✅ |
 | ADR-017 | Scoring criteria = separate table `scoring_criteria`, per-workspace | ✅ |
+| ADR-018 | MiMo (Xiaomi) is primary LLM; chain MiMo → Anthropic → Gemini → DeepSeek | ✅ |
 
 ---
 
@@ -61,10 +62,13 @@ No automated outbound messages without explicit manager approval.
 No auto-actions in B2B context — one wrong message kills a deal.
 Even auto_email reminders are drafts requiring manager click-to-send.
 
-## ADR-008 DeepSeek V3 primary, GPT-4o for vision + high-value only
-Cost: DeepSeek ~$0.0003/1K tokens vs GPT-4o ~$0.01/1K (33× cheaper).
-GPT-4o reserved for: visit-card OCR (vision), fit≥8 re-enrichment (premium).
-Gemini 1.5 Pro as fallback if both fail.
+## ADR-008 DeepSeek V3 primary, GPT-4o for vision + high-value only ⚠ SUPERSEDED
+**Superseded by ADR-018 (2026-05-06). DeepSeek is now a fallback, not the primary.**
+
+Original reasoning kept for history:
+> Cost: DeepSeek ~$0.0003/1K tokens vs GPT-4o ~$0.01/1K (33× cheaper).
+> GPT-4o reserved for: visit-card OCR (vision), fit≥8 re-enrichment (premium).
+> Gemini 1.5 Pro as fallback if both fail.
 
 ## ADR-009 Package-per-domain backend (Krayin pattern)
 NOT layered (controllers/services/repos at top level) but domain packages
@@ -158,3 +162,68 @@ filtered by city + segment, pseudo-random within priority.
 Race-safe via optimistic UPDATE-WHERE-pool.
 Transfer between managers logged as activity.
 Implemented in Sprint 1.2.
+
+## ADR-018 MiMo (Xiaomi) as primary LLM; multi-provider fallback chain
+
+**Date:** 2026-05-06
+**Supersedes:** ADR-008 (DeepSeek-primary)
+
+### Decision
+
+Primary LLM provider is **Xiaomi MiMo V2** via the OpenAI-compatible endpoint
+`https://api.xiaomimimo.com/v1`. Two SKUs are used:
+
+- `mimo-v2-flash` — bulk / cheap. Default for: Research Agent synthesis, Daily Plan
+  generation, Quality pre-filter (regex + mini-LLM go/no-go).
+- `mimo-v2-pro` — heavy reasoning. Default for: high-fit (≥8) re-enrichment,
+  Sales Coach chat, scoring assistance, anything the user judges high-stakes.
+
+Fallback chain on 5xx / rate-limit / auth-error:
+**MiMo → Anthropic (`claude-sonnet-4-5`) → Gemini → DeepSeek**.
+
+OpenAI GPT-4o is reserved for vision (visit-card OCR) and emergency only —
+it is not part of the text fallback chain.
+
+### Why not DeepSeek-primary (ADR-008)
+
+- MiMo Flash matches DeepSeek's price tier with stronger long-context support
+  (1M token context on Pro vs DeepSeek's 64K) — useful for Knowledge-Base-grounded
+  synthesis where the lead profile + KB excerpts + tool outputs can be large.
+- Anthropic as the first fallback gives a true quality ceiling for reasoning-heavy
+  tasks if MiMo degrades; DeepSeek (now last in chain) only fires when both MiMo
+  and Anthropic fail.
+- Single-vendor primary risk: keeping Anthropic, Gemini, DeepSeek wired means we
+  can swap primary in one env-var flip if MiMo pricing or availability shifts.
+
+### Implementation rule
+
+Sprint 1.3 lands `app/enrichment/providers/{mimo,anthropic,gemini,deepseek,openai}.py`,
+each implementing a common `LLMProvider` Protocol. The factory
+`get_llm_provider(task_type)` reads `CRM_AI_BACKEND` (default `"mimo"`) and
+`LLM_FALLBACK_CHAIN` (default `["mimo","anthropic","gemini","deepseek"]`)
+from env, walking the chain on failure.
+
+`task_type` switches the model SKU within MiMo:
+- `task_type in ("research_synthesis","daily_plan","prefilter")` → `MIMO_MODEL_FLASH`
+- `task_type in ("sales_coach","scoring","reenrichment_high_fit")` → `MIMO_MODEL_PRO`
+
+### Env contract
+
+```
+MIMO_API_KEY=
+MIMO_BASE_URL=https://api.xiaomimimo.com/v1
+MIMO_MODEL_PRO=mimo-v2-pro
+MIMO_MODEL_FLASH=mimo-v2-flash
+ANTHROPIC_API_KEY=
+ANTHROPIC_MODEL=claude-sonnet-4-5
+GEMINI_API_KEY=
+DEEPSEEK_API_KEY=
+OPENAI_API_KEY=          # vision only
+CRM_AI_BACKEND=mimo
+LLM_FALLBACK_CHAIN=["mimo","anthropic","gemini","deepseek"]
+```
+
+### Scope of this ADR
+
+This ADR only changes config defaults and documentation. Runtime provider code
+will be implemented in Sprint 1.3 along with the Research Agent.

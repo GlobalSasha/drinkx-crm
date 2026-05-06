@@ -32,15 +32,23 @@ class Settings(BaseSettings):
     supabase_secret_key: str = ""
     supabase_jwt_secret: str = ""
 
-    # AI providers — see CLAUDE.md
-    deepseek_api_key: str = ""
-    openai_api_key: str = ""
+    # AI providers — see CLAUDE.md and ADR-018
+    # Primary: Xiaomi MiMo (OpenAI-compatible). Anthropic / Gemini / DeepSeek as fallbacks.
+    mimo_api_key: str = ""
+    mimo_base_url: str = "https://api.xiaomimimo.com/v1"
+    mimo_model_pro: str = "mimo-v2-pro"      # high-value: Sales Coach, scoring, synthesis for fit≥8
+    mimo_model_flash: str = "mimo-v2-flash"  # bulk/cheap: Research Agent, Daily Plan, pre-filter
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-sonnet-4-5"
     gemini_api_key: str = ""
+    deepseek_api_key: str = ""
+    openai_api_key: str = ""                 # vision (GPT-4o) + emergency only
     brave_api_key: str = ""
     apify_token: str = ""
 
-    # Default LLM backend
-    crm_ai_backend: str = "deepseek"
+    # Default LLM backend + fallback chain (ADR-018)
+    crm_ai_backend: str = "mimo"
+    llm_fallback_chain: list[str] = ["mimo", "anthropic", "gemini", "deepseek"]
 
     # Sentry
     sentry_dsn: str = ""
