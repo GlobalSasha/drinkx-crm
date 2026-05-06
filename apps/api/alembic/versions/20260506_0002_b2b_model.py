@@ -99,7 +99,7 @@ def upgrade() -> None:
                     "(id, created_at, updated_at, pipeline_id, name, position, color, "
                     "rot_days, probability, is_won, is_lost, gate_criteria_json) "
                     "VALUES (:id, now(), now(), :pipeline_id, :name, :position, :color, "
-                    ":rot_days, :probability, :is_won, :is_lost, :gate_criteria_json::json)"
+                    ":rot_days, :probability, :is_won, :is_lost, CAST(:gate_criteria_json AS json))"
                 ),
                 {
                     "id": str(uuid.uuid4()),
