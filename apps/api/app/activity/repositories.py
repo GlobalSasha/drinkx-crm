@@ -2,13 +2,23 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activity.models import Activity
+
+
+def _encode_cursor(created_at: datetime, activity_id: uuid.UUID) -> str:
+    """Composite cursor: 'ISO_TS|UUID' — stable when timestamps collide."""
+    return f"{created_at.isoformat()}|{activity_id}"
+
+
+def _decode_cursor(cursor: str) -> tuple[datetime, uuid.UUID]:
+    ts_str, id_str = cursor.split("|", 1)
+    return datetime.fromisoformat(ts_str), uuid.UUID(id_str)
 
 
 async def list_for_lead(
@@ -19,21 +29,33 @@ async def list_for_lead(
     cursor: str | None = None,
     limit: int = 50,
 ) -> tuple[list[Activity], str | None]:
-    """Return (items, next_cursor). Cursor is ISO datetime string of created_at."""
+    """Return (items, next_cursor).
+
+    Cursor format: 'ISO_TIMESTAMP|UUID' (composite). The UUID component is the
+    tiebreaker when two activities share the same `created_at` (millisecond-rounded
+    timestamps from rapid inserts). Without it, page boundaries could silently
+    skip rows. Sort + filter use lexicographic order on (created_at DESC, id DESC).
+    """
     q = select(Activity).where(Activity.lead_id == lead_id)
     if type_filter is not None:
         q = q.where(Activity.type == type_filter)
     if cursor is not None:
-        cursor_dt = datetime.fromisoformat(cursor)
-        q = q.where(Activity.created_at < cursor_dt)
-    q = q.order_by(Activity.created_at.desc()).limit(limit + 1)
+        cursor_ts, cursor_id = _decode_cursor(cursor)
+        # Composite "less than (created_at, id)" — order matches DESC sort below
+        q = q.where(
+            or_(
+                Activity.created_at < cursor_ts,
+                and_(Activity.created_at == cursor_ts, Activity.id < cursor_id),
+            )
+        )
+    q = q.order_by(Activity.created_at.desc(), Activity.id.desc()).limit(limit + 1)
 
     result = await db.execute(q)
     rows = list(result.scalars().all())
 
     if len(rows) > limit:
         rows = rows[:limit]
-        next_cursor = rows[-1].created_at.isoformat()
+        next_cursor = _encode_cursor(rows[-1].created_at, rows[-1].id)
     else:
         next_cursor = None
 

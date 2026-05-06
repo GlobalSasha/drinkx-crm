@@ -158,9 +158,9 @@ No AI yet.
   - [x] `POST /leads/{id}/claim` (single manual take from pool)
   - [x] `POST /leads/{id}/transfer` body: `{to_user_id, comment?}`
 - [ ] `app/pipelines/`: list + reorder stages
-- [ ] `app/contacts/`: per-lead nested CRUD
-- [ ] `app/activities/`: feed endpoints (list with cursor pagination, post comment/task/reminder/file)
-- [ ] `app/followups/`: list/create/edit/complete; auto-seed on lead create
+- [x] `app/contacts/`: per-lead nested CRUD
+- [x] `app/activities/`: feed endpoints (cursor pagination, composer, complete-task)
+- [x] `app/followups/`: list/create/edit/complete; auto-seed on lead create (3 defaults)
 - [ ] WebSocket connection at `/ws/{user_id}` (Redis pub/sub)
 - [x] Stage change goes through `app/automation/stage_change.py`
 - [ ] Notifications: `lead_transferred` event → dispatcher → notify new manager

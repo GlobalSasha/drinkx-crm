@@ -13,11 +13,14 @@ from app.automation.stage_change import (
     StageTransitionInvalid,
     move_stage as automation_move_stage,
 )
-from app.followups import services as followups_services
 from app.leads import repositories as repo
 from app.leads.models import DealType, Lead, Priority
 from app.leads.schemas import LeadCreate, LeadUpdate
 from app.pipelines.models import Stage
+
+# NOTE: app.followups.services is imported lazily inside create_lead() to avoid
+# a module-level circular import (followups.services imports leads.services for
+# LeadNotFound). With both top-level imports in place, load order becomes fragile.
 
 
 # ---------------------------------------------------------------------------
@@ -77,6 +80,8 @@ async def create_lead(
     user_id: uuid.UUID,
     payload: LeadCreate,
 ) -> Lead:
+    from app.followups import services as followups_services  # lazy: avoid circular import
+
     _validate_enum_fields(payload.priority, payload.deal_type)
     data = payload.model_dump(exclude_none=False)
     lead = await repo.create_lead(
