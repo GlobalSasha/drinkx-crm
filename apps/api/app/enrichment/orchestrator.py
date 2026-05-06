@@ -25,7 +25,9 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.enrichment.budget import add_to_daily_spend
 from app.enrichment.models import EnrichmentRun
+from app.enrichment.profile import render_profile_for_prompt
 from app.enrichment.providers.base import LLMError, TaskType
 from app.enrichment.providers.factory import complete_with_fallback
 from app.enrichment.schemas import ResearchOutput
@@ -271,8 +273,10 @@ async def run_enrichment(*, db: AsyncSession, run_id: UUID) -> None:
         )
 
         # --- Step 4: LLM synthesis ---
+        profile_block = render_profile_for_prompt()
+        system_prompt = SYNTHESIS_SYSTEM if not profile_block else f"{profile_block}\n\n{SYNTHESIS_SYSTEM}"
         completion = await complete_with_fallback(
-            system=SYNTHESIS_SYSTEM,
+            system=system_prompt,
             user=user_prompt,
             task_type=TaskType.research_synthesis,
             max_tokens=2048,
@@ -311,6 +315,9 @@ async def run_enrichment(*, db: AsyncSession, run_id: UUID) -> None:
         run.finished_at = datetime.now(tz=timezone.utc)
 
         await db.commit()
+
+        # Track daily spend in Redis (best-effort, never fail the run)
+        await add_to_daily_spend(lead.workspace_id, completion.cost_usd)
 
         bound_log.info(
             "enrichment.succeeded",

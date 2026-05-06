@@ -7,6 +7,8 @@ from uuid import UUID
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.enrichment.budget import has_budget_remaining, _daily_cap_usd, get_daily_spend_usd
+from app.enrichment.concurrency import is_at_concurrency_limit
 from app.enrichment.models import EnrichmentRun
 from app.leads.models import Lead
 from app.leads.services import LeadNotFound
@@ -16,6 +18,17 @@ class EnrichmentAlreadyRunning(Exception):
     def __init__(self, run_id: UUID):
         super().__init__(f"enrichment already running: {run_id}")
         self.run_id = run_id
+
+
+class EnrichmentConcurrencyLimit(Exception):
+    """Already at AI_MAX_PARALLEL_JOBS running runs for the workspace."""
+
+
+class EnrichmentBudgetExceeded(Exception):
+    def __init__(self, spent: float, cap: float):
+        super().__init__(f"daily AI budget exceeded: ${spent:.2f} / ${cap:.2f}")
+        self.spent = spent
+        self.cap = cap
 
 
 async def trigger_enrichment(
@@ -30,6 +43,8 @@ async def trigger_enrichment(
     Caller schedules the orchestrator via FastAPI BackgroundTasks.
     Raises LeadNotFound if lead is missing or belongs to a different workspace.
     Raises EnrichmentAlreadyRunning if there is already a 'running' run for this lead.
+    Raises EnrichmentConcurrencyLimit if workspace is at AI_MAX_PARALLEL_JOBS running runs.
+    Raises EnrichmentBudgetExceeded if workspace has exceeded daily AI budget.
     """
     # Verify lead exists in this workspace
     result = await db.execute(
@@ -38,6 +53,16 @@ async def trigger_enrichment(
     lead = result.scalar_one_or_none()
     if lead is None:
         raise LeadNotFound(lead_id)
+
+    # Guard: workspace concurrency limit
+    if await is_at_concurrency_limit(db, workspace_id):
+        raise EnrichmentConcurrencyLimit()
+
+    # Guard: daily budget
+    if not await has_budget_remaining(workspace_id):
+        spent = await get_daily_spend_usd(workspace_id)
+        cap = _daily_cap_usd()
+        raise EnrichmentBudgetExceeded(spent, cap)
 
     # Rate limit: at most one in-flight run per lead
     existing = await db.execute(

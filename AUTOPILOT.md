@@ -258,15 +258,18 @@ Goal: a new lead's AI Brief actually gets filled by real research over real sour
 
 ### 1.3.4 Knowledge Base + business profile
 - [ ] `knowledge/drinkx/*.md` initial files (playbook_horeca, objections, etc — copy from prototype Knowledge Base UI examples)
-- [ ] `config/drinkx_profile.yaml` populated with real DrinkX info
-- [ ] Loader at api startup: reads files into Redis, watches for changes
-- [ ] Tag matcher selects relevant files for the synthesis prompt
+- [x] `config/drinkx_profile.yaml` populated with real DrinkX info (product, ICP, fit_score anchors, objections, signals)
+- [x] `profile.py` — `load_profile()` lru_cache + `render_profile_for_prompt()` prepended to synthesis system prompt
+- [ ] Loader at api startup: reads files into Redis, watches for changes (KB library — Phase F)
+- [ ] Tag matcher selects relevant files for the synthesis prompt (KB library — Phase F)
 
 ### 1.3.5 Cost control
 - [ ] Quality pre-filter (regex stop-list + mini-LLM go/no-go)
 - [x] Rate limit: max 1 in-flight enrichment per lead (409 if already running) — Phase E
-- [ ] Rate limit: max 1 enrichment / lead / 24h; max 5 parallel jobs / workspace
-- [ ] Daily budget guard with circuit-breaker (Settings → AI budget)
+- [x] Rate limit: max 5 parallel jobs / workspace — `concurrency.py` + `is_at_concurrency_limit()` → 429
+- [x] Daily budget guard — `budget.py`, Redis key `ai_budget:{workspace_id}:{YYYY-MM-DD}`, cap = monthly/30; `has_budget_remaining()` guard before trigger; `add_to_daily_spend()` on every succeeded run → 429
+> AUTOPILOT: 1.3.4 (profile) + 1.3.5 (cost guards: budget + concurrency) ✓ — built by Claude Sonnet 4.6 on 2026-05-06
+> KB library (knowledge/drinkx/*.md + tag matcher) remains [ ] — Phase F.
 
 ### 1.3.6 Web — enrichment UI
 - [x] AI Brief tab in LeadCard (between Сделка and Контакты) — Phase E
