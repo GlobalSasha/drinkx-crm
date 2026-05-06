@@ -107,6 +107,14 @@ services:
     build:
       context: ../../apps/web
       dockerfile: Dockerfile
+      # NEXT_PUBLIC_* must be passed as build args — Next.js inlines them at
+      # build time. Runtime `environment:` below is kept as belt-and-suspenders
+      # for any server-side code that reads from process.env at runtime.
+      args:
+        NEXT_PUBLIC_API_URL: https://crm.drinkx.tech/api
+        NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY}
+        NEXT_PUBLIC_SENTRY_DSN: ${SENTRY_DSN_WEB}
     restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_URL: https://crm.drinkx.tech/api
