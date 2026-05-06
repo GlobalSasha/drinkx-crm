@@ -38,7 +38,7 @@ class MiMoProvider:
         model = s.mimo_model_flash if is_flash_task(task_type) else s.mimo_model_pro
         url = f"{s.mimo_base_url.rstrip('/')}/chat/completions"
 
-        payload = {
+        payload: dict = {
             "model": model,
             "messages": [
                 {"role": "system", "content": system},
@@ -46,6 +46,14 @@ class MiMoProvider:
             ],
             "max_tokens": max_tokens,
             "temperature": temperature,
+            "stream": False,
+            # Disable / minimize reasoning so the full max_tokens budget stays
+            # available for the actual answer. MiMo Pro auto-enables reasoning
+            # which can silently truncate the JSON we expect. Unknown fields
+            # are ignored by OpenAI-compatible servers (per spec).
+            "reasoning_effort": "minimal",
+            # Anthropic-style hint, also passed in case MiMo supports it
+            "thinking": {"type": "disabled"},
         }
         # MiMo uses 'api-key:' header, NOT 'Authorization: Bearer'
         headers = {"api-key": s.mimo_api_key, "Content-Type": "application/json"}
