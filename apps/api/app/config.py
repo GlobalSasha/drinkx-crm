@@ -24,10 +24,12 @@ class Settings(BaseSettings):
     # Redis (Celery broker + cache)
     redis_url: str = Field(default="redis://localhost:6379/0")
 
-    # Supabase (Auth)
+    # Supabase (Auth) — naming matches the modern Supabase dashboard:
+    #   PUBLISHABLE_KEY = old "anon key" (safe in browser)
+    #   SECRET_KEY      = old "service_role key" (server only)
     supabase_url: str = ""
-    supabase_anon_key: str = ""
-    supabase_service_key: str = ""
+    supabase_publishable_key: str = ""
+    supabase_secret_key: str = ""
     supabase_jwt_secret: str = ""
 
     # AI providers — see CLAUDE.md
