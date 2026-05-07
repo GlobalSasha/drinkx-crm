@@ -65,6 +65,13 @@ def gmail_incremental_sync() -> dict:
     return asyncio.run(_run("gmail_incremental_sync", incremental_sync_for_all))
 
 
+@celery_app.task(name="app.scheduled.jobs.generate_inbox_suggestion")
+def generate_inbox_suggestion(inbox_item_id: str) -> dict:
+    """AI prefilter for an unmatched InboxItem — proposes create_lead /
+    add_contact / match_lead. Failures are silent (suggested_action stays NULL)."""
+    return asyncio.run(_run_inbox_suggestion(UUID(inbox_item_id)))
+
+
 def _build_task_engine_and_factory():
     """Each Celery task needs its own engine because asyncio.run() creates a
     fresh event loop per invocation, while asyncpg connections are bound to
@@ -85,6 +92,108 @@ def _build_task_engine_and_factory():
     )
     factory = async_sessionmaker(engine, expire_on_commit=False)
     return engine, factory
+
+
+_INBOX_SUGGESTION_SYSTEM = """Ты — sales-аналитик DrinkX (умные кофе-станции для розницы и HoReCa).
+Получаешь кратко: email отправителя и тему письма. Решаешь — это потенциальный
+B2B клиент DrinkX (сети кофеен, HoReCa, ритейл, заправки, foodmarkets) или нет.
+Если да — предложи действие.
+
+Возвращай РОВНО один JSON-объект, первый символ `{`, без markdown.
+Схема:
+{
+  "action": "create_lead" | "add_contact" | "match_lead" | "ignore",
+  "company_name": str,    // что распознал; пусто если ignore
+  "contact_name": str,    // если есть в имени отправителя; иначе пусто
+  "confidence": number    // 0.0..1.0
+}"""
+
+
+_INBOX_SUGGESTION_USER = """Email отправителя: {from_email}
+Тема: {subject}
+Превью: {body_preview}
+
+Это потенциальный клиент DrinkX? Верни JSON по схеме."""
+
+
+async def _run_inbox_suggestion(inbox_item_id: UUID) -> dict:
+    """Best-effort AI prefilter for an unmatched email.
+
+    Never raises — on any failure leaves InboxItem.suggested_action=None.
+    """
+    import json as _json
+    from sqlalchemy import select
+    from app.inbox.models import InboxItem
+    from app.enrichment.providers.base import LLMError, TaskType
+    from app.enrichment.providers.factory import complete_with_fallback
+
+    engine, factory = _build_task_engine_and_factory()
+    try:
+        async with factory() as session:
+            res = await session.execute(
+                select(InboxItem).where(InboxItem.id == inbox_item_id)
+            )
+            item = res.scalar_one_or_none()
+            if item is None:
+                return {"job": "generate_inbox_suggestion", "error": "not_found"}
+
+            user_prompt = _INBOX_SUGGESTION_USER.format(
+                from_email=item.from_email or "",
+                subject=item.subject or "",
+                body_preview=(item.body_preview or "")[:500],
+            )
+            try:
+                completion = await complete_with_fallback(
+                    system=_INBOX_SUGGESTION_SYSTEM,
+                    user=user_prompt,
+                    task_type=TaskType.prefilter,
+                    max_tokens=300,
+                    temperature=0.2,
+                )
+            except LLMError as e:
+                log.warning(
+                    "inbox.suggestion.llm_failed",
+                    inbox_item_id=str(inbox_item_id),
+                    error=str(e)[:200],
+                )
+                return {"job": "generate_inbox_suggestion", "error": "llm_failed"}
+
+            text = (completion.text or "").strip()
+            if text.startswith("```"):
+                lines = text.splitlines()
+                text = "\n".join(lines[1:-1]) if len(lines) > 2 else text
+            try:
+                parsed = _json.loads(text)
+            except (ValueError, _json.JSONDecodeError):
+                log.warning(
+                    "inbox.suggestion.parse_failed",
+                    inbox_item_id=str(inbox_item_id),
+                    raw_preview=text[:200],
+                )
+                return {"job": "generate_inbox_suggestion", "error": "parse_failed"}
+
+            if not isinstance(parsed, dict) or "action" not in parsed:
+                return {"job": "generate_inbox_suggestion", "error": "bad_shape"}
+
+            cleaned = {
+                "action": str(parsed.get("action", "ignore")),
+                "company_name": str(parsed.get("company_name") or "")[:200],
+                "contact_name": str(parsed.get("contact_name") or "")[:200],
+                "confidence": float(parsed.get("confidence") or 0.0),
+                "lead_id": None,
+            }
+            item.suggested_action = cleaned
+            await session.commit()
+            return {"job": "generate_inbox_suggestion", "action": cleaned["action"]}
+    except Exception as exc:
+        log.exception(
+            "inbox.suggestion.task_failed",
+            inbox_item_id=str(inbox_item_id),
+            error=str(exc)[:200],
+        )
+        return {"job": "generate_inbox_suggestion", "error": str(exc)[:200]}
+    finally:
+        await engine.dispose()
 
 
 async def _run_gmail_history_sync(user_id: UUID) -> dict:

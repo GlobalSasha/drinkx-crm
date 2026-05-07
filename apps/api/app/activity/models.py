@@ -44,7 +44,16 @@ class Activity(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     file_kind: Mapped[str | None] = mapped_column(String(40), nullable=True)
     channel: Mapped[str | None] = mapped_column(String(20), nullable=True)
     direction: Mapped[str | None] = mapped_column(String(10), nullable=True)
-    subject: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    subject: Mapped[str | None] = mapped_column(String(500), nullable=True)
     body: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Email-specific (Sprint 2.0 G3). gmail_message_id is the dedup guard,
+    # gmail_raw_json carries the original Gmail payload (skipped if > 50KB).
+    # ADR-019: emails belong to the lead card — user_id here records *which*
+    # mailbox the message came from, NOT a visibility filter.
+    gmail_message_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    gmail_raw_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    from_identifier: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    to_identifier: Mapped[str | None] = mapped_column(String(300), nullable=True)
 
     lead: Mapped["Lead"] = relationship(back_populates="activities")  # type: ignore[name-defined]
