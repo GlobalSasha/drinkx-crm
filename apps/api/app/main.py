@@ -80,6 +80,9 @@ def create_app() -> FastAPI:
     from app.audit.routers import router as audit_router
     app.include_router(audit_router)
 
+    from app.inbox.routers import router as inbox_router
+    app.include_router(inbox_router)
+
     return app
 
 

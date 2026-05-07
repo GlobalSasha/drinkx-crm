@@ -69,6 +69,22 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from: str = "DrinkX CRM <noreply@crm.drinkx.tech>"
 
+    # Public-facing URLs — used to build OAuth redirect_uri and to send
+    # the user back to the SPA after callback.
+    api_base_url: str = "http://localhost:8000"
+    frontend_base_url: str = "http://localhost:3000"
+
+    # Google OAuth (Gmail Inbox sync — Sprint 2.0).
+    # Reuses the same OAuth client as Supabase Google sign-in if it
+    # already exists on the project. The Gmail readonly scope is
+    # requested separately via /api/inbox/connect-gmail.
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    gmail_scopes: str = "https://www.googleapis.com/auth/gmail.readonly"
+    gmail_history_months: int = 6
+    gmail_sync_interval_minutes: int = 5
+    gmail_max_body_chars: int = 10000
+
 
 @lru_cache
 def get_settings() -> Settings:
