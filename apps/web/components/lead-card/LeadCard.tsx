@@ -6,12 +6,14 @@ import {
   ChevronDown,
   Loader2,
   AlertTriangle,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { useLead, useUpdateLead } from "@/lib/hooks/use-lead";
 import { usePipelines, DEFAULT_STAGES } from "@/lib/hooks/use-pipelines";
 import { useMoveStage } from "@/lib/hooks/use-leads";
 import type { Stage } from "@/lib/types";
-import { tierFromScore } from "@/lib/types";
+import { dealTypeLabel, priorityLabel } from "@/lib/i18n";
 import { DealTab } from "./DealTab";
 import { ContactsTab } from "./ContactsTab";
 import { ScoringTab } from "./ScoringTab";
@@ -20,29 +22,41 @@ import { PilotTab } from "./PilotTab";
 import { AIBriefTab } from "./AIBriefTab";
 import { FollowupsRail } from "./FollowupsRail";
 import { GateModal } from "./GateModal";
+import { TransferModal } from "./TransferModal";
 
 const PRIORITY_STYLES: Record<string, string> = {
   A: "bg-accent/10 text-accent",
-  B: "bg-success/10 text-success",
-  C: "bg-warning/10 text-warning",
-  D: "bg-black/5 text-muted",
+  B: "bg-warning/10 text-warning",
+  C: "bg-canvas text-muted",
+  D: "bg-black/5 text-muted-2",
 };
 
-const TIER_COLORS: Record<string, string> = {
-  A: "bg-accent text-white",
-  B: "bg-success text-white",
-  C: "bg-warning text-white",
-  D: "bg-muted text-white",
-};
+function scoreChipClass(score: number | null | undefined): string {
+  if (score == null) return "bg-black/5 text-muted-2";
+  if (score >= 80) return "bg-success/10 text-success";
+  if (score >= 60) return "bg-warning/10 text-warning";
+  return "bg-black/5 text-muted-2";
+}
 
-const DEAL_TYPE_LABELS: Record<string, string> = {
-  enterprise_direct:  "Enterprise",
-  qsr:               "QSR",
-  distributor_partner: "Дистрибьютор",
-  raw_materials:     "Сырьё",
-  private_small:     "Малый бизнес",
-  service_repeat:    "Сервис",
-};
+function fitChipClass(fit: number | null | undefined): string {
+  if (fit == null) return "bg-black/5 text-muted-2";
+  if (fit >= 8) return "bg-success/10 text-success";
+  if (fit >= 5) return "bg-warning/10 text-warning";
+  return "bg-black/5 text-muted-2";
+}
+
+function formatWonLostDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleDateString("ru-RU", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+  } catch {
+    return "";
+  }
+}
 
 type TabKey = "deal" | "ai-brief" | "contacts" | "scoring" | "activity" | "pilot";
 
@@ -70,6 +84,7 @@ export function LeadCard({ leadId }: Props) {
   const [nameValue, setNameValue] = useState("");
   const [stageDropdownOpen, setStageDropdownOpen] = useState(false);
   const [gateTarget, setGateTarget] = useState<Stage | null>(null);
+  const [transferOpen, setTransferOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -136,6 +151,7 @@ export function LeadCard({ leadId }: Props) {
   function handleLost() {
     const lostStage = stages.find((s) => s.is_lost);
     if (!lostStage || !lead) return;
+    if (!window.confirm("Перевести в Проиграно?")) return;
     const reason = prompt("Причина закрытия:");
     if (reason === null) return;
     moveStage.mutate({
@@ -167,7 +183,9 @@ export function LeadCard({ leadId }: Props) {
     );
   }
 
-  const tier = tierFromScore(lead.score);
+  const isWon = !!displayStage?.is_won;
+  const isLost = !!displayStage?.is_lost;
+  const closedAt = isWon ? lead.won_at : isLost ? lead.lost_at : null;
 
   return (
     <div className="min-h-screen bg-canvas flex flex-col">
@@ -208,7 +226,7 @@ export function LeadCard({ leadId }: Props) {
                 </h1>
               )}
 
-              {/* Meta row */}
+              {/* Status chips row */}
               <div className="flex flex-wrap items-center gap-2 mt-1.5">
                 {/* Stage chip */}
                 <span
@@ -221,36 +239,36 @@ export function LeadCard({ leadId }: Props) {
                 {/* Priority */}
                 {lead.priority && (
                   <span
-                    className={`text-xs font-bold px-2 py-0.5 rounded-md ${
+                    className={`text-xs font-semibold px-2 py-0.5 rounded-md ${
                       PRIORITY_STYLES[lead.priority] ?? "bg-black/5 text-muted"
                     }`}
                   >
-                    {lead.priority}
+                    {priorityLabel(lead.priority)}
                   </span>
                 )}
 
                 {/* Deal type */}
                 {lead.deal_type && (
                   <span className="text-xs text-muted-2 bg-black/5 px-2 py-0.5 rounded-md">
-                    {DEAL_TYPE_LABELS[lead.deal_type] ?? lead.deal_type}
+                    {dealTypeLabel(lead.deal_type)}
                   </span>
                 )}
 
-                {/* Score + tier */}
-                <span className="font-mono text-xs text-muted">
-                  score{" "}
-                  <span className="font-bold text-ink">{lead.score}</span>
-                </span>
+                {/* Score */}
                 <span
-                  className={`text-xs font-bold px-2 py-0.5 rounded-pill ${TIER_COLORS[tier]}`}
+                  className={`font-mono text-xs font-semibold px-2 py-0.5 rounded-md tabular-nums ${scoreChipClass(lead.score)}`}
+                  title="0–100, weighted scoring"
                 >
-                  {tier}
+                  {lead.score ?? "—"}/100
                 </span>
 
-                {/* Fit score */}
+                {/* fit_score */}
                 {lead.fit_score != null && (
-                  <span className="font-mono text-xs text-accent bg-accent/10 px-2 py-0.5 rounded-md">
-                    fit {lead.fit_score}
+                  <span
+                    className={`font-mono text-xs font-semibold px-2 py-0.5 rounded-md tabular-nums ${fitChipClass(Number(lead.fit_score))}`}
+                    title="AI fit_score, 0–10"
+                  >
+                    AI {lead.fit_score}/10
                   </span>
                 )}
 
@@ -266,35 +284,31 @@ export function LeadCard({ leadId }: Props) {
 
             {/* Right actions — wraps onto a second line on narrow viewports */}
             <div className="flex flex-wrap items-center gap-2 mt-1 w-full sm:w-auto sm:shrink-0">
-              {/* Transfer placeholder */}
+              {/* Transfer */}
               <button
-                onClick={() => showToast("Функция передачи в разработке")}
+                onClick={() => setTransferOpen(true)}
                 className="px-3 py-1.5 text-sm font-semibold text-muted bg-canvas border border-black/10 rounded-pill hover:bg-canvas-2 transition-all"
               >
                 Передать
               </button>
 
               {/* Won */}
-              {!displayStage?.is_won && !displayStage?.is_lost && (
-                <button
-                  onClick={handleWon}
-                  disabled={moveStage.isPending}
-                  className="px-3 py-1.5 text-sm font-semibold bg-success text-white rounded-pill hover:bg-success/90 disabled:opacity-50 transition-all"
-                >
-                  Won
-                </button>
-              )}
+              <button
+                onClick={handleWon}
+                disabled={moveStage.isPending || isWon}
+                className="px-3 py-1.5 text-sm font-semibold bg-success text-white rounded-pill hover:bg-success/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                Выиграна
+              </button>
 
               {/* Lost */}
-              {!displayStage?.is_won && !displayStage?.is_lost && (
-                <button
-                  onClick={handleLost}
-                  disabled={moveStage.isPending}
-                  className="px-3 py-1.5 text-sm font-semibold bg-rose text-white rounded-pill hover:bg-rose/90 disabled:opacity-50 transition-all"
-                >
-                  Lost
-                </button>
-              )}
+              <button
+                onClick={handleLost}
+                disabled={moveStage.isPending || isLost}
+                className="px-3 py-1.5 text-sm font-semibold bg-rose text-white rounded-pill hover:bg-rose/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                Проиграна
+              </button>
 
               {/* Move stage dropdown */}
               <div className="relative">
@@ -302,7 +316,7 @@ export function LeadCard({ leadId }: Props) {
                   onClick={() => setStageDropdownOpen((v) => !v)}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold bg-ink text-white rounded-pill hover:bg-ink/90 transition-all"
                 >
-                  Стадия
+                  Сменить стадию
                   <ChevronDown size={13} />
                 </button>
                 {stageDropdownOpen && (
@@ -343,6 +357,26 @@ export function LeadCard({ leadId }: Props) {
               </div>
             </div>
           </div>
+
+          {/* Won / Lost banner — only shown after the lead has actually
+              entered a terminal stage. Sits between chips/actions and the
+              tab switcher so it can't be missed. */}
+          {(isWon || isLost) && (
+            <div
+              className={`mt-3 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold ${
+                isWon
+                  ? "bg-success/10 text-success"
+                  : "bg-rose/10 text-rose"
+              }`}
+            >
+              {isWon ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+              <span>
+                {isWon ? "Сделка выиграна" : "Сделка проиграна"}
+                {closedAt && ` · ${formatWonLostDate(closedAt)}`}
+                {isLost && lead.lost_reason && ` · ${lead.lost_reason}`}
+              </span>
+            </div>
+          )}
 
           {/* Tab switcher — <select> on mobile, horizontal strip on sm+ */}
           <div className="sm:hidden mt-4">
@@ -414,6 +448,16 @@ export function LeadCard({ leadId }: Props) {
           onSuccess={() => {
             setGateTarget(null);
           }}
+        />
+      )}
+
+      {/* Transfer modal */}
+      {transferOpen && (
+        <TransferModal
+          leadId={lead.id}
+          currentAssignedTo={lead.assigned_to ?? null}
+          onClose={() => setTransferOpen(false)}
+          onSuccess={() => showToast("Лид передан")}
         />
       )}
 

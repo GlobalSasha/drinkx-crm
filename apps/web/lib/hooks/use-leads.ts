@@ -114,6 +114,25 @@ export function useMoveStage() {
   });
 }
 
+export function useTransferLead() {
+  const qc = useQueryClient();
+  return useMutation<
+    LeadOut,
+    ApiError,
+    { leadId: string; to_user_id: string; comment?: string | null }
+  >({
+    mutationFn: ({ leadId, to_user_id, comment }) =>
+      api.post<LeadOut>(`/leads/${leadId}/transfer`, {
+        to_user_id,
+        comment: comment ?? null,
+      }),
+    onSuccess: (_lead, vars) => {
+      qc.invalidateQueries({ queryKey: ["lead", vars.leadId] });
+      qc.invalidateQueries({ queryKey: ["leads"] });
+    },
+  });
+}
+
 export function useCreateSprint() {
   const qc = useQueryClient();
   return useMutation<SprintCreateOut, ApiError, SprintCreateIn>({
