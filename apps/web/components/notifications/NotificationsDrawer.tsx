@@ -8,6 +8,7 @@ import {
   useMarkRead,
   useNotificationsList,
 } from "@/lib/hooks/use-notifications";
+import { relativeTime } from "@/lib/relative-time";
 import type { NotificationOut } from "@/lib/types";
 
 const KIND_LABEL: Record<string, string> = {
@@ -29,19 +30,6 @@ const KIND_STYLE: Record<string, string> = {
   mention: "bg-accent/10 text-accent",
   system: "bg-black/5 text-muted",
 };
-
-function relativeTime(iso: string): string {
-  const then = new Date(iso).getTime();
-  const now = Date.now();
-  const diff = Math.max(0, now - then);
-  const min = Math.floor(diff / 60_000);
-  if (min < 1) return "только что";
-  if (min < 60) return `${min} мин назад`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `${h} ч назад`;
-  const d = Math.floor(h / 24);
-  return `${d} дн назад`;
-}
 
 interface Props {
   open: boolean;

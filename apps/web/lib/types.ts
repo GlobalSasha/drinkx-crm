@@ -457,3 +457,57 @@ export interface NotificationListOut {
 export interface MarkAllReadOut {
   affected: number;
 }
+
+// ---- Auth: /auth/me ----
+
+export interface WorkspaceOut {
+  id: string;
+  name: string;
+  plan: string;
+  sprint_capacity_per_week: number;
+}
+
+export type UserRole = "admin" | "head" | "manager";
+
+export interface MeOut {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole | string; // backend stores any 20-char string; coerce on read
+  timezone: string;
+  max_active_deals: number;
+  specialization: string[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  working_hours_json: Record<string, any>;
+  onboarding_completed: boolean;
+  last_login_at: string | null;
+  workspace: WorkspaceOut;
+}
+
+// ---- Audit (Sprint 1.5 group 4) ----
+
+export type AuditAction =
+  | "lead.create"
+  | "lead.transfer"
+  | "lead.move_stage"
+  | "enrichment.trigger"
+  | "daily_plan.regenerate";
+
+export interface AuditLogOut {
+  id: string;
+  workspace_id: string;
+  user_id: string | null;
+  action: AuditAction | string;
+  entity_type: string;
+  entity_id: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  delta_json: Record<string, any> | null;
+  created_at: string;
+}
+
+export interface AuditLogPageOut {
+  items: AuditLogOut[];
+  total: number;
+  page: number;
+  page_size: number;
+}

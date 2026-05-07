@@ -12,11 +12,13 @@ import {
   Users,
   Settings,
   Bell,
+  History,
 } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { User } from "@supabase/supabase-js";
 import { NotificationsDrawer } from "@/components/notifications/NotificationsDrawer";
 import { useNotificationsBadge } from "@/lib/hooks/use-notifications";
+import { useMe } from "@/lib/hooks/use-me";
 
 interface NavItem {
   label: string;
@@ -45,6 +47,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const { data: badge } = useNotificationsBadge();
   const unreadCount = badge?.unread ?? 0;
+  const { data: me } = useMe();
+  const isAdmin = me?.role === "admin";
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -107,6 +111,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
+
+          {/* Admin-only: audit journal */}
+          {isAdmin && (() => {
+            const href = "/audit";
+            const isActive = pathname === href || pathname.startsWith(href + "/");
+            return (
+              <Link
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                href={href as any}
+                className={clsx(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
+                  isActive
+                    ? "bg-accent/10 text-accent"
+                    : "text-muted hover:bg-black/5"
+                )}
+              >
+                <History size={18} />
+                Журнал
+              </Link>
+            );
+          })()}
 
           {/* Notifications bell — opens drawer */}
           <button
