@@ -173,8 +173,8 @@ export function LeadCard({ leadId }: Props) {
     <div className="min-h-screen bg-canvas flex flex-col">
       {/* Sticky header */}
       <header className="sticky top-0 z-20 bg-white border-b border-black/5 shadow-soft">
-        <div className="max-w-6xl mx-auto px-6 py-3">
-          <div className="flex items-start gap-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3">
+          <div className="flex flex-wrap items-start gap-3 sm:gap-4">
             {/* Back */}
             <Link
               href="/pipeline"
@@ -196,12 +196,12 @@ export function LeadCard({ leadId }: Props) {
                     if (e.key === "Enter") commitName();
                     if (e.key === "Escape") setEditingName(false);
                   }}
-                  className="text-2xl font-extrabold tracking-tight text-ink bg-transparent border-b-2 border-accent outline-none w-full"
+                  className="text-xl sm:text-2xl font-extrabold tracking-tight text-ink bg-transparent border-b-2 border-accent outline-none w-full"
                 />
               ) : (
                 <h1
                   onClick={startEditName}
-                  className="text-2xl font-extrabold tracking-tight text-ink cursor-text hover:text-ink/80 transition-colors truncate"
+                  className="text-xl sm:text-2xl font-extrabold tracking-tight text-ink cursor-text hover:text-ink/80 transition-colors truncate"
                   title="Нажмите для редактирования"
                 >
                   {lead.company_name}
@@ -264,8 +264,8 @@ export function LeadCard({ leadId }: Props) {
               </div>
             </div>
 
-            {/* Right actions */}
-            <div className="flex items-center gap-2 shrink-0 mt-1">
+            {/* Right actions — wraps onto a second line on narrow viewports */}
+            <div className="flex flex-wrap items-center gap-2 mt-1 w-full sm:w-auto sm:shrink-0">
               {/* Transfer placeholder */}
               <button
                 onClick={() => showToast("Функция передачи в разработке")}
@@ -344,13 +344,26 @@ export function LeadCard({ leadId }: Props) {
             </div>
           </div>
 
-          {/* Tab strip */}
-          <div className="flex gap-0 mt-4 border-b border-black/5 -mb-px">
+          {/* Tab switcher — <select> on mobile, horizontal strip on sm+ */}
+          <div className="sm:hidden mt-4">
+            <label className="sr-only" htmlFor="lead-tab-select">Раздел</label>
+            <select
+              id="lead-tab-select"
+              value={activeTab}
+              onChange={(e) => setActiveTab(e.target.value as TabKey)}
+              className="w-full px-3 py-2.5 text-sm font-semibold bg-canvas border border-black/10 rounded-pill outline-none focus:border-accent/40 transition-colors"
+            >
+              {visibleTabs.map((tab) => (
+                <option key={tab.key} value={tab.key}>{tab.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="hidden sm:flex gap-0 mt-4 border-b border-black/5 -mb-px overflow-x-auto">
             {visibleTabs.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-all ${
+                className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-all whitespace-nowrap ${
                   activeTab === tab.key
                     ? "border-accent text-accent"
                     : "border-transparent text-muted-2 hover:text-ink"
@@ -369,14 +382,18 @@ export function LeadCard({ leadId }: Props) {
           gap-6 (24px) between columns matches the design spec.
           KB rail panel removed (Option a): no frontend data flows into it yet;
           KB matches will surface as chips inside the AI Brief result body (Phase G). */}
-      <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-6">
-        <div className="flex items-start gap-6">
-          {/* Left rail — 296px fixed */}
-          <div className="w-[296px] shrink-0 flex flex-col gap-4">
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-4 sm:py-6">
+        {/* Single column on < md (rail stacks ABOVE tab body so the user
+            sees follow-ups first); side-by-side on md+. min-w-0 on the
+            main column lets long content (tables, AI Brief paragraphs)
+            wrap instead of forcing horizontal scroll. */}
+        <div className="flex flex-col md:flex-row md:items-start md:gap-6 gap-4">
+          {/* Rail — 296px fixed on desktop, full-width strip on mobile */}
+          <div className="w-full md:w-[296px] md:shrink-0 flex flex-col gap-4">
             <FollowupsRail leadId={lead.id} />
           </div>
 
-          {/* Right tab body */}
+          {/* Tab body */}
           <div className="flex-1 min-w-0">
             {activeTab === "deal" && <DealTab lead={lead} />}
             {activeTab === "ai-brief" && <AIBriefTab leadId={lead.id} />}

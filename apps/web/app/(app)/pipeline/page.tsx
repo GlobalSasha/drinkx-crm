@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { Loader2 } from "lucide-react";
 import { PipelineHeader } from "@/components/pipeline/PipelineHeader";
 import { PipelineBoard } from "@/components/pipeline/PipelineBoard";
+import { PipelineList } from "@/components/pipeline/PipelineList";
 import { SprintModal } from "@/components/pipeline/SprintModal";
 import { BriefDrawer } from "@/components/pipeline/BriefDrawer";
 import { CreateLeadModal } from "@/components/pipeline/CreateLeadModal";
@@ -103,7 +104,18 @@ export default function PipelinePage() {
       )}
 
       {!isLoading && !isError && (
-        <PipelineBoard stages={stages} leads={allLeads} />
+        <>
+          {/* List view for narrow viewports — touch drag-drop is out of
+              scope per PRD §8.6, so the Kanban is replaced by a flat
+              read-only grouped list below md. */}
+          <div className="md:hidden flex flex-col flex-1 min-h-0">
+            <PipelineList stages={stages} leads={allLeads} />
+          </div>
+          {/* Kanban — md+ only */}
+          <div className="hidden md:flex flex-col flex-1 min-h-0">
+            <PipelineBoard stages={stages} leads={allLeads} />
+          </div>
+        </>
       )}
 
       <SprintModal />

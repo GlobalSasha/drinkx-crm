@@ -27,17 +27,17 @@ export function PipelineHeader({ leads, totalCount }: Props) {
   ).sort();
 
   return (
-    <div className="flex flex-col gap-3 px-6 py-4 bg-white border-b border-black/5">
+    <div className="flex flex-col gap-3 px-4 sm:px-6 py-4 bg-white border-b border-black/5">
       {/* Top row */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <h1 className="text-xl font-extrabold tracking-tight">Pipeline</h1>
           <span className="bg-black/5 text-muted-2 text-xs font-mono px-2 py-0.5 rounded-pill">
             {totalCount}
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={openCreateLeadModal}
             className="inline-flex items-center gap-1.5 bg-ink text-white rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-ink/90 active:scale-[0.98]"
@@ -50,7 +50,8 @@ export function PipelineHeader({ leads, totalCount }: Props) {
             className="inline-flex items-center gap-1.5 bg-accent text-white rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-accent/90 active:scale-[0.98]"
           >
             <CalendarRange size={15} />
-            Сформировать план на неделю
+            <span className="hidden sm:inline">Сформировать план на неделю</span>
+            <span className="sm:hidden">План на неделю</span>
           </button>
         </div>
       </div>

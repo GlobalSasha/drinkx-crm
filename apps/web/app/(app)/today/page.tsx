@@ -271,7 +271,7 @@ function Pagination({
       <button
         onClick={() => onPage(currentPage - 1)}
         disabled={currentPage === 1}
-        className="w-8 h-8 flex items-center justify-center rounded-lg text-muted hover:bg-canvas-2 hover:text-ink transition-colors disabled:opacity-30 disabled:cursor-not-allowed font-mono text-sm"
+        className="w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg text-muted hover:bg-canvas-2 hover:text-ink transition-colors disabled:opacity-30 disabled:cursor-not-allowed font-mono text-sm"
         aria-label="Предыдущая страница"
       >
         ←
@@ -282,7 +282,7 @@ function Pagination({
         <button
           key={p}
           onClick={() => onPage(p)}
-          className={`w-8 h-8 flex items-center justify-center rounded-lg font-mono text-[11px] transition-colors ${
+          className={`w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg font-mono text-[11px] transition-colors ${
             p === currentPage
               ? "bg-accent text-white font-semibold"
               : "text-muted hover:bg-canvas-2 hover:text-ink"
@@ -298,7 +298,7 @@ function Pagination({
       <button
         onClick={() => onPage(currentPage + 1)}
         disabled={currentPage === totalPages}
-        className="w-8 h-8 flex items-center justify-center rounded-lg text-muted hover:bg-canvas-2 hover:text-ink transition-colors disabled:opacity-30 disabled:cursor-not-allowed font-mono text-sm"
+        className="w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg text-muted hover:bg-canvas-2 hover:text-ink transition-colors disabled:opacity-30 disabled:cursor-not-allowed font-mono text-sm"
         aria-label="Следующая страница"
       >
         →
@@ -379,10 +379,10 @@ function TodayPageInner() {
   return (
     <>
       {/* Sticky header */}
-      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-black/5 px-6 py-3.5">
-        <div className="flex items-center justify-between gap-4 max-w-4xl mx-auto">
-          <div>
-            <div className="flex items-center gap-3">
+      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-black/5 px-4 sm:px-6 py-3.5">
+        <div className="flex flex-wrap items-center justify-between gap-3 max-w-4xl mx-auto">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-xl font-extrabold tracking-tight">Сегодня</h1>
               <span className="font-mono text-[11px] text-muted-2 lowercase">{TODAY_DATE}</span>
             </div>
@@ -399,16 +399,17 @@ function TodayPageInner() {
           <button
             onClick={handleRegenerate}
             disabled={isGenerating}
-            className="inline-flex items-center gap-2 bg-canvas border border-black/10 text-muted text-xs font-semibold rounded-pill px-4 py-2 hover:bg-canvas-2 hover:text-ink transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 bg-canvas border border-black/10 text-muted text-xs font-semibold rounded-pill px-4 py-2 hover:bg-canvas-2 hover:text-ink transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
           >
             <RefreshCw size={13} className={isGenerating ? "animate-spin" : ""} />
-            Пересобрать план
+            <span className="hidden sm:inline">Пересобрать план</span>
+            <span className="sm:hidden">Пересобрать</span>
           </button>
         </div>
       </div>
 
       {/* Body */}
-      <div className="max-w-4xl mx-auto px-6 py-6">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
 
         {/* Loading initial */}
         {isLoading && (

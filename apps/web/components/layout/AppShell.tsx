@@ -13,6 +13,8 @@ import {
   Settings,
   Bell,
   History,
+  Menu,
+  X,
 } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { User } from "@supabase/supabase-js";
@@ -45,6 +47,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { data: badge } = useNotificationsBadge();
   const unreadCount = badge?.unread ?? 0;
   const { data: me } = useMe();
@@ -59,6 +62,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Auto-close the mobile drawer whenever the route changes — otherwise
+  // tapping a nav item leaves the drawer covering the page underneath.
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
 
   async function handleSignOut() {
     const supabase = getSupabaseBrowserClient();
@@ -79,15 +88,60 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Kanban board on /pipeline) push the cell wider than the viewport
   // and the browser horizontal-scrolls the whole page, taking the header
   // off-screen.
+  //
+  // The `block md:grid` toggle makes the grid (and its 220px column 1
+  // reservation) only apply at md+. On narrow viewports the layout
+  // collapses to a single column and the sidebar slides in as an
+  // overlay — see translate classes on <aside> below.
   return (
-    <div className="grid min-h-screen bg-canvas" style={{ gridTemplateColumns: "220px minmax(0, 1fr)" }}>
-      {/* Sidebar */}
-      <aside className="fixed top-0 left-0 h-screen w-[220px] bg-white border-r border-black/5 flex flex-col z-20">
-        {/* Logo */}
-        <div className="px-5 py-5 border-b border-black/5">
+    <div
+      className="block md:grid min-h-screen bg-canvas"
+      style={{ gridTemplateColumns: "220px minmax(0, 1fr)" }}
+    >
+      {/* Mobile top bar — only visible on < md */}
+      <header className="md:hidden sticky top-0 z-20 bg-white border-b border-black/5 flex items-center justify-between px-4 py-3">
+        <Link href="/today" className="text-base font-extrabold tracking-tight">
+          drinkx<span className="text-accent">.</span>crm
+        </Link>
+        <button
+          onClick={() => setMobileNavOpen(true)}
+          className="p-2 -mr-2 rounded-lg text-muted hover:bg-canvas hover:text-ink transition-colors"
+          aria-label="Открыть меню"
+        >
+          <Menu size={20} />
+        </button>
+      </header>
+
+      {/* Mobile backdrop */}
+      {mobileNavOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-30 bg-black/30 backdrop-blur-[1px]"
+          onClick={() => setMobileNavOpen(false)}
+          aria-hidden
+        />
+      )}
+
+      {/* Sidebar.
+          Desktop (md+): always visible, fixed at 220px.
+          Mobile (<md): slides in from the left when mobileNavOpen flips. */}
+      <aside
+        className={clsx(
+          "fixed top-0 left-0 h-screen w-[220px] bg-white border-r border-black/5 flex flex-col z-40 transition-transform duration-200 ease-out",
+          mobileNavOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+        )}
+      >
+        {/* Logo + mobile close */}
+        <div className="px-5 py-5 border-b border-black/5 flex items-center justify-between">
           <span className="text-lg font-extrabold tracking-tight">
             drinkx<span className="text-accent">.</span>crm
           </span>
+          <button
+            onClick={() => setMobileNavOpen(false)}
+            className="md:hidden p-1 rounded-lg text-muted-3 hover:bg-canvas hover:text-ink transition-colors"
+            aria-label="Закрыть меню"
+          >
+            <X size={16} />
+          </button>
         </div>
 
         {/* Nav */}
@@ -191,12 +245,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      {/* Content area — offset by sidebar width.
+      {/* Content area — offset by sidebar width on md+.
           min-w-0 belt-and-suspenders: forces this grid item to honor its
           parent's minmax(0, 1fr) cell instead of its content min-width.
           Pages that need horizontal scroll (Pipeline) handle it with
           their own overflow-x-auto inside. */}
-      <div className="col-start-2 min-h-screen min-w-0">
+      <div className="md:col-start-2 min-h-screen min-w-0">
         {children}
       </div>
 
