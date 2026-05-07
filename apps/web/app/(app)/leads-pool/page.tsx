@@ -6,6 +6,22 @@ import { Toast } from "@/components/ui/Toast";
 import { tierFromScore } from "@/lib/types";
 import type { LeadOut } from "@/lib/types";
 
+// Russian-friendly labels for backend segment slugs (matches build_data.py).
+// Unknown slugs fall back to the raw string so we don't lose data.
+const SEGMENT_LABELS: Record<string, string> = {
+  food_retail: "Продуктовый ритейл",
+  non_food_retail: "Непродуктовый ритейл",
+  coffee_shops: "Кофейни и кафе",
+  qsr_fast_food: "QSR / Fast Food",
+  gas_stations: "АЗС",
+  coffee_equipment_distributors: "Дистрибьюторы оборудования",
+  horeca: "HoReCa",
+  restaurants: "Рестораны",
+  hotels: "Отели",
+};
+
+const segmentLabel = (s: string) => SEGMENT_LABELS[s] ?? s;
+
 // ---- Toast state ----
 
 interface ToastState {
@@ -62,7 +78,7 @@ function PoolRow({
         <p className="font-semibold text-sm text-ink">{lead.company_name}</p>
       </td>
       <td className="px-4 py-3 text-sm text-muted-2">{lead.city ?? "—"}</td>
-      <td className="px-4 py-3 text-sm text-muted-2">{lead.segment ?? "—"}</td>
+      <td className="px-4 py-3 text-sm text-muted-2">{lead.segment ? segmentLabel(lead.segment) : "—"}</td>
       <td className="px-4 py-3">
         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${TIER_STYLE[tier]}`}>
           {tier}
@@ -111,16 +127,17 @@ export default function LeadsPoolPage() {
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
   }, []);
 
-  // Fetch pool — pass city/segment to backend; fit_min handled client-side
-  const poolQuery = usePoolLeads({
-    city: cityFilter ?? undefined,
-    segment: segmentFilter ?? undefined,
-  });
+  // Fetch the WHOLE pool once and filter client-side. Per-chip counts only
+  // make sense against the unfiltered pool — passing city/segment to the
+  // backend means each chip would just show the size of the active filter
+  // (or zero for non-active ones). 216 leads ≈ 50KB, fine for one fetch;
+  // revisit if pool grows past a few thousand.
+  const poolQuery = usePoolLeads({ page_size: 500 });
   const claimMutation = useClaimLead();
 
   const allItems = poolQuery.data?.items ?? [];
 
-  // Derive unique cities + segments from raw data (before fit_min / search filtering)
+  // Sorted unique values for the chip rows
   const cities = useMemo(
     () => Array.from(new Set(allItems.map((l) => l.city).filter(Boolean) as string[])).sort(),
     [allItems]
@@ -130,9 +147,31 @@ export default function LeadsPoolPage() {
     [allItems]
   );
 
-  // Client-side filter: fit_min + search
+  // Per-segment / per-city counts on the unfiltered pool — populates the
+  // count badges inside chips so a manager sees "Кофейни и кафе · 29"
+  // before clicking.
+  const segmentCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const l of allItems) {
+      if (!l.segment) continue;
+      m.set(l.segment, (m.get(l.segment) ?? 0) + 1);
+    }
+    return m;
+  }, [allItems]);
+  const cityCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const l of allItems) {
+      if (!l.city) continue;
+      m.set(l.city, (m.get(l.city) ?? 0) + 1);
+    }
+    return m;
+  }, [allItems]);
+
+  // Apply ALL filters client-side: city + segment + fit_min + search
   const filtered = useMemo(() => {
     return allItems.filter((l) => {
+      if (cityFilter && l.city !== cityFilter) return false;
+      if (segmentFilter && l.segment !== segmentFilter) return false;
       if (fitMin > 0 && (l.fit_score == null || l.fit_score < fitMin)) return false;
       if (search) {
         const q = search.toLowerCase();
@@ -140,7 +179,7 @@ export default function LeadsPoolPage() {
       }
       return true;
     });
-  }, [allItems, fitMin, search]);
+  }, [allItems, cityFilter, segmentFilter, fitMin, search]);
 
   function handleClaim(id: string) {
     // Optimistic: gray row immediately
@@ -178,10 +217,15 @@ export default function LeadsPoolPage() {
       {/* Sticky header */}
       <div className="sticky top-0 z-10 bg-white border-b border-black/5 px-6 py-4">
         <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-baseline gap-2">
             <h1 className="text-xl font-extrabold tracking-tight">База лидов</h1>
-            <span className="bg-black/5 text-muted-2 text-xs font-mono px-2 py-0.5 rounded-pill">
-              {filtered.length} карточек в пуле
+            {/* Compact total — shown small next to title, the loud counts
+                live inside each chip below. */}
+            <span className="text-muted-3 text-xs font-mono tabular-nums">
+              {filtered.length}
+              {filtered.length !== allItems.length && (
+                <span className="text-muted-3"> / {allItems.length}</span>
+              )}
             </span>
           </div>
           {/* "Только мой пул" placeholder toggle */}
@@ -210,9 +254,20 @@ export default function LeadsPoolPage() {
           {/* City chips */}
           {cities.length > 0 && (
             <div className="flex flex-wrap gap-1">
-              <ChipButton active={cityFilter === null} onClick={() => setCityFilter(null)}>Все города</ChipButton>
+              <ChipButton
+                active={cityFilter === null}
+                onClick={() => setCityFilter(null)}
+                count={allItems.length}
+              >
+                Все города
+              </ChipButton>
               {cities.map((c) => (
-                <ChipButton key={c} active={cityFilter === c} onClick={() => setCityFilter(cityFilter === c ? null : c)}>
+                <ChipButton
+                  key={c}
+                  active={cityFilter === c}
+                  onClick={() => setCityFilter(cityFilter === c ? null : c)}
+                  count={cityCounts.get(c) ?? 0}
+                >
                   {c}
                 </ChipButton>
               ))}
@@ -222,12 +277,23 @@ export default function LeadsPoolPage() {
           {segments.length > 0 && (
             <>
               <span className="text-muted-3 text-xs">|</span>
-              {/* Segment chips */}
+              {/* Segment chips with Russian labels + per-segment counts */}
               <div className="flex flex-wrap gap-1">
-                <ChipButton active={segmentFilter === null} onClick={() => setSegmentFilter(null)}>Все сегменты</ChipButton>
+                <ChipButton
+                  active={segmentFilter === null}
+                  onClick={() => setSegmentFilter(null)}
+                  count={allItems.length}
+                >
+                  Все сегменты
+                </ChipButton>
                 {segments.map((s) => (
-                  <ChipButton key={s} active={segmentFilter === s} onClick={() => setSegmentFilter(segmentFilter === s ? null : s)}>
-                    {s}
+                  <ChipButton
+                    key={s}
+                    active={segmentFilter === s}
+                    onClick={() => setSegmentFilter(segmentFilter === s ? null : s)}
+                    count={segmentCounts.get(s) ?? 0}
+                  >
+                    {segmentLabel(s)}
                   </ChipButton>
                 ))}
               </div>
@@ -308,20 +374,33 @@ export default function LeadsPoolPage() {
 function ChipButton({
   active,
   onClick,
+  count,
   children,
 }: {
   active: boolean;
   onClick: () => void;
+  count?: number;
   children: React.ReactNode;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-1 rounded-pill text-xs font-semibold transition-all duration-200 ${
-        active ? "bg-accent text-white" : "bg-canvas text-muted hover:bg-canvas-2"
+      className={`inline-flex items-center gap-1.5 pl-3 pr-2.5 py-1 rounded-pill text-xs font-semibold transition-all duration-200 ${
+        active
+          ? "bg-accent text-white"
+          : "bg-canvas text-muted hover:bg-canvas-2"
       }`}
     >
-      {children}
+      <span>{children}</span>
+      {count != null && (
+        <span
+          className={`tabular-nums text-[10px] leading-none font-mono px-1.5 py-0.5 rounded-pill ${
+            active ? "bg-white/15 text-white" : "bg-black/5 text-muted-2"
+          }`}
+        >
+          {count}
+        </span>
+      )}
     </button>
   );
 }
