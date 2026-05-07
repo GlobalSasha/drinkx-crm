@@ -10,6 +10,20 @@ from celery.schedules import crontab
 
 from app.config import get_settings
 
+# Side-effect imports: hydrate the SQLAlchemy mapper registry with every
+# domain model BEFORE any Celery task touches the DB. The worker process
+# doesn't go through app.main, so without these the string-based forward
+# references in Lead → Contact / Activity / Followup fail to resolve at
+# task time with 'expression Contact failed to locate a name'.
+from app.auth import models as _auth_models  # noqa: F401, E402
+from app.pipelines import models as _pipeline_models  # noqa: F401, E402
+from app.leads import models as _leads_models  # noqa: F401, E402
+from app.contacts import models as _contacts_models  # noqa: F401, E402
+from app.activity import models as _activity_models  # noqa: F401, E402
+from app.followups import models as _followups_models  # noqa: F401, E402
+from app.enrichment import models as _enrichment_models  # noqa: F401, E402
+from app.daily_plan import models as _daily_plan_models  # noqa: F401, E402
+
 _s = get_settings()
 
 celery_app = Celery(
