@@ -1,5 +1,7 @@
-# Multi-stage Next.js production build (standalone output)
-FROM node:20-alpine AS base
+# Multi-stage Next.js production build (standalone output).
+# Node 22 because corepack auto-upgrades to pnpm 11 which requires it
+# (older node:20-alpine + pnpm 11 fails with `node:sqlite` builtin missing).
+FROM node:22-alpine AS base
 RUN corepack enable
 
 # ---- Deps (cache layer) ----
