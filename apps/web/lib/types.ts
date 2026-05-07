@@ -218,6 +218,10 @@ export interface ActivityOut {
   direction: string | null;
   subject: string | null;
   body: string | null;
+  // Email-specific (Sprint 2.0)
+  from_identifier: string | null;
+  to_identifier: string | null;
+  gmail_message_id: string | null;
   task_done: boolean;
   task_completed_at: string | null;
   created_at: string;

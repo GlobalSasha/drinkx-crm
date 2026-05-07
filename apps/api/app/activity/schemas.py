@@ -19,6 +19,12 @@ class ActivityBase(BaseModel):
     direction: str | None = None
     subject: str | None = None
     body: str | None = None
+    # Email-specific (Sprint 2.0). Surfaces in Lead Card Activity Feed
+    # via the email-renderer branch in apps/web; ADR-019 keeps these
+    # lead-scoped (no per-user filtering).
+    from_identifier: str | None = None
+    to_identifier: str | None = None
+    gmail_message_id: str | None = None
 
 
 class ActivityCreate(ActivityBase):

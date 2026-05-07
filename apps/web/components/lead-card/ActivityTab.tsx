@@ -1,6 +1,13 @@
 "use client";
 import { useState } from "react";
-import { CheckSquare, Square, ChevronDown, Loader2, ArrowRight } from "lucide-react";
+import {
+  CheckSquare,
+  Square,
+  ChevronDown,
+  Loader2,
+  ArrowRight,
+  ArrowLeft,
+} from "lucide-react";
 import {
   useActivities,
   useCreateActivity,
@@ -352,6 +359,10 @@ function ActivityItem({
     );
   }
 
+  if (activity.type === "email") {
+    return <EmailActivityItem activity={activity} dateStr={dateStr} timeStr={timeStr} />;
+  }
+
   if (activity.type === "stage_change") {
     const payload = activity.payload_json ?? {};
     return (
@@ -412,6 +423,66 @@ function ActivityItem({
         >
           {activity.file_kind ?? "Файл"}: {activity.file_url}
         </a>
+      )}
+    </div>
+  );
+}
+
+// Email rendering — Sprint 2.0 G5. Same outer style as the default
+// activity card, with a header line carrying direction icon + sender
+// + timestamp, then bold subject, then body preview with expand toggle.
+function EmailActivityItem({
+  activity,
+  dateStr,
+  timeStr,
+}: {
+  activity: ActivityOut;
+  dateStr: string;
+  timeStr: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const isInbound = activity.direction !== "outbound";
+  const sender = activity.from_identifier ?? "—";
+  const subject = activity.subject ?? "(без темы)";
+  const body = activity.body ?? "";
+  const hasBody = body.trim().length > 0;
+  const isLong = body.length > 200;
+  const preview = isLong ? body.slice(0, 200) + "…" : body;
+
+  return (
+    <div className="p-3 bg-canvas rounded-xl border border-black/5">
+      <div className="flex items-center justify-between gap-2 mb-1.5">
+        <div className="flex items-center gap-1.5 min-w-0">
+          {isInbound ? (
+            <ArrowLeft size={12} className="text-blue-600 shrink-0" aria-label="Входящее" />
+          ) : (
+            <ArrowRight size={12} className="text-emerald-600 shrink-0" aria-label="Исходящее" />
+          )}
+          <span className="text-[11px] font-mono text-muted-2 truncate">{sender}</span>
+        </div>
+        <span className="font-mono text-[10px] text-muted-3 shrink-0">
+          {dateStr} {timeStr}
+        </span>
+      </div>
+      <p className="text-sm font-bold text-ink leading-snug break-words">{subject}</p>
+      {hasBody && (
+        <>
+          <p className="mt-1 text-[13px] text-muted leading-relaxed whitespace-pre-wrap break-words">
+            {expanded ? body : preview}
+          </p>
+          {isLong && (
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="mt-1.5 text-[11px] font-semibold text-accent hover:underline inline-flex items-center gap-0.5"
+            >
+              {expanded ? "Свернуть" : "Показать полностью"}
+              <ChevronDown
+                size={12}
+                className={`transition-transform ${expanded ? "rotate-180" : ""}`}
+              />
+            </button>
+          )}
+        </>
       )}
     </div>
   );
