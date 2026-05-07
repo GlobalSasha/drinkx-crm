@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Plus, Check, Trash2, Calendar } from "lucide-react";
+import { Plus, Check, Trash2, Calendar, ClipboardList } from "lucide-react";
 import {
   useFollowups,
   useCreateFollowup,
@@ -41,9 +41,9 @@ export function FollowupsRail({ leadId }: Props) {
   const completed = followups.filter((f) => f.status === "completed");
 
   return (
-    <div className="bg-white border border-black/5 rounded-2xl p-4 shadow-soft">
+    <div className="bg-white border border-black/5 rounded-2xl shadow-soft p-5 min-h-[120px]">
       <div className="flex items-center justify-between mb-3">
-        <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-3">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-2">
           Follow-ups
         </p>
         <button
@@ -127,16 +127,18 @@ export function FollowupsRail({ leadId }: Props) {
         ))}
 
         {pending.length === 0 && !showForm && (
-          <p className="text-[10px] text-muted-3 italic text-center py-1">
-            Нет задач
-          </p>
+          <div className="flex flex-col items-center gap-1.5 py-3 text-center">
+            <ClipboardList size={16} className="text-muted-3" />
+            <p className="text-[11px] font-semibold text-muted-2">Нет задач</p>
+            <p className="text-[10px] text-muted-3">Нажмите + чтобы добавить</p>
+          </div>
         )}
       </div>
 
       {/* Completed */}
       {completed.length > 0 && (
         <div className="mt-3 pt-3 border-t border-black/5">
-          <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-3 mb-1.5">
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-3 mb-1.5">
             Выполнено ({completed.length})
           </p>
           <div className="space-y-1">

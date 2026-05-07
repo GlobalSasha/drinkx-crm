@@ -363,21 +363,17 @@ export function LeadCard({ leadId }: Props) {
         </div>
       </header>
 
-      {/* Body */}
+      {/* Body
+          Two-column grid: fixed 296px rail (Follow-ups) + flex-1 main column.
+          items-start keeps both columns top-aligned regardless of content height.
+          gap-6 (24px) between columns matches the design spec.
+          KB rail panel removed (Option a): no frontend data flows into it yet;
+          KB matches will surface as chips inside the AI Brief result body (Phase G). */}
       <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-6">
-        <div className="flex gap-6">
-          {/* Left rail */}
-          <div className="w-60 shrink-0 space-y-4">
+        <div className="flex items-start gap-6">
+          {/* Left rail — 296px fixed */}
+          <div className="w-[296px] shrink-0 flex flex-col gap-4">
             <FollowupsRail leadId={lead.id} />
-            {/* KB stub */}
-            <div className="bg-white border border-black/5 rounded-2xl p-4 shadow-soft">
-              <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-3 mb-2">
-                База знаний
-              </p>
-              <p className="text-xs text-muted-2 italic">
-                Релевантные материалы появятся здесь
-              </p>
-            </div>
           </div>
 
           {/* Right tab body */}
