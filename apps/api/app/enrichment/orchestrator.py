@@ -26,6 +26,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enrichment.budget import add_to_daily_spend
+from app.enrichment.kb import render_kb_for_prompt
 from app.enrichment.models import EnrichmentRun
 from app.enrichment.profile import render_profile_for_prompt
 from app.enrichment.providers.base import LLMError, TaskType
@@ -69,6 +70,8 @@ SYNTHESIS_SYSTEM = """Ты — sales-аналитик DrinkX (умные коф�
    (английские технические значения; в UI они переводятся на русский).
 6. confidence — "high" | "medium" | "low".
 7. urgency — "high" | "medium" | "low" | "".
+8. score_rationale — 2–3 предложения, почему такой fit_score. Опирайся на конкретные
+   сигналы из Brave / HH.ru / сайта. Используй шкалу из KB · icp_definition.
 
 СХЕМА:
 {
@@ -83,6 +86,7 @@ SYNTHESIS_SYSTEM = """Ты — sales-аналитик DrinkX (умные коф�
     {"name": str, "title": str, "role": str, "confidence": str, "source": str}
   ],
   "fit_score": number,
+  "score_rationale": str,
   "next_steps": [str, ...],
   "urgency": str,
   "sources_used": [str, ...],
@@ -274,7 +278,14 @@ async def run_enrichment(*, db: AsyncSession, run_id: UUID) -> None:
 
         # --- Step 4: LLM synthesis ---
         profile_block = render_profile_for_prompt()
-        system_prompt = SYNTHESIS_SYSTEM if not profile_block else f"{profile_block}\n\n{SYNTHESIS_SYSTEM}"
+        kb_block = render_kb_for_prompt(lead.segment)
+        system_parts = []
+        if profile_block:
+            system_parts.append(profile_block)
+        if kb_block:
+            system_parts.append(kb_block)
+        system_parts.append(SYNTHESIS_SYSTEM)
+        system_prompt = "\n\n".join(system_parts)
         completion = await complete_with_fallback(
             system=system_prompt,
             user=user_prompt,

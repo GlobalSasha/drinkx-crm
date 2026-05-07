@@ -44,6 +44,7 @@ class ResearchOutput(BaseModel):
     urgency: str = Field(default="")  # canonical: URGENCY_VALUES
     sources_used: list[str] = Field(default_factory=list)
     notes: str = ""
+    score_rationale: str = Field(default="", description="2-3 предложения: почему именно такой fit_score (ссылки на конкретные сигналы из источников)")
 
     @field_validator("formats", "coffee_signals", mode="before")
     @classmethod

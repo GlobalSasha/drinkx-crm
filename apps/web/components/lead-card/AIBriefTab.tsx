@@ -313,6 +313,17 @@ function ResultBody({ result }: { result: ResearchOutput }) {
 
             <FitScoreBadge fitScore={fitScore} tone={fitTone} />
           </div>
+
+          {result.score_rationale && (
+            <div className="mt-6 pt-5 border-t border-black/5 bg-canvas rounded-2xl px-5 py-4 border border-black/5">
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-3 mb-2">
+                Почему такой score
+              </p>
+              <p className="text-sm text-ink/80 leading-relaxed">
+                {result.score_rationale}
+              </p>
+            </div>
+          )}
         </section>
       )}
 
