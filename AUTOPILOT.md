@@ -297,16 +297,22 @@ Goal: a new lead's AI Brief actually gets filled by real research over real sour
 Goal: every morning every user gets a personalized prioritized plan; follow-up
 reminders auto-generate tasks.
 
+### 1.4.0 Schema + scorer + generator (Phase 1)
+- [x] Migration `0004_daily_plan`: `daily_plans`, `daily_plan_items`, `scheduled_jobs`
+- [x] ORM models `DailyPlan`, `DailyPlanItem`, `ScheduledJob` registered in alembic env.py
+- [x] `priority_scorer.score_lead()`: stage.probability + time/priority/rotting/fit weights, penalties for terminal/unassigned
+- [x] `daily_plan/services.generate_for_user()`: score→pack→hint(LLM/fallback)→time_block→upsert
+- [x] 14 priority scorer unit tests + 11 service tests (all passing)
+> AUTOPILOT: 1.4.0 ✓ (Phase 1 — schema + ORM + scorer + generator; Celery/REST/frontend Phase 2/3) — built by Claude Sonnet 4.6 on 2026-05-07
+
 ### 1.4.1 Celery beat
 - [ ] `app/scheduled/jobs.py` — central registry
 - [ ] `daily_plan_generator` runs at 08:00 in each workspace's timezone
 - [ ] `followup_reminder_dispatcher` runs every 15 minutes
 
 ### 1.4.2 Daily plan generator
-- [ ] PriorityScorer: urgency × deal_size × stage_probability × ai_data.urgency_score
-- [ ] Pack into the user's available work hours
-- [ ] LLM produces a single-line task hint per item
-- [ ] Persist to `daily_plans` table
+- [ ] REST endpoints: GET /daily-plan/today, PATCH /daily-plan/items/{id}/done
+- [ ] Web: Today page reads from daily_plans (replaces live-lead grouping)
 
 ### 1.4.3 Follow-up reminders
 - [ ] Cron iterates `followups` with `due_at <= now() + 24h`
