@@ -9,10 +9,12 @@ import uuid
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 import structlog
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload, joinedload
 
 from app.auth.models import User
 from app.daily_plan.models import DailyPlan, DailyPlanItem
@@ -300,3 +302,154 @@ async def generate_for_user(
             )
 
     return plan
+
+
+# ---------------------------------------------------------------------------
+# Read-side service functions (Phase 3)
+# ---------------------------------------------------------------------------
+
+async def get_plan_for_user_date(
+    db: AsyncSession,
+    *,
+    user_id: UUID,
+    plan_date: date,
+) -> DailyPlan | None:
+    """Fetch plan + items + lead joins for one user/date."""
+    result = await db.execute(
+        select(DailyPlan)
+        .where(DailyPlan.user_id == user_id, DailyPlan.plan_date == plan_date)
+        .options(
+            selectinload(DailyPlan.items).joinedload(DailyPlanItem.lead)
+        )
+    )
+    plan = result.scalar_one_or_none()
+    if plan is None:
+        return None
+    # Populate joined fields on each item (ORM doesn't map them as columns)
+    for item in plan.items:
+        if item.lead is not None:
+            item.lead_company_name = item.lead.company_name  # type: ignore[attr-defined]
+            item.lead_segment = item.lead.segment  # type: ignore[attr-defined]
+            item.lead_city = item.lead.city  # type: ignore[attr-defined]
+        else:
+            item.lead_company_name = None  # type: ignore[attr-defined]
+            item.lead_segment = None  # type: ignore[attr-defined]
+            item.lead_city = None  # type: ignore[attr-defined]
+    return plan
+
+
+async def get_today_plan_for_user(
+    db: AsyncSession,
+    *,
+    user: User,
+) -> DailyPlan | None:
+    """Convenience: today in user's timezone."""
+    try:
+        import zoneinfo
+        tz = zoneinfo.ZoneInfo(user.timezone or "Europe/Moscow")
+    except Exception:
+        from datetime import timezone as _tz
+        tz = _tz.utc  # type: ignore[assignment]
+    today = datetime.now(tz=tz).date()
+    return await get_plan_for_user_date(db, user_id=user.id, plan_date=today)
+
+
+async def list_plans_for_user(
+    db: AsyncSession,
+    *,
+    user_id: UUID,
+    limit: int = 30,
+) -> list[DailyPlan]:
+    """History — last N plans, ordered by plan_date DESC."""
+    from sqlalchemy import desc
+    result = await db.execute(
+        select(DailyPlan)
+        .where(DailyPlan.user_id == user_id)
+        .order_by(desc(DailyPlan.plan_date))
+        .limit(limit)
+    )
+    return list(result.scalars().all())
+
+
+async def mark_item_done(
+    db: AsyncSession,
+    *,
+    item_id: UUID,
+    user_id: UUID,
+) -> DailyPlanItem | None:
+    """Set done=True, done_at=now. Returns None if item belongs to a
+    different user (prevents cross-user mutation)."""
+    result = await db.execute(
+        select(DailyPlanItem)
+        .join(DailyPlan, DailyPlanItem.daily_plan_id == DailyPlan.id)
+        .where(
+            DailyPlanItem.id == item_id,
+            DailyPlan.user_id == user_id,
+        )
+        .options(joinedload(DailyPlanItem.lead))
+    )
+    item = result.scalar_one_or_none()
+    if item is None:
+        return None
+    item.done = True
+    item.done_at = datetime.now(tz=timezone.utc)
+    await db.flush()
+    # Populate joined fields
+    if item.lead is not None:
+        item.lead_company_name = item.lead.company_name  # type: ignore[attr-defined]
+        item.lead_segment = item.lead.segment  # type: ignore[attr-defined]
+        item.lead_city = item.lead.city  # type: ignore[attr-defined]
+    else:
+        item.lead_company_name = None  # type: ignore[attr-defined]
+        item.lead_segment = None  # type: ignore[attr-defined]
+        item.lead_city = None  # type: ignore[attr-defined]
+    return item
+
+
+async def request_regenerate(
+    db: AsyncSession,
+    *,
+    user: User,
+    plan_date: date,
+) -> tuple[DailyPlan, str | None]:
+    """Mark the plan row 'generating' and dispatch a Celery task that
+    replaces it. Returns (plan_row, celery_task_id)."""
+    from app.scheduled.celery_app import celery_app
+
+    # Look up or create the plan row
+    result = await db.execute(
+        select(DailyPlan).where(
+            DailyPlan.user_id == user.id,
+            DailyPlan.plan_date == plan_date,
+        )
+    )
+    plan = result.scalar_one_or_none()
+
+    if plan is not None:
+        plan.status = "generating"
+        plan.generation_error = None
+    else:
+        plan = DailyPlan(
+            workspace_id=user.workspace_id,
+            user_id=user.id,
+            plan_date=plan_date,
+            status="generating",
+            summary_json={},
+        )
+        db.add(plan)
+
+    await db.flush()
+    await db.commit()
+
+    # Dispatch the Celery task
+    async_result = celery_app.send_task(
+        "app.scheduled.jobs.regenerate_for_user",
+        args=[str(user.id), plan_date.isoformat()],
+    )
+    task_id: str | None = None
+    try:
+        task_id = async_result.id
+    except Exception:
+        pass
+
+    return plan, task_id

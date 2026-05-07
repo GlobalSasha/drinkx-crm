@@ -374,3 +374,53 @@ export interface EnrichmentTriggerResponse {
   enrichment_run_id: string;
   status: EnrichmentStatus;
 }
+
+// ---- Daily Plan ----
+
+export type TimeBlock = "morning" | "midday" | "afternoon" | "evening";
+export type TaskKind = "call" | "email" | "meeting" | "research" | "follow_up";
+export type DailyPlanStatus = "pending" | "generating" | "ready" | "failed";
+
+export interface DailyPlanItem {
+  id: string;
+  daily_plan_id: string;
+  lead_id: string | null;
+  position: number;
+  priority_score: number;
+  estimated_minutes: number;
+  time_block: TimeBlock | null;
+  task_kind: TaskKind;
+  hint_one_liner: string;
+  done: boolean;
+  done_at: string | null;
+  // joined
+  lead_company_name: string | null;
+  lead_segment: string | null;
+  lead_city: string | null;
+}
+
+export interface DailyPlanSummary {
+  total_minutes?: number;
+  count?: number;
+  urgency_breakdown?: { high?: number; medium?: number; low?: number };
+}
+
+export interface DailyPlan {
+  id: string;
+  workspace_id: string;
+  user_id: string;
+  plan_date: string;        // YYYY-MM-DD
+  generated_at: string | null;
+  status: DailyPlanStatus;
+  generation_error: string | null;
+  summary_json: DailyPlanSummary;
+  items: DailyPlanItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RegenerateResponse {
+  plan_id: string | null;
+  status: DailyPlanStatus;
+  task_id: string | null;
+}

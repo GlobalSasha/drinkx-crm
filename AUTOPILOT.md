@@ -311,8 +311,11 @@ reminders auto-generate tasks.
 - [ ] `followup_reminder_dispatcher` runs every 15 minutes
 
 ### 1.4.2 Daily plan generator
-- [ ] REST endpoints: GET /daily-plan/today, PATCH /daily-plan/items/{id}/done
-- [ ] Web: Today page reads from daily_plans (replaces live-lead grouping)
+- [x] REST endpoints: GET /me/today, GET /daily-plans/{date}, POST /daily-plans/{date}/regenerate (202), POST /daily-plans/items/{id}/complete
+- [x] Web: Today page reads from daily_plans (replaces live-lead grouping)
+- [x] regenerate_for_user Celery task (no 08:00 gate, manual trigger)
+- [x] 7 route tests (AsyncMock + mocked Celery send_task)
+> AUTOPILOT: 1.4.2 (REST) + 1.4.3 (frontend Today) ✓ — built by Claude Sonnet 4.6 on 2026-05-07
 
 ### 1.4.3 Follow-up reminders
 - [ ] Cron iterates `followups` with `due_at <= now() + 24h`

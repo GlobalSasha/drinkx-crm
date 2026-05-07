@@ -71,6 +71,9 @@ def create_app() -> FastAPI:
     from app.enrichment.routers import router as enrichment_router
     app.include_router(enrichment_router)
 
+    from app.daily_plan.routers import router as daily_plan_router
+    app.include_router(daily_plan_router)
+
     return app
 
 

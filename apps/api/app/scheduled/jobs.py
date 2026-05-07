@@ -9,8 +9,8 @@ Pattern:
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
-from uuid import uuid4
+from datetime import date, datetime, timezone
+from uuid import UUID, uuid4
 
 import structlog
 
@@ -32,6 +32,33 @@ def followup_reminder_dispatcher() -> dict:
     """Every 15 min: create Activity reminders for followups due within 24h."""
     from app.followups.dispatcher import run_followup_dispatch
     return asyncio.run(_run("followup_reminder_dispatcher", run_followup_dispatch))
+
+
+@celery_app.task(name="app.scheduled.jobs.regenerate_for_user")
+def regenerate_for_user(user_id: str, plan_date_iso: str) -> dict:
+    """Manual trigger from the UI. Generates one user's plan, ignoring the
+    08:00-local-time gate the hourly cron uses."""
+    return asyncio.run(_run_one_user_regen(UUID(user_id), date.fromisoformat(plan_date_iso)))
+
+
+async def _run_one_user_regen(user_id: UUID, plan_date: date) -> dict:
+    factory = get_session_factory()
+    async with factory() as session:
+        from sqlalchemy import select
+
+        from app.auth.models import User
+        from app.daily_plan.services import generate_for_user
+
+        res = await session.execute(select(User).where(User.id == user_id))
+        user = res.scalar_one_or_none()
+        if user is None:
+            return {"job": "regenerate_for_user", "error": "user_not_found"}
+        try:
+            plan = await generate_for_user(session, user=user, plan_date=plan_date)
+            return {"job": "regenerate_for_user", "plan_id": str(plan.id), "status": plan.status}
+        except Exception as e:
+            log.exception("regenerate_for_user.failed", user_id=str(user_id))
+            return {"job": "regenerate_for_user", "error": f"{type(e).__name__}: {e}"}
 
 
 async def _run(job_name: str, async_core) -> dict:

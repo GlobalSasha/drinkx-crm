@@ -79,6 +79,9 @@ class DailyPlanItem(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     plan: Mapped[DailyPlan] = relationship(back_populates="items")
+    lead: Mapped["Lead | None"] = relationship(  # type: ignore[name-defined]
+        back_populates=None, foreign_keys=[lead_id], lazy="raise",
+    )
 
 
 class ScheduledJob(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
