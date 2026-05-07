@@ -20,6 +20,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { User } from "@supabase/supabase-js";
 import { NotificationsDrawer } from "@/components/notifications/NotificationsDrawer";
 import { useNotificationsBadge } from "@/lib/hooks/use-notifications";
+import { useInboxCount } from "@/lib/hooks/use-inbox";
 import { useMe } from "@/lib/hooks/use-me";
 
 interface NavItem {
@@ -36,7 +37,6 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 const DISABLED_ITEMS: NavItem[] = [
-  { label: "Inbox", href: "#", icon: <Inbox size={18} />, disabled: true },
   { label: "Knowledge", href: "#", icon: <BookOpen size={18} />, disabled: true },
   { label: "Team", href: "#", icon: <Users size={18} />, disabled: true },
   { label: "Settings", href: "#", icon: <Settings size={18} />, disabled: true },
@@ -50,6 +50,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { data: badge } = useNotificationsBadge();
   const unreadCount = badge?.unread ?? 0;
+  const { data: inboxCount } = useInboxCount();
+  const inboxPending = inboxCount?.pending ?? 0;
   const { data: me } = useMe();
   const isAdmin = me?.role === "admin";
 
@@ -168,6 +170,35 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
+
+          {/* Inbox — sidebar nav with pending-count badge (Sprint 2.0) */}
+          {(() => {
+            const href = "/inbox";
+            const isActive = pathname === href || pathname.startsWith(href + "/");
+            return (
+              <Link
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                href={href as any}
+                className={clsx(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 relative",
+                  isActive
+                    ? "bg-accent/10 text-accent"
+                    : "text-muted hover:bg-black/5",
+                )}
+                aria-label={`Входящие${inboxPending > 0 ? ` (${inboxPending} ожидают)` : ""}`}
+              >
+                <span className="relative">
+                  <Inbox size={18} />
+                  {inboxPending > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-accent text-white text-[9px] font-mono font-bold rounded-pill px-1 flex items-center justify-center tabular-nums">
+                      {inboxPending > 99 ? "99+" : inboxPending}
+                    </span>
+                  )}
+                </span>
+                Входящие
+              </Link>
+            );
+          })()}
 
           {/* Admin-only: audit journal */}
           {isAdmin && (() => {

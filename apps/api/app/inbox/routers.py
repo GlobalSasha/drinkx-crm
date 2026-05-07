@@ -1,11 +1,9 @@
-"""Inbox REST — Gmail OAuth start + callback (Sprint 2.0 G1).
-
-Group 4 will add /api/inbox listing + confirm/dismiss endpoints.
-"""
+"""Inbox REST — Gmail OAuth + listing + confirm/dismiss (Sprint 2.0 G1+G4)."""
 from __future__ import annotations
 
 import json
 from typing import Annotated
+from uuid import UUID
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -18,7 +16,14 @@ from app.auth.models import User
 from app.config import get_settings
 from app.db import get_db
 from app.inbox import oauth as oauth_helpers
+from app.inbox import services as inbox_services
 from app.inbox.models import ChannelConnection
+from app.inbox.schemas import (
+    InboxConfirmIn,
+    InboxCountOut,
+    InboxItemOut,
+    InboxPageOut,
+)
 
 log = structlog.get_logger()
 
@@ -141,3 +146,87 @@ async def gmail_callback(
     return RedirectResponse(
         oauth_helpers.build_post_callback_redirect(success=True)
     )
+
+
+# ---------------------------------------------------------------------------
+# G4 — listing / confirm / dismiss
+# ---------------------------------------------------------------------------
+
+@router.get("", response_model=InboxPageOut)
+async def list_inbox(
+    item_status: Annotated[str, Query(alias="status")] = "pending",
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> InboxPageOut:
+    """Paginated InboxItem list, scoped to caller's workspace."""
+    items, total = await inbox_services.list_inbox(
+        db,
+        workspace_id=user.workspace_id,
+        status=item_status,
+        page=page,
+        page_size=page_size,
+    )
+    return InboxPageOut(
+        items=[InboxItemOut.model_validate(i) for i in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get("/count", response_model=InboxCountOut)
+async def count_inbox(
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> InboxCountOut:
+    """Pending count — drives the sidebar badge (polled every 30s)."""
+    n = await inbox_services.count_pending(db, workspace_id=user.workspace_id)
+    return InboxCountOut(pending=n)
+
+
+@router.post("/{item_id}/confirm", response_model=InboxItemOut)
+async def confirm_inbox_item(
+    item_id: UUID,
+    payload: InboxConfirmIn,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> InboxItemOut:
+    """Resolve a pending InboxItem via match_lead / create_lead / add_contact."""
+    try:
+        item = await inbox_services.confirm_item(
+            db,
+            item_id=item_id,
+            user_id=user.id,
+            workspace_id=user.workspace_id,
+            action=payload.action,
+            lead_id=payload.lead_id,
+            company_name=payload.company_name,
+            contact_name=payload.contact_name,
+        )
+    except inbox_services.InboxItemNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
+    except inbox_services.InboxItemBadRequest as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        )
+    return InboxItemOut.model_validate(item)
+
+
+@router.post("/{item_id}/dismiss", response_model=InboxItemOut)
+async def dismiss_inbox_item(
+    item_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> InboxItemOut:
+    try:
+        item = await inbox_services.dismiss_item(
+            db,
+            item_id=item_id,
+            user_id=user.id,
+            workspace_id=user.workspace_id,
+        )
+    except inbox_services.InboxItemNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
+    return InboxItemOut.model_validate(item)

@@ -511,3 +511,51 @@ export interface AuditLogPageOut {
   page: number;
   page_size: number;
 }
+
+// ---- Inbox (Sprint 2.0) ----
+
+export type InboxItemStatus = "pending" | "matched" | "dismissed" | "created_lead";
+export type EmailDirection = "inbound" | "outbound";
+export type InboxAction = "match_lead" | "create_lead" | "add_contact";
+
+export interface SuggestedAction {
+  action: InboxAction | "ignore" | string;
+  company_name: string;
+  contact_name: string;
+  confidence: number;          // 0..1
+  lead_id: string | null;
+}
+
+export interface InboxItemOut {
+  id: string;
+  workspace_id: string;
+  user_id: string | null;
+  gmail_message_id: string;
+  from_email: string;
+  to_emails: string[];
+  subject: string | null;
+  body_preview: string | null;
+  received_at: string;
+  direction: EmailDirection | string;
+  status: InboxItemStatus | string;
+  suggested_action: SuggestedAction | null;
+  created_at: string;
+}
+
+export interface InboxPageOut {
+  items: InboxItemOut[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface InboxConfirmIn {
+  action: InboxAction;
+  lead_id?: string | null;
+  company_name?: string | null;
+  contact_name?: string | null;
+}
+
+export interface InboxCountOut {
+  pending: number;
+}
