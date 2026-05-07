@@ -210,7 +210,23 @@ async def transfer_lead(
     if target is None:
         raise TransferTargetInvalid(to_user_id)
 
-    return await repo.transfer_lead(db, lead, to_user_id, comment=comment)
+    transferred = await repo.transfer_lead(db, lead, to_user_id, comment=comment)
+
+    # Notify the new owner. Same transaction as the transfer — rolls back together.
+    from app.notifications.services import safe_notify
+
+    company = transferred.company_name or "—"
+    body = comment or "Лид передан вам"
+    await safe_notify(
+        db,
+        workspace_id=workspace_id,
+        user_id=to_user_id,
+        kind="lead_transferred",
+        title=f"Передан лид: {company}",
+        body=body,
+        lead_id=transferred.id,
+    )
+    return transferred
 
 
 async def move_lead_stage(

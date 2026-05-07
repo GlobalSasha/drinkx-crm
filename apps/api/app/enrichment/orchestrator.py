@@ -214,11 +214,12 @@ async def run_enrichment(*, db: AsyncSession, run_id: UUID) -> None:
     bound_log.info("enrichment.started")
 
     wall_start = time.perf_counter()
+    lead: Lead | None = None  # bound here so the failure path can read it
 
     try:
         # Load lead
         lead_result = await db.execute(select(Lead).where(Lead.id == run.lead_id))
-        lead: Lead | None = lead_result.scalar_one_or_none()
+        lead = lead_result.scalar_one_or_none()
         if lead is None:
             raise ValueError(f"Lead {run.lead_id} not found")
 
@@ -325,6 +326,21 @@ async def run_enrichment(*, db: AsyncSession, run_id: UUID) -> None:
         run.result_json = research_output.model_dump()
         run.finished_at = datetime.now(tz=timezone.utc)
 
+        # Notify the user who triggered (system runs have user_id=NULL — skip).
+        if run.user_id is not None:
+            from app.notifications.services import safe_notify
+
+            company = lead.company_name or "—"
+            await safe_notify(
+                db,
+                workspace_id=lead.workspace_id,
+                user_id=run.user_id,
+                kind="enrichment_done",
+                title=f"AI Brief готов: {company}",
+                body=research_output.company_profile[:300] if research_output.company_profile else "",
+                lead_id=lead.id,
+            )
+
         await db.commit()
 
         # Track daily spend in Redis (best-effort, never fail the run)
@@ -352,6 +368,23 @@ async def run_enrichment(*, db: AsyncSession, run_id: UUID) -> None:
             run.error = f"{error_type}: {exc}"[:1000]
             run.duration_ms = duration_ms
             run.finished_at = datetime.now(tz=timezone.utc)
+
+            # `lead` may be None if the failure happened during lookup —
+            # in that case we have no workspace_id to attribute, so skip.
+            if run.user_id is not None and lead is not None:
+                from app.notifications.services import safe_notify
+
+                company = lead.company_name or "—"
+                await safe_notify(
+                    db,
+                    workspace_id=lead.workspace_id,
+                    user_id=run.user_id,
+                    kind="enrichment_failed",
+                    title=f"AI Brief не собрался: {company}",
+                    body=f"{error_type}: {str(exc)[:200]}",
+                    lead_id=lead.id,
+                )
+
             await db.commit()
         except Exception as commit_exc:
             bound_log.error("enrichment.commit_failed", error=str(commit_exc)[:200])

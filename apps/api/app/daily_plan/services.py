@@ -273,6 +273,18 @@ async def generate_for_user(
         plan.generated_at = datetime.now(tz=timezone.utc)
         plan.status = "ready"
 
+        # Notify the user that today's plan is ready.
+        from app.notifications.services import safe_notify
+
+        await safe_notify(
+            db,
+            workspace_id=user.workspace_id,
+            user_id=user.id,
+            kind="daily_plan_ready",
+            title="План на сегодня готов",
+            body=f"{len(orm_items)} карточек, ~{plan.summary_json.get('total_minutes', 0)} мин",
+        )
+
         await db.commit()
 
         # Step 7 — Roll up LLM cost to daily budget guard (best-effort)

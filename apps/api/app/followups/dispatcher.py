@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activity.models import Activity, ActivityType
 from app.followups.models import Followup
+from app.leads.models import Lead
 
 log = structlog.get_logger()
 
@@ -37,6 +38,10 @@ async def run_followup_dispatch(session: AsyncSession) -> int:
     )
     followups = list(res.scalars().all())
 
+    # Lazy import to avoid loading the notifications domain when no followups
+    # were due (cron tick is hot path).
+    from app.notifications.services import safe_notify
+
     created = 0
     for fu in followups:
         activity = Activity(
@@ -50,6 +55,30 @@ async def run_followup_dispatch(session: AsyncSession) -> int:
         session.add(activity)
         fu.dispatched_at = now
         created += 1
+
+        # Notify the lead's current owner (if any). Best-effort — never fail the cron.
+        try:
+            lead_res = await session.execute(
+                select(Lead.assigned_to, Lead.workspace_id, Lead.company_name)
+                .where(Lead.id == fu.lead_id)
+            )
+            row = lead_res.first()
+            if row is None:
+                continue
+            assigned_to, workspace_id, company_name = row
+            if assigned_to is None or workspace_id is None:
+                continue
+            await safe_notify(
+                session,
+                workspace_id=workspace_id,
+                user_id=assigned_to,
+                kind="followup_due",
+                title=f"Напоминание: {fu.name[:120]}",
+                body=f"{company_name or '—'} — срок {fu.due_at.strftime('%d.%m %H:%M') if fu.due_at else ''}",
+                lead_id=fu.lead_id,
+            )
+        except Exception as exc:
+            log.warning("followup_dispatch.notify_failed", error=str(exc)[:200])
 
     await session.commit()
     return created

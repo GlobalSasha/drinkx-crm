@@ -74,6 +74,9 @@ def create_app() -> FastAPI:
     from app.daily_plan.routers import router as daily_plan_router
     app.include_router(daily_plan_router)
 
+    from app.notifications.routers import router as notifications_router
+    app.include_router(notifications_router)
+
     return app
 
 
