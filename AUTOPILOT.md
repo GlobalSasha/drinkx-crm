@@ -257,11 +257,11 @@ Goal: a new lead's AI Brief actually gets filled by real research over real sour
 > AUTOPILOT: 1.3.3 ✓ (orchestrator + DB persistence; Celery + WS deferred to 1.3.E) — built by Claude Sonnet 4.6 on 2026-05-06
 
 ### 1.3.4 Knowledge Base + business profile
-- [ ] `knowledge/drinkx/*.md` initial files (playbook_horeca, objections, etc — copy from prototype Knowledge Base UI examples)
+- [x] `knowledge/drinkx/*.md` initial files (playbook_horeca, playbook_retail, playbook_retail_discount, playbook_qsr, objections_common, competitors, icp_definition) — Phase F
 - [x] `config/drinkx_profile.yaml` populated with real DrinkX info (product, ICP, fit_score anchors, objections, signals)
 - [x] `profile.py` — `load_profile()` lru_cache + `render_profile_for_prompt()` prepended to synthesis system prompt
-- [ ] Loader at api startup: reads files into Redis, watches for changes (KB library — Phase F)
-- [ ] Tag matcher selects relevant files for the synthesis prompt (KB library — Phase F)
+- [x] Loader (lru_cache in-process, not Redis): `app/enrichment/kb.py` — `load_kb()`, `select_for_segment()`, `render_kb_for_prompt()` — Phase F
+- [x] Tag matcher selects relevant files for the synthesis prompt by `lead.segment` — Phase F
 
 ### 1.3.5 Cost control
 - [ ] Quality pre-filter (regex stop-list + mini-LLM go/no-go)
@@ -269,7 +269,7 @@ Goal: a new lead's AI Brief actually gets filled by real research over real sour
 - [x] Rate limit: max 5 parallel jobs / workspace — `concurrency.py` + `is_at_concurrency_limit()` → 429
 - [x] Daily budget guard — `budget.py`, Redis key `ai_budget:{workspace_id}:{YYYY-MM-DD}`, cap = monthly/30; `has_budget_remaining()` guard before trigger; `add_to_daily_spend()` on every succeeded run → 429
 > AUTOPILOT: 1.3.4 (profile) + 1.3.5 (cost guards: budget + concurrency) ✓ — built by Claude Sonnet 4.6 on 2026-05-06
-> KB library (knowledge/drinkx/*.md + tag matcher) remains [ ] — Phase F.
+> AUTOPILOT: 1.3.4 (KB) ✓ (Phase F — KB files + lru_cache loader + segment tag matcher + score_rationale) — built by Claude Sonnet 4.6 on 2026-05-07
 
 ### 1.3.6 Web — enrichment UI
 - [x] AI Brief tab in LeadCard (between Сделка and Контакты) — Phase E

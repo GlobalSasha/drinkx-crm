@@ -347,6 +347,7 @@ export interface ResearchOutput {
   urgency: string;
   sources_used: string[];
   notes: string;
+  score_rationale?: string;
 }
 
 export interface EnrichmentRun {
