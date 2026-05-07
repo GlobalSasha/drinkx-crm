@@ -46,11 +46,13 @@ export function useLeads(filters: LeadFilters = {}) {
   });
 }
 
-export function usePoolLeads(filters: { city?: string; segment?: string } = {}) {
+export function usePoolLeads(
+  filters: { city?: string; segment?: string; page_size?: number } = {},
+) {
   const p = new URLSearchParams();
   if (filters.city) p.set("city", filters.city);
   if (filters.segment) p.set("segment", filters.segment);
-  p.set("page_size", "200");
+  p.set("page_size", String(filters.page_size ?? 200));
   const qs = p.toString();
   const path = qs ? `/leads/pool?${qs}` : "/leads/pool";
 
