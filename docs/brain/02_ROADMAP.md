@@ -58,26 +58,40 @@
 - 22 mock-only backend tests, 0 DB / 0 SMTP / 0 network; tsc + next build clean throughout
 - 0 new npm dependencies; 1 new Python dep (aiosmtplib)
 
+**Sprint 2.0 — DONE (pending merge)** · `SPRINT_2_0_GMAIL_INBOX.md` · branch `sprint/2.0-gmail-inbox` (range `8745394..ba9c85a` + G7 commit, 7 groups)
+- **Gmail Inbox sync — read-only Phase 2 first slice**
+- Migrations 0008 (`channel_connections`) + 0009 (`inbox_items` + activities email columns + subject 300→500)
+- New `app/inbox/` package: gmail_client, oauth, email_parser, matcher, processor, sync, services, routers, schemas, models
+- Beat: 4th cron `gmail-incremental-sync */5`
+- New Celery tasks: `gmail_history_sync(user_id)` (6mo backfill, 2000-msg cap), `gmail_incremental_sync` (every-5-min via History API), `generate_inbox_suggestion(item_id)` (MiMo Flash, fail-soft)
+- AI Brief synthesis injects last 10 emails as `### Переписка с клиентом` (cap 2000 chars)
+- New `/inbox` page (empty-state OAuth CTA, AI-suggestion chips, confirm/dismiss flows), `Входящие` sidebar with red-dot badge
+- Lead Card Activity Feed renders email rows with direction icon + bold subject + 200-char preview + Показать полностью toggle
+- 18 mock-only tests (matcher 9, email-context 3, services 6); pnpm typecheck + build clean
+- ADR-019: emails are lead-scoped, `Activity.user_id` is audit trail not visibility filter
+- 0 new npm deps; 3 new Python deps (`google-auth`, `google-auth-oauthlib`, `google-api-python-client`)
+
 ## 🔜 NEXT
 
-### Phase 2 — Sprint 2.0 — Inbox + Quote + Forms + Bulk Import (~2 weeks)
+### Phase 2 — Sprint 2.1 — Bulk Import / Export (~1 week)
 See `docs/brain/04_NEXT_SPRINT.md` for full scope.
 
 Surface area:
-- **Inbox** — Email (IMAP read / SMTP send) + Telegram Business webhook → unified per-lead conversation view
-- **Quote / КП builder** — line-items, pricing, render to PDF, attach to lead activity
-- **WebForms** — public form builder + capture endpoint → leads pool with attribution
-- **Bulk Import / Export** — CSV/XLSX import with column mapping + dry-run preview; export of any list view
-- **Knowledge Base CRUD UI** — file-based markdown library from Sprint 1.3 promoted to a real UI
+- **Import** — Excel / CSV / YAML / JSON → leads with column mapper + dry-run preview; Bitrix24 / AmoCRM dump format support
+- **Export** — current pipeline / all leads / filtered selection in XLSX / CSV / JSON / YAML / Markdown ZIP; streamed responses
+- **AI bulk-update flow** (per PRD §6.14) — manager downloads workspace snapshot → feeds to external AI → uploads response → preview diff → apply
 
-Outstanding deferred work that may bundle into 2.0 or 2.1:
-- **Phase G (Sprint 1.3 follow-on)** — move enrichment off FastAPI BackgroundTasks onto Celery (infra exists from Sprint 1.4); WebSocket `/ws/{user_id}` to replace 2s polling
+Outstanding deferred work that may bundle into 2.1+:
+- **Telegram Business inbox** + **email send (gmail.send scope)** — deferred from Sprint 2.0
+- **Quote / КП builder**, **WebForms**, **Knowledge Base CRUD UI** — deferred from original 2.0 envelope
+- **`credentials_json` encryption** (Sprint 2.0 carryover, security TODO)
+- **Phase G (Sprint 1.3 follow-on)** — move enrichment off FastAPI BackgroundTasks onto Celery; WebSocket `/ws/{user_id}` to replace 2s polling
 - DST-aware cron edge handling
 - pg_dump cron + Sentry DSNs (soft-launch checklist carryover from 1.5)
 
 ## 📅 LATER
 
-### Phase 2 — Sprint 2.1+ (~4 weeks)
+### Phase 2 — Sprint 2.2+ (~4 weeks)
 Apify integration (foodmarkets / horeca scrapers), push notifications +
 Telegram bot for managers, multi-pipeline switcher, full Settings panel,
 team workspace management.

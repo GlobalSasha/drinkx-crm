@@ -20,7 +20,7 @@
 | ADR-016 | B2B model (index-b2b.html) is official target; PRD v2.0 outdated | ✅ |
 | ADR-017 | Scoring criteria = separate table `scoring_criteria`, per-workspace | ✅ |
 | ADR-018 | MiMo (Xiaomi) is primary LLM; chain MiMo → Anthropic → Gemini → DeepSeek | ✅ |
-| ADR-019 | Emails belong to the lead card, not to the manager | ✅ |
+| ADR-019 | Email ownership model — lead-scoped, not manager-scoped | ✅ |
 
 ---
 
@@ -229,30 +229,26 @@ LLM_FALLBACK_CHAIN=["mimo","anthropic","gemini","deepseek"]
 This ADR only changes config defaults and documentation. Runtime provider code
 will be implemented in Sprint 1.3 along with the Research Agent.
 
-## ADR-019 Emails belong to the lead card, not to the manager
+## ADR-019 Email ownership model — lead-scoped, not manager-scoped
 
-Gmail Inbox sync (Sprint 2.0) routes every fetched email through `match_email`
-and attaches it to the matched `Lead` as an `Activity(type=email)`. The
-attachment is **lead-scoped, not user-scoped**: every manager who opens the
-lead card sees the full email thread regardless of which manager 's Gmail
-account sourced the messages.
+Date: 2026-05-08
+Status: ✅
 
-`Activity.user_id` records *which manager 's mailbox the message came from*
-(audit trail / "who is corresponding with this lead"). It is NOT a visibility
-or ownership filter — list endpoints scoped to a lead never filter by
-`Activity.user_id`.
+Decision: Emails belong to the lead card, not to the manager whose Gmail
+account sourced them.
 
-Rationale: a B2B sale typically involves multiple managers (assigned owner,
-replacement after transfer, head/admin escalation, sometimes a partner
-team). Hiding emails behind whoever happened to send them would fragment
-the record of correspondence and defeat the whole point of a CRM as a
-system of record.
+- `Activity.user_id` = audit trail (which manager's Gmail sent/received it).
+- NOT a visibility filter — all team members see all emails on a lead.
+- Rationale: B2B context is a company asset; transfers don't lose history;
+  AI Brief benefits from full correspondence signal regardless of who wrote it.
 
 Implementation:
 - `Activity.lead_id` is the only required scope key for the lead-card feed.
-- `Activity.user_id` is set to the channel 's owner when the channel is
+- `Activity.user_id` is set to the channel's owner when the channel is
   user-scoped, NULL when the channel is workspace-scoped.
 - Activity Feed queries (Lead Card → Activity tab, AI Brief context
   injection) filter strictly by `lead_id + workspace_id`, never by user.
-- Notifications are still per-user (Sprint 1.5) — those are independent
-  of the underlying activity row.
+- Notifications stay per-user (Sprint 1.5) — independent of the underlying
+  activity row.
+
+Implemented in Sprint 2.0 (Groups 3–6).

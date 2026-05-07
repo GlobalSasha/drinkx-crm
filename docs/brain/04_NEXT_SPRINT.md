@@ -1,117 +1,152 @@
-# Next Sprint: Phase 2 Sprint 2.0 — Inbox + Quote + Forms + Bulk Import
+# Next Sprint: Phase 2 Sprint 2.1 — Bulk Import / Export
 
-Status: **READY TO START** (after Sprint 1.5 merge / deploy / soft-launch)
-Branch: `sprint/2.0-inbox-quote-forms`
+Status: **READY TO START** (after Sprint 2.0 merge / deploy / smoke check)
+Branch: `sprint/2.1-bulk-import-export` (create from main once 2.0 lands)
 
 ## Goal
 
-Phase 1 ended with a working CRM the team can run a sales pipeline in.
-Phase 2 turns it into a *system of record* for the whole top-of-funnel — the
-inbound side. Ship four cooperating surfaces: Inbox (email + Telegram in one
-view), Quote/КП builder, WebForms (public capture endpoints), and Bulk
-Import/Export. Plus a real CRUD UI for the Knowledge Base markdown library.
+Phase 1 + Sprint 2.0 made DrinkX CRM a working pipeline + a system of record
+for the conversation. The single biggest day-one ergonomic gap left is data
+mobility: managers still can't bulk-load existing leads from Bitrix24 / AmoCRM /
+Excel, and they can't pull a workspace snapshot to feed an external AI for batch
+edits. Sprint 2.1 closes that gap with a focused import/export surface — no new
+domains, no new vendors, no new AI capability, just a wide pipe in and out of
+the existing data model.
 
-This sprint is intentionally larger than Sprint 1.5 — refine the scope at the
-start of the sprint with the product owner before opening the branch.
+The PRD already sketched the AI-bulk-update loop (§6.14) — *download snapshot →
+external AI processes → upload diff → preview → apply*. This sprint is what
+makes it real.
 
 ## Read before starting
 
-- `docs/brain/00_CURRENT_STATE.md` — what Sprint 1.5 left
+- `docs/brain/00_CURRENT_STATE.md` — what Sprint 2.0 left
 - `docs/brain/02_ROADMAP.md` — Phase 2 envelope
-- `docs/brain/sprint_reports/SPRINT_1_5_POLISH_LAUNCH.md` — Known issues / risks; soft-launch checklist carryover (pg_dump, Sentry, onboarding doc)
-- `docs/PRD-v2.0.md` §6 (Inbox), §7 (Quote/КП), §8 (Forms), §9 (Knowledge Base)
-- `docs/brain/03_DECISIONS.md` — ADR-007 (no auto-actions), ADR-014 (stub mode), ADR-018 (MiMo)
-- Production state at sprint start: 4 app containers running, Sprint 1.5 merged, audit + notifications + digest live; ~216 leads in pool; real Supabase auth on; MiMo+Brave keys live; SMTP still in stub mode
+- `docs/brain/sprint_reports/SPRINT_2_0_GMAIL_INBOX.md` — known issues / risks; production checklist carryover (cron registered, OAuth client provisioned, migrations applied)
+- `docs/PRD-v2.0.md` §6.14 (Bulk operations + AI loop) and §10 (Data model)
+- `docs/brain/03_DECISIONS.md` — ADR-007 (no auto-actions, all imports require human confirmation), ADR-009 (package-per-domain), ADR-016 (B2B model is the target)
+- Production state at sprint start: 4 app containers + 4 cron entries (after Sprint 2.0 merge) running, ~216 leads in pool, real Supabase auth on, Gmail inbox sync live for at least one manager (smoke step)
+- `crm-prototype/build_data.py` — the v0.5/v0.6 import logic that lives in the prototype repo. Promote, don't duplicate.
 
 ## Scope
 
 ### ALLOWED
 
-#### 1. Inbox — Email + Telegram
+#### 1. Import — Excel / CSV / YAML / JSON
 
-Per-lead unified message thread. Read-only first, send-from-CRM second.
+- New domain `app/import_export` (the package already exists empty — fill it).
+- File upload endpoint `POST /api/import/upload` — accepts multipart, parses
+  with `openpyxl` (XLSX), stdlib `csv` (CSV), `pyyaml` (YAML), stdlib `json`
+  (JSON). Stored as a temporary parsed payload in Redis (TTL 1h) keyed by an
+  import-job UUID. No DB row yet.
+- Format detection by file extension first, MIME type second. Rejects
+  anything else with a clear error.
+- Column mapping screen — drag/drop or dropdowns from source columns
+  → target Lead fields (company_name, segment, city, email, phone,
+  website, inn, deal_type, priority, score). Guess obvious mappings via
+  fuzzy header match (`company name` / `Компания` / `Название` →
+  `company_name`).
+- Dry-run preview — first 10 mapped rows + a validation summary
+  (missing required, enum-out-of-range, duplicate by inn/email/website).
+  Validation runs on the full set, preview shows the worst-case rows.
+- Confirm step — runs in Celery (`bulk_import_run(job_id, user_id)`)
+  so a 5000-row import doesn't tie up the request thread. Status polled
+  via the same job-id pattern Sprint 1.3 used.
+- New tables: `import_jobs(id, workspace_id, user_id, status, format,
+  source_filename, total_rows, processed, succeeded, failed, error_summary,
+  created_at, finished_at)` + `import_errors(job_id, row_number,
+  field, message)`.
 
-- **Email read (IMAP)**:
-  - Workspace-scoped IMAP credentials in `app/inbox/email_settings` (per-user) — see ADR-007 around what's stored vs OAuth.
-  - Polling worker in Celery: pull new messages every 5 min, match to leads by sender/recipient address (lead.email, contacts.email), drop mismatches into a workspace-scoped "unmatched" tray.
-  - Dedup by Message-ID. Store full headers + body (text + html if present) in `inbox_messages` table.
-- **Email send (SMTP)**:
-  - Reuse the SMTP infra from Sprint 1.5 group 5 (aiosmtplib).
-  - Send-as the user's configured email; record outbound in same `inbox_messages` table with direction='out'.
-  - Optional thread-reply sets `In-Reply-To` + `References` headers for client-side threading.
-- **Telegram Business webhook**:
-  - One bot per workspace; webhook → `inbox_messages` rows.
-  - Match TG user_id → lead via Contact.telegram_url already on the model.
-- **Inbox UI** — new top-level route `/inbox`:
-  - Left rail: thread list grouped by lead (last-msg-date desc).
-  - Right pane: message stream + reply composer (email or TG depending on thread channel).
-  - Per-lead inbox tab on Lead Card surfaces the same thread.
+#### 2. Import — Bitrix24 / AmoCRM dump format
 
-Migration: new tables `inbox_messages`, `email_settings` (encrypted IMAP/SMTP creds at rest).
+- Two new format adapters: `app/import_export/adapters/bitrix24.py`,
+  `app/import_export/adapters/amocrm.py`.
+- Each adapter knows the canonical export shape from those CRMs (Bitrix24:
+  XLS / CSV with cyrillic column names; AmoCRM: JSON with nested objects
+  for contacts / leads / pipelines).
+- Adapter returns a normalized list-of-dicts with our internal
+  field names — the column-mapping screen is bypassed when the
+  upload is recognized as a known format. Manager confirms the
+  dry-run preview as usual.
+- Contacts are imported as `Contact` rows alongside the parent Lead
+  (Bitrix24 / AmoCRM both ship contacts with leads — we'd lose data
+  if we dropped them).
 
-#### 2. Quote / КП builder
+#### 3. Export — streaming CSV / XLSX / JSON / YAML / Markdown ZIP
 
-- New domain `app/quote`. Data model:
-  - `quote` row (lead_id, status, total, currency, valid_until, sent_at, accepted_at)
-  - `quote_line_item` row (quote_id, position, product_name, qty, unit_price, discount_percent, line_total)
-- REST CRUD; PDF render via WeasyPrint or stdlib HTML → headless Chromium (decide at sprint start; prefer the lighter dep).
-- Frontend: Quote tab on Lead Card replaces the existing PilotTab when deal_type is non-pilot. Builder UI = line-item table + totals strip + "Render PDF" + "Send via email" (uses Inbox SMTP).
+- `GET /api/export/leads?format=xlsx&filter=...` — streamed response
+  (no in-memory buffering of large workspaces). XLSX uses `openpyxl`
+  in write-only mode. CSV / JSON / YAML use stdlib + generators.
+  Markdown ZIP: one `.md` file per lead with full Activity Feed +
+  AI Brief, zipped with stdlib `zipfile` (write streaming).
+- Filters re-use the existing Lead list query (`?stage_id`,
+  `?segment`, `?city`, `?priority`, `?deal_type`, `?q`).
+- Three preset views accessible from the existing list pages:
+  current pipeline, all leads, current filter. "Export" button on
+  `/pipeline` + `/leads-pool`.
 
-#### 3. WebForms
+#### 4. AI bulk-update flow
 
-- Public capture endpoint `POST /api/forms/{form_id}/submit` — no auth, captcha optional Phase 3.
-- Form builder UI — drag-and-drop fields (text / phone / email / select / textarea), preview, copy embed snippet.
-- Submissions land in `leads_pool` (assignment_status='pool') with `source='form:{form_id}'` for attribution.
-
-Migration: `forms` + `form_fields` + `form_submissions` tables.
-
-#### 4. Bulk Import / Export
-
-- Import: CSV/XLSX upload → column-mapping screen (drag source-col → target-field) → dry-run preview (first 10 rows + validation errors) → confirm. Reuse the v0.5/v0.6 import script logic (see `crm-prototype/build_data.py`); promote it from a one-off into a workspace-driven feature.
-- Export: any list view ([leads-pool], [pipeline]-flat, [audit]) → CSV with current filter applied. Streamed response (no in-memory buffering of large workspaces).
-
-#### 5. Knowledge Base CRUD UI
-
-- Promote the file-based markdown library (Sprint 1.3) to a real CRUD surface. Move content into a `knowledge_articles` table with workspace_id, segment_tags, body_md.
-- Frontend: `/knowledge` page — list / view / edit. Markdown render via existing tools (no new dep — use `marked` or `react-markdown` — verify which is already pulled in).
-- AI Brief synthesis prompt continues to inject the markdown chunks; the file-based fallback stays as a dev-mode option.
+- `POST /api/export/snapshot` — produces a workspace snapshot in
+  YAML (one document per lead, with all fields + last 5 activities + AI
+  Brief result_json). Manager downloads, feeds to ChatGPT / Claude / etc.
+  externally. **No AI runs server-side for this flow** — that's the
+  whole point: leverage external models without our cost/quotas.
+- `POST /api/import/bulk-update` — accepts the AI's response (same YAML
+  schema). Diff engine compares each row to the live Lead state and
+  produces a per-field change list. Preview UI shows the diff with
+  per-field accept/reject toggles. Apply runs in Celery same as #1.
+- Audit log emits one `lead.bulk_update` row per applied change with
+  `delta_json={field: {from, to}, source: "bulk_ai", job_id: ...}`.
 
 ### FORBIDDEN
 
-- Apify integration — Sprint 2.1 candidate
-- Push notifications, Telegram bot for managers — Phase 2 Sprint 2.1+
-- Multi-pipeline switcher — Phase 2 Sprint 2.1+
+- Telegram Business inbox — Sprint 2.2+ candidate
+- Email reply / send (gmail.send scope) — Sprint 2.2+ candidate
+- Quote / КП builder — deferred from 2.0 envelope, Sprint 2.2+
+- WebForms / public capture endpoints — Sprint 2.2+
+- Knowledge Base CRUD UI — Sprint 2.2+
+- Apify integration — Sprint 2.2+ candidate
+- Push notifications, Telegram bot for managers — Phase 2.2+
+- Multi-pipeline switcher — Phase 2.2+
 - pgvector / vector retrieval — Phase 3
 - MCP server / Sales Coach chat — Phase 3
 - Visit-card OCR — Phase 3
 - New LLM vendors — only the existing fallback chain (MiMo / Anthropic / Gemini / DeepSeek)
+- Synchronous AI calls during bulk-update apply — that's intentionally manager-driven externally
 - Anything that requires a new payment / subscription account without explicit product-owner approval
+- New npm dependencies (we got to ship Sprint 2.0 with zero — keep the streak)
 
 ## Tests required
 
-- pytest mock-only suites for new domains (inbox, quote, forms) — same harness pattern Sprint 1.5 settled on (sqlalchemy stub at import time, AsyncMock session, no real DB)
-- pytest integration: at least one DB-backed test per new table (Postgres-fixture path) for migrations smoke
-- Web Playwright skip-if-env: form public submit → lead lands in pool; quote PDF generates without crashing
-- Manual: send-from-CRM email lands in inbox of recipient (uses live SMTP, NOT stub) — verify with own mailbox before merge
+- pytest mock-only suites for new domains (import_export adapters, diff engine,
+  bulk_import_run service) — same harness pattern Sprint 1.5 / 2.0 settled on
+  (sqlalchemy stub at import time, AsyncMock session, no real DB)
+- pytest integration: at least one DB-backed test per new table (`import_jobs`,
+  `import_errors`) for migrations smoke
+- File-format roundtrip tests: write XLSX → read XLSX → assert fields
+  preserved; same for YAML / JSON / Markdown ZIP. Mock-only, in-memory.
+- Bitrix24 + AmoCRM adapter tests against fixture files (a few rows each)
+  checked into `tests/fixtures/import/`. Don't commit real customer data.
+- Manual: end-to-end import of a 500-row Bitrix24 dump on staging before merge
 
 ## Deliverables
 
-- Migrations 0008–0012 (or fewer, depending on schema-bundling decisions at sprint start) applied on production
-- `/inbox` route with both channels live in production (real IMAP polling, real Telegram webhook)
-- Quote builder usable end-to-end (create → render PDF → send via SMTP)
-- One public form created, embed snippet copied, submission lands in pool
-- One CSV import + one CSV export run successfully against the live workspace
-- `/knowledge` CRUD UI replaces the file-based config at runtime
-- `docs/brain/sprint_reports/SPRINT_2_0_INBOX_QUOTE.md` written
+- Migrations 0010–0012 (or fewer, depending on schema-bundling at sprint start) applied on production
+- `/import` and `/export` routes with the column-mapper + dry-run preview UI
+- One CSV / XLSX import + one Bitrix24 import run successfully against the live workspace (smoke step)
+- Streamed XLSX export of full lead pool (~216 rows) verified to fit in memory limits
+- AI bulk-update loop demoed end-to-end: download snapshot → manual ChatGPT pass → upload + preview → apply at least 5 changes
+- `docs/brain/sprint_reports/SPRINT_2_1_BULK_IMPORT.md` written
 - `docs/brain/00_CURRENT_STATE.md` updated
-- `docs/brain/02_ROADMAP.md` — Sprint 2.0 → DONE, Sprint 2.1 → NEXT
-- `docs/brain/04_NEXT_SPRINT.md` rewritten for Sprint 2.1
+- `docs/brain/02_ROADMAP.md` — Sprint 2.1 → DONE, Sprint 2.2 → NEXT
+- `docs/brain/04_NEXT_SPRINT.md` rewritten for Sprint 2.2
 
 ## Stop conditions
 
 - All tests pass → report written → committed → push only with explicit product-owner approval
-- No scope creep into Sprint 2.1 / Phase 3 items (especially: no Apify, no Telegram bot for managers, no MCP)
-- No new payment vendor without explicit discussion (PDF rendering, email relay, etc.)
+- No scope creep into Sprint 2.2 / Phase 3 items (especially: no Apify, no Telegram bot, no MCP, no Quote/КП, no WebForms)
+- No new payment vendor without explicit discussion
+- No new LLM vendor (the AI part runs *off* our stack — that's the whole design)
 
 ---
 
@@ -119,29 +154,36 @@ Migration: `forms` + `form_fields` + `form_submissions` tables.
 
 This list is provisional — refine at sprint start with product owner.
 
-1. **Inbox backend — schema + email IMAP poller** — migrations + Celery worker + dedup
-2. **Inbox backend — email SMTP send** — reuse Sprint 1.5 sender, attach to inbox thread
-3. **Inbox backend — Telegram Business webhook** — workspace bot config + webhook handler
-4. **Inbox frontend — `/inbox` route** — list rail + message pane + reply composer
-5. **Inbox frontend — Lead Card inbox tab** — same thread as `/inbox` filtered to one lead
-6. **Quote backend — schema + REST + PDF render** — line items, totals, PDF
-7. **Quote frontend — builder UI on Lead Card** — line-item table + send-via-email
-8. **Forms backend — public submit + storage** — anonymous endpoint + lead creation
-9. **Forms frontend — builder + embed snippet** — drag-and-drop fields, preview
-10. **Bulk import — column mapper + dry-run** — backend service + frontend wizard
-11. **Bulk export — streamed CSV per list view** — applied to leads-pool / pipeline / audit
-12. **Knowledge Base CRUD** — table + REST + `/knowledge` UI; move file content into rows
-13. **Carryover** — Sprint 1.5 soft-launch open items (Sentry DSNs, pg_dump, onboarding doc, log-volume review)
+1. **Schema + import_jobs domain skeleton** — migration + ORM + empty service stubs + Celery task wired
+2. **Generic CSV / XLSX / YAML / JSON parser + column mapper backend** — file upload, parsing, fuzzy-match heuristics, dry-run validation
+3. **Frontend `/import` wizard** — upload → mapping screen → dry-run preview → confirm → progress poll
+4. **Bitrix24 adapter** — known-format detection, normalized output, contacts preserved, fixture-based tests
+5. **AmoCRM adapter** — same shape as #4
+6. **Streamed export** — `GET /api/export/leads` with `format=xlsx|csv|json|yaml|markdown_zip` + filter passthrough
+7. **Frontend export buttons** — "Export" CTA on `/pipeline`, `/leads-pool`, `/audit`; format picker
+8. **AI bulk-update — snapshot endpoint** — YAML producer with full lead + activity + AI Brief embed
+9. **AI bulk-update — diff engine + preview UI** — backend diff, frontend per-field accept/reject, apply via Celery
+10. **Carryover** — Sprint 2.0 production-readiness items still open (`credentials_json` encryption is the big one), Sprint 1.5 soft-launch carryovers (Sentry DSNs, pg_dump, onboarding doc)
 
-After all merged: schedule a Phase 2 Sprint 2.0 retro before opening 2.1.
+After all merged: schedule a Phase 2 Sprint 2.1 retro before opening 2.2.
 
 ---
 
 ## Followups parked from earlier sprints
 
-- **Phase G (Sprint 1.3 follow-on)** — move enrichment orchestrator off FastAPI BackgroundTasks onto Celery; add WebSocket `/ws/{user_id}` for real-time enrichment progress; replace the 2s polling. Sprint 2.0 is a natural home if there's slack.
-- **DST-aware daily plan / digest cron** — handle hour-skip and hour-duplicate edge cases.
-- **TransferModal user picker** — replace the UUID input with a workspace-users picker once `GET /api/users` (or equivalent) is available.
-- **Tab content overflow audit at 375px** — DealTab / ScoringTab / AIBriefTab / ContactsTab / ActivityTab / PilotTab were not exhaustively reviewed in Sprint 1.5 group 6. Point-fix on observation.
-- **Cron retry on per-user LLM failure** (Sprint 1.4 carryover).
-- **Anthropic 403-from-RU mitigation** — possibly add a reachable-fallback skip rule so the chain doesn't waste a round-trip on every call.
+- **Sprint 2.0 carryovers** — `credentials_json` encryption (security
+  TODO), 2000-msg history-sync cap (resumable / paginated job),
+  `_GENERIC_DOMAINS` per-workspace setting, `pnpm-lock.yaml` housekeeping
+- **Phase G (Sprint 1.3 follow-on)** — move enrichment off FastAPI
+  BackgroundTasks onto Celery (infra exists from Sprint 1.4); WebSocket
+  `/ws/{user_id}` for real-time enrichment progress; replace the 2s polling
+- **DST-aware daily plan / digest cron** — handle hour-skip and
+  hour-duplicate edge cases
+- **TransferModal user picker** — replace the UUID input with a
+  workspace-users picker once `GET /api/users` (or equivalent) lands
+- **Tab content overflow audit at 375px** — DealTab / ScoringTab /
+  AIBriefTab / ContactsTab / ActivityTab / PilotTab were not exhaustively
+  reviewed in Sprint 1.5 group 6. Point-fix on observation
+- **Cron retry on per-user LLM failure** (Sprint 1.4 carryover)
+- **Anthropic 403-from-RU mitigation** — possibly add a reachable-fallback
+  skip rule so the chain doesn't waste a round-trip on every call
