@@ -38,5 +38,6 @@ class Followup(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    dispatched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     lead: Mapped["Lead"] = relationship(back_populates="followups")  # type: ignore[name-defined]
