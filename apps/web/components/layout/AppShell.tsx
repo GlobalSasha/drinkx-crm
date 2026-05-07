@@ -132,9 +132,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         {/* Logo + mobile close */}
         <div className="px-5 py-5 border-b border-black/5 flex items-center justify-between">
-          <span className="text-lg font-extrabold tracking-tight">
+          <Link
+            href="/today"
+            className="text-lg font-extrabold tracking-tight hover:opacity-80 transition-opacity"
+          >
             drinkx<span className="text-accent">.</span>crm
-          </span>
+          </Link>
           <button
             onClick={() => setMobileNavOpen(false)}
             className="md:hidden p-1 rounded-lg text-muted-3 hover:bg-canvas hover:text-ink transition-colors"
