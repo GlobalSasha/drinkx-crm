@@ -1,166 +1,184 @@
-# Next Sprint: Phase 1 Sprint 1.2 — Core CRUD with B2B model
+# Next Sprint: Phase 1 Sprint 1.4 — Daily Plan + Follow-ups
 
 Status: **READY TO START**
-Branch: `sprint/1.2-core-crud`
+Branch: `sprint/1.4-daily-plan`
 
 ## Goal
 
-Real pipeline with real leads, real drag-drop, real lead card.
-Implements B2B model from `index-b2b.html` reference (11 stages,
-gate criteria, two scorings, multi-stakeholder, deal type, priority A/B/C/D,
-dual rotting, pilot contract, lead pool).
+Every morning, every active manager opens `/today` and sees a prioritized,
+time-boxed plan: which leads to call, in which order, why, with a one-line
+hint. Follow-up reminders auto-create tasks 24h before due. Both run on
+Celery beat (the first long-running scheduled work in the system).
 
-No AI yet. No external integrations. Pure CRUD + workflow.
+PRD reference: §6.5 (Daily Plan), §6.10 (Follow-ups).
 
 ## Read before starting
 
-- `docs/brain/00_CURRENT_STATE.md` — what `index-b2b.html` implements
-- `docs/brain/01_ARCHITECTURE.md` — backend structure
-- `docs/brain/03_DECISIONS.md` — ADR-002 through ADR-015
-- `docs/PRD-v2.0.md` §6.2, §6.3, §8.3
-- Prototype `crm-prototype/index-b2b.html` (visual reference)
-- Prototype `crm-prototype/docs/PRD-addition-v2.1-lead-pool.md`
+- `docs/brain/00_CURRENT_STATE.md` — what Sprint 1.3 left us
+- `docs/brain/01_ARCHITECTURE.md` — AI module #2 (Daily Plan Generator)
+- `docs/brain/03_DECISIONS.md` — ADR-007 (AI proposes, human approves; auto-email reminders are drafts), ADR-018 (MiMo for bulk → daily plans use MiMo Flash)
+- `docs/PRD-v2.0.md` §6.5 if it has the original PriorityScorer math
+- `docs/brain/sprint_reports/SPRINT_1_3_AI_ENRICHMENT.md` — for the LLM provider/factory pattern this sprint reuses
+- Prototype `crm-prototype/index-soft-full.html` — Today screen visual reference
 
 ## Scope
 
 ### ALLOWED
 
-**Schema migration** (`alembic 0002_b2b_model`):
-- Drop existing 7 stages from default pipelines, re-seed with **11 B2B stages**:
-  ```
-  1 Новый контакт   (prob=5,  rot=3,  is_won=F, is_lost=F)
-  2 Квалификация    (prob=15, rot=5)
-  3 Discovery       (prob=25, rot=7)
-  4 Solution Fit    (prob=40, rot=7)
-  5 Business Case   (prob=50, rot=5)
-  6 Multi-stakeholder (prob=60, rot=7)
-  7 Договор / пилот (prob=75, rot=5)
-  8 Производство    (prob=85, rot=10)
-  9 Пилот           (prob=90, rot=14)
-  10 Scale          (prob=95, rot=14)
-  11 Закрыто (won)  (prob=100, is_won=T)
-  + Закрыто (lost)  (prob=0, is_lost=T) — separate, not in main flow
-  ```
-- Add `gate_criteria_json` to Stage (list of strings, configurable per workspace)
-- Update `DEFAULT_STAGES` and `DEFAULT_GATE_CRITERIA` constants in
-  `app/pipelines/models.py`
+**Schema migration** (`alembic 0004_daily_plan_followup_celery`):
+- `daily_plans` table:
+  - `id` UUID PK, timestamps
+  - `workspace_id` UUID FK CASCADE, indexed
+  - `user_id` UUID FK CASCADE, indexed
+  - `plan_date` DATE — local-date in user's timezone
+  - `generated_at` DateTime(tz)
+  - `status` String(20) — `pending` | `generating` | `ready` | `failed`
+  - `generation_error` Text NULL
+  - `summary_json` JSON — `{total_minutes, count, urgency_breakdown}`
+  - UNIQUE constraint `(user_id, plan_date)` so re-runs replace one plan
+- `daily_plan_items` table:
+  - `id` UUID PK, timestamps
+  - `daily_plan_id` UUID FK CASCADE, indexed
+  - `lead_id` UUID FK SET NULL — soft link
+  - `position` Integer (sort order in the plan)
+  - `priority_score` Numeric(6, 2) — output of PriorityScorer
+  - `estimated_minutes` Integer (default 15)
+  - `time_block` String(20) NULL — `morning` | `midday` | `afternoon` | `evening`
+  - `task_kind` String(30) — `call` | `email` | `meeting` | `research` | `follow_up`
+  - `hint_one_liner` Text — LLM-generated one-line nudge
+  - `done` Boolean default false
+  - `done_at` DateTime(tz) NULL
+- `scheduled_jobs` table (small audit log of Celery runs):
+  - `id` UUID PK, timestamps
+  - `job_name` String(80) — `daily_plan_generator` | `followup_reminder_dispatcher`
+  - `started_at`, `finished_at` DateTime(tz)
+  - `status` String(20) — `succeeded` | `failed` | `skipped`
+  - `affected_count` Integer default 0
+  - `error` Text NULL
 
-**New tables:**
-- `leads` (PRD §8.3 + B2B fields):
-  - basic: company_name, segment, email, phone, website, inn, source, tags_json
-  - **B2B-specific:** deal_type (enum 6 values), priority (A/B/C/D),
-    score (0-100, manager-set), fit_score (0-10, AI-set, NULL for now)
-  - **Lead Pool:** assignment_status (pool/assigned/transferred), assigned_to,
-    assigned_at, transferred_from, transferred_at
-  - **Rotting:** next_action_at, is_rotting_stage (bool), is_rotting_next_step (bool),
-    last_activity_at
-  - **Pilot:** pilot_contract_json (embedded; populated when stage>=9)
-  - lifecycle: created_at, updated_at, archived_at, won_at, lost_at, lost_reason
+**New backend modules:**
+- `apps/api/app/scheduled/` (currently empty package):
+  - `__init__.py` exports the registered tasks
+  - `celery_app.py` — Celery app factory, broker = Redis, backend = Redis, beat schedule registry
+  - `jobs.py` — Celery tasks: `daily_plan_generator()`, `followup_reminder_dispatcher()`
+  - `beat_schedule.py` — declarative schedule (one entry per cron)
+- `apps/api/app/daily_plan/`:
+  - `models.py` — `DailyPlan`, `DailyPlanItem`
+  - `schemas.py` — `DailyPlanOut`, `DailyPlanItemOut`, `MarkDoneIn`
+  - `repositories.py` — query latest plan for user/date
+  - `services.py` — `generate_for_user(user_id, plan_date)` orchestrator
+  - `priority_scorer.py` — pure function `score_lead(lead, now) -> float`
+  - `routers.py` — `GET /me/today`, `GET /daily-plans/{date}`, `POST /daily-plans/{date}/regenerate`, `POST /daily-plans/items/{id}/complete`
+- `apps/api/app/followups/dispatcher.py`:
+  - `run_dispatch(now)` — iterates followups with `due_at` between (now-15min) and (now+24h), creates `Activity(type='task'|'reminder')`, idempotent via `dispatched_at` flag (add column to `followups`)
 
-- `contacts`:
-  - lead_id, name, title, role_type (enum: economic_buyer / champion /
-    technical_buyer / operational_buyer), email, phone, telegram_url,
-    linkedin_url, source, confidence (high/medium/low),
-    verified_status (verified / to_verify), notes
+**Priority scorer** (PRD §6.5 + ADR-018):
+```
+score = stage.probability                      # 0..100, baseline
+      + 25 if next_action_at is overdue
+      + 15 if next_action_at within 24h
+      + 10 if priority == 'A'
+      +  5 if priority == 'B'
+      +  3 if priority == 'C'
+      + 20 if rotting_stage_or_next_step
+      + (lead.fit_score or 0) * 1.0            # 0..10 nudge
+      - 50 if archived / won / lost
+```
+Tunable weights live in `app/daily_plan/priority_scorer.py` constants — easy to swap later.
 
-- `activities` (polymorphic per type):
-  - lead_id, user_id (author), type (comment / task / reminder / file / email /
-    tg / system / stage_change / score_update)
-  - payload_json (type-specific fields)
-  - common: task_due_at, task_done, task_completed_at, reminder_trigger_at,
-    file_url, file_kind, channel, direction, subject, body
+**Daily plan generator flow** (Celery task):
+1. Resolve all active managers per workspace (where `User.role` ∈ `{manager, head, admin}` and `last_login_at` within 30 days).
+2. For each user: collect `Lead` rows where `assigned_to == user.id` AND `assignment_status == 'assigned'` AND not archived/won/lost.
+3. Score each lead via `priority_scorer.score_lead()`.
+4. Sort desc, take top N where `sum(estimated_minutes) <= work_hours_minutes_today` (from `User.working_hours_json`, fall back to 6h × 60min).
+5. For each item, call `complete_with_fallback(daily_plan)` (MiMo Flash) with:
+   - System: short DrinkX profile + "Ты пишешь однострочную подсказку для менеджера: что сделать с этим лидом сегодня"
+   - User: lead summary + last activity + AI Brief excerpt + next_action_at
+6. Build `DailyPlan` row with `status=ready` and child `DailyPlanItem` rows. Replace any prior plan for the same `(user_id, plan_date)` (UNIQUE constraint handles).
+7. Use the existing budget guard (`add_to_daily_spend`) so daily plans don't blow the AI budget.
 
-- `followups`:
-  - lead_id, name, due_at, status (pending/active/done/overdue),
-    reminder_kind (manager / auto_email / ai_hint),
-    notes, position, completed_at
+**Cron schedule (`beat_schedule.py`):**
+- `daily_plan_generator` — runs hourly at minute 0; each run skips workspaces whose timezone-local time is not 08:00. Cheap to run; one workspace per hourly slice ensures correctness across timezones.
+- `followup_reminder_dispatcher` — runs every 15 minutes, no timezone filter (reminders don't care about local morning).
 
-- `workspaces.scoring_config_json` — 8 criteria with weights (default per ADR-004),
-  per-workspace tunable
+**Frontend:**
+- `apps/web/app/(app)/today/page.tsx`:
+  - Replace the placeholder "create lead" empty state with the real plan
+  - Header: greeting, date in user timezone, total minutes / total tasks
+  - Time-blocked rendering: morning / midday / afternoon / evening sections
+  - Each item: lead company, hint_one_liner, task_kind chip, estimated minutes,
+    "✓ Готово" button (POST `/daily-plans/items/{id}/complete`)
+  - "🔄 Пересобрать план" button (admin/head/manager) → POST `.../regenerate` → optimistic running spinner + invalidate
+  - Empty state preserved when no plan generated yet (with "Сформировать сейчас" CTA)
+- `apps/web/lib/hooks/use-daily-plan.ts` — `useTodayPlan()`, `useRegeneratePlan()`, `useCompletePlanItem()`
+- TS types: `DailyPlan`, `DailyPlanItem`, `TimeBlock`, `TaskKind`
 
-**Backend endpoints:**
-- `GET/POST/PATCH/DELETE /api/leads`
-- `GET /api/leads?stage=&segment=&city=&priority=&deal_type=&q=&page=` (filters)
-- `GET /api/leads/pool?city=&segment=&fit_min=` (only `assignment_status=pool`)
-- `POST /api/leads/sprint` body `{cities[], segment?, limit?}` — race-safe claim N
-- `POST /api/leads/{id}/claim` (manual single-card take)
-- `POST /api/leads/{id}/transfer` body `{to_user_id, comment?}`
-- `POST /api/leads/{id}/move-stage` body `{stage_id, gate_skipped: bool, reason?}`
-  → validates Economic Buyer presence for stage>=7
-- `GET /api/pipelines/{id}/stages` with gate_criteria
-- Nested `GET/POST/PATCH/DELETE /api/leads/{id}/contacts`
-- `GET /api/leads/{id}/activities?type=&cursor=&limit=`
-- `POST /api/leads/{id}/activities` (composer endpoint — type+payload)
-- `GET/POST/PATCH/DELETE /api/leads/{id}/followups`
-- `POST /api/leads/{id}/followups/{fu_id}/complete`
-- WebSocket `/ws/{user_id}` (Redis pub/sub) — for activity stream + drag-drop sync
+**Infra updates:**
+- `infra/production/docker-compose.yml`: enable the commented-out `worker` service for Celery worker (`celery -A app.scheduled.celery_app worker -l INFO`)
+- Add a `beat` service (`celery -A app.scheduled.celery_app beat -l INFO`) — single-replica, no fancy scheduler backend needed yet
+- Both share the API image; just override the CMD
+- `redis_url` already in env — Celery uses it as broker + result backend
 
-**Frontend (Next.js):**
-- `app/today/page.tsx` — real Today screen (reads from /leads with assigned_to=me + sorting)
-  Empty state when no leads.
-- `app/pipeline/page.tsx` — Kanban with @dnd-kit, segment+city filter chips,
-  "Сформировать план на неделю" button, AI Brief drawer on click
-- `app/leads-pool/page.tsx` — Lead Pool table with filters + "Взять в работу"
-- `app/leads/[id]/page.tsx` — Lead Card with 4 tabs:
-  - Сделка: deal_type, priority, score with sliders, blocker, next step
-  - Контакты: 4 role types, add/edit/delete
-  - Scoring: 8 criteria sliders, auto Tier badge
-  - Активность: composer (comment/task/reminder/file) + filtered feed
-  - Pilot Contract (conditional, stage>=9)
-- Brief drawer (port from prototype)
-- TransferModal in lead card menu
+**Tests required:**
+- pytest: `priority_scorer` unit tests for each weight component (overdue, rotting, archived, fit_score, priority A/B/C/D)
+- pytest: `daily_plan.services.generate_for_user` happy path with mocked LLM
+- pytest: `daily_plan_generator` skips users not at 08:00 local
+- pytest: `followup_reminder_dispatcher` is idempotent (run twice → one Activity per Followup)
+- pytest: `regenerate` endpoint replaces a prior plan (unique constraint test)
+- pytest: budget guard fires when daily AI spend exceeded → plan status=`failed` with reason
+- web Playwright (or skipped if browser env not in CI): `/today` renders 5 mocked items with correct time-block grouping
 
-**Migration script:**
-- `apps/api/scripts/import_prototype_data.py` — one-shot loader
-  Reads prototype's `data.js`, parses into Postgres
-  Lead.assignment_status = 'pool' for all imported (managers will claim)
+**Environment additions:**
+- None new — Celery uses existing `REDIS_URL`. `MIMO_API_KEY` already wired.
 
 ### FORBIDDEN
 
-- AI features (Sprint 1.3)
-- Inbox / email / Telegram (Phase 2)
-- Quote/КП builder (Phase 2)
-- Touching `apps/api/app/auth/` beyond adding `User` foreign-key references
-- Real Supabase keys (continue stub mode)
-- Modifying `crm-prototype` repo (it's reference only now)
+- WebSocket for daily plan progress (Phase G of Sprint 1.3 covers this; daily plan can render with simple invalidate-on-complete)
+- Mobile / push notifications (Sprint 1.5)
+- Sales Coach chat (Phase 3)
+- Vector DB / similar-deal retrieval (Phase 3)
+- Anything in `apps/api/app/auth/` beyond reading `user.timezone` and `user.working_hours_json`
+- Replacing the LLM provider stack — reuse `complete_with_fallback`
 
 ## Tests required
 
-- pytest: lead CRUD, including segment/city/priority filter
-- pytest: `POST /leads/sprint` race-safe (concurrent calls, only one wins per card)
-- pytest: stage transition rejected when Economic Buyer missing for stage>=7,
-  unless `gate_skipped=true`
-- pytest: contact CRUD with role_type enum
-- pytest: activity polymorphic write+read for all 8 types
-- pytest: followup auto-seed on lead create per default pipeline
-- web: Playwright e2e "sign in (stub) → create lead → drag to next stage →
-  add comment → mark task done"
+(See list under "Backend modules" above — 7 backend test groups + 1 web e2e)
 
 ## Deliverables
 
-- All tables migrated on production server (auto via deploy)
-- All endpoints documented in OpenAPI (FastAPI auto-generates)
-- Frontend pages live at https://crm.drinkx.tech/today, /pipeline, /leads-pool, /leads/{id}
-- `docs/brain/sprint_reports/SPRINT_1_2_CORE_CRUD.md` written
+- Migration `0004` on production
+- Celery worker + beat services running on the prod docker-compose stack
+- `/today` shows a generated plan after the next 08:00 cron tick
+- `docs/brain/sprint_reports/SPRINT_1_4_DAILY_PLAN.md` written
 - Update `docs/brain/00_CURRENT_STATE.md`
 - Update `docs/brain/02_ROADMAP.md`
-- Update `docs/brain/04_NEXT_SPRINT.md` → next is Sprint 1.3 AI Enrichment
+- Update `docs/brain/04_NEXT_SPRINT.md` → Sprint 1.5 Polish
 
 ## Stop conditions
 
-All tests pass → report written → committed → STOP
-No push to main without product owner approval.
-No scope creep into Sprint 1.3+ items.
+- All tests pass → report written → committed → STOP
+- No push to main without product-owner approval
+- No scope creep into Sprint 1.5 items
 
 ---
 
 ## Recommended task breakdown (one PR per group)
 
-1. **Schema** — migration 0002, models, tests of model creation/relations
-2. **Lead CRUD + Pool** — endpoints, tests, OpenAPI
-3. **Stage transitions + gates** — automation/stage_change.py with rule engine
-4. **Contacts + Activities + Followups** — three sub-domains, REST + tests
-5. **Frontend Pipeline + Brief drawer** — drag-drop, filter chips, sprint modal
-6. **Frontend Lead Card** — 4 tabs with B2B fields, scoring sliders, pilot conditional
-7. **Frontend Today + Pool page** — real data instead of placeholders
-8. **Migration script + smoke** — import 131 prototype leads, verify in UI
+1. **Schema** — migration 0004 + DailyPlan/DailyPlanItem/ScheduledJob models + tests
+2. **PriorityScorer** — pure function + unit tests (no DB; just deterministic math)
+3. **Daily-plan service + LLM hint** — generate_for_user pipeline, mocked LLM tests
+4. **Celery setup + beat schedule** — celery_app, beat_schedule, daily_plan_generator + followup_reminder_dispatcher tasks; idempotency tests
+5. **REST endpoints** — `/me/today`, regenerate, mark-done; route tests
+6. **Frontend Today** — real data wiring, time-block grouping, complete button, regenerate
+7. **Infra** — uncomment worker + beat services in docker-compose; `deploy.sh` smoke; first scheduled run
+
+---
+
+## Followups parked (Sprint 1.3 phases F + G)
+
+These are NOT part of Sprint 1.4 but make sense to bundle if there's
+spare time once Celery is up:
+- **Phase F** — Knowledge Base markdown library + tag-based grounding for synthesis prompts
+- **Phase G** — Move enrichment orchestrator off `BackgroundTasks` and onto Celery (now that Celery exists for daily plans). Add WebSocket `/ws/{user_id}` for real-time progress; replace 2s polling.
+
+Both nice-to-have. Skip them if 1.4 runs long.
