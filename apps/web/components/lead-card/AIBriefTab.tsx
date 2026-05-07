@@ -93,37 +93,36 @@ export function AIBriefTab({ leadId }: Props) {
 
   return (
     <div className="space-y-7">
-      {/* Header — clean, confident */}
+      {/* Header — clean, confident.
+          The header button only renders when there's already a run
+          (Running / Success / Failed). Empty state has its own
+          self-explanatory CTA inside the EmptyState card; showing both
+          would duplicate the action on a single screen. */}
       <header className="flex items-start justify-between gap-6">
         <div className="min-w-0">
           <h2 className="text-2xl font-extrabold tracking-tight text-ink">AI Brief</h2>
-          {run && (
-            <RunMetaLine run={run} />
-          )}
+          {run && <RunMetaLine run={run} />}
         </div>
 
-        <button
-          onClick={handleTrigger}
-          disabled={isRunning}
-          className="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold bg-accent text-white rounded-pill hover:bg-accent/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-700 ease-soft active:scale-[0.98]"
-        >
-          {isRunning ? (
-            <>
-              <Loader2 size={15} className="animate-spin" />
-              Идёт enrichment…
-            </>
-          ) : run ? (
-            <>
-              <RefreshCw size={15} />
-              Обновить
-            </>
-          ) : (
-            <>
-              <Sparkles size={15} />
-              Запустить enrichment
-            </>
-          )}
-        </button>
+        {run && (
+          <button
+            onClick={handleTrigger}
+            disabled={isRunning}
+            className="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold bg-accent text-white rounded-pill hover:bg-accent/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-700 ease-soft active:scale-[0.98]"
+          >
+            {isRunning ? (
+              <>
+                <Loader2 size={15} className="animate-spin" />
+                Идёт enrichment…
+              </>
+            ) : (
+              <>
+                <RefreshCw size={15} />
+                Обновить
+              </>
+            )}
+          </button>
+        )}
       </header>
 
       {run?.status === "running" && <RunningState startedAt={run.started_at} />}
