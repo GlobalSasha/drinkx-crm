@@ -1,6 +1,6 @@
 # DrinkX CRM — Current State
 
-Last updated: 2026-05-07 (Sprint 1.5 branch ready for review)
+Last updated: 2026-05-07 (Sprint 1.5 merged + deployed; 2 post-merge hotfixes live)
 
 ## Phase 0 — COMPLETED ✅ (lives in `crm-prototype` repo)
 
@@ -92,8 +92,8 @@ Infra:
 - `apps/web/Dockerfile`: bumped to `node:22-alpine` (corepack auto-upgraded to pnpm 11 which dropped Node 20)
 - `apps/web/package.json`: pinned `packageManager: pnpm@10.18.0` + `onlyBuiltDependencies` allow-list (corepack reproducibility)
 
-### ✅ Sprint 1.5 — Polish + Launch (DONE — branch ready for review, not yet merged)
-**8 groups · `sprint/1.5-polish-launch` · commit range `f3e0509..HEAD`**
+### ✅ Sprint 1.5 — Polish + Launch (DONE — merged + live in production)
+**8 groups + 2 post-merge hotfixes · merged `4261526` · current main HEAD `434428c`**
 
 Backend:
 - Migration `0006_notifications` — `notifications` table + 3 indexes; emit hooks in lead transfer / enrichment success+failure / daily plan ready / followup_due
@@ -115,6 +115,18 @@ Frontend:
 - 0 new npm dependencies
 
 See `docs/brain/sprint_reports/SPRINT_1_5_POLISH_LAUNCH.md` for the full report.
+
+**Post-merge hotfixes** (committed direct to main after sprint close):
+- `9a580cd` `fix(nginx): increase proxy_buffer_size for Supabase 2.x cookie stack` — `/auth/callback` was returning 502 because Supabase JS 2.x cookie chunks (sb-access-token + sb-refresh-token + chunked PKCE auth-token) overflowed the 8K default `proxy_buffer_size`. Bumped to 16k / 32k. Applied manually on VPS first, then mirrored into `infra/production/nginx/crm.drinkx.tech.conf`.
+- `434428c` `fix(web): make sidebar logo clickable, links to /today` — desktop sidebar logo was a `<span>`; now wraps in `<Link href="/today">` matching the mobile top-bar pattern.
+
+**Production state at session close:**
+- All 6 containers up, api healthy
+- Migrations `0006_notifications` + `0007_audit_log` applied
+- Beat firing 3 cron entries (daily_plan_generator @ :00 hourly, followup_reminder_dispatcher @ */15, daily_email_digest @ :30 hourly)
+- Worker registered all 4 tasks (3 cron + `regenerate_for_user` manual)
+- Sign-in flow verified working end-to-end
+- Logo home-link verified working
 
 ### ⏸ NOT YET BUILT
 - **Phase 2** — Inbox (email + Telegram), Quote/КП builder, WebForms, Bulk Import/Export, Knowledge Base CRUD UI, Apify, multi-pipeline switcher
