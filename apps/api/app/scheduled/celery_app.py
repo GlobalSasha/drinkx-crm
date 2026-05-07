@@ -62,4 +62,8 @@ celery_app.conf.beat_schedule = {
         "task": "app.scheduled.jobs.daily_email_digest",
         "schedule": crontab(minute=30),    # every hour at :30 UTC; runner filters by local hour=8
     },
+    "gmail-incremental-sync": {
+        "task": "app.scheduled.jobs.gmail_incremental_sync",
+        "schedule": crontab(minute=f"*/{_s.gmail_sync_interval_minutes}"),
+    },
 }
