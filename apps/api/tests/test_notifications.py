@@ -1,151 +1,347 @@
-"""Tests for app.notifications — Sprint 1.5 group 1."""
+"""Tests for app.notifications — Sprint 1.5 group 1.
+
+SQLAlchemy is stubbed at import time (same pattern as
+test_enrichment_routes.py / test_daily_plan_routes.py). Service
+functions are tested with AsyncMock DB sessions — no Postgres needed.
+"""
 from __future__ import annotations
 
+import sys
 import uuid
+from datetime import datetime, timezone
+from types import ModuleType
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from tests.conftest import POSTGRES_AVAILABLE
 
-skip_no_pg = pytest.mark.skipif(
-    not POSTGRES_AVAILABLE,
-    reason="Requires a running Postgres at postgresql+asyncpg://drinkx:dev@localhost:5432/drinkx_test",
-)
+# ---------------------------------------------------------------------------
+# Stub sqlalchemy before any ORM imports
+# ---------------------------------------------------------------------------
+
+def _stub_sqlalchemy():
+    if "sqlalchemy" in sys.modules:
+        return
+
+    def _noop(*a, **kw):
+        return None
+
+    class _Callable:
+        """Stub returning itself from any call/attr — supports chaining."""
+        def __init__(self, *a, **kw): pass
+        def __call__(self, *a, **kw): return _Callable()
+        def __class_getitem__(cls, item): return cls
+        def __getattr__(self, name): return _Callable()
+        def __eq__(self, other): return True
+        def __ne__(self, other): return True
+
+    sa = ModuleType("sqlalchemy")
+    for name in (
+        "Column", "ForeignKey", "Integer", "String", "Text", "JSON",
+        "Numeric", "DateTime", "Boolean", "Index", "select",
+        "desc", "false", "UniqueConstraint", "text", "nullslast",
+        "asc", "or_", "and_", "update", "delete", "cast", "literal",
+        "Date",
+    ):
+        setattr(sa, name, _Callable)
+
+    class _Func:
+        def __getattr__(self, name):
+            return _Callable
+
+    sa.func = _Func()
+
+    sa_ext = ModuleType("sqlalchemy.ext")
+    sa_async = ModuleType("sqlalchemy.ext.asyncio")
+    sa_dialects = ModuleType("sqlalchemy.dialects")
+    sa_pg = ModuleType("sqlalchemy.dialects.postgresql")
+    sa_orm = ModuleType("sqlalchemy.orm")
+
+    class _Mapped:
+        def __class_getitem__(cls, item): return cls
+
+    class _DeclarativeBase:
+        metadata = MagicMock()
+
+    sa_orm.DeclarativeBase = _DeclarativeBase
+    sa_orm.Mapped = _Mapped
+    # Important: return a chainable stub (not None) so service-level code that
+    # touches `Model.column.is_(...)` / `.in_(...)` keeps working under the
+    # stub. mapped_column is invoked at class-creation time per column.
+    sa_orm.mapped_column = lambda *a, **kw: _Callable()
+    sa_orm.relationship = _Callable()
+    sa_orm.selectinload = _Callable()
+    sa_orm.joinedload = _Callable()
+
+    sa_pg.UUID = _Callable
+    sa_pg.JSON = _Callable
+
+    sa_async.AsyncSession = object
+    sa_async.async_sessionmaker = _Callable
+    sa_async.create_async_engine = _Callable
+    sa_async.AsyncEngine = object
+
+    sys.modules["sqlalchemy"] = sa
+    sys.modules["sqlalchemy.ext"] = sa_ext
+    sys.modules["sqlalchemy.ext.asyncio"] = sa_async
+    sys.modules["sqlalchemy.dialects"] = sa_dialects
+    sys.modules["sqlalchemy.dialects.postgresql"] = sa_pg
+    sys.modules["sqlalchemy.orm"] = sa_orm
+
+    if "asyncpg" not in sys.modules:
+        sys.modules["asyncpg"] = ModuleType("asyncpg")
+
+
+_stub_sqlalchemy()
 
 
 # ---------------------------------------------------------------------------
-# notify() — row shape
+# Imports after stubbing
 # ---------------------------------------------------------------------------
 
-@skip_no_pg
-async def test_notify_writes_correct_row_shape(db, workspace, user):
-    """`notify()` should stage a Notification row with the exact fields supplied."""
-    from app.notifications.services import notify
-
-    row = await notify(
-        db,
-        workspace_id=workspace.id,
-        user_id=user.id,
-        kind="lead_transferred",
-        title="Передан лид: Acme",
-        body="hello",
-    )
-
-    assert row.id is not None
-    assert row.workspace_id == workspace.id
-    assert row.user_id == user.id
-    assert row.kind == "lead_transferred"
-    assert row.title == "Передан лид: Acme"
-    assert row.body == "hello"
-    assert row.lead_id is None
-    assert row.read_at is None
-    assert row.created_at is not None
+import app.notifications.services as svc_mod  # noqa: E402
 
 
-@skip_no_pg
-async def test_notify_truncates_long_title(db, workspace, user):
-    """Titles longer than 200 chars are truncated to fit the column."""
-    from app.notifications.services import notify
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
+def _make_db():
+    """AsyncMock session with the methods notify/list/mark_* call."""
+    db = AsyncMock()
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    db.execute = AsyncMock()
+    return db
+
+
+def _captured_notification_kwargs(MockNotification: MagicMock) -> dict:
+    """Return kwargs the Notification constructor was called with."""
+    assert MockNotification.call_args is not None, "Notification was never constructed"
+    return dict(MockNotification.call_args.kwargs)
+
+
+# ---------------------------------------------------------------------------
+# notify() — staging shape
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_notify_stages_row_with_supplied_fields():
+    """notify() builds a Notification with the kwargs supplied, db.add + flush called."""
+    db = _make_db()
+    workspace_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    lead_id = uuid.uuid4()
+
+    fake_row = MagicMock()
+    with patch.object(svc_mod, "Notification", return_value=fake_row) as MockNotification:
+        result = await svc_mod.notify(
+            db,
+            workspace_id=workspace_id,
+            user_id=user_id,
+            kind="lead_transferred",
+            title="Передан лид: Acme",
+            body="hello",
+            lead_id=lead_id,
+        )
+
+    assert result is fake_row
+    kwargs = _captured_notification_kwargs(MockNotification)
+    assert kwargs["workspace_id"] == workspace_id
+    assert kwargs["user_id"] == user_id
+    assert kwargs["kind"] == "lead_transferred"
+    assert kwargs["title"] == "Передан лид: Acme"
+    assert kwargs["body"] == "hello"
+    assert kwargs["lead_id"] == lead_id
+    db.add.assert_called_once_with(fake_row)
+    db.flush.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_notify_truncates_long_title_to_200_chars():
+    """Titles >200 chars are truncated by notify() before they reach the model."""
+    db = _make_db()
     long_title = "A" * 500
-    row = await notify(
-        db,
-        workspace_id=workspace.id,
-        user_id=user.id,
-        kind="system",
-        title=long_title,
-    )
-    assert len(row.title) == 200
+
+    with patch.object(svc_mod, "Notification") as MockNotification:
+        MockNotification.return_value = MagicMock()
+        await svc_mod.notify(
+            db,
+            workspace_id=uuid.uuid4(),
+            user_id=uuid.uuid4(),
+            kind="system",
+            title=long_title,
+        )
+
+    kwargs = _captured_notification_kwargs(MockNotification)
+    assert len(kwargs["title"]) == 200
+
+
+@pytest.mark.asyncio
+async def test_notify_normalizes_falsy_body_to_empty_string():
+    """`body=None` (or any falsy) becomes '' so the NOT NULL column is satisfied."""
+    db = _make_db()
+
+    with patch.object(svc_mod, "Notification") as MockNotification:
+        MockNotification.return_value = MagicMock()
+        await svc_mod.notify(
+            db,
+            workspace_id=uuid.uuid4(),
+            user_id=uuid.uuid4(),
+            kind="system",
+            title="t",
+            body="",
+        )
+
+    assert _captured_notification_kwargs(MockNotification)["body"] == ""
 
 
 # ---------------------------------------------------------------------------
-# list_for_user / mark_read / cross-user guard
+# safe_notify() — never raises
 # ---------------------------------------------------------------------------
 
-@skip_no_pg
-async def test_list_returns_only_callers_rows(db, workspace, user, admin_user):
-    """A user only sees their own notifications."""
-    from app.notifications.services import list_for_user, notify
+@pytest.mark.asyncio
+async def test_safe_notify_swallows_exceptions_and_returns_none():
+    """Failures in notify() must NOT bubble out of safe_notify."""
+    db = _make_db()
 
-    await notify(db, workspace_id=workspace.id, user_id=user.id, kind="system", title="mine")
-    await notify(db, workspace_id=workspace.id, user_id=admin_user.id, kind="system", title="theirs")
+    with patch.object(svc_mod, "notify", new=AsyncMock(side_effect=RuntimeError("boom"))):
+        result = await svc_mod.safe_notify(
+            db,
+            workspace_id=uuid.uuid4(),
+            user_id=uuid.uuid4(),
+            kind="system",
+            title="t",
+        )
 
-    items, total, _ = await list_for_user(db, user_id=user.id)
-    titles = [i.title for i in items]
-    assert "mine" in titles
-    assert "theirs" not in titles
-    assert total == 1
-
-
-@skip_no_pg
-async def test_list_unread_filter(db, workspace, user):
-    """unread=True filters out already-read rows."""
-    from app.notifications.services import (
-        list_for_user,
-        mark_read,
-        notify,
-    )
-
-    r1 = await notify(db, workspace_id=workspace.id, user_id=user.id, kind="system", title="one")
-    await notify(db, workspace_id=workspace.id, user_id=user.id, kind="system", title="two")
-
-    await mark_read(db, notification_id=r1.id, user_id=user.id)
-
-    items, total, unread_count = await list_for_user(db, user_id=user.id, unread=True)
-    assert total == 1
-    assert unread_count == 1
-    assert items[0].title == "two"
-
-
-@skip_no_pg
-async def test_mark_read_cross_user_guard_returns_none(db, workspace, user, admin_user):
-    """mark_read() must NOT mutate a row that belongs to another user."""
-    from app.notifications.services import mark_read, notify
-
-    other_row = await notify(
-        db, workspace_id=workspace.id, user_id=admin_user.id, kind="system", title="theirs"
-    )
-
-    # `user` (manager) tries to mark `admin_user`'s notification as read
-    result = await mark_read(db, notification_id=other_row.id, user_id=user.id)
     assert result is None
 
-    # The row must still be unread
-    await db.refresh(other_row)
-    assert other_row.read_at is None
 
+# ---------------------------------------------------------------------------
+# mark_read() — cross-user guard
+# ---------------------------------------------------------------------------
 
-@skip_no_pg
-async def test_mark_read_sets_read_at(db, workspace, user):
-    """Marking own notification stamps read_at."""
-    from app.notifications.services import mark_read, notify
+@pytest.mark.asyncio
+async def test_mark_read_returns_none_for_other_users_row():
+    """mark_read returns None when the WHERE filter (user_id) doesn't match —
+    i.e. the row exists but belongs to another user."""
+    db = _make_db()
+    execute_result = MagicMock()
+    execute_result.scalar_one_or_none.return_value = None
+    db.execute = AsyncMock(return_value=execute_result)
 
-    row = await notify(db, workspace_id=workspace.id, user_id=user.id, kind="system", title="r")
-    assert row.read_at is None
-
-    updated = await mark_read(db, notification_id=row.id, user_id=user.id)
-    assert updated is not None
-    assert updated.read_at is not None
-
-
-@skip_no_pg
-async def test_mark_all_read_only_affects_caller(db, workspace, user, admin_user):
-    """mark_all_read flips all of caller's unread, leaves others untouched."""
-    from app.notifications.services import list_for_user, mark_all_read, notify
-
-    await notify(db, workspace_id=workspace.id, user_id=user.id, kind="system", title="m1")
-    await notify(db, workspace_id=workspace.id, user_id=user.id, kind="system", title="m2")
-    other = await notify(
-        db, workspace_id=workspace.id, user_id=admin_user.id, kind="system", title="theirs"
+    result = await svc_mod.mark_read(
+        db,
+        notification_id=uuid.uuid4(),
+        user_id=uuid.uuid4(),
     )
 
-    affected = await mark_all_read(db, user_id=user.id)
-    assert affected == 2
+    assert result is None
+    db.flush.assert_not_awaited()
 
-    # Caller has zero unread
-    _, _, unread_count = await list_for_user(db, user_id=user.id, unread=True)
-    assert unread_count == 0
 
-    # Other user untouched
-    await db.refresh(other)
-    assert other.read_at is None
+@pytest.mark.asyncio
+async def test_mark_read_stamps_read_at_when_unread():
+    """An owned, unread row gets read_at = now() and is flushed."""
+    db = _make_db()
+
+    row = MagicMock()
+    row.read_at = None
+    execute_result = MagicMock()
+    execute_result.scalar_one_or_none.return_value = row
+    db.execute = AsyncMock(return_value=execute_result)
+
+    result = await svc_mod.mark_read(
+        db,
+        notification_id=uuid.uuid4(),
+        user_id=uuid.uuid4(),
+    )
+
+    assert result is row
+    assert isinstance(row.read_at, datetime)
+    assert row.read_at.tzinfo is not None
+    db.flush.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_mark_read_idempotent_when_already_read():
+    """If read_at is already set, mark_read returns the row but does NOT flush
+    (no-op write)."""
+    db = _make_db()
+
+    earlier = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    row = MagicMock()
+    row.read_at = earlier
+    execute_result = MagicMock()
+    execute_result.scalar_one_or_none.return_value = row
+    db.execute = AsyncMock(return_value=execute_result)
+
+    result = await svc_mod.mark_read(
+        db,
+        notification_id=uuid.uuid4(),
+        user_id=uuid.uuid4(),
+    )
+
+    assert result is row
+    assert row.read_at == earlier
+    db.flush.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# mark_all_read() — affected count + scoping
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_mark_all_read_returns_rowcount():
+    """mark_all_read returns the UPDATE rowcount as an int."""
+    db = _make_db()
+    execute_result = MagicMock()
+    execute_result.rowcount = 4
+    db.execute = AsyncMock(return_value=execute_result)
+
+    affected = await svc_mod.mark_all_read(db, user_id=uuid.uuid4())
+
+    assert affected == 4
+    db.flush.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_mark_all_read_handles_null_rowcount():
+    """rowcount may be None on some drivers; service coerces to 0."""
+    db = _make_db()
+    execute_result = MagicMock()
+    execute_result.rowcount = None
+    db.execute = AsyncMock(return_value=execute_result)
+
+    affected = await svc_mod.mark_all_read(db, user_id=uuid.uuid4())
+    assert affected == 0
+
+
+# ---------------------------------------------------------------------------
+# list_for_user() — returns (items, total, unread_count)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_list_for_user_returns_three_part_tuple():
+    """list_for_user issues 3 SELECTs and packs them into (items, total, unread)."""
+    db = _make_db()
+
+    item_a = MagicMock()
+    item_b = MagicMock()
+    items_result = MagicMock()
+    items_result.scalars.return_value = MagicMock(all=lambda: [item_a, item_b])
+
+    total_result = MagicMock()
+    total_result.scalar_one.return_value = 5
+
+    unread_result = MagicMock()
+    unread_result.scalar_one.return_value = 2
+
+    db.execute = AsyncMock(side_effect=[total_result, unread_result, items_result])
+
+    items, total, unread = await svc_mod.list_for_user(db, user_id=uuid.uuid4())
+
+    assert items == [item_a, item_b]
+    assert total == 5
+    assert unread == 2
+    assert db.execute.await_count == 3

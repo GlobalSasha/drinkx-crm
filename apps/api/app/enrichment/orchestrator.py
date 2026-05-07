@@ -326,15 +326,15 @@ async def run_enrichment(*, db: AsyncSession, run_id: UUID) -> None:
         run.result_json = research_output.model_dump()
         run.finished_at = datetime.now(tz=timezone.utc)
 
-        # Notify the user who triggered (system runs have user_id=NULL — skip).
-        if run.user_id is not None:
+        # Notify the lead's current owner (unassigned leads have assigned_to=NULL — skip).
+        if lead.assigned_to is not None:
             from app.notifications.services import safe_notify
 
             company = lead.company_name or "—"
             await safe_notify(
                 db,
                 workspace_id=lead.workspace_id,
-                user_id=run.user_id,
+                user_id=lead.assigned_to,
                 kind="enrichment_done",
                 title=f"AI Brief готов: {company}",
                 body=research_output.company_profile[:300] if research_output.company_profile else "",
@@ -371,14 +371,15 @@ async def run_enrichment(*, db: AsyncSession, run_id: UUID) -> None:
 
             # `lead` may be None if the failure happened during lookup —
             # in that case we have no workspace_id to attribute, so skip.
-            if run.user_id is not None and lead is not None:
+            # Notify the lead's owner; unassigned leads have no recipient.
+            if lead is not None and lead.assigned_to is not None:
                 from app.notifications.services import safe_notify
 
                 company = lead.company_name or "—"
                 await safe_notify(
                     db,
                     workspace_id=lead.workspace_id,
-                    user_id=run.user_id,
+                    user_id=lead.assigned_to,
                     kind="enrichment_failed",
                     title=f"AI Brief не собрался: {company}",
                     body=f"{error_type}: {str(exc)[:200]}",
