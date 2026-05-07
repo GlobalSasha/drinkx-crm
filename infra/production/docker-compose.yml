@@ -51,7 +51,7 @@ services:
       context: ../../apps/api
       dockerfile: Dockerfile
     restart: unless-stopped
-    environment:
+    environment: &api-env
       APP_ENV: production
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-drinkx}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-drinkx_crm}
       REDIS_URL: redis://redis:6379/0
@@ -89,19 +89,33 @@ services:
       retries: 5
       start_period: 20s
 
-  # Celery worker — created as separate service so it can scale independently.
-  # Currently no celery tasks defined; enable when Sprint 1.3 starts.
-  # worker:
-  #   build:
-  #     context: ../../apps/api
-  #     dockerfile: Dockerfile
-  #   restart: unless-stopped
-  #   command: ["uv", "run", "celery", "-A", "app.celery_app", "worker", "-l", "INFO"]
-  #   environment:
-  #     <<: *api-env
-  #   depends_on:
-  #     - postgres
-  #     - redis
+  worker:
+    build:
+      context: ../../apps/api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["uv", "run", "celery", "-A", "app.scheduled.celery_app", "worker", "-l", "INFO", "--concurrency=2"]
+    environment:
+      <<: *api-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  beat:
+    build:
+      context: ../../apps/api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["uv", "run", "celery", "-A", "app.scheduled.celery_app", "beat", "-l", "INFO"]
+    environment:
+      <<: *api-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   web:
     build:
