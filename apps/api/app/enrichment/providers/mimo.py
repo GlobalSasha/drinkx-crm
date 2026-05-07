@@ -38,6 +38,10 @@ class MiMoProvider:
         model = s.mimo_model_flash if is_flash_task(task_type) else s.mimo_model_pro
         url = f"{s.mimo_base_url.rstrip('/')}/chat/completions"
 
+        # MiMo strictly validates known fields (returns 400 on
+        # 'reasoning_effort' / 'thinking' which we tried earlier as
+        # defensive hints). Strip to OpenAI-spec basics; the synthesis
+        # prompt itself enforces "single JSON, no markdown, no preamble".
         payload: dict = {
             "model": model,
             "messages": [
@@ -47,13 +51,6 @@ class MiMoProvider:
             "max_tokens": max_tokens,
             "temperature": temperature,
             "stream": False,
-            # Disable / minimize reasoning so the full max_tokens budget stays
-            # available for the actual answer. MiMo Pro auto-enables reasoning
-            # which can silently truncate the JSON we expect. Unknown fields
-            # are ignored by OpenAI-compatible servers (per spec).
-            "reasoning_effort": "minimal",
-            # Anthropic-style hint, also passed in case MiMo supports it
-            "thinking": {"type": "disabled"},
         }
         # MiMo uses 'api-key:' header, NOT 'Authorization: Bearer'
         headers = {"api-key": s.mimo_api_key, "Content-Type": "application/json"}
