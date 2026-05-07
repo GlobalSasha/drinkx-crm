@@ -424,3 +424,36 @@ export interface RegenerateResponse {
   status: DailyPlanStatus;
   task_id: string | null;
 }
+
+// ---- Notifications (Sprint 1.5) ----
+
+export type NotificationKind =
+  | "lead_transferred"
+  | "enrichment_done"
+  | "enrichment_failed"
+  | "daily_plan_ready"
+  | "followup_due"
+  | "mention"
+  | "system";
+
+export interface NotificationOut {
+  id: string;
+  kind: NotificationKind | string; // backend permissive
+  title: string;
+  body: string;
+  lead_id: string | null;
+  read_at: string | null;
+  created_at: string;
+}
+
+export interface NotificationListOut {
+  items: NotificationOut[];
+  total: number;
+  unread: number;
+  page: number;
+  page_size: number;
+}
+
+export interface MarkAllReadOut {
+  affected: number;
+}

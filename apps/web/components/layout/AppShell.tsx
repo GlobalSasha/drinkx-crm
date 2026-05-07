@@ -11,9 +11,12 @@ import {
   BookOpen,
   Users,
   Settings,
+  Bell,
 } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { User } from "@supabase/supabase-js";
+import { NotificationsDrawer } from "@/components/notifications/NotificationsDrawer";
+import { useNotificationsBadge } from "@/lib/hooks/use-notifications";
 
 interface NavItem {
   label: string;
@@ -39,6 +42,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const { data: badge } = useNotificationsBadge();
+  const unreadCount = badge?.unread ?? 0;
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -102,6 +108,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             );
           })}
 
+          {/* Notifications bell — opens drawer */}
+          <button
+            onClick={() => setNotifOpen(true)}
+            className={clsx(
+              "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 w-full text-left relative",
+              "text-muted hover:bg-black/5",
+            )}
+            aria-label={`Уведомления${unreadCount > 0 ? ` (${unreadCount} непрочитанных)` : ""}`}
+          >
+            <span className="relative">
+              <Bell size={18} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-accent text-white text-[9px] font-mono font-bold rounded-pill px-1 flex items-center justify-center tabular-nums">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </span>
+            Уведомления
+          </button>
+
           {/* Divider */}
           <div className="my-2 border-t border-black/5" />
 
@@ -148,6 +174,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="col-start-2 min-h-screen min-w-0">
         {children}
       </div>
+
+      {/* Notifications drawer */}
+      <NotificationsDrawer open={notifOpen} onClose={() => setNotifOpen(false)} />
     </div>
   );
 }
