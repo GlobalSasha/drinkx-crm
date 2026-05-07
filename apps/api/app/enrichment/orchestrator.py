@@ -37,8 +37,14 @@ from app.enrichment.sources.brave import BraveSearch
 from app.enrichment.sources.hh import HHRu
 from app.enrichment.sources.web_fetch import WebFetch
 from app.leads.models import Lead
+from app.activity.models import Activity
 
 log = structlog.get_logger()
+
+# Cap on the email-context block injected into the synthesis prompt.
+# Single source of truth for both the helper and the test suite.
+EMAIL_CONTEXT_MAX_CHARS = 2000
+EMAIL_BODY_PREVIEW_CHARS = 200
 
 # ---------------------------------------------------------------------------
 # Prompt templates
@@ -174,6 +180,51 @@ def _collect_sources_used(
     return used
 
 
+async def _load_email_context(
+    session: AsyncSession, lead_id: Any, *, limit: int = 10
+) -> str:
+    """Format the last `limit` email Activities for synthesis-prompt injection.
+
+    Returns a formatted block prefixed with the section preamble, or "" when
+    no emails exist (caller skips injection). Each line marks direction with
+    ← / → and shows subject + first ~200 chars of body. Per ADR-019 the feed
+    is lead-scoped — `Activity.user_id` is NOT a filter here; every email
+    that touched this lead surfaces in the AI Brief regardless of which
+    manager's mailbox sourced it.
+    """
+    res = await session.execute(
+        select(Activity)
+        .where(Activity.lead_id == lead_id)
+        .where(Activity.type == "email")
+        .order_by(Activity.created_at.desc())
+        .limit(limit)
+    )
+    rows = list(res.scalars())
+    if not rows:
+        return ""
+
+    lines: list[str] = ["Переписка с клиентом (последние письма):"]
+    for a in rows:
+        marker = "← Входящее" if (a.direction or "") != "outbound" else "→ Исходящее"
+        subject = (a.subject or "(без темы)").strip()
+        body_preview = ((a.body or "").strip())[:EMAIL_BODY_PREVIEW_CHARS]
+        # Replace newlines so each email stays a single prompt line —
+        # multi-line bodies otherwise break the LLM's section parsing.
+        body_preview = body_preview.replace("\n", " ").replace("\r", " ")
+        lines.append(f"[{marker}] Тема: {subject} | {body_preview}")
+    return "\n".join(lines)
+
+
+def _format_email_section(email_ctx: str) -> str:
+    """Wrap the (already-truncated) email context in a synthesis-prompt section."""
+    return (
+        "### Переписка с клиентом\n"
+        f"{email_ctx}\n\n"
+        "Используй переписку как сигнал реального интереса или возражений. "
+        "Не пересказывай письма — только учитывай как контекст для оценки."
+    )
+
+
 def _parse_research_output(text: str) -> tuple[ResearchOutput, bool]:
     """Return (ResearchOutput, parse_ok). On failure returns defaults with raw in notes."""
     # Strip possible markdown code fence
@@ -280,11 +331,17 @@ async def run_enrichment(*, db: AsyncSession, run_id: UUID) -> None:
         # --- Step 4: LLM synthesis ---
         profile_block = render_profile_for_prompt()
         kb_block = render_kb_for_prompt(lead.segment)
+        email_ctx = await _load_email_context(db, lead.id)
+        if email_ctx and len(email_ctx) > EMAIL_CONTEXT_MAX_CHARS:
+            email_ctx = email_ctx[:EMAIL_CONTEXT_MAX_CHARS]
+
         system_parts = []
         if profile_block:
             system_parts.append(profile_block)
         if kb_block:
             system_parts.append(kb_block)
+        if email_ctx:
+            system_parts.append(_format_email_section(email_ctx))
         system_parts.append(SYNTHESIS_SYSTEM)
         system_prompt = "\n\n".join(system_parts)
         completion = await complete_with_fallback(
