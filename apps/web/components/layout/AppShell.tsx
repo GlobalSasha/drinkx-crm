@@ -63,12 +63,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const displayEmail = user?.email ?? "";
   const avatarLetter = displayName[0]?.toUpperCase() ?? "?";
 
+  // gridTemplateColumns uses minmax(0, 1fr) so the content cell can't
+  // grow past the available viewport width — without that clamp, default
+  // min-width: auto on grid items lets wide content (e.g., 12-column
+  // Kanban board on /pipeline) push the cell wider than the viewport
+  // and the browser horizontal-scrolls the whole page, taking the header
+  // off-screen.
   return (
-    {/* minmax(0, 1fr) clamps the content cell to the available viewport
-        width — without it, default min-width:auto on grid items lets
-        wide content (e.g., 12 Kanban columns) push the cell wider than
-        the viewport, causing horizontal page-scroll that takes the
-        Pipeline header off-screen. */}
     <div className="grid min-h-screen bg-canvas" style={{ gridTemplateColumns: "220px minmax(0, 1fr)" }}>
       {/* Sidebar */}
       <aside className="fixed top-0 left-0 h-screen w-[220px] bg-white border-r border-black/5 flex flex-col z-20">
