@@ -4,77 +4,73 @@
 
 ### Phase 0 — UX/UI Design & Prototyping (in `crm-prototype` repo)
 - HTML prototypes: index.html, index-soft-full.html, index-soft.html
-- B2B full reference: index-b2b.html (11-stage pipeline, gate criteria,
-  scoring 0-100, multi-stakeholder, deal type, A/B/C/D, dual-rotting,
-  pilot contract, pipeline review)
+- B2B reference: index-b2b.html (11-stage pipeline, gates, scoring 0-100, multi-stakeholder, deal type, A/B/C/D, dual-rotting, pilot contract)
 - data.js: 131 real DrinkX clients
-- drinkx-client-map-v0.6-foodmarkets-audit: +85 candidates
+- v0.6 foodmarkets-audit: +85 candidates
 - PRD v2.0 + addition v2.1 (Lead Pool & Sprint System)
 - Design system: taste-soft (Plus Jakarta Sans + double-bezel + squircle)
 
-### Phase 1 — Foundation + Auth (in `drinkx-crm` repo)
+### Phase 1 — Foundation + Auth + AI (in `drinkx-crm` repo)
 
 **Sprint 1.0 — DONE** · `SPRINT_1_0_FOUNDATION.md`
-- Monorepo (Next.js + FastAPI), bare-metal Docker stack on crm.drinkx.tech
-- Postgres 16 + Redis 7 + nginx + Let's Encrypt TLS
-- GitHub Actions auto-deploy (~90s on push to main)
+- Monorepo, bare-metal Docker stack on crm.drinkx.tech, GitHub Actions auto-deploy
 
 **Sprint 1.1 — DONE** · `SPRINT_1_1_AUTH.md` + Sprint 1.1.3 follow-on
-- SQLAlchemy models: Workspace, User, Pipeline, Stage
-- Alembic 0001 migration applied
-- Stub-mode JWT verifier + JWKS-based ES256/RS256 verification (modern Supabase)
-- `upsert_user_from_token` workspace bootstrap
-- `GET /api/auth/me` + `PATCH /api/auth/me` live
-- Real Supabase + Google OAuth + magic link wired via `@supabase/ssr`
-- `middleware.ts` protects authed routes; `/auth/callback` route handler
+- Workspace/User/Pipeline/Stage models; alembic 0001
+- JWT verifier supports HS256 + ES256/RS256 via JWKS
+- Real Supabase + Google OAuth + magic link via `@supabase/ssr`
 
 **Sprint 1.2 — DONE** · `SPRINT_1_2_BACKEND_MERGE.md` + frontend follow-on
-- Migration 0002: 5 new tables (leads, contacts, activities, followups, scoring_criteria), 11 B2B stages with gate_criteria_json
-- All Lead REST endpoints (CRUD, pool, sprint, claim, transfer)
-- Stage transitions through `app/automation/stage_change.py` with gate engine
-- 4 contact role types, polymorphic activities, auto-seeded followups
-- AppShell + Today + Pipeline (drag-drop) + Lead Pool + Lead Card (5 tabs)
-- 216 leads imported from prototype data (131 v0.5 + 85 v0.6 foodmarkets)
+- Migration 0002: 5 new tables (leads, contacts, activities, followups, scoring_criteria), 11 B2B stages
+- Lead REST + Pool + Sprint claim + transfer; stage transitions with gate engine
+- AppShell + /today + /pipeline (drag-drop) + /leads-pool + /leads/[id] (5 tabs)
+- 216 leads imported from prototype data
 
 **Sprint 1.3 — DONE** · `SPRINT_1_3_AI_ENRICHMENT.md`
-- LLMProvider abstraction: MiMo (primary, OpenAI-compatible) + Anthropic + Gemini + DeepSeek with fallback chain
+- LLM Provider abstraction: MiMo (primary) + Anthropic + Gemini + DeepSeek with fallback chain
 - Sources: Brave + HH.ru + web_fetch with 24h Redis cache
-- Migration 0003: `enrichment_runs` table; orchestrator writes `lead.ai_data` + run row
-- AI Brief tab (Lead Card) with hero band, coffee-signals panel, growth/risk balance sheet, decision-maker cards, next-steps checklist
-- DrinkX profile YAML injected into synthesis prompts; business-tone Russian, no jargon
-- Cost guards: per-lead 1-running rate limit, workspace concurrency cap, daily budget cap
-- ⏸ Phase F (Knowledge Base markdown library) deferred
-- ⏸ Phase G (Celery + WebSocket) deferred — currently FastAPI BackgroundTasks + 2s polling
+- Migration 0003: `enrichment_runs`; Research Agent orchestrator
+- AI Brief tab with hero band, fit_score, score_rationale, signals, decision-makers, next-steps
+- DrinkX `profile.yaml` + KB markdown library (segment-tagged playbooks + always-on objections / competitors / icp_definition)
+- Cost guards: per-lead rate limit, workspace concurrency cap, daily budget cap
+
+**Sprint 1.4 — DONE** · `SPRINT_1_4_DAILY_PLAN.md`
+- **First Celery service in the system** — worker + beat live in production
+- Migration 0004: daily_plans, daily_plan_items, scheduled_jobs (UNIQUE on (user_id, plan_date) for upsert)
+- Migration 0005: followups.dispatched_at for idempotency
+- `priority_scorer.score_lead()` pure function with tunable weights
+- `DailyPlanService.generate_for_user()` — score → pack into work_hours → MiMo Flash hints → time-block spread
+- Cron beat: `daily_plan_generator` hourly with timezone-local 08:00 filter; `followup_reminder_dispatcher` every 15 min, idempotent
+- REST: `/me/today`, regenerate, complete-item; manual UI trigger via Celery `regenerate_for_user`
+- Frontend `/today` rewritten with real plan rendering — compact cards (~72px), URL-driven pagination 10/page, time-block sections, hot-lead left rail
+- Infra hotfixes (4): Node 22 bump, pnpm pin, Celery mapper-registry, per-task NullPool engine
 
 ## 🔜 NEXT
 
-### Phase 1 — MVP continuation (~3-4 weeks remaining)
+### Phase 1 — MVP continuation (~1-2 weeks remaining)
 
-**Sprint 1.4 — Daily Plan + Follow-ups (1-2 weeks)** ← READY TO START
+**Sprint 1.5 — Polish + Launch (1 week)** ← READY TO START
 See `docs/brain/04_NEXT_SPRINT.md` for full scope.
-- Celery beat (cron 08:00 in workspace timezone)
-- Daily plan generator: priority scoring × stage probability × AI urgency, packs into work hours
-- 1-line task hint per item via MiMo Flash
-- `daily_plans` table; rendered as real `/today` content (replaces empty state grouping)
-- Follow-up reminder dispatcher (every 15 minutes); creates `activities` rows
-- Auto-email reminders are drafts requiring manager click-to-send (ADR-007)
 
-**Sprint 1.3-followons (parallel)** — when Sprint 1.4 needs Celery anyway
-- Phase F: Knowledge Base markdown library + tag-based grounding
-- Phase G: WebSocket progress for enrichment (replaces polling)
-
-**Sprint 1.5 — Polish + Launch (1 week)**
-- Notifications (in-app drawer + email digest)
-- Audit log table + admin UI
-- Empty/error states, mobile responsive Today/Lead Card
-- Pipeline column virtualization (>200 cards)
+In-app polish:
+- In-app notifications drawer
+- Email digest (daily morning summary)
+- Audit log (who changed what, when) + admin view
+- Mobile responsive pass on /today, Lead Card, /pipeline (touch drag-drop)
+- Lead Card header polish (score + transfer/won/lost buttons)
+- AI Brief empty-state copy fix (ICP → "портрет идеального клиента")
+- Pipeline sticky header (extra defense against horizontal scroll)
 - Soft launch for DrinkX team
+
+Outstanding deferred work that may bundle into 1.5 if there's time:
+- **Phase G (Sprint 1.3 follow-on)** — move enrichment off FastAPI BackgroundTasks onto Celery (Celery infra now exists from Sprint 1.4); WebSocket `/ws/{user_id}` to replace the 2s polling
+- DST-aware `daily_plan_generator` edge handling
 
 ## 📅 LATER
 
 ### Phase 2 (~6 weeks)
 Inbox (Email IMAP/SMTP + Telegram Business webhook), Quote/КП builder,
-WebForms, Bulk Import/Export, Knowledge Base UI, Apify integration,
+WebForms, Bulk Import/Export, Knowledge Base CRUD UI, Apify integration,
 push notifications + Telegram bot, multi-pipeline switcher,
 full Settings panel.
 

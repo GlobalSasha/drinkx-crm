@@ -1,6 +1,6 @@
 # DrinkX CRM — Current State
 
-Last updated: 2026-05-07 (Sprint 1.3 closed)
+Last updated: 2026-05-07 (Sprint 1.4 closed)
 
 ## Phase 0 — COMPLETED ✅ (lives in `crm-prototype` repo)
 
@@ -24,133 +24,113 @@ Clickable HTML prototypes deployed at https://globalsasha.github.io/drinkx-crm-p
 Production: https://crm.drinkx.tech (live, healthy, auto-deploys on push)
 Repo: https://github.com/GlobalSasha/drinkx-crm
 
+### Production stack (4 app containers + 2 infra)
+
+```
+drinkx-api-1       FastAPI + Alembic, port 8000 (127.0.0.1)
+drinkx-web-1       Next.js 15 + standalone, port 3000 (127.0.0.1)
+drinkx-worker-1    Celery worker (NEW Sprint 1.4) — concurrency=2
+drinkx-beat-1      Celery beat (NEW Sprint 1.4) — hourly + 15min cron
+drinkx-postgres-1  Postgres 16
+drinkx-redis-1     Redis 7
+```
+
+nginx outside Docker reverse-proxies HTTPS → containers on localhost.
+
 ### ✅ Sprint 1.0 — Foundation (DONE)
+- Monorepo, Docker stack, GitHub Actions auto-deploy on push to main (~90s).
 
-- Monorepo: `apps/web` (Next.js 15) + `apps/api` (FastAPI Python 3.12) + `infra/`
-- Bare-metal Ubuntu 22.04 server (77.105.168.227 / crm.drinkx.tech)
-- Docker stack: Postgres 16 + Redis 7 + API + Web + nginx + certbot TLS
-- All services on `127.0.0.1`, exposed only via nginx HTTPS
-- GitHub Actions auto-deploy on `git push origin main` (~90s end-to-end)
-- `.github/workflows/deploy.yml` runs `deploy.sh` + verifies `/health`
-
-### ✅ Sprint 1.1 — Auth + Onboarding (DONE — including real Supabase)
-
-Backend:
-- SQLAlchemy 2 async models: `Workspace`, `User`, `Pipeline`, `Stage`
-- Alembic `0001_initial` migration applied to production
-- `app/auth/jwt.py` — Supabase JWT verifier supporting BOTH legacy HS256
-  AND modern asymmetric ES256/RS256 via the project's JWKS endpoint
-  (`{SUPABASE_URL}/auth/v1/.well-known/jwks.json` with 10-min cache)
-- Stub-mode fallback when both `SUPABASE_JWT_SECRET` and `SUPABASE_URL` are empty
-- `upsert_user_from_token` — auto-bootstraps Workspace + Pipeline + 11 B2B Stages on first sign-in
-- Endpoints live: `GET /api/auth/me`, `PATCH /api/auth/me`
-
-Frontend (Sprint 1.1.3):
-- `@supabase/ssr` browser/server/middleware clients (`apps/web/lib/supabase/`)
-- `middleware.ts` protects authed routes; redirects unauthed to `/sign-in?next=`
-- `/auth/callback` route handler exchanges OAuth code for session; uses
-  `x-forwarded-host`/`x-forwarded-proto` to build the redirect URL behind nginx
-- Sign-in page wired to real Google OAuth + magic-link email OTP
-- `api-client` transparently attaches `Bearer <access_token>` from current session
-- AppShell sidebar shows real signed-in user
-
-Real Supabase project linked, Google OAuth provider configured, JWT_SECRET in prod `.env` → stub mode is OFF on production.
+### ✅ Sprint 1.1 — Auth (DONE — Supabase live)
+- SQLAlchemy 2 async models: Workspace / User / Pipeline / Stage
+- JWT verifier supports legacy HS256 AND modern asymmetric ES256/RS256 via JWKS endpoint (10-min cache)
+- Auto-bootstrap workspace + 11 B2B stages on first sign-in
+- `@supabase/ssr` browser/server/middleware clients, root middleware protects authed routes, `/auth/callback` exchanges OAuth code for session, sign-in with Google + magic link
+- `api-client` transparently attaches Bearer token from current Supabase session
 
 ### ✅ Sprint 1.2 — Core CRUD with B2B model (DONE — backend + frontend + import)
+- Migration 0002: 5 new tables (leads, contacts, activities, followups, scoring_criteria); 11 B2B stages; gate_criteria_json
+- Lead REST: CRUD + filters + Lead Pool + race-safe Sprint claim + transfer
+- Stage transitions through `app/automation/stage_change.py` with gate engine (hard `check_pipeline_match` + soft `check_economic_buyer_for_stage_6_plus`)
+- AppShell sidebar; pages /today, /pipeline, /leads-pool, /leads/[id]; Lead Card with 5 tabs; Pipeline drag-drop
+- 216 leads imported from prototype data (131 v0.5 + 85 v0.6 foodmarkets)
+
+### ✅ Sprint 1.3 — AI Enrichment (DONE — Phases A+B+C+D+E+F)
+- LLMProvider Protocol + 4 providers (MiMo primary, Anthropic / Gemini / DeepSeek fallback chain)
+- Sources: Brave + HH.ru + web_fetch with 24h Redis cache
+- Migration 0003: `enrichment_runs` + Research Agent orchestrator
+- AI Brief tab on Lead Card with hero band, fit_score badge, score_rationale, growth/risk signals, decision-maker hints, next-steps
+- DrinkX `profile.yaml` injected into synthesis prompts; KB markdown library (segment-tagged playbooks + always-on objections / competitors / icp_definition)
+- Cost guards: per-lead 1-running rate limit, workspace concurrency cap, daily budget cap (Redis counter)
+- Synthesis prompt forbids jargon; MiMo strict-validates params (we keep payload to OpenAI-spec basics)
+
+### ✅ Sprint 1.4 — Daily Plan + Follow-ups (DONE — Phases 1+2+3 + 4 hotfixes)
+**First Celery service in the system.**
 
 Backend:
-- Migration `0002_b2b_model` with 5 new tables: `leads`, `contacts`, `activities`, `followups`, `scoring_criteria`
-- Stage gained `gate_criteria_json` (JSON list); 11 B2B stages + 1 lost stage
-- 8-criterion `scoring_criteria` table per workspace (sum to 100)
-- Lead schema: B2B fields (`deal_type`, `priority`, `score`, `fit_score`, lead-pool fields, dual rotting flags, pilot contract JSON)
-- REST endpoints:
-  - Leads: `GET/POST/PATCH/DELETE /api/leads` with all B2B filters
-  - Lead Pool: `GET /leads/pool`, `POST /leads/sprint` (race-safe, `FOR UPDATE SKIP LOCKED`),
-    `POST /leads/{id}/claim`, `POST /leads/{id}/transfer`
-  - Stage transitions: `POST /leads/{id}/move-stage` with gate criteria engine
-    (hard `check_pipeline_match` + soft `check_economic_buyer_for_stage_6_plus` per ADR-012)
-  - Contacts (4 endpoints), Activities (composer + cursor-paginated feed),
-    Followups (CRUD + complete; 3 auto-seeded on lead create)
-  - Pipelines: `GET /api/pipelines/` returns Pipeline[] with embedded stages
-- `create_lead` auto-assigns `stage_id` to position-0 of default pipeline
+- Migration 0004: `daily_plans`, `daily_plan_items`, `scheduled_jobs` (UNIQUE(user_id, plan_date) for upsert)
+- Migration 0005: `followups.dispatched_at` for idempotency
+- `priority_scorer.score_lead()` pure function with module-level tunable weights (overdue + due_soon + priority A/B/C + rotting + fit_score; archived/unassigned penalties)
+- `DailyPlanService.generate_for_user()` — score → pack into work_hours → MiMo Flash 1-line hints (deterministic fallback) → time-block spread → upsert; budget guard reused from Sprint 1.3
+- Celery `"drinkx"` app on Redis broker+backend, UTC clock, `task_time_limit=600s`
+- Cron beat:
+  - `daily-plan-generator` hourly at :00, picks workspaces where `user.timezone`-local hour == 08:00
+  - `followup-reminder-dispatcher` every 15 min, creates `Activity(type='reminder')` for followups due in +24h, idempotent via `dispatched_at`
+- Audit: `ScheduledJob` row per cron tick (status / affected_count / error)
+- REST: `GET /api/me/today`, `GET /api/daily-plans/{date}`, `POST /api/daily-plans/{date}/regenerate` (202 + Celery), `POST /api/daily-plans/items/{id}/complete`
 
 Frontend:
-- AppShell with sidebar (Today, Pipeline, База лидов; Phase-2 items disabled)
-- `/today` — grouped sections (Сегодня / Завтра / Эта неделя / Без срока), priority filter chips, search, empty state with "Сформировать план" CTA
-- `/pipeline` — Kanban with @dnd-kit drag-drop, optimistic update + rollback on 409 (gate-block toast), Sprint modal, Brief drawer (Esc/arrow nav, link to Lead Card)
-- `/leads-pool` — table with city/segment/fit_min filters, "Взять в работу" with optimistic gray-out + race-loss toast
-- `/leads/[id]` — Lead Card with 5 tabs: Сделка, AI Brief, Контакты, Scoring (8 sliders → tier badge), Активность (composer + filtered feed), Pilot (conditional stage>=8). GateModal with violations on 409.
-- All hooks auth-aware (Bearer token from Supabase session)
-- 216 leads imported from prototype (`scripts/import_prototype_data.py`):
-  131 from `drinkx-client-map-v0.5-linkedin-industry-enriched`
-  + 85 from `drinkx-client-map-v0.6-foodmarkets-audit/07_foodmarkets_candidates`
-  via `scripts/build_foodmarkets_data.py` (YAML-frontmatter parser)
-  All in `assignment_status='pool'` for the manager's workspace
+- `/today` rewritten with real plan rendering: states empty/generating(shimmer+2s poll)/failed/ready
+- Time-block sections: Утро / День / После обеда / Вечер / Без времени
+- Compact card design (~72px target via single primary row + sub-hint), URL-driven pagination 10/page (`?page=N`); "hot lead" 2px left rail when `priority_score >= 80`
+- "🔄 Пересобрать план" button triggers Celery `regenerate_for_user`
 
-### ✅ Sprint 1.3 — AI Enrichment (DONE — Phases A+B+C+D+E)
-
-Backend:
-- `app/enrichment/providers/` — `LLMProvider` Protocol + 4 implementations:
-  - **MiMo** (Xiaomi, OpenAI-compatible, `api-key:` header) — primary
-  - **Anthropic** (Messages API, `x-api-key`) — fallback (note: 403 from RU IP)
-  - **Gemini** (v1beta REST) — fallback
-  - **DeepSeek** (OpenAI-compatible, Bearer) — fallback
-- `complete_with_fallback()` walks `LLM_FALLBACK_CHAIN` on rate-limit / auth / 5xx; surfaces full chain in raised error
-- `TaskType` Flash/Pro split: research_synthesis/daily_plan/prefilter → Flash, sales_coach/scoring/reenrichment → Pro
-- `app/enrichment/sources/` — Brave (X-Subscription-Token), HH.ru (no-auth), web_fetch (800KB cap, strip HTML, 3-redirect cap), 24h Redis cache
-- Migration `0003_enrichment_runs` + `EnrichmentRun` model (lead_id, status, provider/model, tokens, cost_usd, duration_ms, sources_used, result_json, started_at/finished_at)
-- Orchestrator: query builder → `asyncio.gather` Brave×3 + HH.ru + optional WebFetch → synthesis → save to `lead.ai_data` + run row. Never raises — failures write `status=failed`.
-- `ResearchOutput` Pydantic with permissive defaults (LLMs return Russian role values; UI normalizes)
-- `DrinkX profile` (`config/drinkx_profile.yaml`) injected into every synthesis system prompt — product, ICP, fit_score anchors, common objections
-- Cost guards:
-  - **Per-lead rate limit**: only 1 `running` enrichment per lead — 409 with in-flight `run_id`
-  - **Workspace concurrency cap**: max 5 parallel runs per workspace — 429
-  - **Daily budget cap**: Redis counter `ai_budget:{workspace_id}:{YYYY-MM-DD}`, cap = `ai_monthly_budget_usd / 30` ≈ $6.66/day default — 429
-- REST: `POST /leads/{id}/enrichment` (202 + `BackgroundTasks`), `GET .../latest`, `GET .../`
-
-Frontend:
-- AI Brief tab (between Сделка and Контакты): hero band with company_profile + 96px fit_score badge, coffee signals in accent panel (the thesis), growth/risk as balance sheet, decision-maker cards with avatar + role + confidence, numbered next-step list
-- Failure modes handled: skeleton during running, banner on failed, `<details>` for raw JSON edge-case
-- `useLatestEnrichment` polls every 2s while status=running; mutation invalidates lead query
-
-LLM tone:
-- Synthesis prompt explicitly forbids jargon (`ритейлер`, `email-рассылки`, `B2B`, `ROI`, `кофейные технологии`, `кофепойнты`, `стейкхолдеры`, `ICP`, `закупочная команда`, `operational excellence`)
-- Asks for the language an account manager would write in
-- MiMo payload: `reasoning_effort: "minimal"` + `thinking: {type: "disabled"}` (defensive — disable extended thinking so max_tokens budget stays for the JSON)
+Infra:
+- `infra/production/docker-compose.yml`: api env extracted to `&api-env` YAML anchor; new `worker` (concurrency=2) and `beat` services share image + env
+- `apps/web/Dockerfile`: bumped to `node:22-alpine` (corepack auto-upgraded to pnpm 11 which dropped Node 20)
+- `apps/web/package.json`: pinned `packageManager: pnpm@10.18.0` + `onlyBuiltDependencies` allow-list (corepack reproducibility)
 
 ### ⏸ NOT YET BUILT
-
-- **Phase F (Sprint 1.3 follow-on)**: Knowledge Base markdown library (`apps/api/knowledge/drinkx/*.md` with YAML frontmatter, tag-based grounding by `lead.segment`)
-- **Phase G (Sprint 1.3 follow-on)**: Celery worker for enrichment (currently FastAPI `BackgroundTasks`) + WebSocket `/ws/{user_id}` for real-time progress (currently 2s polling)
-- **Sprint 1.4** — Daily Plan generator (Celery beat 08:00/timezone, AI prioritization, follow-up reminder dispatcher)
-- **Sprint 1.5** — Polish + Launch (notifications, audit log, mobile pass)
-- **Phase 2** — Inbox (email + Telegram), Quote/КП builder, Knowledge Base UI
+- **Sprint 1.5** — Polish + Launch (notifications drawer, email digest, audit log, mobile pass, Lead Card header polish, AI Brief copy fix, Pipeline sticky header, soft launch)
+- **Phase 2** — Inbox (email + Telegram), Quote/КП builder, Knowledge Base UI, Apify, multi-pipeline switcher
+- **Phase 3** — MCP server, Sales Coach chat, OCR визиток, pgvector
 
 ---
 
-## Open dependencies
+## Production blockers resolved during Sprint 1.4
 
-User-provided (state at sprint close):
-- ✅ Supabase project URL + publishable + secret + JWT secret — in prod
+Four hotfixes had to land **on top of** the Sprint 1.4 merge before everything was actually live. Documented in `SPRINT_1_4_DAILY_PLAN.md` for posterity:
+
+1. `4dd4b7d` — Node 22 in `apps/web/Dockerfile` (pnpm 11 dropped Node 20)
+2. `b720f5d` — `packageManager: pnpm@10.18.0` + `onlyBuiltDependencies` (corepack reproducibility + build-script allow-list)
+3. `e5b8fe9` — Side-effect model imports in `app/scheduled/celery_app.py` (worker process doesn't import `app.main`, mapper registry was incomplete)
+4. `8d2e644` — Per-task NullPool engine in Celery jobs (each `asyncio.run()` creates a new event loop; reusing the global asyncpg pool across loops crashed with "Future attached to a different loop")
+
+---
+
+## Open dependencies / production env state
+
+User-provided keys in `/opt/drinkx-crm/infra/production/.env`:
+- ✅ `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `SUPABASE_JWT_SECRET`
 - ✅ Google OAuth provider configured in Supabase
-- ✅ MIMO_API_KEY in prod
-- ✅ ANTHROPIC_API_KEY in prod (note: 403 from RU IP, fallback only)
-- ✅ BRAVE_API_KEY in prod
-- ⚠ GEMINI_API_KEY — not configured
-- ⚠ DEEPSEEK_API_KEY — not configured (intentional)
-- ⏸ Sentry DSNs — empty (file logs + journalctl for now)
-
-Production .env on VPS at `/opt/drinkx-crm/infra/production/.env`.
+- ✅ `MIMO_API_KEY` (primary)
+- ✅ `ANTHROPIC_API_KEY` (fallback — note: 403 from RU IP, never fires in practice)
+- ✅ `BRAVE_API_KEY`
+- ⚠ `GEMINI_API_KEY` — not configured
+- ⚠ `DEEPSEEK_API_KEY` — not configured (intentional)
+- ⏸ Sentry DSNs — empty (file logs + journalctl + ScheduledJob audit table for now)
 
 ---
 
-## Known production constraints
+## Known issues / risks
 
-1. **Anthropic from RU is dead** — every fallback walk pays the round-trip latency to get a 403 before falling through. Fix candidates: VPN on VPS, drop Anthropic from default chain, or proxy via OpenRouter.
-2. **No Celery / WebSocket** — UI polls `/latest` every 2s while a run is in flight. Acceptable at low concurrency.
-3. **`fit_score` last-writer-wins** — orchestrator and the manual scoring tab both write to the same column. No conflict resolution.
+1. **Anthropic always 403 from RU IP** — fallback chain wastes one round-trip before falling through to Gemini/DeepSeek. Documented since Sprint 1.3.
+2. **Stuck `DailyPlan` row** from the asyncpg loop bug (before `8d2e644` deployed). Manager's row may still be `status='generating'` until next regenerate replaces it. UI handles this correctly (polls every 2s); just needs another click on "Пересобрать план".
+3. **`/today` plan generation not yet end-to-end-confirmed with screenshot** in the new (post-`8d2e644`) build. Worker + beat are healthy and logs show clean ticks; user-side verification pending.
+4. **DST edge cases** — `daily_plan_generator` matches local 08:00 exactly. On DST days an hour skips or duplicates. Acceptable.
+5. **No retry on per-user LLM failure** in the daily plan cron — that user gets no plan today, error is logged. Sprint 1.5 candidate.
+6. **`fit_score` last-writer-wins** — orchestrator and the manual scoring tab both write the column. No conflict resolution. Documented since Sprint 1.3.
 
 ---
 
 ## Next
-**Sprint 1.4 — Daily Plan generator.** See `docs/brain/04_NEXT_SPRINT.md`.
+**Sprint 1.5 — Polish + Launch.** See `docs/brain/04_NEXT_SPRINT.md`.
