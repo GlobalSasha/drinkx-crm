@@ -81,6 +81,19 @@ async def trigger_enrichment(
     )
     db.add(run)
     await db.flush()  # populate run.id without committing
+
+    # Audit: enrichment.trigger. user_id may be None for system cron triggers.
+    from app.audit.audit import log as audit_log
+
+    await audit_log(
+        db,
+        action="enrichment.trigger",
+        workspace_id=workspace_id,
+        user_id=user_id,
+        entity_type="lead",
+        entity_id=lead_id,
+        delta={"run_id": str(run.id)},
+    )
     return run
 
 

@@ -21,6 +21,7 @@ from app.followups import models as _followups_models  # noqa: F401
 from app.enrichment import models as _enrichment_models  # noqa: F401
 from app.daily_plan import models as _daily_plan_models  # noqa: F401
 from app.notifications import models as _notifications_models  # noqa: F401
+from app.audit import models as _audit_models  # noqa: F401
 
 config = context.config
 

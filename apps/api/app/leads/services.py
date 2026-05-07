@@ -101,6 +101,22 @@ async def create_lead(
         assignment_status="assigned",
     )
     await followups_services.seed_for_lead(db, lead.id)
+
+    # Audit: lead.create
+    from app.audit.audit import log as audit_log
+
+    await audit_log(
+        db,
+        action="lead.create",
+        workspace_id=workspace_id,
+        user_id=user_id,
+        entity_type="lead",
+        entity_id=lead.id,
+        delta={
+            "company_name": lead.company_name,
+            "stage_id": str(lead.stage_id) if lead.stage_id else None,
+        },
+    )
     return lead
 
 
@@ -210,6 +226,7 @@ async def transfer_lead(
     if target is None:
         raise TransferTargetInvalid(to_user_id)
 
+    old_assigned_to = lead.assigned_to
     transferred = await repo.transfer_lead(db, lead, to_user_id, comment=comment)
 
     # Notify the new owner. Same transaction as the transfer — rolls back together.
@@ -225,6 +242,22 @@ async def transfer_lead(
         title=f"Передан лид: {company}",
         body=body,
         lead_id=transferred.id,
+    )
+
+    # Audit: lead.transfer
+    from app.audit.audit import log as audit_log
+
+    await audit_log(
+        db,
+        action="lead.transfer",
+        workspace_id=workspace_id,
+        user_id=current_user_id,
+        entity_type="lead",
+        entity_id=transferred.id,
+        delta={
+            "from": str(old_assigned_to) if old_assigned_to else None,
+            "to": str(to_user_id),
+        },
     )
     return transferred
 
@@ -266,7 +299,26 @@ async def move_lead_stage(
     if lost_reason is not None:
         lead.lost_reason = lost_reason
 
-    return await automation_move_stage(
+    from_stage_id = lead.stage_id
+    moved = await automation_move_stage(
         db, lead, to_stage, user_id,
         gate_skipped=gate_skipped, skip_reason=skip_reason,
     )
+
+    # Audit: lead.move_stage (only on successful transition — exceptions
+    # bubble out before this point and the row was never touched)
+    from app.audit.audit import log as audit_log
+
+    await audit_log(
+        db,
+        action="lead.move_stage",
+        workspace_id=workspace_id,
+        user_id=user_id,
+        entity_type="lead",
+        entity_id=moved.id,
+        delta={
+            "from_stage": str(from_stage_id) if from_stage_id else None,
+            "to_stage": str(to_stage_id),
+        },
+    )
+    return moved
