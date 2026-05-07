@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>DrinkX CRM — План на {date}</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f4f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1a1a1a;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4f0;padding:24px 0;">
+  <tr><td align="center">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid rgba(0,0,0,0.06);border-radius:16px;overflow:hidden;">
+      <tr><td style="padding:24px 28px 16px 28px;border-bottom:1px solid rgba(0,0,0,0.06);">
+        <div style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:#9b9994;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">DrinkX CRM</div>
+        <div style="font-size:20px;font-weight:800;letter-spacing:-0.01em;margin-top:6px;">План на {date}</div>
+        <div style="font-size:13px;color:#6b6862;margin-top:4px;">Доброе утро, {user_name}.</div>
+      </td></tr>
+
+      <tr><td style="padding:20px 28px 4px 28px;">
+        <div style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:#6b6862;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600;">Задачи на сегодня</div>
+      </td></tr>
+      <tr><td style="padding:8px 28px 16px 28px;">
+        {plan_items_html}
+      </td></tr>
+
+      <tr><td style="padding:8px 28px 4px 28px;border-top:1px solid rgba(0,0,0,0.06);">
+        <div style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:#6b6862;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600;padding-top:16px;">Просроченные задачи</div>
+      </td></tr>
+      <tr><td style="padding:8px 28px 16px 28px;">
+        {overdue_html}
+      </td></tr>
+
+      <tr><td style="padding:8px 28px 4px 28px;border-top:1px solid rgba(0,0,0,0.06);">
+        <div style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:#6b6862;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600;padding-top:16px;">Новые AI Brief за вчера</div>
+      </td></tr>
+      <tr><td style="padding:8px 28px 24px 28px;">
+        {briefs_html}
+      </td></tr>
+
+      <tr><td align="center" style="padding:20px 28px;border-top:1px solid rgba(0,0,0,0.06);background:#faf9f5;">
+        <a href="https://crm.drinkx.tech/today" style="display:inline-block;background:#1a1a1a;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;padding:10px 20px;border-radius:24px;">Открыть CRM</a>
+        <div style="font-size:11px;color:#9b9994;margin-top:14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">Это автоматическое письмо.</div>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>

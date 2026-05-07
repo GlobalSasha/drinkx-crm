@@ -34,6 +34,10 @@ def _stub_sqlalchemy():
         def __getattr__(self, name): return _Callable()
         def __eq__(self, other): return True
         def __ne__(self, other): return True
+        def __lt__(self, other): return _Callable()
+        def __le__(self, other): return _Callable()
+        def __gt__(self, other): return _Callable()
+        def __ge__(self, other): return _Callable()
 
     sa = ModuleType("sqlalchemy")
     for name in (

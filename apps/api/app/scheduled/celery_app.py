@@ -57,4 +57,8 @@ celery_app.conf.beat_schedule = {
         "task": "app.scheduled.jobs.followup_reminder_dispatcher",
         "schedule": crontab(minute="*/15"),
     },
+    "daily-email-digest": {
+        "task": "app.scheduled.jobs.daily_email_digest",
+        "schedule": crontab(minute=30),    # every hour at :30 UTC; runner filters by local hour=8
+    },
 }

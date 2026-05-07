@@ -34,6 +34,13 @@ def followup_reminder_dispatcher() -> dict:
     return asyncio.run(_run("followup_reminder_dispatcher", run_followup_dispatch))
 
 
+@celery_app.task(name="app.scheduled.jobs.daily_email_digest")
+def daily_email_digest() -> dict:
+    """Hourly at :30 — emails the digest to users whose local clock is 08."""
+    from app.scheduled.digest_runner import run_daily_digest_for_all_users
+    return asyncio.run(_run("daily_email_digest", run_daily_digest_for_all_users))
+
+
 @celery_app.task(name="app.scheduled.jobs.regenerate_for_user")
 def regenerate_for_user(user_id: str, plan_date_iso: str) -> dict:
     """Manual trigger from the UI. Generates one user's plan, ignoring the

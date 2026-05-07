@@ -60,6 +60,15 @@ class Settings(BaseSettings):
     ai_max_parallel_jobs: int = 5
     ai_max_enrichments_per_lead_per_day: int = 1
 
+    # SMTP — daily email digest (Sprint 1.5).
+    # Stub mode is on while smtp_host is empty: rendered email is logged
+    # to stdout instead of sent (mirrors ADR-014 stub-mode pattern).
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = "DrinkX CRM <noreply@crm.drinkx.tech>"
+
 
 @lru_cache
 def get_settings() -> Settings:
