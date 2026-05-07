@@ -64,7 +64,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const avatarLetter = displayName[0]?.toUpperCase() ?? "?";
 
   return (
-    <div className="grid min-h-screen bg-canvas" style={{ gridTemplateColumns: "220px 1fr" }}>
+    {/* minmax(0, 1fr) clamps the content cell to the available viewport
+        width — without it, default min-width:auto on grid items lets
+        wide content (e.g., 12 Kanban columns) push the cell wider than
+        the viewport, causing horizontal page-scroll that takes the
+        Pipeline header off-screen. */}
+    <div className="grid min-h-screen bg-canvas" style={{ gridTemplateColumns: "220px minmax(0, 1fr)" }}>
       {/* Sidebar */}
       <aside className="fixed top-0 left-0 h-screen w-[220px] bg-white border-r border-black/5 flex flex-col z-20">
         {/* Logo */}
@@ -134,8 +139,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      {/* Content area — offset by sidebar width */}
-      <div className="col-start-2 min-h-screen">
+      {/* Content area — offset by sidebar width.
+          min-w-0 belt-and-suspenders: forces this grid item to honor its
+          parent's minmax(0, 1fr) cell instead of its content min-width.
+          Pages that need horizontal scroll (Pipeline) handle it with
+          their own overflow-x-auto inside. */}
+      <div className="col-start-2 min-h-screen min-w-0">
         {children}
       </div>
     </div>
