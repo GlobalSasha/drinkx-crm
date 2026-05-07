@@ -1,174 +1,147 @@
-# Next Sprint: Phase 1 Sprint 1.5 — Polish + Launch
+# Next Sprint: Phase 2 Sprint 2.0 — Inbox + Quote + Forms + Bulk Import
 
-Status: **READY TO START**
-Branch: `sprint/1.5-polish-launch`
+Status: **READY TO START** (after Sprint 1.5 merge / deploy / soft-launch)
+Branch: `sprint/2.0-inbox-quote-forms`
 
 ## Goal
 
-Finish what's needed to put the DrinkX team on this CRM full-time. Less new product surface, more polish. Notifications + audit + mobile + a handful of UX rough edges that piled up across Sprints 1.2–1.4. Soft launch at the end.
+Phase 1 ended with a working CRM the team can run a sales pipeline in.
+Phase 2 turns it into a *system of record* for the whole top-of-funnel — the
+inbound side. Ship four cooperating surfaces: Inbox (email + Telegram in one
+view), Quote/КП builder, WebForms (public capture endpoints), and Bulk
+Import/Export. Plus a real CRUD UI for the Knowledge Base markdown library.
+
+This sprint is intentionally larger than Sprint 1.5 — refine the scope at the
+start of the sprint with the product owner before opening the branch.
 
 ## Read before starting
 
-- `docs/brain/00_CURRENT_STATE.md` — what Sprint 1.4 left
-- `docs/brain/03_DECISIONS.md` — ADR-007 (no auto-actions), ADR-018 (MiMo)
-- `docs/brain/sprint_reports/SPRINT_1_4_DAILY_PLAN.md` — esp. "Known issues / risks" section
-- `docs/PRD-v2.0.md` §6.10 (notifications) and §6.12 (audit)
-- Production state at sprint start: 4 app containers running (api, web, worker, beat), 216 leads in pool, real Supabase auth on, MiMo+Brave+Anthropic keys live.
+- `docs/brain/00_CURRENT_STATE.md` — what Sprint 1.5 left
+- `docs/brain/02_ROADMAP.md` — Phase 2 envelope
+- `docs/brain/sprint_reports/SPRINT_1_5_POLISH_LAUNCH.md` — Known issues / risks; soft-launch checklist carryover (pg_dump, Sentry, onboarding doc)
+- `docs/PRD-v2.0.md` §6 (Inbox), §7 (Quote/КП), §8 (Forms), §9 (Knowledge Base)
+- `docs/brain/03_DECISIONS.md` — ADR-007 (no auto-actions), ADR-014 (stub mode), ADR-018 (MiMo)
+- Production state at sprint start: 4 app containers running, Sprint 1.5 merged, audit + notifications + digest live; ~216 leads in pool; real Supabase auth on; MiMo+Brave keys live; SMTP still in stub mode
 
 ## Scope
 
 ### ALLOWED
 
-#### 1. In-app notifications drawer
+#### 1. Inbox — Email + Telegram
 
-- New table `notifications` (alembic 0006_notifications):
-  - `id` UUID PK, timestamps
-  - `workspace_id`, `user_id` FK CASCADE, indexed
-  - `kind` String(40) — `lead_transferred` | `enrichment_done` | `enrichment_failed` | `daily_plan_ready` | `followup_due` | `mention` | `system`
-  - `title` String(200), `body` Text
-  - `lead_id` UUID FK SET NULL — optional click-through target
-  - `read_at` DateTime(tz) NULL
-  - `created_at` DateTime(tz) server_default now()
-  - Indexes `(user_id, created_at DESC)`, `(user_id, read_at)`
-- Service `app/notifications/services.py` — `notify(user_id, kind, title, body, lead_id?)` writes a row + (Phase 2) optional Redis pub/sub for real-time. v1: just writes, frontend polls.
-- Hooks at obvious emit points (no AI required):
-  - `lead_transferred` → in `app/leads/services.transfer_lead`
-  - `enrichment_done` / `enrichment_failed` → in orchestrator success/failure paths
-  - `daily_plan_ready` → at the end of `generate_for_user`
-  - `followup_due` → in `followup_reminder_dispatcher` per emitted reminder
-- REST: `GET /api/notifications?unread=true&page=N`, `POST /api/notifications/{id}/read`, `POST /api/notifications/mark-all-read`
-- Frontend: `NotificationsDrawer.tsx` opened from a bell icon in the AppShell sidebar; polls `/notifications?unread=true` every 30s; click row → mark read + navigate to lead
+Per-lead unified message thread. Read-only first, send-from-CRM second.
 
-#### 2. Email digest (daily morning summary)
+- **Email read (IMAP)**:
+  - Workspace-scoped IMAP credentials in `app/inbox/email_settings` (per-user) — see ADR-007 around what's stored vs OAuth.
+  - Polling worker in Celery: pull new messages every 5 min, match to leads by sender/recipient address (lead.email, contacts.email), drop mismatches into a workspace-scoped "unmatched" tray.
+  - Dedup by Message-ID. Store full headers + body (text + html if present) in `inbox_messages` table.
+- **Email send (SMTP)**:
+  - Reuse the SMTP infra from Sprint 1.5 group 5 (aiosmtplib).
+  - Send-as the user's configured email; record outbound in same `inbox_messages` table with direction='out'.
+  - Optional thread-reply sets `In-Reply-To` + `References` headers for client-side threading.
+- **Telegram Business webhook**:
+  - One bot per workspace; webhook → `inbox_messages` rows.
+  - Match TG user_id → lead via Contact.telegram_url already on the model.
+- **Inbox UI** — new top-level route `/inbox`:
+  - Left rail: thread list grouped by lead (last-msg-date desc).
+  - Right pane: message stream + reply composer (email or TG depending on thread channel).
+  - Per-lead inbox tab on Lead Card surfaces the same thread.
 
-- Library: stdlib `email.message.EmailMessage` + `aiosmtplib` (it's tiny, MIT licensed; if we don't want a new dep, reuse `httpx` against a SMTP-via-API service like Postmark — defer that decision to the implementer with a recommendation toward `aiosmtplib`).
-- New env vars in `infra/production/.env.example`:
-  ```
-  SMTP_HOST=
-  SMTP_PORT=587
-  SMTP_USER=
-  SMTP_PASSWORD=
-  SMTP_FROM=DrinkX CRM <noreply@crm.drinkx.tech>
-  ```
-- Stub mode: if `SMTP_HOST=""`, log the rendered email instead of sending (mirrors ADR-014 stub-mode pattern).
-- New Celery task `daily_email_digest` — runs at the same hourly tick as `daily_plan_generator`, picks workspaces where local hour == 08:30 (after the plan generator finished), composes `top 5 leads to call today` + `overdue tasks` + `new enrichment Briefs` from yesterday, sends to each user.
-- HTML template in `apps/api/app/notifications/templates/daily_digest.html` — minimalist taste-soft, plain inline CSS, no external assets.
+Migration: new tables `inbox_messages`, `email_settings` (encrypted IMAP/SMTP creds at rest).
 
-#### 3. Audit log
+#### 2. Quote / КП builder
 
-- New table `audit_log` (alembic 0007_audit_log):
-  - `id` UUID PK, timestamps
-  - `workspace_id`, `user_id` (NULLABLE — system events have no user) FK
-  - `action` String(60) — e.g. `lead.create`, `lead.transfer`, `lead.move_stage`, `enrichment.trigger`, `daily_plan.regenerate`
-  - `entity_type` String(40), `entity_id` UUID NULL
-  - `delta_json` JSON — minimal before/after fields
-  - `created_at` DateTime(tz) server_default now()
-  - Index `(workspace_id, created_at DESC)`, `(entity_type, entity_id)`
-- Lightweight `audit.py` helper — `log(action, user_id, workspace_id, entity_type=, entity_id=, delta=)`. Called from service layer at obvious points.
-- Don't audit reads (just writes). Don't audit cron's own per-tick writes (ScheduledJob already covers that).
-- Admin-only REST `GET /api/audit?entity_type=&entity_id=&page=` — only `User.role == 'admin'` can hit it.
-- Frontend stub admin view at `/audit` (sidebar item gated to admin role) — table of recent events with filter chips. Don't over-design — minimum viable.
+- New domain `app/quote`. Data model:
+  - `quote` row (lead_id, status, total, currency, valid_until, sent_at, accepted_at)
+  - `quote_line_item` row (quote_id, position, product_name, qty, unit_price, discount_percent, line_total)
+- REST CRUD; PDF render via WeasyPrint or stdlib HTML → headless Chromium (decide at sprint start; prefer the lighter dep).
+- Frontend: Quote tab on Lead Card replaces the existing PilotTab when deal_type is non-pilot. Builder UI = line-item table + totals strip + "Render PDF" + "Send via email" (uses Inbox SMTP).
 
-#### 4. Mobile responsive pass
+#### 3. WebForms
 
-Three screens deserve a real mobile design pass — currently desktop-only:
-- `/today` — already collapses better than the others; just verify card is readable at 375px wide
-- `/leads/[id]` — biggest job; the 5 tabs + side rail collapse to single-column with a `<select>` tab switcher, rail moves under header
-- `/pipeline` — Kanban is desktop-only by design (PRD §8.6); add a "Switch to list view" affordance for narrow viewports that renders leads as a flat list grouped by stage
+- Public capture endpoint `POST /api/forms/{form_id}/submit` — no auth, captcha optional Phase 3.
+- Form builder UI — drag-and-drop fields (text / phone / email / select / textarea), preview, copy embed snippet.
+- Submissions land in `leads_pool` (assignment_status='pool') with `source='form:{form_id}'` for attribution.
 
-Use Tailwind breakpoints already in `tailwind.config.ts` — `sm` (640) / `md` (768) / `lg` (1024). Touch drag-drop on `/pipeline` is OUT OF SCOPE — a list view is the mobile fallback.
+Migration: `forms` + `form_fields` + `form_submissions` tables.
 
-#### 5. Lead Card header polish
+#### 4. Bulk Import / Export
 
-The Lead Card top header (`apps/web/components/lead-card/LeadCard.tsx`) hasn't been polished. Currently shows company name + back link + tabs. Should also show:
-- Stage chip (color from stage), priority badge (A/B/C/D), deal type pill, score (0-100) + fit_score (0-10) badge
-- Right side action row: `Transfer` (opens TransferModal — wire up the existing modal scaffold), `Won`, `Lost`, `Move stage` dropdown (opens GateModal — already exists)
-- "Move stage" dropdown shows 11 B2B stages + lost; selecting one with `gate_criteria_json` opens the gate modal
+- Import: CSV/XLSX upload → column-mapping screen (drag source-col → target-field) → dry-run preview (first 10 rows + validation errors) → confirm. Reuse the v0.5/v0.6 import script logic (see `crm-prototype/build_data.py`); promote it from a one-off into a workspace-driven feature.
+- Export: any list view ([leads-pool], [pipeline]-flat, [audit]) → CSV with current filter applied. Streamed response (no in-memory buffering of large workspaces).
 
-#### 6. AI Brief empty-state copy fix
+#### 5. Knowledge Base CRUD UI
 
-`apps/web/components/lead-card/AIBriefTab.tsx` empty state says:
-> "AI соберёт данные из Brave, HH.ru и сайта компании, оценит совпадение с **ICP** и подготовит план следующих шагов."
+- Promote the file-based markdown library (Sprint 1.3) to a real CRUD surface. Move content into a `knowledge_articles` table with workspace_id, segment_tags, body_md.
+- Frontend: `/knowledge` page — list / view / edit. Markdown render via existing tools (no new dep — use `marked` or `react-markdown` — verify which is already pulled in).
+- AI Brief synthesis prompt continues to inject the markdown chunks; the file-based fallback stays as a dev-mode option.
 
-Replace `ICP` → `портретом идеального клиента`. The synthesis prompt already forbids LLM jargon (Sprint 1.3); UI copy missed this rev.
+### FORBIDDEN
 
-#### 7. Pipeline sticky header
-
-`apps/web/components/pipeline/PipelineHeader.tsx` is currently inside the page's `flex flex-col h-screen overflow-hidden` container, so it's *technically* sticky already (above the scrollable Kanban board). The grid clamp fix (`712bd85` + `cd25a9d`) handles the case of horizontal page-scroll.
-
-But: when the user scrolls the BOARD horizontally (within `overflow-x-auto`), the header doesn't move with the columns — we want this. Verify the header stays put across realistic 14-column horizontal scrolls. If it doesn't, add `position: sticky; top: 0; z-index: 10;` explicitly.
-
-This is a 5-minute audit + tiny CSS tweak, not a real task.
-
-#### 8. Soft launch checklist
-
-Before announcing to the DrinkX team:
-- [ ] Production .env complete (Sentry DSNs, all AI keys)
-- [ ] First daily plan generation runs successfully on a real timezone (verify in `scheduled_jobs` table)
-- [ ] One end-to-end test: sign in → enrich a lead → see the brief → drag the lead to a new stage through the gate modal → mark a follow-up complete
-- [ ] Backups: `pg_dump` cron on the VPS (or Postgres-native `pg_basebackup` if we want point-in-time) — currently no backup story
-- [ ] Onboarding doc for first-time users (1-pager: how to sign in, where the key buttons are, what to expect from AI)
-- [ ] Review log volume (api + worker + beat) — make sure stdout isn't drowning
-
-### FORBIDDEN (defer to Phase 2 / Sprint 1.6)
-
-- Inbox (email IMAP/SMTP for incoming, Telegram Business webhook) — Phase 2
-- Quote/КП builder — Phase 2
-- Knowledge Base CRUD UI — Phase 2 (the markdown library from Sprint 1.3 stays file-based for now)
-- Multi-pipeline switcher — Phase 2
-- Mobile push notifications — Phase 3
-- Vector DB / pgvector — Phase 3
-- Anything that needs new external accounts (Postmark / Twilio / Resend) — discuss before adding a vendor
+- Apify integration — Sprint 2.1 candidate
+- Push notifications, Telegram bot for managers — Phase 2 Sprint 2.1+
+- Multi-pipeline switcher — Phase 2 Sprint 2.1+
+- pgvector / vector retrieval — Phase 3
+- MCP server / Sales Coach chat — Phase 3
+- Visit-card OCR — Phase 3
+- New LLM vendors — only the existing fallback chain (MiMo / Anthropic / Gemini / DeepSeek)
+- Anything that requires a new payment / subscription account without explicit product-owner approval
 
 ## Tests required
 
-- pytest: `notifications.services.notify` writes the right row shape; admin-only audit endpoint denies non-admins; daily digest renders without sending in stub mode
-- pytest: cross-user mutation guard on `/notifications/{id}/read`
-- pytest: audit row written on `lead.transfer_lead` and `enrichment.trigger`
-- web: Playwright (or skipped if env unavailable): bell icon → drawer renders → mark all read flow
-- Manual: 375px viewport screenshot of /leads/[id] showing the responsive layout
+- pytest mock-only suites for new domains (inbox, quote, forms) — same harness pattern Sprint 1.5 settled on (sqlalchemy stub at import time, AsyncMock session, no real DB)
+- pytest integration: at least one DB-backed test per new table (Postgres-fixture path) for migrations smoke
+- Web Playwright skip-if-env: form public submit → lead lands in pool; quote PDF generates without crashing
+- Manual: send-from-CRM email lands in inbox of recipient (uses live SMTP, NOT stub) — verify with own mailbox before merge
 
 ## Deliverables
 
-- Migrations 0006 + 0007 applied on production
-- Notifications drawer in production AppShell
-- Email digest cron firing (verify a stub log entry on next 08:30 local tick)
-- Audit log table populating
-- Mobile-readable Lead Card + /today + /pipeline list-fallback
-- `docs/brain/sprint_reports/SPRINT_1_5_POLISH_LAUNCH.md` written
-- Update `docs/brain/00_CURRENT_STATE.md`
-- Update `docs/brain/02_ROADMAP.md` — Sprint 1.5 → DONE, Phase 2 → NEXT
-- Update `docs/brain/04_NEXT_SPRINT.md` → Phase 2 first sprint scope
+- Migrations 0008–0012 (or fewer, depending on schema-bundling decisions at sprint start) applied on production
+- `/inbox` route with both channels live in production (real IMAP polling, real Telegram webhook)
+- Quote builder usable end-to-end (create → render PDF → send via SMTP)
+- One public form created, embed snippet copied, submission lands in pool
+- One CSV import + one CSV export run successfully against the live workspace
+- `/knowledge` CRUD UI replaces the file-based config at runtime
+- `docs/brain/sprint_reports/SPRINT_2_0_INBOX_QUOTE.md` written
+- `docs/brain/00_CURRENT_STATE.md` updated
+- `docs/brain/02_ROADMAP.md` — Sprint 2.0 → DONE, Sprint 2.1 → NEXT
+- `docs/brain/04_NEXT_SPRINT.md` rewritten for Sprint 2.1
 
 ## Stop conditions
 
 - All tests pass → report written → committed → push only with explicit product-owner approval
-- No scope creep into Phase 2 items
-- No vendor lock-in without discussion (especially email provider)
+- No scope creep into Sprint 2.1 / Phase 3 items (especially: no Apify, no Telegram bot for managers, no MCP)
+- No new payment vendor without explicit discussion (PDF rendering, email relay, etc.)
 
 ---
 
-## Recommended task breakdown (one PR per group, ~1 subagent each)
+## Recommended task breakdown (~one PR per group, sized for a subagent each)
 
-1. **Notifications backend** — table, service, hooks, REST
-2. **Notifications frontend** — bell icon + drawer + 30s polling + mark-read
-3. **Audit backend** — table, helper, hooks, admin-only REST endpoint
-4. **Audit frontend** — minimal `/audit` admin view
-5. **Email digest** — Celery task + HTML template + stub-mode-aware sender
-6. **Mobile responsive** — Lead Card + /pipeline list fallback + /today verification
-7. **Lead Card header polish** — stage/priority/deal_type/score chips + Transfer/Won/Lost/Move-stage actions
-8. **Small fixes** — AI Brief copy + Pipeline sticky header verification
+This list is provisional — refine at sprint start with product owner.
 
-After all merged: walk the soft-launch checklist with the DrinkX team.
+1. **Inbox backend — schema + email IMAP poller** — migrations + Celery worker + dedup
+2. **Inbox backend — email SMTP send** — reuse Sprint 1.5 sender, attach to inbox thread
+3. **Inbox backend — Telegram Business webhook** — workspace bot config + webhook handler
+4. **Inbox frontend — `/inbox` route** — list rail + message pane + reply composer
+5. **Inbox frontend — Lead Card inbox tab** — same thread as `/inbox` filtered to one lead
+6. **Quote backend — schema + REST + PDF render** — line items, totals, PDF
+7. **Quote frontend — builder UI on Lead Card** — line-item table + send-via-email
+8. **Forms backend — public submit + storage** — anonymous endpoint + lead creation
+9. **Forms frontend — builder + embed snippet** — drag-and-drop fields, preview
+10. **Bulk import — column mapper + dry-run** — backend service + frontend wizard
+11. **Bulk export — streamed CSV per list view** — applied to leads-pool / pipeline / audit
+12. **Knowledge Base CRUD** — table + REST + `/knowledge` UI; move file content into rows
+13. **Carryover** — Sprint 1.5 soft-launch open items (Sentry DSNs, pg_dump, onboarding doc, log-volume review)
+
+After all merged: schedule a Phase 2 Sprint 2.0 retro before opening 2.1.
 
 ---
 
 ## Followups parked from earlier sprints
 
-These can opportunistically bundle into Sprint 1.5 if anyone runs short on work:
-
-- **Phase G (Sprint 1.3 follow-on)** — move enrichment orchestrator off FastAPI BackgroundTasks onto Celery (now that Celery exists). Add WebSocket `/ws/{user_id}` for real-time enrichment progress; replace the 2s polling.
-- **DST-aware daily plan cron** — handle hour-skip and hour-duplicate edge cases for `daily_plan_generator`.
-- **Stuck `DailyPlan` row from Sprint 1.4 loop bug** — write a one-shot SQL to flip any lingering `status='generating'` rows to `failed` so users aren't seeing the spinner forever (UI handles `failed` correctly; users can re-trigger).
-
-Both are nice-to-haves — skip if Sprint 1.5 runs long.
+- **Phase G (Sprint 1.3 follow-on)** — move enrichment orchestrator off FastAPI BackgroundTasks onto Celery; add WebSocket `/ws/{user_id}` for real-time enrichment progress; replace the 2s polling. Sprint 2.0 is a natural home if there's slack.
+- **DST-aware daily plan / digest cron** — handle hour-skip and hour-duplicate edge cases.
+- **TransferModal user picker** — replace the UUID input with a workspace-users picker once `GET /api/users` (or equivalent) is available.
+- **Tab content overflow audit at 375px** — DealTab / ScoringTab / AIBriefTab / ContactsTab / ActivityTab / PilotTab were not exhaustively reviewed in Sprint 1.5 group 6. Point-fix on observation.
+- **Cron retry on per-user LLM failure** (Sprint 1.4 carryover).
+- **Anthropic 403-from-RU mitigation** — possibly add a reachable-fallback skip rule so the chain doesn't waste a round-trip on every call.

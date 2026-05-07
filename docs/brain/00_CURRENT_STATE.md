@@ -1,6 +1,6 @@
 # DrinkX CRM — Current State
 
-Last updated: 2026-05-07 (Sprint 1.4 closed)
+Last updated: 2026-05-07 (Sprint 1.5 branch ready for review)
 
 ## Phase 0 — COMPLETED ✅ (lives in `crm-prototype` repo)
 
@@ -29,8 +29,11 @@ Repo: https://github.com/GlobalSasha/drinkx-crm
 ```
 drinkx-api-1       FastAPI + Alembic, port 8000 (127.0.0.1)
 drinkx-web-1       Next.js 15 + standalone, port 3000 (127.0.0.1)
-drinkx-worker-1    Celery worker (NEW Sprint 1.4) — concurrency=2
-drinkx-beat-1      Celery beat (NEW Sprint 1.4) — hourly + 15min cron
+drinkx-worker-1    Celery worker — concurrency=2
+drinkx-beat-1      Celery beat — 3 cron entries:
+                     :00 hourly  → daily_plan_generator
+                     :*/15       → followup_reminder_dispatcher
+                     :30 hourly  → daily_email_digest (NEW Sprint 1.5)
 drinkx-postgres-1  Postgres 16
 drinkx-redis-1     Redis 7
 ```
@@ -89,9 +92,32 @@ Infra:
 - `apps/web/Dockerfile`: bumped to `node:22-alpine` (corepack auto-upgraded to pnpm 11 which dropped Node 20)
 - `apps/web/package.json`: pinned `packageManager: pnpm@10.18.0` + `onlyBuiltDependencies` allow-list (corepack reproducibility)
 
+### ✅ Sprint 1.5 — Polish + Launch (DONE — branch ready for review, not yet merged)
+**8 groups · `sprint/1.5-polish-launch` · commit range `f3e0509..HEAD`**
+
+Backend:
+- Migration `0006_notifications` — `notifications` table + 3 indexes; emit hooks in lead transfer / enrichment success+failure / daily plan ready / followup_due
+- Migration `0007_audit_log` — append-only `audit_log` + admin-only `GET /audit`; emit hooks in lead.create / lead.transfer / lead.move_stage / enrichment.trigger
+- `app/notifications/email_sender.py` + `digest.py` + `templates/daily_digest.html` — daily morning digest (top-5 plan items, top-5 overdue followups, top-5 yesterday's briefs); stub mode while `SMTP_HOST=""`
+- New Celery task `daily_email_digest` + beat entry `crontab(minute=30)`
+- 22 mock-only tests (10 notifications + 7 audit + 5 digest), 0 DB / 0 SMTP / 0 network
+
+Frontend:
+- AppShell: bell icon + drawer (30s polling) + admin-only "Журнал" link + mobile hamburger overlay
+- `/audit` admin page — filter chips + table + pagination
+- `/today`, `/leads/[id]`, `/pipeline` — mobile responsive pass (≥375px)
+  - `/pipeline` mobile fallback: read-only `PipelineList` grouped by stage
+  - `/leads/[id]` mobile: rail stacks above tab content, `<select>` tab switcher
+- LeadCard header chips refactor — Stage / "Приоритет X" / Deal type / Score "X/100" / "AI X/10" with color bands; Won/Lost banner; functional Передать modal (UUID input, replaces toast stub); Won/Lost buttons disabled when terminal
+- AIBriefTab empty state: "ICP" → "портретом идеального клиента"
+- `useMe()` hook against `/auth/me` (frontend now knows backend role)
+- `tsc --noEmit` clean; `next build` clean (10 routes, no new warnings)
+- 0 new npm dependencies
+
+See `docs/brain/sprint_reports/SPRINT_1_5_POLISH_LAUNCH.md` for the full report.
+
 ### ⏸ NOT YET BUILT
-- **Sprint 1.5** — Polish + Launch (notifications drawer, email digest, audit log, mobile pass, Lead Card header polish, AI Brief copy fix, Pipeline sticky header, soft launch)
-- **Phase 2** — Inbox (email + Telegram), Quote/КП builder, Knowledge Base UI, Apify, multi-pipeline switcher
+- **Phase 2** — Inbox (email + Telegram), Quote/КП builder, WebForms, Bulk Import/Export, Knowledge Base CRUD UI, Apify, multi-pipeline switcher
 - **Phase 3** — MCP server, Sales Coach chat, OCR визиток, pgvector
 
 ---
@@ -124,13 +150,18 @@ User-provided keys in `/opt/drinkx-crm/infra/production/.env`:
 ## Known issues / risks
 
 1. **Anthropic always 403 from RU IP** — fallback chain wastes one round-trip before falling through to Gemini/DeepSeek. Documented since Sprint 1.3.
-2. **Stuck `DailyPlan` row** from the asyncpg loop bug (before `8d2e644` deployed). Manager's row may still be `status='generating'` until next regenerate replaces it. UI handles this correctly (polls every 2s); just needs another click on "Пересобрать план".
-3. **`/today` plan generation not yet end-to-end-confirmed with screenshot** in the new (post-`8d2e644`) build. Worker + beat are healthy and logs show clean ticks; user-side verification pending.
-4. **DST edge cases** — `daily_plan_generator` matches local 08:00 exactly. On DST days an hour skips or duplicates. Acceptable.
-5. **No retry on per-user LLM failure** in the daily plan cron — that user gets no plan today, error is logged. Sprint 1.5 candidate.
-6. **`fit_score` last-writer-wins** — orchestrator and the manual scoring tab both write the column. No conflict resolution. Documented since Sprint 1.3.
+2. **DST edge cases** — `daily_plan_generator` and `daily_email_digest` both match `local hour == 8`. On DST days an hour skips or duplicates. Acceptable.
+3. **No retry on per-user LLM failure** in the daily plan cron — that user gets no plan today, error is logged.
+4. **`fit_score` last-writer-wins** — orchestrator and the manual scoring tab both write the column. No conflict resolution. Documented since Sprint 1.3.
+5. **Tab content overflow on mobile, not exhaustively audited** (Sprint 1.5 group 6) — DealTab / ScoringTab / AIBriefTab / etc. weren't reviewed for hard-coded grids or wide tables at 375px. Point-fix with `overflow-x-auto` on observation.
+6. **TransferModal UUID input** (Sprint 1.5 group 7) — no `/api/users` listing endpoint yet, so the manager pastes the recipient's UUID. Backend validates membership and surfaces 400 inline. Replace with a picker once the endpoint lands.
+7. **Email digest stub mode not yet verified in production** (Sprint 1.5 group 5) — `SMTP_HOST=""` keeps the digest in stub mode (`[EMAIL STUB]` lines in worker logs). Smoke-test on the morning after deploy.
+8. **Soft-launch checklist partially open** — see `SPRINT_1_5_POLISH_LAUNCH.md` for the row-by-row state. Sentry DSNs, pg_dump backups, onboarding doc, end-to-end smoke, and log-volume review are all still ⏸.
+
+Resolved this sprint:
+- ~~Stuck `DailyPlan` row from the asyncpg loop bug~~ — flipped to `failed` mid-sprint via the production debugging session; `regenerate_for_user` end-to-end confirmed working (24 items, 27s).
 
 ---
 
 ## Next
-**Sprint 1.5 — Polish + Launch.** See `docs/brain/04_NEXT_SPRINT.md`.
+**Phase 2 Sprint 2.0 — Inbox + Quote + Forms + Bulk Import.** See `docs/brain/04_NEXT_SPRINT.md`.

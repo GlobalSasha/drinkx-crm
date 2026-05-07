@@ -243,7 +243,7 @@ function EmptyState({ onTrigger, isPending }: { onTrigger: () => void; isPending
           <h3 className="text-lg font-bold text-ink mb-1.5">Нет AI-обзора</h3>
           <p className="text-sm text-muted-2 leading-relaxed">
             AI соберёт данные из Brave, HH.ru и сайта компании, оценит совпадение
-            с ICP и подготовит план следующих шагов.
+            с портретом идеального клиента и подготовит план следующих шагов.
           </p>
         </div>
         <button

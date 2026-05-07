@@ -45,34 +45,42 @@
 - Frontend `/today` rewritten with real plan rendering — compact cards (~72px), URL-driven pagination 10/page, time-block sections, hot-lead left rail
 - Infra hotfixes (4): Node 22 bump, pnpm pin, Celery mapper-registry, per-task NullPool engine
 
+**Sprint 1.5 — DONE** · `SPRINT_1_5_POLISH_LAUNCH.md` · branch `sprint/1.5-polish-launch` (range `f3e0509..HEAD`, 8 groups)
+- Migration 0006: `notifications` (workspace/user FK, kind/title/body, optional lead_id, read_at)
+- Migration 0007: `audit_log` (workspace/user FK, action/entity_type/entity_id/delta_json) + admin-only `GET /audit`
+- `app/notifications` domain — `notify` / `safe_notify` / mark-read / mark-all-read; bell badge + drawer with 30s polling
+- `app/audit` domain — `audit.log()` defensive helper + 4 emit hooks (lead.create, lead.transfer, lead.move_stage, enrichment.trigger); admin-only `/audit` page
+- `app/notifications/email_sender.py` + `digest.py` + `templates/daily_digest.html` — daily morning email digest (top-5 plan items / top-5 overdue / top-5 yesterday's briefs); SMTP via aiosmtplib with stub mode while SMTP_HOST=""
+- Beat: new entry `daily-email-digest` `crontab(minute=30)` (combined with local-hour=8 filter → fires at 08:30 local time)
+- Frontend mobile pass — AppShell hamburger overlay, /today flex-wrap + 44px tap-targets, /leads/[id] stacked rail + select tab switcher, /pipeline list-view fallback below md
+- LeadCard header polish — Stage / Priority / Deal type / Score "X/100" / "AI X/10" chips with band colors; Won/Lost banner; functional TransferModal (UUID input)
+- AIBriefTab empty-state: "ICP" → "портретом идеального клиента"
+- 22 mock-only backend tests, 0 DB / 0 SMTP / 0 network; tsc + next build clean throughout
+- 0 new npm dependencies; 1 new Python dep (aiosmtplib)
+
 ## 🔜 NEXT
 
-### Phase 1 — MVP continuation (~1-2 weeks remaining)
-
-**Sprint 1.5 — Polish + Launch (1 week)** ← READY TO START
+### Phase 2 — Sprint 2.0 — Inbox + Quote + Forms + Bulk Import (~2 weeks)
 See `docs/brain/04_NEXT_SPRINT.md` for full scope.
 
-In-app polish:
-- In-app notifications drawer
-- Email digest (daily morning summary)
-- Audit log (who changed what, when) + admin view
-- Mobile responsive pass on /today, Lead Card, /pipeline (touch drag-drop)
-- Lead Card header polish (score + transfer/won/lost buttons)
-- AI Brief empty-state copy fix (ICP → "портрет идеального клиента")
-- Pipeline sticky header (extra defense against horizontal scroll)
-- Soft launch for DrinkX team
+Surface area:
+- **Inbox** — Email (IMAP read / SMTP send) + Telegram Business webhook → unified per-lead conversation view
+- **Quote / КП builder** — line-items, pricing, render to PDF, attach to lead activity
+- **WebForms** — public form builder + capture endpoint → leads pool with attribution
+- **Bulk Import / Export** — CSV/XLSX import with column mapping + dry-run preview; export of any list view
+- **Knowledge Base CRUD UI** — file-based markdown library from Sprint 1.3 promoted to a real UI
 
-Outstanding deferred work that may bundle into 1.5 if there's time:
-- **Phase G (Sprint 1.3 follow-on)** — move enrichment off FastAPI BackgroundTasks onto Celery (Celery infra now exists from Sprint 1.4); WebSocket `/ws/{user_id}` to replace the 2s polling
-- DST-aware `daily_plan_generator` edge handling
+Outstanding deferred work that may bundle into 2.0 or 2.1:
+- **Phase G (Sprint 1.3 follow-on)** — move enrichment off FastAPI BackgroundTasks onto Celery (infra exists from Sprint 1.4); WebSocket `/ws/{user_id}` to replace 2s polling
+- DST-aware cron edge handling
+- pg_dump cron + Sentry DSNs (soft-launch checklist carryover from 1.5)
 
 ## 📅 LATER
 
-### Phase 2 (~6 weeks)
-Inbox (Email IMAP/SMTP + Telegram Business webhook), Quote/КП builder,
-WebForms, Bulk Import/Export, Knowledge Base CRUD UI, Apify integration,
-push notifications + Telegram bot, multi-pipeline switcher,
-full Settings panel.
+### Phase 2 — Sprint 2.1+ (~4 weeks)
+Apify integration (foodmarkets / horeca scrapers), push notifications +
+Telegram bot for managers, multi-pipeline switcher, full Settings panel,
+team workspace management.
 
 ### Phase 3 (~4 weeks)
 MCP server, AI Sales Coach full chat, Visit-card OCR parser,
