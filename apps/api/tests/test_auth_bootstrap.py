@@ -242,7 +242,10 @@ async def test_first_user_creates_workspace():
     assert workspaces_created[0]["name"] == "Acme Coffee Co"
     assert len(pipelines_created) == 1
     assert pipelines_created[0]["name"] == "Новые клиенты"
-    assert pipelines_created[0]["is_default"] is True
+    # Sprint 2.4 G1: `is_default` column dropped (migration 0017).
+    # The canonical default is set on the workspace via
+    # `workspace.default_pipeline_id`, asserted below.
+    assert "is_default" not in pipelines_created[0]
     assert len(stages_created) == 12  # full B2B template
     assert len(users_created) == 1
     assert users_created[0]["role"] == "admin"

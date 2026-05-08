@@ -18,6 +18,7 @@ import {
 import clsx from "clsx";
 
 import { PipelinesSection } from "@/components/settings/PipelinesSection";
+import { TeamSection } from "@/components/settings/TeamSection";
 
 type SectionKey =
   | "pipelines"
@@ -37,8 +38,8 @@ interface SectionDef {
 
 const SECTIONS: SectionDef[] = [
   { key: "pipelines",     label: "Воронки",      icon: <Split size={15} />,    ready: true  },
+  { key: "team",          label: "Команда",      icon: <Users size={15} />,    ready: true  },
   { key: "profile",       label: "Профиль",      icon: <User size={15} />,     ready: false },
-  { key: "team",          label: "Команда",      icon: <Users size={15} />,    ready: false },
   { key: "notifications", label: "Уведомления",  icon: <BellRing size={15} />, ready: false },
   { key: "integrations",  label: "Интеграции",   icon: <Plug size={15} />,     ready: false },
   { key: "api",           label: "API",          icon: <KeyRound size={15} />, ready: false },
@@ -91,7 +92,8 @@ export default function SettingsPage() {
         {/* Main */}
         <main className="min-w-0">
           {active === "pipelines" && <PipelinesSection />}
-          {active !== "pipelines" && (
+          {active === "team" && <TeamSection />}
+          {active !== "pipelines" && active !== "team" && (
             <div className="bg-canvas/60 border border-black/5 rounded-2xl px-6 py-12 text-center">
               <p className="text-sm text-muted">Эта секция появится позже.</p>
             </div>

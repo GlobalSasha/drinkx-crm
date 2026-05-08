@@ -37,9 +37,12 @@ export interface Pipeline {
   workspace_id: string;
   name: string;
   type: string;
-  is_default: boolean;
   position: number;
   stages: Stage[];
+  // `is_default` removed in Sprint 2.4 G1 (backend dropped the
+  // column via migration 0017). Compare pipeline.id to
+  // me.workspace.default_pipeline_id to render the «по умолчанию»
+  // badge.
 }
 
 // ---- Pipeline write shapes (Sprint 2.3 G3) ----
@@ -791,4 +794,52 @@ export interface FormSubmissionOut {
   utm_json: Record<string, string> | null;
   source_domain: string | null;
   created_at: string;
+}
+
+// ---- Users domain (Sprint 2.4 G1 — Settings «Команда») ----
+
+export interface UserListItemOut {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole | string;
+  last_login_at: string | null;
+}
+
+export interface UserListOut {
+  items: UserListItemOut[];
+  total: number;
+}
+
+export interface UserInviteIn {
+  email: string;
+  role: UserRole;
+}
+
+export interface UserInviteOut {
+  id: string;
+  email: string;
+  suggested_role: UserRole | string;
+  invited_by_user_id: string | null;
+  created_at: string;
+  accepted_at: string | null;
+}
+
+export interface UserRoleUpdateIn {
+  role: UserRole;
+}
+
+// Structured 409 detail emitted by PATCH /api/users/{id}/role when
+// demoting the workspace's last admin would leave it without one.
+export interface UserRoleConflict {
+  code: "last_admin";
+  message: string;
+}
+
+// Structured 502 detail emitted by POST /api/users/invite when the
+// Supabase admin API call fails — UI shows a «retry later» state.
+export interface UserInviteUpstreamError {
+  code: "invite_send_failed";
+  message: string;
+  upstream: string;
 }
