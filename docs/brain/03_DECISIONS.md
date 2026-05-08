@@ -21,6 +21,7 @@
 | ADR-017 | Scoring criteria = separate table `scoring_criteria`, per-workspace | ✅ |
 | ADR-018 | MiMo (Xiaomi) is primary LLM; chain MiMo → Anthropic → Gemini → DeepSeek | ✅ |
 | ADR-019 | Email ownership model — lead-scoped, not manager-scoped | ✅ |
+| ADR-020 | Widen `alembic_version.version_num` to VARCHAR(255) before each migration | ✅ |
 
 ---
 
@@ -252,3 +253,55 @@ Implementation:
   activity row.
 
 Implemented in Sprint 2.0 (Groups 3–6).
+
+## ADR-020 Widen `alembic_version.version_num` to VARCHAR(255) before each migration
+
+Date: 2026-05-09
+Status: ✅
+
+Decision: Every new migration's `upgrade()` starts with
+
+```python
+op.execute(
+    "ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(255)"
+)
+```
+
+before any other DDL.
+
+Context: Alembic's bookkeeping table `alembic_version` defaults to
+`version_num VARCHAR(32)`. Several of our recent revision IDs
+(`0009_inbox_items_and_activity_email` is 38 chars, similar names will
+keep coming) overflow that and crash the upgrade with a Postgres
+`value too long for type character varying(32)` error. Widening to
+255 once would be enough — but we're not always sure which version of
+the column is in front of us (fresh deploy vs. legacy snapshot vs.
+restored backup), so we re-issue the `ALTER TABLE` defensively at the
+start of every migration. `ALTER … TYPE VARCHAR(255)` on an
+already-VARCHAR(255) column is a no-op in Postgres and costs nothing.
+
+Implementation:
+
+- Each new migration starting with `0012_*` opens its `upgrade()` with
+  the line above. Older migrations (`0001_*` … `0011_*`) are not
+  retro-edited — those revision IDs are short enough to fit.
+- Idempotent on production: `ALTER COLUMN ... TYPE VARCHAR(255)` is a
+  no-op when the column is already that wide.
+- We don't issue a corresponding shrink in `downgrade()` — once widened,
+  the column stays wide. Shrinking back to 32 would just bring the
+  problem back.
+
+Why not handle this once in `alembic/env.py`?
+
+We considered a one-shot widening hook in `env.py` that runs before
+the migration list. Two reasons we didn't:
+
+1. `env.py` runs the same on every alembic invocation, including the
+   `--sql` offline mode that generates SQL for review without touching
+   the DB. Putting DDL there would emit phantom `ALTER TABLE` lines into
+   every offline diff.
+2. New developers running migrations against a freshly-cloned dev DB
+   benefit from the per-migration safety net — one place to look,
+   right next to the schema change being applied.
+
+Per-migration explicit-ness > implicit env hook for a 1-line snippet.
