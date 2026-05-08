@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     cors_origins: list[str] = ["http://localhost:3000"]
 
+    # Single-workspace model (hotfix/single-workspace, 2026-05-08).
+    # The first user to sign in creates the shared workspace under this
+    # name; every subsequent user joins it as `manager`. Override via
+    # `WORKSPACE_NAME` env var.
+    workspace_name: str = "DrinkX"
+
     # Database
     database_url: str = Field(
         default="postgresql+asyncpg://drinkx:drinkx@localhost:5432/drinkx_crm",
