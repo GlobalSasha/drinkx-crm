@@ -79,6 +79,14 @@ def run_export(job_id: str) -> dict:
     return asyncio.run(_run_export(UUID(job_id)))
 
 
+@celery_app.task(name="app.scheduled.jobs.run_bulk_update")
+def run_bulk_update(job_id: str) -> dict:
+    """AI bulk-update apply (PRD §6.14, Sprint 2.1 G9). Walks
+    `diff_json.items`, runs each through `apply_diff_item`, writes
+    one ImportError per failure, updates progress counters."""
+    return asyncio.run(_run_bulk_update(UUID(job_id)))
+
+
 @celery_app.task(name="app.scheduled.jobs.bulk_import_run")
 def bulk_import_run(job_id: str) -> dict:
     """Sprint 2.1 G1 skeleton — Group 2 fills in the parse/apply body.
@@ -211,6 +219,124 @@ async def _run_inbox_suggestion(inbox_item_id: UUID) -> dict:
             error=str(exc)[:200],
         )
         return {"job": "generate_inbox_suggestion", "error": str(exc)[:200]}
+    finally:
+        await engine.dispose()
+
+
+async def _run_bulk_update(job_id: UUID) -> dict:
+    """Per-item apply for the AI bulk-update format. Mirrors the
+    bulk_import_run shape — per-row commit so the UI poll sees real-
+    time progress, per-item rollback on exception, ImportError row
+    per failure."""
+    from datetime import datetime, timezone as _tz
+    from sqlalchemy import select
+
+    from app.import_export.diff_engine import (
+        apply_diff_item,
+        diff_from_jsonable,
+    )
+    from app.import_export.models import (
+        ImportError,
+        ImportJob,
+        ImportJobStatus,
+    )
+
+    engine, factory = _build_task_engine_and_factory()
+    try:
+        async with factory() as session:
+            res = await session.execute(
+                select(ImportJob).where(ImportJob.id == job_id)
+            )
+            job = res.scalar_one_or_none()
+            if job is None:
+                return {"job": "run_bulk_update", "error": "not_found"}
+
+            if job.status not in (
+                ImportJobStatus.running.value,
+                ImportJobStatus.previewed.value,
+            ):
+                log.info(
+                    "bulk_update.skipped_due_to_status",
+                    job_id=str(job_id),
+                    status=job.status,
+                )
+                return {"job": "run_bulk_update", "skipped": job.status}
+
+            if job.status != ImportJobStatus.running.value:
+                job.status = ImportJobStatus.running.value
+                await session.commit()
+
+            diff = job.diff_json or {}
+            items = diff_from_jsonable(diff.get("items") or [])
+            workspace_id = job.workspace_id
+            user_id = job.user_id
+
+            for idx, item in enumerate(items):
+                try:
+                    if item.error:
+                        # Resolution-time error — count as failed but
+                        # don't try to apply.
+                        session.add(ImportError(
+                            job_id=job.id,
+                            row_number=idx,
+                            field="match",
+                            message=item.error[:1000],
+                        ))
+                        job.failed += 1
+                    else:
+                        ok = await apply_diff_item(
+                            session,
+                            item=item,
+                            workspace_id=workspace_id,
+                            user_id=user_id,
+                        )
+                        if ok:
+                            job.succeeded += 1
+                        else:
+                            session.add(ImportError(
+                                job_id=job.id,
+                                row_number=idx,
+                                field="apply",
+                                message=(
+                                    "apply_diff_item returned False — "
+                                    "see worker logs for details"
+                                ),
+                            ))
+                            job.failed += 1
+                except Exception as exc:
+                    await session.rollback()
+                    session.add(ImportError(
+                        job_id=job.id,
+                        row_number=idx,
+                        field="",
+                        message=f"{type(exc).__name__}: {exc}"[:1000],
+                    ))
+                    job.failed += 1
+                finally:
+                    job.processed += 1
+                    await session.commit()
+
+            job.status = (
+                ImportJobStatus.succeeded.value
+                if job.failed == 0
+                else ImportJobStatus.failed.value
+            )
+            if job.failed:
+                job.error_summary = (
+                    f"{job.failed}/{job.total_rows} apply failures — "
+                    "см. import_errors"
+                )
+            job.finished_at = datetime.now(tz=_tz.utc)
+            await session.commit()
+            return {
+                "job": "run_bulk_update",
+                "id": str(job_id),
+                "succeeded": job.succeeded,
+                "failed": job.failed,
+            }
+    except Exception as exc:
+        log.exception("run_bulk_update.failed", job_id=str(job_id))
+        return {"job": "run_bulk_update", "error": f"{type(exc).__name__}: {exc}"}
     finally:
         await engine.dispose()
 

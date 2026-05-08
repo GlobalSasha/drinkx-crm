@@ -9,6 +9,7 @@ import { UploadStep } from "@/components/import/steps/UploadStep";
 import { MappingStep } from "@/components/import/steps/MappingStep";
 import { PreviewStep } from "@/components/import/steps/PreviewStep";
 import { ProgressStep } from "@/components/import/steps/ProgressStep";
+import { BulkUpdatePreview } from "@/components/import/steps/BulkUpdatePreview";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -18,6 +19,10 @@ const STEP_LABELS: Record<Step, string> = {
   3: "Проверка",
   4: "Импорт",
 };
+
+function isBulkUpdateJob(job: ImportJobOut | null): boolean {
+  return (job?.diff_json as { type?: string } | null)?.type === "bulk_update";
+}
 
 interface Props {
   open: boolean;
@@ -103,8 +108,8 @@ export function ImportWizard({ open, onClose }: Props) {
             </button>
           </div>
 
-          {/* Step indicator */}
-          <Stepper current={step} />
+          {/* Step indicator. Bulk-update flow skips «Сопоставление». */}
+          <Stepper current={step} isBulkUpdate={isBulkUpdateJob(job)} />
 
           {/* Body — scroll its own area, not the whole modal */}
           <div className="px-6 py-5 overflow-y-auto">
@@ -112,7 +117,10 @@ export function ImportWizard({ open, onClose }: Props) {
               <UploadStep
                 onUploaded={(j) => {
                   setJob(j);
-                  setStep(2);
+                  // bulk_update has no column-mapping step — server
+                  // already returns status='previewed' with the
+                  // computed diff. Skip directly to step 3.
+                  setStep(isBulkUpdateJob(j) ? 3 : 2);
                 }}
               />
             )}
@@ -126,7 +134,17 @@ export function ImportWizard({ open, onClose }: Props) {
                 }}
               />
             )}
-            {step === 3 && job && (
+            {step === 3 && job && isBulkUpdateJob(job) && (
+              <BulkUpdatePreview
+                job={job}
+                onClose={onClose}
+                onApplied={(j) => {
+                  setJob(j);
+                  setStep(4);
+                }}
+              />
+            )}
+            {step === 3 && job && !isBulkUpdateJob(job) && (
               <PreviewStep
                 job={job}
                 onBack={() => setStep(2)}
@@ -150,14 +168,24 @@ export function ImportWizard({ open, onClose }: Props) {
   );
 }
 
-function Stepper({ current }: { current: Step }) {
-  const items: Step[] = [1, 2, 3, 4];
+function Stepper({
+  current,
+  isBulkUpdate,
+}: {
+  current: Step;
+  isBulkUpdate: boolean;
+}) {
+  const items: Step[] = isBulkUpdate ? [1, 3, 4] : [1, 2, 3, 4];
   return (
     <div className="px-6 py-3 border-b border-black/5 bg-canvas/40">
       <ol className="flex items-center gap-2">
         {items.map((n, i) => {
           const state =
             n < current ? "done" : n === current ? "current" : "upcoming";
+          // Display the visual position (1, 2, 3, …) rather than the
+          // raw step index so the bulk_update flow reads 1/2/3 instead
+          // of 1/3/4 with the gap.
+          const displayNumber = i + 1;
           return (
             <li key={n} className="flex items-center gap-2 flex-1 min-w-0">
               <span
@@ -169,7 +197,7 @@ function Stepper({ current }: { current: Step }) {
                 )}
                 aria-current={state === "current" ? "step" : undefined}
               >
-                {n}
+                {displayNumber}
               </span>
               <span
                 className={clsx(

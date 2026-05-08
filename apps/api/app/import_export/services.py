@@ -198,15 +198,21 @@ async def request_apply(
     await session.refresh(job)
 
     # Dispatch best-effort — Redis hiccup at request time should not
-    # surface a 5xx if the row is already saved. The task is idempotent
-    # via the status guard inside `_run_bulk_import`.
+    # surface a 5xx if the row is already saved. Both tasks are
+    # idempotent via the status guard inside their _run helpers.
+    diff = job.diff_json or {}
+    is_bulk_update = (
+        isinstance(diff, dict) and diff.get("type") == "bulk_update"
+    )
+    task_name = (
+        "app.scheduled.jobs.run_bulk_update"
+        if is_bulk_update
+        else "app.scheduled.jobs.bulk_import_run"
+    )
     try:
         from app.scheduled.celery_app import celery_app
 
-        celery_app.send_task(
-            "app.scheduled.jobs.bulk_import_run",
-            args=[str(job.id)],
-        )
+        celery_app.send_task(task_name, args=[str(job.id)])
     except Exception as exc:
         log.warning(
             "import.apply_dispatch_failed",

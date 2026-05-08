@@ -597,17 +597,52 @@ export interface DryRunStats {
 }
 
 export interface ImportDiffPayload {
-  headers: string[];
-  suggested_mapping: Record<string, string | null>;
-  rows: Record<string, string>[];        // first 100 preview rows
-  all_rows: Record<string, string>[];    // full payload (kept for /apply)
-  validation_errors: Record<string, string[]>;
-  field_catalog: ImportFieldDef[];
+  // Distinguishes the regular /import flow from the AI bulk-update
+  // flow. Only `bulk_update` is set explicitly; the regular flow
+  // omits `type`, which the wizard treats as "regular".
+  type?: "bulk_update";
 
-  // Populated after confirm-mapping
+  // ---- regular (column-mapper) shape ----
+  headers?: string[];
+  suggested_mapping?: Record<string, string | null>;
+  rows?: Record<string, string>[];        // first 100 preview rows
+  all_rows?: Record<string, string>[];    // full payload (kept for /apply)
+  validation_errors?: Record<string, string[]>;
+  field_catalog?: ImportFieldDef[];
   confirmed_mapping?: Record<string, string | null>;
   mapped_rows?: Record<string, string>[];
   dry_run_stats?: DryRunStats;
+
+  // ---- bulk_update shape ----
+  items?: BulkUpdateDiffItem[];
+  stats?: {
+    to_update: number;
+    to_create: number;
+    errors: number;
+  };
+}
+
+export interface BulkUpdateChange {
+  field: string;       // 'ai_data.growth_signals' | 'tags' | 'stage' | ...
+  op: "add" | "remove" | "replace" | "set";
+  value: unknown;
+  current_value: unknown | null;
+}
+
+export interface BulkUpdateDiffItem {
+  action: "update" | "create";
+  company_name: string;
+  inn: string | null;
+  lead_id: string | null;
+  changes: BulkUpdateChange[];
+  match_confidence:
+    | "exact_inn"
+    | "exact_name"
+    | "exact_id"
+    | "not_found"
+    | "ambiguous"
+    | string;
+  error: string | null;
 }
 
 export interface ImportJobOut {

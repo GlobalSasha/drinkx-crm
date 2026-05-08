@@ -28,6 +28,11 @@ from app.import_export.adapters.bitrix24 import (
     is_bitrix24,
     parse_bitrix24,
 )
+from app.import_export.adapters.bulk_update import (
+    is_bulk_update_yaml,
+    parse_bulk_update,
+)
+from app.import_export.diff_engine import compute_diff, diff_to_jsonable
 from app.import_export.bulk_update_prompt import BULK_UPDATE_PROMPT
 from app.import_export.exporters import (
     content_type_for,
@@ -120,6 +125,58 @@ async def cancel_job(
 # G2: upload + confirm-mapping + apply
 # ---------------------------------------------------------------------------
 
+async def _handle_bulk_update_upload(
+    *,
+    content: bytes,
+    filename: str,
+    db: AsyncSession,
+    user: User,
+) -> ImportJobOut:
+    """G9 alt-path: AI Update Format YAML → compute diff → persist
+    ImportJob with status='previewed'. Wizard skips the mapping step
+    and renders BulkUpdatePreview directly. /apply dispatches
+    run_bulk_update instead of bulk_import_run."""
+    updates = parse_bulk_update(content)
+    diff = await compute_diff(
+        db, workspace_id=user.workspace_id, updates=updates
+    )
+
+    items_jsonable = diff_to_jsonable(diff)
+    stats = {
+        "to_update": sum(
+            1 for d in diff if d.action == "update" and not d.error
+        ),
+        "to_create": sum(
+            1 for d in diff if d.action == "create" and not d.error
+        ),
+        "errors": sum(1 for d in diff if d.error),
+    }
+
+    diff_payload = {
+        "type": "bulk_update",
+        "items": items_jsonable,
+        "stats": stats,
+    }
+
+    job = await svc.create_job(
+        db,
+        workspace_id=user.workspace_id,
+        user_id=user.id,
+        format=ImportJobFormat.bulk_update_yaml.value,
+        source_filename=filename,
+        upload_size_bytes=len(content),
+        diff=diff_payload,
+    )
+    # Skip the mapping step entirely — bulk_update has no source columns
+    # to map. Land on `previewed` so /apply gates on the same status
+    # transition the regular path uses.
+    job.status = ImportJobStatus.previewed.value
+    job.total_rows = len(updates)
+    await db.commit()
+    await db.refresh(job)
+    return ImportJobOut.model_validate(job)
+
+
 @router.post("/upload", response_model=ImportJobOut)
 async def upload(
     file: Annotated[UploadFile, File(...)],
@@ -154,12 +211,28 @@ async def upload(
     if resolved is None:
         resolved = detect_format(filename)
     if resolved is None or resolved in (
-        ImportJobFormat.amocrm,           # Group 5
-        ImportJobFormat.bulk_update_yaml,  # Group 8
+        ImportJobFormat.amocrm,  # Group 5 (deferred)
     ):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="unsupported file extension; pass ?format=xlsx|csv|json|yaml|bitrix24",
+            detail=(
+                "unsupported file extension; pass ?format="
+                "xlsx|csv|json|yaml|bitrix24"
+            ),
+        )
+
+    # Auto-detect: a YAML file carrying the DrinkX Update Format header
+    # bypasses the normal column-mapper flow and goes straight into the
+    # diff engine. Manager doesn't need to specify ?format=bulk_update_yaml.
+    if (
+        resolved in (ImportJobFormat.yaml, ImportJobFormat.bulk_update_yaml)
+        and is_bulk_update_yaml(content)
+    ):
+        return await _handle_bulk_update_upload(
+            content=content,
+            filename=filename,
+            db=db,
+            user=user,
         )
 
     if resolved == ImportJobFormat.bitrix24:
