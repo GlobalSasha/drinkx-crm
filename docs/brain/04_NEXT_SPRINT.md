@@ -50,8 +50,16 @@ Backend:
   one of `('admin', 'head', 'manager')`. Refuses to demote the
   last admin (defensive — every workspace MUST have at least one
   admin).
-- Migration `0014_user_invites` (or fold into user table — TBD;
-  migration shape decided in G1 plan review).
+- Migration `0016_user_invites` (or fold into user table — TBD;
+  migration shape decided in G1 plan review). NOTE: 0014 and 0015
+  were taken by post-Sprint-2.3 hotfixes (0014_bootstrap_orphan_workspaces,
+  0015_merge_workspaces).
+- Migration `0017_drop_pipelines_is_default` — housekeeping
+  carryover from Sprint 2.3. Drop the legacy `pipelines.is_default`
+  boolean. Prep step: in `app/import_export/diff_engine.py` swap
+  the one `Pipeline.is_default.is_(True)` read for
+  `pipelines_repo.get_default_pipeline_id(...)`. Then the column
+  is no longer read anywhere and the migration just drops it.
 
 Frontend:
 - New `app/web/components/settings/TeamSection.tsx` — table of
@@ -61,12 +69,13 @@ Frontend:
 - Confirm-modal for «demote last admin» refusal carries the same
   structured-409 pattern as 2.3's pipeline delete.
 
-Tests (mock-only target ~6):
+Tests (mock-only target ~7):
 - invite generates magic-link (mocked Supabase admin client)
 - invite refused for non-admin
 - role-change refused if it would leave zero admins
 - list scoped to workspace
-- bundle 2.3 carryover: drop legacy `pipelines.is_default` housekeeping migration here? — TBD G1 plan review
+- diff_engine still resolves the default pipeline via the new
+  reader after the is_default drop
 
 #### G2 — Settings «Каналы» UI (~0.5 day)
 
@@ -99,7 +108,7 @@ AI section — surfaces existing config:
   card + model selector + spend gauge.
 
 Custom fields — new EAV-shaped surface:
-- Migration `0015_custom_attributes`:
+- Migration `0018_custom_attributes`:
   - `custom_attribute_definitions` (workspace_id CASCADE, key,
     label, kind ∈ ('text','number','date','select'), options_json,
     is_required, position, created_at)
@@ -123,7 +132,7 @@ Tests (~8 mock-only):
 #### G4 — Templates module (~1 day)
 
 Backend:
-- Migration `0016_message_templates`:
+- Migration `0019_message_templates`:
   - `message_templates` (workspace_id CASCADE, channel ∈
     ('email', 'tg', 'sms'), name, subject, body, variables_json,
     is_active, created_by SET NULL, created_at, updated_at)
@@ -188,19 +197,52 @@ Tests (~6 mock-only):
    if Lead grows new columns. G4 should derive the reference
    list from a single source of truth (e.g.
    `app/leads/schemas.py:LeadOut.model_fields`).
-4. **2.3 carryover bundling.** Drop-`is_default` migration +
-   stage-replacement preview UX should each be a small isolated
-   PR within G5, NOT additions to other groups — keep the new
-   work clean.
+4. **2.3 carryover bundling.** Drop-`is_default` migration is now
+   wired into G1 (migration 0017). Stage-replacement preview UX
+   stays a small isolated PR within G5 — keep the new work clean,
+   don't smear it across other groups.
 5. **Settings page surface area.** Three new backend endpoints
    for «AI» + «Кастомные поля» + «Команда» + «Templates». Add
    them to the existing routers list in `app/main.py` carefully;
    the route count will jump and `pnpm build` time will too.
 
+## Stop conditions — post-deploy smoke checklist
+
+**Before declaring Sprint 2.4 complete, run this ritual on
+staging (and again on prod after merge to main).** Lesson from
+2026-05-08: `/leads-pool` was silently broken for >24h because
+nobody hit the page after a frontend `page_size` bump. We don't
+catch latent 4xx without explicit verification.
+
+For each of the live pages, open it logged-in, watch the Network
+tab Fetch/XHR rows, and confirm zero non-2xx responses:
+
+- [ ] `/today` — daily plan loads, no 422/500 on `/api/me/today`
+      or `/api/leads`.
+- [ ] `/pipeline` — switcher dropdown renders, board reflows,
+      `/api/pipelines` 200, `/api/leads?pipeline_id=...` 200.
+- [ ] `/leads-pool` — pool table renders OR empty state shows;
+      `/api/leads/pool?page_size=500` 200 (NOT 422 — see hotfix
+      `8349516`).
+- [ ] `/inbox` — pending list renders (or empty-state OAuth CTA).
+- [ ] `/forms` — admin/head only, table loads, embed snippet
+      copies (Sprint 2.2).
+- [ ] `/settings` — all 4 sections render, «Воронки» table opens,
+      switch + delete + create flows работают.
+- [ ] `/audit` — admin only, recent events visible.
+
+If any row 4xx/5xx, sprint is NOT complete — fix before close.
+The smoke checklist gets a row in `SPRINT_2_4_*.md`'s production-
+readiness section and again as a pre-PR-merge gate.
+
+Same pattern carries forward to Sprint 2.5+. Add new pages to the
+list as they ship.
+
 ## Done definition
 
-- Migrations 0014 (or 0015 depending on G1 decision), 0015 / 0016
-  apply cleanly via `alembic upgrade head` on staging.
+- Migrations 0016 (user_invites), 0017 (drop pipelines.is_default),
+  0018 (custom_attributes), 0019 (message_templates) apply cleanly
+  via `alembic upgrade head` on staging.
 - All 4 Settings sections live: Команда / Каналы / AI /
   Кастомные поля.
 - Templates module live at `/settings/templates` (or sub-route

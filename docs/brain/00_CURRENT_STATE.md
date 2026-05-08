@@ -1,6 +1,6 @@
 # DrinkX CRM — Current State
 
-Last updated: 2026-05-08 (Sprint 2.3 ready for review; Sprint 2.2 + 2.1 + 2.0 merged + deployed)
+Last updated: 2026-05-08 (Sprint 2.3 + 4 emergency hotfixes merged + deployed; HEAD = `6781145`)
 
 ## Phase 0 — COMPLETED ✅ (lives in `crm-prototype` repo)
 
@@ -250,8 +250,8 @@ Known issues / risks (full list in `SPRINT_2_2_WEBFORMS.md`):
 4. ~~Sentry `@sentry/nextjs` package~~ — still carryover from 2.1, not addressed
 5. No honeypot / CAPTCHA on public endpoint — rate-limit alone protects v1
 
-### ✅ Sprint 2.3 — Multi-pipeline switcher (READY FOR REVIEW — branch `sprint/2.3-multi-pipeline`)
-**4 groups, commit range `4294988..HEAD`**
+### ✅ Sprint 2.3 — Multi-pipeline switcher (MERGED + DEPLOYED — `b306a97`)
+**4 groups, commit range `4294988..b306a97`**
 
 Backend:
 - Migration `0013_default_pipeline` — `workspaces.default_pipeline_id` (UUID NULL FK to pipelines.id ON DELETE SET NULL) + two-pass backfill (prefer `pipelines.is_default=true`, fall back to oldest pipeline). Legacy `is_default` boolean kept for diff_engine + back-compat.
@@ -294,9 +294,26 @@ Known issues / risks (full list in `SPRINT_2_3_MULTI_PIPELINE.md`):
 7. No multi-pipeline reporting (Phase 3)
 8. set-default notification fan-out has no debounce (acceptable for a config event)
 
+### 🔥 Post-Sprint 2.3 emergency hotfixes (2026-05-08, all in main)
+
+A user-reported `/leads-pool` failure exposed three latent bugs in
+sequence. All four fixes are deployed to production.
+
+| Commit | Fix |
+|---|---|
+| `8349516` | `list_pool` page_size cap raised 200 → 500. Latent since `480d0a9` (2026-05-07): /leads-pool started fetching the whole pool with `page_size=500` for client-side filtering, but the backend cap rejected with 422 on every request. /leads-pool was silently broken for ~24h. |
+| `904a0d2` | Typo «леды» → «лиды» in /leads-pool empty-state copy. |
+| `9d6ef92` | Migration 0014 — defensive bootstrap of orphan workspaces. Idempotent: finds workspaces with zero pipelines and seeds «Новые клиенты» + 12 stages, sets `default_pipeline_id`. No-op for healthy databases. |
+| `6781145` | **Single-workspace model (ADR-021)** + migration 0015. The previous `bootstrap_workspace` created a NEW workspace per first-time signing user → two production silos accumulated («Gmail» 1fa8ccb3-… 216 leads, «Drinkx» 456610a9-… 0 leads). Refactored auth bootstrap so subsequent users join the canonical (oldest) workspace as `manager`; first-ever user is `admin`. Workspace name now from `WORKSPACE_NAME` env var. Migration 0015 folded Gmail INTO Drinkx (leads remapped by stage NAME). Both team members now see the same 216 leads. |
+
+After the hotfixes:
+- Combined mock-test baseline: **132 mock tests passing** (Sprint 2.3 baseline 129 + 3 new auth tests).
+- Migrations applied: `0013_default_pipeline`, `0014_bootstrap_orphan_workspaces`, `0015_merge_workspaces`.
+- Single-workspace assumption now baked in for the entire team. Multi-tenancy (second client) is Phase 3.
+
 ### ⏸ NOT YET BUILT
 - **Phase 2** — Full Settings panel + Templates (Sprint 2.4 NEXT), Automation Builder, AmoCRM adapter, Telegram Business inbox + email send, Quote/КП builder, Knowledge Base CRUD UI, Apify
-- **Phase 3** — MCP server, Sales Coach chat, OCR визиток, pgvector
+- **Phase 3** — Multi-tenancy (invite-flow + per-tenant routing for second client), MCP server, Sales Coach chat, OCR визиток, pgvector
 
 ---
 
@@ -335,6 +352,32 @@ User-provided keys in `/opt/drinkx-crm/infra/production/.env`:
 6. **TransferModal UUID input** (Sprint 1.5 group 7) — no `/api/users` listing endpoint yet, so the manager pastes the recipient's UUID. Backend validates membership and surfaces 400 inline. Replace with a picker once the endpoint lands.
 7. **Email digest stub mode not yet verified in production** (Sprint 1.5 group 5) — `SMTP_HOST=""` keeps the digest in stub mode (`[EMAIL STUB]` lines in worker logs). Smoke-test on the morning after deploy.
 8. **Soft-launch checklist partially open** — see `SPRINT_1_5_POLISH_LAUNCH.md` for the row-by-row state. Sentry DSNs, pg_dump backups, onboarding doc, end-to-end smoke, and log-volume review are all still ⏸.
+
+### Post-2026-05-08 hotfix tech debt (folding into Sprint 2.4)
+
+9. **No post-deploy smoke checklist ritual.** /leads-pool tihо
+   ломалось >24h из-за `page_size=500` mismatch (frontend change
+   `480d0a9` 2026-05-07 → backend hotfix `8349516` 2026-05-08).
+   Каждый sprint close должен включать визит на каждую главную
+   страницу (/today, /pipeline, /leads-pool, /inbox, /forms,
+   /settings) после деплоя и подтверждение отсутствия 4xx/5xx в
+   Network tab. Добавлено в Sprint 2.4 plan.
+10. **Multi-tenancy assumption baked in.** `bootstrap_workspace`
+    SELECTs the OLDEST workspace as the canonical one. If DrinkX
+    sells the codebase to a second client, their first user
+    silently joins workspace #1 — wrong tenant. Phase 3 surface:
+    invite-flow + per-tenant routing or per-tenant DB. See
+    `02_ROADMAP.md` Phase 3 entry.
+11. **Drop legacy `pipelines.is_default` boolean.** Sprint 2.3 G1
+    moved «which is the default» onto `workspaces.default_pipeline_id`
+    FK, but kept `is_default` for diff_engine + back-compat. Drop
+    via migration in Sprint 2.4 G1 housekeeping; `diff_engine.py`
+    needs a one-line read swap to use `repositories.get_default_pipeline_id`
+    instead.
+12. **Stage-replacement preview missing** in `PipelineEditor`. When
+    the manager removes/renames stages, leads on those stages drop
+    to `stage_id=NULL` (FK SET NULL). The UI does NOT surface «N
+    лидов потеряют стадию» before save. Sprint 2.4 polish.
 
 Resolved this sprint:
 - ~~Stuck `DailyPlan` row from the asyncpg loop bug~~ — flipped to `failed` mid-sprint via the production debugging session; `regenerate_for_user` end-to-end confirmed working (24 items, 27s).

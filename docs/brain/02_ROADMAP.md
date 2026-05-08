@@ -149,6 +149,15 @@ Automation Builder (consumes Templates from 2.4), Apify integration
 managers, AmoCRM adapter, Quote / КП builder, Knowledge Base CRUD UI.
 
 ### Phase 3 (~4 weeks)
-MCP server, AI Sales Coach full chat, Visit-card OCR parser,
-Vector DB (pgvector) for similar-deals retrieval, Stalled-deal detector,
-Pipeline column virtualization (>1000 cards), Apify lead-gen wizard.
+- **Multi-tenancy** — invite-flow + per-tenant routing (or per-
+  tenant DB) for selling the codebase to a second client. ADR-021
+  baked the «one canonical workspace per deployment» assumption
+  into `bootstrap_workspace`; the second client would today land
+  in workspace #1 silently. Surface area: explicit invite table,
+  domain allow-list / signup gating, optional tenant-scoped subdomains
+  (e.g. `crm.acme.com` vs `crm.drinkx.tech`). Carries over the
+  `WORKSPACE_NAME` env-var pattern but adds a tenant resolver in
+  the auth dependency chain.
+- MCP server, AI Sales Coach full chat, Visit-card OCR parser,
+- Vector DB (pgvector) for similar-deals retrieval, Stalled-deal detector,
+- Pipeline column virtualization (>1000 cards), Apify lead-gen wizard.

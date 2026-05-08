@@ -305,3 +305,62 @@ the migration list. Two reasons we didn't:
    right next to the schema change being applied.
 
 Per-migration explicit-ness > implicit env hook for a 1-line snippet.
+
+## ADR-021 Single-workspace model — bootstrap joins existing
+
+DrinkX is a single-team product. Until 2026-05-08 the auth bootstrap
+created a brand-new Workspace for every first-time signing user, so
+two team members signing in produced two disconnected silos —
+different lead pools, different pipelines, different notifications,
+different audit trails. Two such silos accumulated in production
+(«Gmail» 1fa8ccb3-…, «Drinkx» 456610a9-…) before the issue was
+caught — the first user to sign in with a personal Google account
+landed in workspace A; signing in later with the work email created
+workspace B with zero leads.
+
+**Decision:** the auth bootstrap is single-workspace. The first ever
+user signing in CREATES the workspace + bootstrap pipeline; every
+subsequent user JOINS the existing canonical workspace
+(`SELECT * FROM workspaces ORDER BY created_at ASC LIMIT 1`) as
+`role='manager'`. No invites, no manual workspace assignment.
+Per-user isolation is already handled at the lead level via
+`assignment_status='assigned'` + `assigned_to=user_id` (ADR-015 Lead
+Pool + Weekly Sprint System).
+
+The workspace name comes from the `WORKSPACE_NAME` env var (default
+"DrinkX") instead of being derived from the first signup's email
+domain — config, not data accident.
+
+**Trade-off:** if DrinkX ever sells the same CRM codebase to a
+second brand, this single-workspace assumption breaks. That's a
+Phase 3 «multi-tenancy» problem (invite-flow + domain-based routing
+or per-tenant DBs); v1 stays simple.
+
+Implementation:
+
+- `app/auth/services.py:upsert_user_from_token` — first-user path
+  creates workspace + bootstrap pipeline + sets default_pipeline_id;
+  subsequent-user path SELECTs the oldest workspace and creates the
+  user with role=manager pointed at it.
+- `app/config.py:Settings.workspace_name` — `"DrinkX"` default,
+  override via env var.
+- Migration `0015_merge_workspaces` — one-time data migration that
+  folded the two existing production workspaces into one (leads
+  remapped by stage NAME — both workspaces seeded from
+  DEFAULT_STAGES so name-match is reliable). Idempotent: short-
+  circuits on databases that don't have the source UUID.
+- `tests/test_auth_bootstrap.py` — 3 mock-only tests
+  (first_user_creates / second_user_joins / existing_user).
+
+What this does NOT do:
+- No multi-tenancy. Adding a second tenant is a Phase 3 design
+  decision; the current code would silently put their users into
+  the original workspace.
+- No invite flow. v1 trusts that anyone able to OAuth-sign-in is a
+  team member. Tightening this (domain allow-list, explicit invite
+  table) is a Sprint 2.4+ surface (the `Команда` section of
+  /settings).
+- No automatic role promotion. Subsequent users always land as
+  manager; only the first-ever user is admin. The admin can
+  promote others manually via `/settings → Команда` once that lands
+  in Sprint 2.4 G1.
