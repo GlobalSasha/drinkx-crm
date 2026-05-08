@@ -563,3 +563,67 @@ export interface InboxConfirmIn {
 export interface InboxCountOut {
   pending: number;
 }
+
+// ---- Import / export (Sprint 2.1) ----
+
+export type ImportJobStatus =
+  | "uploaded"
+  | "mapping"
+  | "previewed"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "cancelled";
+
+export type ImportJobFormat =
+  | "xlsx"
+  | "csv"
+  | "yaml"
+  | "json"
+  | "bitrix24"
+  | "amocrm"
+  | "bulk_update_yaml";
+
+export interface ImportFieldDef {
+  key: string;
+  label_ru: string;
+  required: boolean;
+}
+
+export interface DryRunStats {
+  will_create: number;
+  will_skip: number;
+  errors: Record<string, string[]>; // row_index → list of messages
+}
+
+export interface ImportDiffPayload {
+  headers: string[];
+  suggested_mapping: Record<string, string | null>;
+  rows: Record<string, string>[];        // first 100 preview rows
+  all_rows: Record<string, string>[];    // full payload (kept for /apply)
+  validation_errors: Record<string, string[]>;
+  field_catalog: ImportFieldDef[];
+
+  // Populated after confirm-mapping
+  confirmed_mapping?: Record<string, string | null>;
+  mapped_rows?: Record<string, string>[];
+  dry_run_stats?: DryRunStats;
+}
+
+export interface ImportJobOut {
+  id: string;
+  workspace_id: string;
+  user_id: string | null;
+  status: ImportJobStatus | string;
+  format: ImportJobFormat | string;
+  source_filename: string;
+  upload_size_bytes: number;
+  total_rows: number;
+  processed: number;
+  succeeded: number;
+  failed: number;
+  error_summary: string | null;
+  diff_json: ImportDiffPayload | null;
+  created_at: string;
+  finished_at: string | null;
+}

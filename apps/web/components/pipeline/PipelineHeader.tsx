@@ -1,5 +1,5 @@
 "use client";
-import { Search, Plus, CalendarRange } from "lucide-react";
+import { Search, Plus, CalendarRange, Upload } from "lucide-react";
 import { usePipelineStore } from "@/lib/store/pipeline-store";
 import type { LeadOut } from "@/lib/types";
 
@@ -18,8 +18,15 @@ interface Props {
 }
 
 export function PipelineHeader({ leads, totalCount }: Props) {
-  const { filters, setSegment, setCity, setQ, openSprintModal, openCreateLeadModal } =
-    usePipelineStore();
+  const {
+    filters,
+    setSegment,
+    setCity,
+    setQ,
+    openSprintModal,
+    openCreateLeadModal,
+    openImportWizard,
+  } = usePipelineStore();
 
   // Unique cities from the current lead set
   const cities = Array.from(
@@ -44,6 +51,14 @@ export function PipelineHeader({ leads, totalCount }: Props) {
           >
             <Plus size={15} />
             Лид
+          </button>
+          <button
+            onClick={openImportWizard}
+            className="inline-flex items-center gap-1.5 bg-canvas text-ink border border-black/10 rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-canvas-2 hover:border-black/20 active:scale-[0.98]"
+            aria-label="Импорт лидов из файла"
+          >
+            <Upload size={14} />
+            Импорт
           </button>
           <button
             onClick={openSprintModal}

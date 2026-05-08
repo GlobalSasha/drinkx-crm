@@ -7,6 +7,7 @@ import { PipelineList } from "@/components/pipeline/PipelineList";
 import { SprintModal } from "@/components/pipeline/SprintModal";
 import { BriefDrawer } from "@/components/pipeline/BriefDrawer";
 import { CreateLeadModal } from "@/components/pipeline/CreateLeadModal";
+import { ImportWizard } from "@/components/import/ImportWizard";
 import { usePipelines } from "@/lib/hooks/use-pipelines";
 import { useLeads } from "@/lib/hooks/use-leads";
 import { usePipelineStore } from "@/lib/store/pipeline-store";
@@ -121,6 +122,12 @@ export default function PipelinePage() {
       <SprintModal />
       <BriefDrawer />
       <CreateLeadModal />
+      <ImportWizardMount />
     </div>
   );
+}
+
+function ImportWizardMount() {
+  const { importWizardOpen, closeImportWizard } = usePipelineStore();
+  return <ImportWizard open={importWizardOpen} onClose={closeImportWizard} />;
 }

@@ -23,6 +23,10 @@ interface PipelineStore {
   openCreateLeadModal: () => void;
   closeCreateLeadModal: () => void;
 
+  importWizardOpen: boolean;
+  openImportWizard: () => void;
+  closeImportWizard: () => void;
+
   // Brief drawer
   selectedLead: LeadOut | null;
   visibleLeads: LeadOut[]; // current ordered leads for arrow key nav
@@ -45,6 +49,10 @@ export const usePipelineStore = create<PipelineStore>((set, get) => ({
   createLeadModalOpen: false,
   openCreateLeadModal: () => set({ createLeadModalOpen: true }),
   closeCreateLeadModal: () => set({ createLeadModalOpen: false }),
+
+  importWizardOpen: false,
+  openImportWizard: () => set({ importWizardOpen: true }),
+  closeImportWizard: () => set({ importWizardOpen: false }),
 
   selectedLead: null,
   visibleLeads: [],
