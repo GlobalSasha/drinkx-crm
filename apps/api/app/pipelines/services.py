@@ -165,7 +165,14 @@ async def set_default_pipeline(
 ) -> Pipeline:
     """Flip the workspace's default to the given pipeline. Validates
     workspace ownership via get-or-404 so a cross-workspace POST
-    returns 404 not silent success. Caller commits."""
+    returns 404 not silent success. Caller commits.
+
+    Sprint 2.3 G4: fans out a system-kind notification to every
+    admin + head in the workspace so they see «Основная воронка
+    изменена» on their next bell drawer poll. Wrapped in try/except
+    — a notification storm or a User-table hiccup must never unwind
+    the actual default-flip; safe_notify is also defensive on its
+    own, the outer guard covers the User query."""
     pipeline = await get_pipeline_or_404(
         session, pipeline_id=pipeline_id, workspace_id=workspace_id
     )
@@ -177,4 +184,54 @@ async def set_default_pipeline(
         workspace_id=str(workspace_id),
         pipeline_id=str(pipeline.id),
     )
+
+    await _notify_default_change(
+        session,
+        workspace_id=workspace_id,
+        pipeline_name=pipeline.name,
+    )
+
     return pipeline
+
+
+async def _notify_default_change(
+    session: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    pipeline_name: str,
+) -> None:
+    """Best-effort fan-out: stage one Notification row per admin/head
+    in the workspace. Plain managers are NOT notified — the default
+    change matters at the configuration level, not the day-to-day
+    pipeline view (their /pipeline switcher already reflects the new
+    default on next ['me'] refetch).
+
+    Defensive against any failure in the User lookup or notify call —
+    the parent set_default_pipeline must succeed regardless."""
+    try:
+        from sqlalchemy import select
+
+        from app.auth.models import User
+        from app.notifications.services import safe_notify
+
+        result = await session.execute(
+            select(User.id).where(
+                User.workspace_id == workspace_id,
+                User.role.in_(["admin", "head"]),
+            )
+        )
+        for (admin_id,) in result.all():
+            await safe_notify(
+                session,
+                workspace_id=workspace_id,
+                user_id=admin_id,
+                kind="system",
+                title="Основная воронка изменена",
+                body=f"Новая основная воронка: «{pipeline_name}»",
+            )
+    except Exception as exc:  # noqa: BLE001 — never block default-flip
+        log.warning(
+            "pipelines.default_notify_failed",
+            workspace_id=str(workspace_id),
+            error=str(exc)[:200],
+        )

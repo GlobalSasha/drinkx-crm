@@ -23,6 +23,7 @@ from app.auth.dependencies import current_user, require_admin_or_head
 from app.auth.models import User
 from app.audit.audit import log as log_audit_event
 from app.db import get_db
+from app.pipelines import repositories as pipelines_repo
 from app.pipelines import services as svc
 from app.pipelines.schemas import (
     PipelineCreateIn,
@@ -91,7 +92,10 @@ async def create_pipeline_endpoint(
         action="pipeline.create",
         entity_type="pipeline",
         entity_id=pipeline.id,
-        delta={"name": pipeline.name, "type": pipeline.type},
+        # Sprint 2.3 G4: stage_count is what the auditor actually wants
+        # to know — was a giant or a tiny pipeline created. type is
+        # already encoded in entity_type.
+        delta={"name": pipeline.name, "stage_count": len(pipeline.stages)},
     )
     await db.commit()
     return pipeline  # type: ignore[return-value]
@@ -132,6 +136,20 @@ async def delete_pipeline_endpoint(
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
     user: Annotated[User, Depends(require_admin_or_head)] = ...,
 ) -> None:
+    # Capture name BEFORE the delete so the audit log can carry it
+    # (the row will be gone by the time we emit). get-or-404 here is
+    # the same lookup svc.delete_pipeline does internally — small
+    # double-fetch we accept for the audit trail.
+    try:
+        pipeline = await svc.get_pipeline_or_404(
+            db, pipeline_id=pipeline_id, workspace_id=user.workspace_id
+        )
+    except svc.PipelineNotFound as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="воронка не найдена"
+        ) from exc
+    pipeline_name = pipeline.name
+
     try:
         await svc.delete_pipeline(
             db, pipeline_id=pipeline_id, workspace_id=user.workspace_id
@@ -173,7 +191,7 @@ async def delete_pipeline_endpoint(
         action="pipeline.delete",
         entity_type="pipeline",
         entity_id=pipeline_id,
-        delta={},
+        delta={"name": pipeline_name},
     )
     await db.commit()
 
@@ -184,6 +202,13 @@ async def set_default_pipeline_endpoint(
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
     user: Annotated[User, Depends(require_admin_or_head)] = ...,
 ) -> PipelineOut:
+    # Capture the previous default BEFORE the flip so the audit row
+    # carries from_id → to_id (the actual delta). Otherwise we'd
+    # only know what the workspace landed on, not what it left.
+    from_id = await pipelines_repo.get_default_pipeline_id(
+        db, workspace_id=user.workspace_id
+    )
+
     try:
         pipeline = await svc.set_default_pipeline(
             db, pipeline_id=pipeline_id, workspace_id=user.workspace_id
@@ -200,7 +225,11 @@ async def set_default_pipeline_endpoint(
         action="pipeline.set_default",
         entity_type="pipeline",
         entity_id=pipeline.id,
-        delta={"name": pipeline.name},
+        delta={
+            "name": pipeline.name,
+            "from_id": str(from_id) if from_id else None,
+            "to_id": str(pipeline.id),
+        },
     )
     await db.commit()
     return pipeline  # type: ignore[return-value]

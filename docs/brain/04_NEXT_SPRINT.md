@@ -1,259 +1,235 @@
-# Next Sprint: Phase 2 Sprint 2.3 — Multi-pipeline switcher
+# Next Sprint: Phase 2 Sprint 2.4 — Full Settings panel + Templates
 
-Status: **READY TO START** (after Sprint 2.2 merge / deploy / smoke check)
-Branch: `sprint/2.3-multi-pipeline` (create from main once 2.2 lands)
+Status: **READY TO START** (after Sprint 2.3 merge / deploy / smoke check)
+Branch: `sprint/2.4-settings-templates` (create from main once 2.3 lands)
 
 ## Goal
 
-Phase 1 + Sprints 2.0 / 2.1 / 2.2 took DrinkX CRM from a working
-single-pipeline system to a system of record for the conversation,
-plus a wide pipe in/out of the data model, plus an inbound lead-capture
-surface. The next ergonomic gap is **multi-pipeline support**.
+Sprint 2.3 shipped `/settings` with one live section («Воронки») and
+five «Скоро» stubs. Sprint 2.4 fills out the rest of the panel into a
+real admin-control surface — and adds a **Templates module** that the
+upcoming Automation Builder (Sprint 2.5) will consume to render
+outbound messages without reinventing the wheel.
 
-Today every workspace has exactly one auto-bootstrapped pipeline (the
-11-stage B2B template from Sprint 1.1). Real customers want at least
-two:
-
-- **Продажи (sales)** — the existing 11-stage B2B funnel
-- **Партнёры (partners)** — much shorter funnel for distributor /
-  reseller deals, different stage names, different gate criteria
-- **Возвраты / гарантии (refunds)** — issue-tracker shape, mostly
-  for после-продажного сопровождения
-- **Лиды апсейла (upsell)** — separate from net-new sales, owned by
-  account managers not BDRs
-
-Sprint 2.3 closes the gap: a workspace can have N pipelines; the
-manager switches between them via a dropdown in the `/pipeline`
-header; «+ Новая воронка» lives in Settings; `/today` and
-`/leads-pool` continue to show leads across ALL of the user's
-pipelines (no switcher there — too distracting).
-
-No new domains, no new vendors, no new AI capability. Estimated 3–4
-days.
+Scope is two parallel tracks: **Settings completion** (4 sections) and
+**Templates** (new domain). Both share the admin/head-only gate the
+existing Settings UI already enforces. No new domains beyond
+Templates, no new vendors, no new AI capability.
 
 ## Read before starting
 
-- `docs/brain/00_CURRENT_STATE.md` — what Sprint 2.2 left
+- `docs/brain/00_CURRENT_STATE.md` — what Sprint 2.3 left
 - `docs/brain/02_ROADMAP.md` — Phase 2 envelope
-- `docs/brain/sprint_reports/SPRINT_2_2_WEBFORMS.md` — known issues
-  (notification debounce, honeypot, sentry@nextjs activation, cross-
-  workspace stage validation — 2.3 should fold the stage-validation
-  carryover in)
-- `docs/PRD-v2.0.md` §4 (Pipeline) — original spec contemplated
-  multi-pipeline from day one (`pipelines.workspace_id` FK is already
-  in the schema since Sprint 1.1)
-- `docs/brain/03_DECISIONS.md` — ADR-007 still applies (no auto-actions
-  on pipeline switch); look for any ADR mentioning «default pipeline»
-  before committing to the FK shape
-- Production state at sprint start: 4 app containers + 4 cron entries
-  running, manager workflows for Pipeline / Inbox / Import / Export /
-  Forms all live, Sprints 2.1 + 2.2 merged
+- `docs/brain/sprint_reports/SPRINT_2_3_MULTI_PIPELINE.md` — known
+  issues + carryover (notification debounce, sentry@nextjs,
+  drop-is_default housekeeping, stage-replacement preview)
+- `docs/PRD-v2.0.md` §9 (Settings) + §10 (Templates / Automation)
+- Existing surfaces to extend, not replace:
+  - `app/auth/*` — User / role model already in place
+  - `app/inbox/oauth.py` — Gmail OAuth flow already shipped (Sprint 2.0); «Каналы» section just exposes it from Settings
+  - `app/notifications/email_sender.py` — SMTP scaffolding from Sprint 1.5; «Каналы» surfaces config
+  - `app/enrichment/budget.py` — daily budget cap from Sprint 1.3; «AI» section surfaces it
+- Production state at sprint start: 4 app containers + 4 cron entries running, manager workflows for Pipeline / Inbox / Import / Export / Forms / Pipelines all live, Sprints 2.1 + 2.2 + 2.3 merged
 
 ## Scope
 
 ### ALLOWED
 
-#### 1. Schema + backend (Group 1, ~1 day)
+#### G1 — Settings «Команда» backend + UI (~1 day)
 
-Migration `0013_default_pipeline`:
-
-- `workspaces.default_pipeline_id` — `UUID NULL`, FK to
-  `pipelines.id ON DELETE SET NULL`. Backfill: for each workspace,
-  set `default_pipeline_id = (SELECT id FROM pipelines WHERE
-  workspace_id = workspaces.id ORDER BY created_at LIMIT 1)`. The FK
-  is nullable forever — `SET NULL` rather than `NO ACTION` so deleting
-  the last pipeline (an admin-only destructive op we don't expose in
-  v1) doesn't cascade-fail.
-- No change to `pipelines` itself — `pipelines.workspace_id` FK is
-  already there since Sprint 1.1.
-- No change to `leads.pipeline_id` — already required since Sprint 1.2.
-
-ORM:
-- `Workspace.default_pipeline_id: Mapped[uuid.UUID | None]` +
-  `default_pipeline: Mapped["Pipeline" | None]` relationship.
-
-Services:
-- `app.pipelines.services.list_for_workspace(session, workspace_id)`
-  — paginated.
-- `app.pipelines.services.create_pipeline(session, workspace_id, *,
-  name, stages: list[StageIn])` — admin/head only at the router; auto-
-  bootstraps stages from the explicit `stages` list (NOT the 11-stage
-  B2B template — caller passes whatever they want). Workspace must own
-  the call (auth dependency).
-- `app.pipelines.services.delete_pipeline(session, workspace_id, *,
-  pipeline_id)` — defensive: refuse with 409 if any leads are on it
-  (return count); refuse with 409 if it's the workspace's
-  `default_pipeline_id` (force the admin to set a new default first).
-  Soft-delete via an `is_active` column on pipelines? Probably not —
-  pipelines are workspace-internal, not embedded into landing pages
-  the way forms are; a hard delete with the «move leads first» guard
-  rail is enough.
-- `app.pipelines.services.set_default(session, workspace_id, *,
-  pipeline_id)` — flips `workspaces.default_pipeline_id`. Admin/head
-  only. Validates the pipeline belongs to this workspace.
-
-Routers:
-- `GET /api/pipelines` — list workspace's pipelines + their stages.
-  All roles.
-- `POST /api/pipelines` — create. Admin/head.
-- `PATCH /api/pipelines/{id}` — rename / reorder stages. Admin/head.
-- `DELETE /api/pipelines/{id}` — defensive delete. Admin/head.
-- `POST /api/pipelines/{id}/set-default` — set workspace default.
-  Admin/head.
-
-Tests (mock-only target ~10):
-- create + auto-bootstrap stage list
-- delete refuses when leads exist (409, returns count)
-- delete refuses when target is default (409, forces re-default first)
-- set_default rejects cross-workspace pipeline (404 from get-or-404)
-- list returns only workspace-scoped pipelines
-- create rejects non-admin (403 — auth dependency)
-
-**Bundle the Sprint 2.2 carryover here:** add a service-layer check
-in `forms.services.create_form` / `update_form` that
-`target_pipeline_id` and `target_stage_id` belong to the form's
-workspace. Cheap to fold in, single-test addition.
-
-#### 2. Switcher dropdown UI (Group 2, ~1 day)
+Backend:
+- `GET /api/users` — list workspace users (id, email, name, role,
+  last_login_at). All roles read; admin/head only for the email
+  invite path below.
+- `POST /api/users/invite` — admin-only. Body `{email, role}`.
+  Sends a sign-in magic-link via Supabase admin API; the new user
+  becomes a workspace member on first sign-in (existing auth
+  bootstrap path handles it). Track invitations in a new
+  `user_invites` table for the admin UI.
+- `PATCH /api/users/{id}/role` — admin-only. Validates the role is
+  one of `('admin', 'head', 'manager')`. Refuses to demote the
+  last admin (defensive — every workspace MUST have at least one
+  admin).
+- Migration `0014_user_invites` (or fold into user table — TBD;
+  migration shape decided in G1 plan review).
 
 Frontend:
+- New `app/web/components/settings/TeamSection.tsx` — table of
+  users (Avatar, Name, Email, Role chip, Last login, Actions).
+- Invite modal: email + role dropdown.
+- Role-edit inline dropdown (gated by useMe().role === 'admin').
+- Confirm-modal for «demote last admin» refusal carries the same
+  structured-409 pattern as 2.3's pipeline delete.
 
-- `usePipelines()` hook against `/api/pipelines` with TanStack Query;
-  staleTime 5 min (pipelines change once a quarter, not once a request).
-- `useSetDefaultPipeline()` mutation — invalidates `['pipelines']` +
-  `['me']` on success (the `me` payload should carry
-  `default_pipeline_id` so the dropdown initial state is correct
-  cold-load).
-- `usePipelineStore` (zustand) — current `selectedPipelineId`. Persists
-  to `localStorage` so a refresh stays on the same pipeline. Falls
-  back to `me.default_pipeline_id` when nothing is in localStorage.
+Tests (mock-only target ~6):
+- invite generates magic-link (mocked Supabase admin client)
+- invite refused for non-admin
+- role-change refused if it would leave zero admins
+- list scoped to workspace
+- bundle 2.3 carryover: drop legacy `pipelines.is_default` housekeeping migration here? — TBD G1 plan review
 
-`/pipeline` page:
+#### G2 — Settings «Каналы» UI (~0.5 day)
 
-- Header dropdown to the LEFT of the existing «+ Импорт» / «Экспорт»
-  buttons. shadcn/ui `Select` or a custom `<details>` widget — match
-  whatever the rest of the app uses.
-- Items: each pipeline's `name`, with the workspace default tagged
-  «(по умолчанию)» in muted text.
-- Selecting a pipeline updates the store + refetches lead lists with
-  the new `pipeline_id` filter param.
-- The drag-drop board re-renders against the selected pipeline's
-  stages.
+No new backend. Reuse existing surface:
+- Gmail: `GET /api/inbox/oauth/url` + `/oauth/callback` (Sprint 2.0)
+- SMTP: `email_sender.py` reads from settings already
 
-`/leads-pool`, `/today`:
+Frontend:
+- New `app/web/components/settings/ChannelsSection.tsx`:
+  - Gmail card: connection state (connected / disconnected / error),
+    «Подключить» CTA pointing at `/inbox/oauth/url`.
+  - SMTP card: read-only display of `SMTP_HOST` / `SMTP_PORT` /
+    `SMTP_FROM` from a new `GET /api/settings/channels` admin
+    endpoint that returns the resolved server config. Editing
+    SMTP is intentionally left to env vars in v1 — no DB-backed
+    SMTP config means we don't have to ship a credentials-at-rest
+    story for this sprint (carryover from the Sprint 2.0 Fernet
+    work).
+- Tests: 0 (build only — wires existing endpoints).
 
-- NO switcher — these surfaces aggregate across all the user's
-  pipelines on purpose. Keep current behaviour.
+#### G3 — Settings «AI» + «Кастомные поля» backend + UI (~1 day)
 
-Lead REST:
+AI section — surfaces existing config:
+- `GET /api/settings/ai` (admin) returns daily budget cap,
+  selected model, current spend.
+- `PATCH /api/settings/ai` (admin) flips model selection +
+  budget cap. Reads from `workspace.settings_json` (already
+  exists since Sprint 1.1) — no migration.
+- New `app/web/components/settings/AISection.tsx` with budget
+  card + model selector + spend gauge.
 
-- `GET /api/leads` already accepts `pipeline_id` filter (Sprint 1.2);
-  verify it's wired through. Backend ALREADY enforces workspace scope.
-- `GET /api/leads/pool` already aggregates across the workspace; no
-  change.
+Custom fields — new EAV-shaped surface:
+- Migration `0015_custom_attributes`:
+  - `custom_attribute_definitions` (workspace_id CASCADE, key,
+    label, kind ∈ ('text','number','date','select'), options_json,
+    is_required, position, created_at)
+  - `lead_custom_values` (lead_id CASCADE, definition_id CASCADE,
+    value_text / value_number / value_date — one populated per
+    row depending on kind)
+- `app/custom_attributes/` package: models, schemas (CreateIn,
+  UpdateIn, Out), repositories, services, routers
+  (`/api/custom-attributes/*` admin/head gated for writes).
+- New `app/web/components/settings/CustomFieldsSection.tsx` —
+  list + create + edit + drag-reorder.
+- LeadCard integration deferred to a follow-on (G3 only ships the
+  Settings CRUD; rendering the custom fields on the lead detail
+  is a 2.4+ polish item).
 
-Tests: `pnpm typecheck` + `pnpm build` clean. No frontend unit tests
-this sprint (consistent with Sprint 2.0 / 2.1 / 2.2 — backend mock
-tests, frontend structural verification only).
+Tests (~8 mock-only):
+- definition create / list / update / delete
+- value upsert per kind
+- role gating
 
-#### 3. Settings panel — pipeline management (Group 3, ~1 day)
+#### G4 — Templates module (~1 day)
 
-`/settings` page (NEW — currently doesn't exist as a real page in the
-app, only stub navigation). Sections:
+Backend:
+- Migration `0016_message_templates`:
+  - `message_templates` (workspace_id CASCADE, channel ∈
+    ('email', 'tg', 'sms'), name, subject, body, variables_json,
+    is_active, created_by SET NULL, created_at, updated_at)
+- `app/templates/` package: models, schemas, repositories,
+  services, routers (`/api/templates/*` admin/head gated for
+  writes).
+- Variable substitution helper (`render_template(template, ctx)`)
+  — string-replace `{{lead.company_name}}` style placeholders.
+  Documented but not yet consumed (Automation Builder lands in
+  2.5).
 
-- **Воронки** — list of workspace pipelines + «+ Новая воронка» CTA.
-  Each row: name, stage count, lead count, set-default button (or
-  «по умолчанию» chip if it is), delete trash icon.
-- `PipelineEditor` modal (similar shape to `FormEditor` from Sprint
-  2.2 G3): name, drag-reorderable stage list with name + color +
-  is_won/is_lost flags. Reuse `dnd-kit` from Pipeline drag-drop.
-- Confirm-delete modal explaining the «can't delete with leads on it»
-  rule.
+Frontend:
+- New `/settings/templates` sub-route OR a new section in
+  `/settings` (TBD G4 plan review — sub-route reads more
+  natural for a list+detail surface).
+- Template list table + editor modal with channel selector +
+  subject + body textarea + a static «Доступные переменные»
+  reference panel.
 
-Other settings sections (out-of-scope for this sprint, stub headings
-only — full Settings panel is a Phase 3 surface): «Профиль»,
-«Уведомления», «Интеграции», «API».
+Tests (~6 mock-only):
+- create / update / delete with workspace scope
+- variables_json validation
+- rendering with missing variable falls back gracefully
 
-Auth:
-- `/settings` accessible to all roles, but admin/head-only sections
-  (Воронки, Интеграции) gated by `useMe().role`.
+#### G5 — Polish + sprint close (~0.5 day)
 
-Tests: `pnpm typecheck` + `pnpm build` clean.
-
-#### 4. Polish + sprint close (Group 4)
-
-- Audit log emit hooks for pipeline.create / pipeline.delete /
-  pipeline.set_default (we already log lead.create / lead.transfer /
-  lead.move_stage / enrichment.trigger from Sprint 1.5).
-- Notifications — when an admin sets a new default pipeline, fire a
-  `system`-kind notification to all workspace members so their next
-  `/pipeline` cold-load is the new default («Воронка по умолчанию
-  изменилась на …»).
-- AppShell: `/settings` nav item activates (currently disabled).
-- Sprint report `SPRINT_2_3_MULTI_PIPELINE.md`.
+- Audit log emit hooks for `user.invite / user.role_change /
+  template.create / template.delete / custom_attribute.*`.
+- Notifications — invitation acceptance pings the inviter
+  («{name} принял приглашение в воронку»).
+- AppShell: nothing new (the «Настройки» entry covers everything;
+  Templates land as a sub-section).
+- Sprint report `SPRINT_2_4_SETTINGS_TEMPLATES.md`.
 - Brain memory rotation: 00 + 02 + 04 updates as usual.
 
 ### NOT ALLOWED (out of scope)
 
-- **Pipeline templates / cloning.** A workspace creates a new pipeline
-  from scratch in v1. Cloning «Продажи → Партнёры minus 5 stages» is
-  a 2.4+ ergonomic.
-- **Per-pipeline gate criteria configuration UI.** The gate engine
-  already supports it via `stages.gate_criteria_json`, but we don't
-  expose a UI for editing gate criteria in v1 — the bootstrap stage
-  list covers the common case, and the seeded B2B template's gates
-  are good defaults.
-- **Multi-pipeline reporting (cross-pipeline funnel comparison).**
-  Reporting / analytics is Phase 3.
-- **Pipeline-level permissions.** «User X can only see Pipeline Y»
-  is a 3.x permission model; v1 trusts workspace membership.
+- **Automation Builder.** Templates are the data model + admin UI
+  only. Wiring templates into actual outbound flows is Sprint 2.5.
+- **Workspace-level RBAC beyond admin/head/manager.** «Custom
+  permissions» is a 3.x concept.
+- **DB-backed SMTP credentials.** Env-var reads only in v1 — see
+  G2 rationale.
+- **Drag-reorder in Custom Fields v1.** Position is editable but
+  the UI is plain up/down buttons; dnd-kit can land in a follow-on.
+- **Cross-workspace template sharing.** «Marketplace» is Phase 3.
 
 ## Risks
 
-1. **Migration 0013 backfill on a workspace with 0 pipelines** is a
-   no-op (pipelines.workspace_id FK forces ≥0). Verify the bootstrap
-   path on a fresh sign-in (`auth.bootstrap_workspace`) still seeds
-   the default pipeline AND sets `default_pipeline_id` to its id.
-2. **Pipeline switcher state leak between workspaces.** The
-   `localStorage` key MUST be namespaced by `workspace_id`, otherwise
-   a user who belongs to two workspaces sees stale selection on the
-   wrong workspace. Use `drinkx:pipeline:{workspace_id}` as the key.
-3. **Lead-list query performance** with the new `pipeline_id` filter
-   — the existing `idx_leads_workspace_stage` index covers it, but
-   verify `EXPLAIN ANALYZE` on a workspace with >5k leads.
-4. **`SPRINT_2_2_WEBFORMS.md` carryover bundling.** Don't blow up
-   2.3 scope by trying to also fix notification debounce + honeypot
-   + Sentry@nextjs in this sprint. Stage-validation in form services
-   is the only piece that fits naturally into the multi-pipeline
-   work; the rest stays carryover.
+1. **Magic-link invite delivery in stub mode.** SMTP host is
+   empty in production today (Sprint 1.5 stub mode). Invites
+   should still produce a clickable URL in the worker logs (same
+   pattern as the daily digest stub). G1 should NOT block on
+   real SMTP — verify the URL is logged and the user copies it
+   manually until staging gets real SMTP creds.
+2. **Custom-field render on /pipeline + LeadCard.** Defining
+   custom fields without a place to display them is a footgun.
+   Carryover to a 2.4+ polish ticket — at minimum, the LeadCard
+   should grow a «Дополнительные поля» tab in 2.4 after G3.
+3. **Template variable schema drift.** Hardcoding the lead-shape
+   into the variables reference panel risks falling out of sync
+   if Lead grows new columns. G4 should derive the reference
+   list from a single source of truth (e.g.
+   `app/leads/schemas.py:LeadOut.model_fields`).
+4. **2.3 carryover bundling.** Drop-`is_default` migration +
+   stage-replacement preview UX should each be a small isolated
+   PR within G5, NOT additions to other groups — keep the new
+   work clean.
+5. **Settings page surface area.** Three new backend endpoints
+   for «AI» + «Кастомные поля» + «Команда» + «Templates». Add
+   them to the existing routers list in `app/main.py` carefully;
+   the route count will jump and `pnpm build` time will too.
 
 ## Done definition
 
-- Migration 0013 applies cleanly via `alembic upgrade head` on staging.
-- Backfilled `default_pipeline_id` non-null on all existing
-  workspaces.
-- `/pipeline` page renders a switcher dropdown; selecting a different
-  pipeline reflows the board.
-- `/settings` page exists with at least the «Воронки» section live.
-- 10+ new mock tests (`test_pipelines_service.py` or similar).
-  Combined baseline ≥127 mock tests passing.
+- Migrations 0014 (or 0015 depending on G1 decision), 0015 / 0016
+  apply cleanly via `alembic upgrade head` on staging.
+- All 4 Settings sections live: Команда / Каналы / AI /
+  Кастомные поля.
+- Templates module live at `/settings/templates` (or sub-route
+  TBD).
+- Audit log shows the new emit kinds.
+- ≥20 new mock tests across G1 / G3 / G4. Combined baseline
+  ≥149 mock tests passing.
 - `pnpm typecheck` + `pnpm build` clean.
 - Sprint report written, brain memory rotated.
-- 0 new npm deps target (matches Sprints 2.0 / 2.1 / 2.2).
+- 0 new npm deps target (matches Sprints 2.0 / 2.1 / 2.2 / 2.3).
 
 ---
 
-**Out-of-scope but parked here for awareness — fold into 2.4+:**
+**Out-of-scope but parked here for awareness — fold into 2.5+:**
 
+- Automation Builder (consumes Templates from 2.4)
 - AmoCRM adapter (Sprint 2.1 G5 deferred)
 - Telegram Business inbox + `gmail.send` scope (Sprint 2.0 deferred)
-- Quote / КП builder, Knowledge Base CRUD UI (Sprint 2.0 deferred)
+- Quote / КП builder (Sprint 2.0 deferred)
+- Knowledge Base CRUD UI (Sprint 2.0 deferred)
 - `_GENERIC_DOMAINS` per-workspace setting (Sprint 2.0 carryover)
 - Gmail history-sync resumable / paginated job (Sprint 2.0 carryover)
 - Notification debounce on form-submission fan-out (Sprint 2.2 carryover)
 - Honeypot / timing trap on `embed.js` (Sprint 2.2 carryover)
 - `pnpm add @sentry/nextjs` activation (Sprint 2.1 G10 carryover)
 - pg_dump cron + Sentry DSNs (Sprint 1.5 soft-launch carryover)
-- Phase G (Sprint 1.3) — move enrichment off FastAPI BackgroundTasks
-  onto Celery; WebSocket `/ws/{user_id}` for real-time progress
+- Per-stage gate-criteria editor (Phase 3)
+- Pipeline cloning / templates (Sprint 2.3 carryover)
+- Cross-pipeline reporting (Phase 3)
 - DST-aware cron edge handling
+- Custom-field render on LeadCard (Sprint 2.4 polish carryover; G3
+  ships Settings CRUD only)

@@ -1,6 +1,6 @@
 # DrinkX CRM — Current State
 
-Last updated: 2026-05-08 (Sprint 2.2 ready for review; Sprint 2.1 ready for review; Sprint 2.0 merged + deployed)
+Last updated: 2026-05-08 (Sprint 2.3 ready for review; Sprint 2.2 + 2.1 + 2.0 merged + deployed)
 
 ## Phase 0 — COMPLETED ✅ (lives in `crm-prototype` repo)
 
@@ -250,8 +250,52 @@ Known issues / risks (full list in `SPRINT_2_2_WEBFORMS.md`):
 4. ~~Sentry `@sentry/nextjs` package~~ — still carryover from 2.1, not addressed
 5. No honeypot / CAPTCHA on public endpoint — rate-limit alone protects v1
 
+### ✅ Sprint 2.3 — Multi-pipeline switcher (READY FOR REVIEW — branch `sprint/2.3-multi-pipeline`)
+**4 groups, commit range `4294988..HEAD`**
+
+Backend:
+- Migration `0013_default_pipeline` — `workspaces.default_pipeline_id` (UUID NULL FK to pipelines.id ON DELETE SET NULL) + two-pass backfill (prefer `pipelines.is_default=true`, fall back to oldest pipeline). Legacy `is_default` boolean kept for diff_engine + back-compat.
+- `app/pipelines/services.py` (NEW) + `app/pipelines/repositories.py` extended: `list_pipelines / get_pipeline_or_404 / create_pipeline / update_pipeline (rename + replace_stages) / delete_pipeline (with PipelineHasLeads + PipelineIsDefault guards) / set_default_pipeline (with admin/head notify fan-out)`. Custom exceptions map cleanly to HTTP via the router.
+- `app/pipelines/routers.py` — 5 endpoints under `/api/pipelines` with admin/head gating: `GET / (list)`, `GET /{id}`, `POST /`, `PATCH /{id}`, `DELETE /{id}` (structured 409 with `code` + `lead_count` / `message`), `POST /{id}/set-default`. All write endpoints emit audit log rows (`pipeline.create / pipeline.delete / pipeline.set_default`).
+- `app/leads/{routers,repositories}.py` — new `pipeline_id` filter on `GET /leads`. /today + /leads-pool intentionally don't pass it.
+- `app/auth/{models,services,schemas}.py` — `Workspace.default_pipeline_id` Mapped column with `foreign_keys` disambiguation; bootstrap_workspace also sets the FK; `WorkspaceOut.default_pipeline_id` so the switcher hydrates cold-load without an extra round-trip.
+- `app/forms/services.py` (Sprint 2.2 G4 carryover) — new `WebFormInvalidTarget` exception + `_validate_target` helper that checks `target_pipeline_id` belongs to the form's workspace and `target_stage_id` is a child of it. Closes the cross-workspace leak documented in `SPRINT_2_2_WEBFORMS.md`.
+
+Frontend:
+- New `/settings` page with left-sidebar layout. «Воронки» live; «Профиль» / «Команда» / «Уведомления» / «Интеграции» / «API» are «Скоро» stubs marked for Phase 2.4+.
+- `PipelinesSection.tsx` — pipeline table (Название / Стадий / «По умолчанию» / 🗑) with set-default + delete actions. Three-branch friendly delete modal consuming the structured 409 detail (`pipeline_has_leads` / `pipeline_is_default` / happy-path confirm).
+- `PipelineEditor.tsx` — max-w-2xl modal with `@dnd-kit` sortable stage list, color picker, rot_days input. Min-1-stage validation. Full-replacement on PATCH (matches `replace_stages` backend contract).
+- `PipelineSwitcher.tsx` — chevroned dropdown with «по умолчанию» badge + «Управление воронками →» link. Single-pipeline workspaces see a non-interactive chip (no false implication of switchability).
+- `lib/store/pipeline-store.ts` — `selectedPipelineId` + `setSelectedPipeline` + `hydrateSelectedPipeline`. localStorage namespaced as **`drinkx:pipeline:{workspaceId}`** (risk #2 from `04_NEXT_SPRINT.md` — prevents cross-workspace selection leak).
+- `lib/hooks/use-pipelines.ts` — `usePipelines / usePipeline / useCreate/Update/Delete/SetDefaultPipeline` with proper invalidation chains.
+- AppShell — «Настройки» nav item promoted out of the disabled list.
+
+Tests:
+- 12 mock-only Sprint 2.3 tests in `test_pipelines_service.py` (10 G1 + 2 G4 — fan-out happy path + fan-out failure swallowed). 0 DB / 0 Redis / 0 network.
+- Combined with Sprint 1.5 / 2.0 / 2.1 / 2.2 baseline: **129 mock tests passing**.
+- `pnpm typecheck` + `pnpm build` clean throughout. **13 routes prerender** (was 12; `/settings` is the new one at 7.61 kB).
+- 0 new npm deps; 0 new Python deps.
+
+Architecture decisions (full list in `SPRINT_2_3_MULTI_PIPELINE.md`):
+- `workspaces.default_pipeline_id` FK as the single source of truth, not the legacy `pipelines.is_default` boolean
+- Per-workspace localStorage namespace for switcher state
+- Single-pipeline workspaces show a chip, not a dropdown
+- Optimistic DELETE → structured 409 (no pre-flight endpoint added)
+- `as any` cast convention for typedRoutes same-build new routes (codebase-universal pattern)
+- Sprint 2.2 G4 cross-workspace forms validation bundled into G1
+
+Known issues / risks (full list in `SPRINT_2_3_MULTI_PIPELINE.md`):
+1. Browser E2E smoke deferred to staging
+2. `as any` carryover in `PipelineSwitcher` + `AppShell` (typedRoutes limitation)
+3. ~~Sentry `@sentry/nextjs` package~~ — still carryover from Sprint 2.1
+4. Per-stage gate-criteria editor not exposed (Phase 3)
+5. Pipeline cloning / templates deferred (Sprint 2.4+)
+6. PATCH stage replacement is full-list, no row-level merge — leads at deleted stages drop to `stage_id=null` until reassigned
+7. No multi-pipeline reporting (Phase 3)
+8. set-default notification fan-out has no debounce (acceptable for a config event)
+
 ### ⏸ NOT YET BUILT
-- **Phase 2** — Multi-pipeline switcher (Sprint 2.3 NEXT), AmoCRM adapter, Telegram Business inbox + email send, Quote/КП builder, Knowledge Base CRUD UI, Apify
+- **Phase 2** — Full Settings panel + Templates (Sprint 2.4 NEXT), Automation Builder, AmoCRM adapter, Telegram Business inbox + email send, Quote/КП builder, Knowledge Base CRUD UI, Apify
 - **Phase 3** — MCP server, Sales Coach chat, OCR визиток, pgvector
 
 ---
@@ -298,4 +342,4 @@ Resolved this sprint:
 ---
 
 ## Next
-**Phase 2 Sprint 2.3 — Multi-pipeline switcher.** See `docs/brain/04_NEXT_SPRINT.md`.
+**Phase 2 Sprint 2.4 — Full Settings panel + Templates.** See `docs/brain/04_NEXT_SPRINT.md`.

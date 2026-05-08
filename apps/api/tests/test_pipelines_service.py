@@ -301,7 +301,12 @@ async def test_set_default_rejects_cross_workspace():
 async def test_set_default_happy_path_invokes_repo():
     """When the pipeline is in the workspace, set_default forwards
     BOTH the workspace_id and pipeline_id to the repo helper that
-    flips the FK + maintains the legacy is_default boolean."""
+    flips the FK + maintains the legacy is_default boolean.
+
+    Sprint 2.3 G4: also sets up an empty User-query result so the
+    new admin/head fan-out runs through cleanly — the dedicated
+    test_set_default_notifies_admins_only test below covers the
+    fan-out behaviour itself."""
     db = AsyncMock()
     pipeline = _make_pipeline()
     captured: dict = {}
@@ -311,6 +316,11 @@ async def test_set_default_happy_path_invokes_repo():
 
     async def fake_set_default(_session, **kwargs):
         captured.update(kwargs)
+
+    # Empty admin list — the fan-out runs but emits zero notifications.
+    fake_result = MagicMock()
+    fake_result.all = MagicMock(return_value=[])
+    db.execute = AsyncMock(return_value=fake_result)
 
     with patch("app.pipelines.repositories.get_by_id", new=fake_get_by_id), \
          patch(
@@ -324,6 +334,102 @@ async def test_set_default_happy_path_invokes_repo():
     assert result is pipeline
     assert captured["workspace_id"] == WS
     assert captured["pipeline_id"] == pipeline.id
+
+
+# ===========================================================================
+# 6b. set_default fan-out — Sprint 2.3 G4
+# ===========================================================================
+
+@pytest.mark.asyncio
+async def test_set_default_notifies_admins_only():
+    """After flipping the default, set_default_pipeline must fan a
+    system-kind notification out to every admin/head in the workspace.
+    Plain managers are NOT notified — the default change is a config
+    event, not a day-to-day pipeline event.
+
+    Mock setup: workspace has one admin, one manager. We patch the
+    User-table query to return only the admin id (the real WHERE
+    clause filters role.in_(['admin','head'])); safe_notify is
+    patched to a spy that records call kwargs. Assertion: exactly
+    one safe_notify call, for the admin, NOT the manager."""
+    db = AsyncMock()
+    pipeline = _make_pipeline(name="Партнёры")
+
+    admin_id = uuid.uuid4()
+    manager_id = uuid.uuid4()  # noqa: F841 — kept for documentation
+
+    notify_calls: list[dict] = []
+
+    async def fake_get_by_id(_session, **kwargs):
+        return pipeline
+
+    async def fake_set_default(_session, **kwargs):
+        return None
+
+    async def fake_safe_notify(_session, **kwargs):
+        notify_calls.append(kwargs)
+        return MagicMock()
+
+    # session.execute returns a result whose .all() yields the admin
+    # row only — emulating the WHERE role.in_(['admin','head']) filter.
+    fake_result = MagicMock()
+    fake_result.all = MagicMock(return_value=[(admin_id,)])
+    db.execute = AsyncMock(return_value=fake_result)
+
+    with patch("app.pipelines.repositories.get_by_id", new=fake_get_by_id), \
+         patch(
+            "app.pipelines.repositories.set_default",
+            new=fake_set_default,
+         ), \
+         patch(
+            "app.notifications.services.safe_notify",
+            new=fake_safe_notify,
+         ):
+        await svc.set_default_pipeline(
+            db, pipeline_id=pipeline.id, workspace_id=WS
+        )
+
+    assert len(notify_calls) == 1, (
+        f"expected 1 notify call (admin only), got {len(notify_calls)}"
+    )
+    call = notify_calls[0]
+    assert call["user_id"] == admin_id
+    assert call["workspace_id"] == WS
+    assert call["kind"] == "system"
+    assert "Основная воронка" in call["title"]
+    assert "Партнёры" in call["body"]
+
+
+@pytest.mark.asyncio
+async def test_set_default_notify_failure_does_not_block_flip():
+    """The outer try/except in _notify_default_change must absorb any
+    User-table or safe_notify failure — the actual set_default call
+    has already succeeded by the time we enter the fan-out, and we
+    refuse to unwind it just because notifications hiccuped."""
+    db = AsyncMock()
+    pipeline = _make_pipeline()
+
+    async def fake_get_by_id(_session, **kwargs):
+        return pipeline
+
+    async def fake_set_default(_session, **kwargs):
+        return None
+
+    # session.execute raises — simulates a User-table failure mid
+    # fan-out. The outer try/except in _notify_default_change must
+    # swallow it and let the function return the pipeline normally.
+    db.execute = AsyncMock(side_effect=RuntimeError("boom"))
+
+    with patch("app.pipelines.repositories.get_by_id", new=fake_get_by_id), \
+         patch(
+            "app.pipelines.repositories.set_default",
+            new=fake_set_default,
+         ):
+        result = await svc.set_default_pipeline(
+            db, pipeline_id=pipeline.id, workspace_id=WS
+        )
+
+    assert result is pipeline
 
 
 # ===========================================================================

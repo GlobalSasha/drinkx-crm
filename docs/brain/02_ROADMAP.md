@@ -96,39 +96,57 @@
 - 0 new npm deps; 0 new Python deps; `pnpm build` 12 routes (was 11)
 - ADR-007 satisfied: forms capture leads, never auto-assign / never advance stage / never trigger AI
 
+**Sprint 2.3 — DONE (pending merge)** · `SPRINT_2_3_MULTI_PIPELINE.md` · branch `sprint/2.3-multi-pipeline` (range `4294988..HEAD`, 4 groups)
+- **Multi-pipeline switcher — Phase 2 fourth slice**
+- Migration 0013 (`workspaces.default_pipeline_id` UUID NULL FK SET NULL + two-pass backfill)
+- New `app/pipelines/services.py` + `app/pipelines/repositories.py` extended with workspace-scoped CRUD + 409 guards (`PipelineHasLeads` carries lead_count, `PipelineIsDefault` blocks deletion of the active default)
+- 5 new endpoints under `/api/pipelines` (admin/head gated for writes); `pipeline_id` filter added to `GET /leads`
+- `WorkspaceOut.default_pipeline_id` exposed so the frontend hydrates cold-load without an extra round-trip
+- `app/forms/services.py` — Sprint 2.2 G4 carryover closed: `_validate_target` rejects cross-workspace `target_pipeline_id` / `target_stage_id` references at create + update time (HTTP 400)
+- New `/settings` page with «Воронки» live and 5 «Скоро» stubs; `PipelinesSection` + `PipelineEditor` (`@dnd-kit` sortable stages, color picker, rot_days); 3-branch friendly delete modal consuming the structured 409 detail
+- `PipelineSwitcher` in `/pipeline` header — workspace-namespaced localStorage selection (`drinkx:pipeline:{workspaceId}`); single-pipeline workspaces see a non-interactive chip
+- Audit log emits on `pipeline.create / pipeline.delete / pipeline.set_default` with informative deltas (`{name, stage_count}` / `{name}` / `{name, from_id, to_id}`)
+- `set_default` fans out a system-kind notification to every admin/head in the workspace («Основная воронка изменена») — wrapped in try/except, never blocks the flip
+- 12 mock-only tests in `test_pipelines_service.py` (10 G1 + 2 G4 fan-out). Combined baseline: **129 mock tests passing**
+- 0 new npm deps; 0 new Python deps; `pnpm build` 13 routes (was 12; `/settings` at 7.61 kB)
+- `pipelines.is_default` boolean kept as redundant signal for diff_engine + back-compat — drop is a 2.4+ housekeeping pass
+
 ## 🔜 NEXT
 
-### Phase 2 — Sprint 2.3 — Multi-pipeline switcher (~? days)
+### Phase 2 — Sprint 2.4 — Full Settings panel + Templates (~5 groups)
 See `docs/brain/04_NEXT_SPRINT.md` for full scope.
 
 Surface area:
-- **Workspace can host multiple pipelines** — sales / partners / refunds / etc., each with its own stages
-- **Pipeline switcher dropdown** in `/pipeline` header
-- **`+ Новая воронка`** in Settings; backend allows pipeline create/clone/delete (defensive: can't delete pipeline with leads on it)
-- **`workspaces.default_pipeline_id` FK** — when a manager opens `/pipeline` cold, we land them on the workspace default
-- **`/today` and `/leads-pool` show leads across ALL of the user's pipelines** (no switcher there — too distracting); only `/pipeline` is single-pipeline
-- **Recommended breakdown:** 4 groups (schema + backend, switcher dropdown UI, settings panel, polish + tests)
+- **Settings panel** — fill out the «Скоро» stubs from 2.3 G3:
+  - «Команда» — list users, invite by email, role management
+  - «Каналы» — wire existing Gmail OAuth flow into Settings, surface SMTP config
+  - «AI» — budget, model selection, API keys
+  - «Кастомные поля» — EAV custom_attributes CRUD
+- **Templates module** — `templates` table (channel, name, subject, body, variables_json), CRUD endpoints + admin UI; consumed by Automation Builder (Sprint 2.5)
+- **Recommended breakdown:** 5 groups (Команда / Каналы / AI + Кастомные поля / Templates / polish)
 
-Outstanding deferred work to bundle into 2.3 housekeeping or 2.4:
+Outstanding deferred work to bundle into 2.4 housekeeping or 2.5:
 - **AmoCRM adapter** — same plumbing as Bitrix24 (Sprint 2.1 G5 deferred)
 - **Telegram Business inbox** + **email send (gmail.send scope)** — deferred since Sprint 2.0
 - **Quote / КП builder**, **Knowledge Base CRUD UI** — deferred from 2.0 envelope
 - **`_GENERIC_DOMAINS` per-workspace setting** (Sprint 2.0 carryover)
 - **Gmail history-sync resumable / paginated job** (Sprint 2.0 2000-msg cap)
-- **`target_stage_id` cross-workspace validation in form services** (Sprint 2.2 carryover)
 - **Notification debounce** on form-submission fan-out (Sprint 2.2 carryover)
 - **Honeypot / timing trap on `embed.js`** (Sprint 2.2 carryover)
 - **`pnpm add @sentry/nextjs`** + DSN env vars (Sprint 2.1 G10 carryover)
+- **Drop legacy `pipelines.is_default` boolean** (Sprint 2.3 carryover housekeeping)
+- **Pipeline cloning / templates** (Sprint 2.3 deferred; «start from template» CTA in PipelineEditor)
+- **Stage-replacement preview** — surface «N лидов потеряют стадию» in PipelineEditor save flow (Sprint 2.3 polish carryover)
 - **Phase G (Sprint 1.3 follow-on)** — move enrichment off FastAPI BackgroundTasks onto Celery; WebSocket `/ws/{user_id}` for real-time progress
 - DST-aware cron edge handling
 - pg_dump cron + Sentry DSNs activation (soft-launch checklist carryover from 1.5)
 
 ## 📅 LATER
 
-### Phase 2 — Sprint 2.3+ (~4 weeks)
-Apify integration (foodmarkets / horeca scrapers), push notifications +
-Telegram bot for managers, multi-pipeline switcher, full Settings panel,
-team workspace management.
+### Phase 2 — Sprint 2.5+ (~4 weeks)
+Automation Builder (consumes Templates from 2.4), Apify integration
+(foodmarkets / horeca scrapers), push notifications + Telegram bot for
+managers, AmoCRM adapter, Quote / КП builder, Knowledge Base CRUD UI.
 
 ### Phase 3 (~4 weeks)
 MCP server, AI Sales Coach full chat, Visit-card OCR parser,
