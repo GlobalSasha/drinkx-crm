@@ -40,7 +40,6 @@ const NAV_ITEMS: NavItem[] = [
 const DISABLED_ITEMS: NavItem[] = [
   { label: "Knowledge", href: "#", icon: <BookOpen size={18} />, disabled: true },
   { label: "Team", href: "#", icon: <Users size={18} />, disabled: true },
-  { label: "Settings", href: "#", icon: <Settings size={18} />, disabled: true },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -263,6 +262,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </span>
             Уведомления
           </button>
+
+          {/* Settings — Sprint 2.3 G3. All roles see it; mutating
+              actions inside (create/edit/delete pipelines) are gated
+              to admin/head at the section level via useMe(). */}
+          {(() => {
+            const href = "/settings";
+            const isActive = pathname === href || pathname.startsWith(href + "/");
+            return (
+              <Link
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                href={href as any}
+                className={clsx(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
+                  isActive
+                    ? "bg-accent/10 text-accent"
+                    : "text-muted hover:bg-black/5",
+                )}
+              >
+                <Settings size={18} />
+                Настройки
+              </Link>
+            );
+          })()}
 
           {/* Divider */}
           <div className="my-2 border-t border-black/5" />

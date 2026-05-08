@@ -147,10 +147,8 @@ export function PipelineSwitcher() {
             type="button"
             onClick={() => {
               setOpen(false);
-              // `/settings` lands as a real route in Sprint 2.3 G3.
-              // typedRoutes can't see it yet, so cast — same workaround
-              // notifications/today already use for parameterized routes.
-              router.push("/settings" as never);
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              router.push("/settings" as any);
             }}
             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted hover:text-ink hover:bg-canvas/60 transition-colors"
           >

@@ -7,7 +7,12 @@
 // is no longer used by the live UI.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api-client";
-import type { Pipeline, Stage } from "@/lib/types";
+import type {
+  Pipeline,
+  PipelineCreateIn,
+  PipelineUpdateIn,
+  Stage,
+} from "@/lib/types";
 
 // Mirrors apps/api/app/pipelines/models.py DEFAULT_STAGES.
 // Used by the Settings PipelineEditor (G3) as the «start from the
@@ -43,8 +48,7 @@ export function usePipelines() {
  * POST /api/pipelines/{id}/set-default — flips the workspace default.
  * Invalidates ['pipelines'] AND ['me'] on success: the dropdown's
  * «по умолчанию» badge moves to the new default and the next cold-
- * load picks it up. Caller is the Settings UI in G3 — left here in
- * G2 so the hook surface is complete.
+ * load picks it up.
  */
 export function useSetDefaultPipeline() {
   const qc = useQueryClient();
@@ -54,6 +58,70 @@ export function useSetDefaultPipeline() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["pipelines"] });
       qc.invalidateQueries({ queryKey: ["me"] });
+    },
+  });
+}
+
+/** GET /api/pipelines/{id} — workspace-scoped detail with stages. */
+export function usePipeline(id: string | null) {
+  return useQuery<Pipeline>({
+    queryKey: ["pipeline", id],
+    queryFn: () => api.get<Pipeline>(`/pipelines/${id}`),
+    enabled: !!id,
+    staleTime: 60_000,
+  });
+}
+
+/** POST /api/pipelines — admin/head only at the backend. */
+export function useCreatePipeline() {
+  const qc = useQueryClient();
+  return useMutation<Pipeline, ApiError, PipelineCreateIn>({
+    mutationFn: (body) => api.post<Pipeline>("/pipelines", body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pipelines"] });
+    },
+  });
+}
+
+/** PATCH /api/pipelines/{id} — rename + optional full-replace of stages. */
+export function useUpdatePipeline() {
+  const qc = useQueryClient();
+  return useMutation<
+    Pipeline,
+    ApiError,
+    { id: string; body: PipelineUpdateIn }
+  >({
+    mutationFn: ({ id, body }) =>
+      api.patch<Pipeline>(`/pipelines/${id}`, body),
+    onSuccess: (_pipeline, vars) => {
+      qc.invalidateQueries({ queryKey: ["pipelines"] });
+      qc.invalidateQueries({ queryKey: ["pipeline", vars.id] });
+      // The board may be looking at this pipeline — invalidate leads
+      // too so a stage rename reflects without a hard refresh.
+      qc.invalidateQueries({ queryKey: ["leads"] });
+    },
+  });
+}
+
+/**
+ * DELETE /api/pipelines/{id}.
+ *
+ * The backend's structured 409 (`pipeline_has_leads` /
+ * `pipeline_is_default`) is the contract we respect — the caller
+ * checks `error.body` to render the right friendly modal. We still
+ * surface the rejection through the standard mutation error path
+ * (TanStack Query's `onError` / `error`) so callers can `mutate`
+ * with `{ onError }` like every other mutation in the codebase.
+ *
+ * `mutationFn` returns `null` on success (DELETE → 204 No Content;
+ * the api-client returns `null` for empty bodies).
+ */
+export function useDeletePipeline() {
+  const qc = useQueryClient();
+  return useMutation<null, ApiError, string>({
+    mutationFn: (id) => api.delete<null>(`/pipelines/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pipelines"] });
     },
   });
 }

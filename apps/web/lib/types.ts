@@ -42,6 +42,45 @@ export interface Pipeline {
   stages: Stage[];
 }
 
+// ---- Pipeline write shapes (Sprint 2.3 G3) ----
+//
+// Mirrors apps/api/app/pipelines/schemas.py — StageIn / PipelineCreateIn /
+// PipelineUpdateIn. The PipelineEditor's «Цель (дней)» row label binds
+// to `rot_days` (the existing rotting threshold) rather than a new
+// `target_dwell_days` column — adding a separate column is a 2.4+
+// schema change and the rot_days semantics already match what the
+// editor surfaces.
+
+export interface StageIn {
+  name: string;
+  position: number;
+  color?: string;
+  rot_days?: number;
+  probability?: number;
+  is_won?: boolean;
+  is_lost?: boolean;
+  gate_criteria_json?: string[];
+}
+
+export interface PipelineCreateIn {
+  name: string;
+  type?: string;
+  stages: StageIn[];
+}
+
+export interface PipelineUpdateIn {
+  name?: string;
+  type?: string;
+  stages?: StageIn[];
+}
+
+// Structured 409 detail emitted by DELETE /api/pipelines/{id} when the
+// pipeline can't be safely removed. The router carries either
+// `pipeline_has_leads` (with a lead_count) or `pipeline_is_default`.
+export type PipelineDeleteConflict =
+  | { code: "pipeline_has_leads"; lead_count: number; message: string }
+  | { code: "pipeline_is_default"; message: string };
+
 export interface LeadOut {
   id: string;
   workspace_id: string;
