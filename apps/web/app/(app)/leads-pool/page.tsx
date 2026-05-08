@@ -1,9 +1,10 @@
 "use client";
 import { useState, useMemo, useCallback } from "react";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, Sparkles } from "lucide-react";
 import { usePoolLeads, useClaimLead } from "@/lib/hooks/use-leads";
 import { Toast } from "@/components/ui/Toast";
 import { ExportPopover } from "@/components/export/ExportPopover";
+import { AIBulkUpdateModal } from "@/components/export/AIBulkUpdateModal";
 import { tierFromScore } from "@/lib/types";
 import type { LeadOut } from "@/lib/types";
 
@@ -121,6 +122,7 @@ export default function LeadsPoolPage() {
   const [toasts, setToasts] = useState<ToastState[]>([]);
   // Track which lead IDs are currently being claimed (for optimistic UI)
   const [claimingIds, setClaimingIds] = useState<Set<string>>(new Set());
+  const [aiUpdateOpen, setAiUpdateOpen] = useState(false);
 
   const addToast = useCallback((message: string, type: "error" | "success" = "success") => {
     const id = Date.now();
@@ -230,6 +232,14 @@ export default function LeadsPoolPage() {
             </span>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setAiUpdateOpen(true)}
+              className="inline-flex items-center gap-1.5 bg-canvas text-ink border border-black/10 rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-canvas-2 hover:border-black/20 active:scale-[0.98]"
+              aria-label="Обновление через AI"
+            >
+              <Sparkles size={14} />
+              AI Обновление
+            </button>
             <ExportPopover
               filters={{
                 city: cityFilter ?? undefined,
@@ -247,6 +257,10 @@ export default function LeadsPoolPage() {
             </label>
           </div>
         </div>
+        <AIBulkUpdateModal
+          open={aiUpdateOpen}
+          onClose={() => setAiUpdateOpen(false)}
+        />
 
         {/* Filter row */}
         <div className="flex flex-wrap items-center gap-3 mt-3">

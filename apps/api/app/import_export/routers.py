@@ -28,10 +28,12 @@ from app.import_export.adapters.bitrix24 import (
     is_bitrix24,
     parse_bitrix24,
 )
+from app.import_export.bulk_update_prompt import BULK_UPDATE_PROMPT
 from app.import_export.exporters import (
     content_type_for,
     file_extension_for,
 )
+from app.import_export.snapshot import generate_snapshot
 from app.import_export.field_map import LEAD_IMPORT_FIELDS
 from app.import_export.mapper import apply_mapping, suggest_mapping
 from app.import_export.models import ImportJobFormat, ImportJobStatus
@@ -314,6 +316,80 @@ async def create_export(
         pass
 
     return ExportJobOut.model_validate(svc.export_job_out(job))
+
+
+# ---- AI bulk-update loop (PRD §6.14, Sprint 2.1 G8) ----------------
+# Static paths registered BEFORE /{job_id} so FastAPI's matcher hits
+# them on `GET /api/export/snapshot` etc. — otherwise the parametric
+# UUID converter would intercept and reject "snapshot" / "bulk-update-prompt".
+
+@export_router.get("/snapshot")
+async def get_snapshot(
+    include_ai_brief: Annotated[bool, Query()] = True,
+    stage_id: Annotated[UUID | None, Query()] = None,
+    segment: Annotated[str | None, Query()] = None,
+    city: Annotated[str | None, Query()] = None,
+    priority: Annotated[str | None, Query()] = None,
+    deal_type: Annotated[str | None, Query()] = None,
+    assigned_to: Annotated[UUID | None, Query()] = None,
+    assignment_status: Annotated[str | None, Query()] = None,
+    fit_min: Annotated[float | None, Query()] = None,
+    q: Annotated[str | None, Query()] = None,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> StreamingResponse:
+    """Synchronous YAML snapshot for the AI bulk-update flow.
+
+    Capped at 500 leads per call — bigger workspaces should split via
+    filters, the external LLM context window can't take more anyway.
+    """
+    filters = {
+        k: v
+        for k, v in {
+            "stage_id": stage_id,
+            "segment": segment,
+            "city": city,
+            "priority": priority,
+            "deal_type": deal_type,
+            "assigned_to": assigned_to,
+            "assignment_status": assignment_status,
+            "fit_min": fit_min,
+            "q": q,
+        }.items()
+        if v is not None
+    }
+
+    payload = await generate_snapshot(
+        db,
+        workspace_id=user.workspace_id,
+        filters=filters,
+        include_ai_brief=include_ai_brief,
+    )
+
+    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    filename = f"leads_snapshot_{date_str}.yaml"
+
+    def _gen():
+        yield payload
+
+    return StreamingResponse(
+        _gen(),
+        media_type="application/yaml",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(payload)),
+        },
+    )
+
+
+@export_router.get("/bulk-update-prompt")
+async def get_bulk_update_prompt(
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> dict[str, str]:
+    """Return the canonical prompt the manager pastes into Claude /
+    ChatGPT alongside `leads_snapshot.yaml`. Server-side constant so we
+    can revise the format without a frontend deploy."""
+    return {"prompt": BULK_UPDATE_PROMPT}
 
 
 @export_router.get("/{job_id}", response_model=ExportJobOut)

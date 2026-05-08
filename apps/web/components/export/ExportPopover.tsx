@@ -15,9 +15,8 @@ import { clsx } from "clsx";
 
 import { useCreateExport, useExportJob } from "@/lib/hooks/use-export";
 import { ApiError } from "@/lib/api-client";
+import { downloadAuthed } from "@/lib/download";
 import type { ExportJobFormat } from "@/lib/types";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 type Phase = "idle" | "loading" | "polling" | "done" | "error";
 
@@ -84,11 +83,22 @@ export function ExportPopover({
     if (!job) return;
     if (job.status === "done") {
       setPhase("done");
-      // Trigger browser download. Same-origin via /api/... so the
-      // session cookie / Authorization header are reused.
-      window.location.href = `${API_URL}/api/export/${job.id}/download`;
-      // Auto-close 1.5s after triggering download — gives the click a
-      // chance to register before the popover unmounts.
+      // Auth-aware download (G8 fix): a plain navigation request doesn't
+      // carry the Supabase Bearer token, which the API requires. Fetch
+      // the bytes with auth and trigger the download via a blob URL.
+      downloadAuthed(
+        `/api/export/${job.id}/download`,
+        `leads_${new Date().toISOString().slice(0, 10)}.${formatExt(job.format)}`,
+      ).catch((err) => {
+        setPhase("error");
+        setErrorText(
+          err instanceof ApiError
+            ? `Не удалось скачать файл (${err.status})`
+            : "Не удалось скачать файл",
+        );
+      });
+      // Auto-close 1.5s after kicking off the download — gives the
+      // browser dialog time to surface before the popover unmounts.
       const t = setTimeout(() => setOpen(false), 1500);
       return () => clearTimeout(t);
     }
@@ -335,6 +345,10 @@ export function ExportPopover({
       )}
     </div>
   );
+}
+
+function formatExt(format: string): string {
+  return format === "md_zip" ? "zip" : format;
 }
 
 function pluralLeads(n: number): string {

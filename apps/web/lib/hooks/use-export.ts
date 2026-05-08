@@ -32,3 +32,15 @@ export function useCreateExport() {
     },
   });
 }
+
+/** Lazy-load the canonical AI bulk-update prompt. Server-side constant
+ *  — staleTime=Infinity so we don't re-fetch on every modal open. */
+export function useBulkUpdatePrompt(enabled: boolean = true) {
+  return useQuery<{ prompt: string }>({
+    queryKey: ["bulk-update-prompt"],
+    queryFn: () => api.get<{ prompt: string }>("/api/export/bulk-update-prompt"),
+    enabled,
+    staleTime: Infinity,
+    gcTime: Infinity,
+  });
+}
