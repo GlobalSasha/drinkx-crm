@@ -67,6 +67,13 @@ async def upsert_user_from_token(session: AsyncSession, claims: TokenClaims) -> 
     for s in DEFAULT_STAGES:
         session.add(Stage(pipeline_id=pipeline.id, **s))
 
+    # Sprint 2.3 G1: also set the canonical FK pointer on the
+    # workspace. The legacy `pipelines.is_default=True` above is kept
+    # for back-compat with diff_engine + the migration backfill, but
+    # the new default-resolver reads through `default_pipeline_id`.
+    workspace.default_pipeline_id = pipeline.id
+    await session.flush()
+
     user = User(
         workspace_id=workspace.id,
         email=claims.email,

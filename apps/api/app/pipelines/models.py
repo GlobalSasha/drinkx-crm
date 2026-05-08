@@ -27,7 +27,11 @@ class Pipeline(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
-    workspace = relationship("Workspace", back_populates="pipelines")
+    workspace = relationship(
+        "Workspace",
+        back_populates="pipelines",
+        foreign_keys=[workspace_id],
+    )
     stages: Mapped[list[Stage]] = relationship(
         back_populates="pipeline",
         cascade="all, delete-orphan",

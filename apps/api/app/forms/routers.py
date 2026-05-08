@@ -136,16 +136,21 @@ async def create_form(
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
     user: Annotated[User, Depends(require_admin_or_head)] = ...,
 ) -> WebFormOut:
-    form = await svc.create_form(
-        db,
-        workspace_id=user.workspace_id,
-        user_id=user.id,
-        name=payload.name,
-        fields_json=payload.fields_json,
-        target_pipeline_id=payload.target_pipeline_id,
-        target_stage_id=payload.target_stage_id,
-        redirect_url=payload.redirect_url,
-    )
+    try:
+        form = await svc.create_form(
+            db,
+            workspace_id=user.workspace_id,
+            user_id=user.id,
+            name=payload.name,
+            fields_json=payload.fields_json,
+            target_pipeline_id=payload.target_pipeline_id,
+            target_stage_id=payload.target_stage_id,
+            redirect_url=payload.redirect_url,
+        )
+    except svc.WebFormInvalidTarget as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
     await db.commit()
     await db.refresh(form)
     return serialize_form(form)
@@ -169,6 +174,10 @@ async def update_form(
         )
     except svc.WebFormNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
+    except svc.WebFormInvalidTarget as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
     await db.commit()
     await db.refresh(form)
     return serialize_form(form)

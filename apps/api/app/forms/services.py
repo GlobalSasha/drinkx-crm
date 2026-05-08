@@ -24,7 +24,69 @@ class WebFormNotFound(Exception):
     pass
 
 
+class WebFormInvalidTarget(Exception):
+    """Sprint 2.3 G1 carryover from 2.2: target_pipeline_id /
+    target_stage_id must belong to the form's workspace, and the stage
+    must be a child of the pipeline. Router maps to HTTP 400."""
+
+
 _MAX_SLUG_RETRIES = 3
+
+
+async def _validate_target(
+    session: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    target_pipeline_id: uuid.UUID | None,
+    target_stage_id: uuid.UUID | None,
+) -> None:
+    """Workspace-scope check on the form's target placement. Both
+    fields are nullable — if the manager omits them, the public submit
+    falls back to `repositories.get_default_first_stage`. But IF a
+    value is supplied, it must be inside the form's workspace; the
+    stage must be a child of the pipeline.
+
+    Without this guard a malicious admin could craft a form whose
+    `target_pipeline_id` points at another workspace's pipeline,
+    leaking submissions across the boundary on every public POST."""
+    from app.pipelines import repositories as pipelines_repo
+    from app.pipelines.models import Pipeline
+
+    if target_pipeline_id is None and target_stage_id is None:
+        return
+
+    if target_stage_id is not None and target_pipeline_id is None:
+        raise WebFormInvalidTarget(
+            "target_stage_id requires target_pipeline_id"
+        )
+
+    # Pipeline must exist + belong to this workspace.
+    from sqlalchemy import select
+
+    result = await session.execute(
+        select(Pipeline.id)
+        .where(
+            Pipeline.id == target_pipeline_id,
+            Pipeline.workspace_id == workspace_id,
+        )
+        .limit(1)
+    )
+    if result.scalar_one_or_none() is None:
+        raise WebFormInvalidTarget(
+            "target_pipeline_id does not belong to this workspace"
+        )
+
+    # Stage must be a child of the named pipeline.
+    if target_stage_id is not None:
+        ok = await pipelines_repo.stage_belongs_to_pipeline(
+            session,
+            stage_id=target_stage_id,
+            pipeline_id=target_pipeline_id,  # type: ignore[arg-type]
+        )
+        if not ok:
+            raise WebFormInvalidTarget(
+                "target_stage_id is not a stage of target_pipeline_id"
+            )
 
 
 async def create_form(
@@ -40,7 +102,19 @@ async def create_form(
 ) -> WebForm:
     """Persist a new form. Auto-generates the slug from `name`; retries
     on the rare slug collision (random suffix keeps this near-zero in
-    practice). Caller commits."""
+    practice). Caller commits.
+
+    Sprint 2.3 G1 carryover: validates that target_pipeline_id +
+    target_stage_id (if supplied) belong to the form's workspace —
+    raises WebFormInvalidTarget on a cross-workspace reference.
+    """
+    await _validate_target(
+        session,
+        workspace_id=workspace_id,
+        target_pipeline_id=target_pipeline_id,
+        target_stage_id=target_stage_id,
+    )
+
     last_error: Exception | None = None
     for attempt in range(_MAX_SLUG_RETRIES):
         slug = generate_slug(name)
@@ -113,6 +187,25 @@ async def update_form(
             cleaned[k] = v
     if not cleaned:
         return form
+
+    # Sprint 2.3 G1 carryover: re-validate target if either field is
+    # being touched. Reads the patch values when present, falls back
+    # to the form's existing values so a partial PATCH stays
+    # consistent (manager flips only the stage → still must live in
+    # the existing pipeline).
+    target_pipeline_id = cleaned.get("target_pipeline_id", form.target_pipeline_id)
+    target_stage_id = cleaned.get("target_stage_id", form.target_stage_id)
+    if (
+        "target_pipeline_id" in cleaned
+        or "target_stage_id" in cleaned
+    ):
+        await _validate_target(
+            session,
+            workspace_id=workspace_id,
+            target_pipeline_id=target_pipeline_id,
+            target_stage_id=target_stage_id,
+        )
+
     return await repo.update(session, form=form, patch=cleaned)
 
 

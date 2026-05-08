@@ -41,10 +41,21 @@ class Workspace(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     # Lead Pool: how many cards a manager picks per "weekly sprint"
     sprint_capacity_per_week: Mapped[int] = mapped_column(Integer, default=20, nullable=False)
 
+    # Sprint 2.3 G1: canonical pointer to the workspace's default
+    # pipeline (FK SET NULL). Replaces the boolean Pipeline.is_default
+    # signal as the single source of truth — old code still reads
+    # is_default for back-compat, new code reads through here.
+    default_pipeline_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("pipelines.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
     users: Mapped[list[User]] = relationship(back_populates="workspace", cascade="all, delete-orphan")
     pipelines: Mapped[list[Pipeline]] = relationship(  # noqa: F821
         back_populates="workspace",
         cascade="all, delete-orphan",
+        foreign_keys="Pipeline.workspace_id",
     )
     scoring_criteria: Mapped[list["ScoringCriteria"]] = relationship(
         back_populates="workspace", cascade="all, delete-orphan"
