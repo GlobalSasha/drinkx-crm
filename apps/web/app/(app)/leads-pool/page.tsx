@@ -352,7 +352,7 @@ export default function LeadsPoolPage() {
             <div className="bg-white border border-black/5 rounded-2xl p-10 shadow-soft max-w-sm w-full">
               <p className="text-lg font-extrabold tracking-tight mb-2">В пуле пока пусто</p>
               <p className="text-sm text-muted">
-                Импортируйте леды или добавьте вручную.
+                Импортируйте лиды или добавьте вручную.
               </p>
             </div>
           </div>
