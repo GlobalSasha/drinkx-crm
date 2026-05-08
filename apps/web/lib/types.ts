@@ -687,3 +687,65 @@ export interface ExportRequestIn {
   filters?: Record<string, unknown>;
   include_ai_brief?: boolean;
 }
+
+// ---- WebForms (Sprint 2.2) ----
+
+export type FieldType = "text" | "email" | "phone" | "textarea" | "select";
+
+export interface FieldDefinition {
+  key: string;
+  label: string;
+  type: FieldType;
+  required: boolean;
+  options?: string[] | null;
+}
+
+export interface WebFormOut {
+  id: string;
+  workspace_id: string;
+  created_by: string | null;
+  name: string;
+  slug: string;
+  fields_json: FieldDefinition[];
+  target_pipeline_id: string | null;
+  target_stage_id: string | null;
+  redirect_url: string | null;
+  is_active: boolean;
+  submissions_count: number;
+  created_at: string;
+  updated_at: string;
+  embed_snippet: string | null;
+}
+
+export interface WebFormCreateIn {
+  name: string;
+  fields_json: FieldDefinition[];
+  target_pipeline_id?: string | null;
+  target_stage_id?: string | null;
+  redirect_url?: string | null;
+}
+
+export interface WebFormUpdateIn {
+  name?: string;
+  fields_json?: FieldDefinition[];
+  target_pipeline_id?: string | null;
+  target_stage_id?: string | null;
+  redirect_url?: string | null;
+  is_active?: boolean;
+}
+
+export interface WebFormPageOut {
+  items: WebFormOut[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface FormSubmissionOut {
+  id: string;
+  web_form_id: string;
+  lead_id: string | null;
+  utm_json: Record<string, string> | null;
+  source_domain: string | null;
+  created_at: string;
+}
