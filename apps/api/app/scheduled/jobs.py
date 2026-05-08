@@ -209,14 +209,31 @@ async def _run_inbox_suggestion(inbox_item_id: UUID) -> dict:
 
 
 async def _run_bulk_import(job_id: UUID) -> dict:
-    """Sprint 2.1 G1 placeholder. Loads the job, marks status=running,
-    immediately marks status=succeeded with a no-op summary. Group 2
-    replaces the body with the real parse/apply path.
+    """Apply a previewed ImportJob: create one Lead per mapped row, write
+    one ImportError per failed row, update the job's progress counters in
+    one commit per row so the UI poll can show real-time progress.
+
+    The HTTP `/apply` handler already flipped the job to status='running'
+    before dispatch — we double-check here so a manual replay (`celery -A
+    app.scheduled.celery_app call ...`) on a `previewed` job still works.
+
+    ADR-007: only fields that the manager confirmed via the mapping
+    surface on the new lead. Extras (deal_amount, notes) land on a
+    single Activity(type='comment') so we don't drop user data.
     """
     from datetime import datetime, timezone as _tz
     from sqlalchemy import select
 
-    from app.import_export.models import ImportJob, ImportJobStatus
+    from app.activity.models import Activity
+    from app.import_export.field_map import (
+        DIRECT_LEAD_COLUMNS,
+        EXTRAS_FOR_COMMENT,
+        TAG_FIELD,
+    )
+    from app.import_export.models import ImportError, ImportJob, ImportJobStatus
+    from app.import_export.validators import parse_deal_amount
+    from app.leads.models import Lead
+    from app.pipelines import repositories as pipelines_repo
 
     engine, factory = _build_task_engine_and_factory()
     try:
@@ -228,9 +245,10 @@ async def _run_bulk_import(job_id: UUID) -> dict:
             if job is None:
                 return {"job": "bulk_import_run", "error": "not_found"}
 
-            if job.status != ImportJobStatus.previewed.value:
-                # G2 will tighten this — for now we tolerate any non-terminal
-                # status and just log so dev kicks of the task aren't surprises.
+            if job.status not in (
+                ImportJobStatus.running.value,
+                ImportJobStatus.previewed.value,
+            ):
                 log.info(
                     "bulk_import.skipped_due_to_status",
                     job_id=str(job_id),
@@ -238,16 +256,130 @@ async def _run_bulk_import(job_id: UUID) -> dict:
                 )
                 return {"job": "bulk_import_run", "skipped": job.status}
 
-            job.status = ImportJobStatus.running.value
-            await session.commit()
+            # Idempotent transition — `/apply` already does this, but the
+            # task can be invoked directly (or after a worker crash).
+            if job.status != ImportJobStatus.running.value:
+                job.status = ImportJobStatus.running.value
+                await session.commit()
 
-            # G2: parse diff_json → for each row, create/update Lead +
-            # Contact, write ImportError on failure, update counters.
-            job.status = ImportJobStatus.succeeded.value
-            job.error_summary = "skeleton — Group 2 fills in actual apply"
+            mapped_rows = list(((job.diff_json or {}).get("mapped_rows")) or [])
+            workspace_id = job.workspace_id
+            user_id = job.user_id
+
+            # Resolve default-pipeline first stage once per job — same
+            # placement rule as the inbox 'create_lead' flow.
+            first = await pipelines_repo.get_default_first_stage(
+                session, workspace_id
+            )
+            pipeline_id, stage_id = first if first is not None else (None, None)
+
+            for i, row in enumerate(mapped_rows):
+                try:
+                    company = (row.get("company_name") or "").strip()
+                    if not company:
+                        # confirmed_mapping shouldn't have let an empty
+                        # company_name through, but defend anyway.
+                        session.add(
+                            ImportError(
+                                job_id=job.id,
+                                row_number=i,
+                                field="company_name",
+                                message="empty company_name — row skipped",
+                            )
+                        )
+                        job.failed += 1
+                        continue
+
+                    tags_raw = row.get(TAG_FIELD) or ""
+                    tags = [
+                        t.strip() for t in tags_raw.split(",") if t.strip()
+                    ] if tags_raw else []
+
+                    lead_kwargs: dict[str, object] = {
+                        "workspace_id": workspace_id,
+                        "pipeline_id": pipeline_id,
+                        "stage_id": stage_id,
+                        "company_name": company[:255],
+                        "assignment_status": "pool",
+                        "tags_json": tags,
+                        "source": (row.get("source") or "import")[:60],
+                    }
+                    for col in DIRECT_LEAD_COLUMNS:
+                        if col == "company_name" or col == "source":
+                            continue  # already set above
+                        v = row.get(col)
+                        if v:
+                            lead_kwargs[col] = v
+                    if "priority" in lead_kwargs:
+                        # Validators already gated values to A/B/C/D
+                        lead_kwargs["priority"] = str(
+                            lead_kwargs["priority"]
+                        ).upper()
+
+                    lead = Lead(**lead_kwargs)
+                    session.add(lead)
+                    await session.flush()  # need lead.id
+
+                    # Stash extras into a comment so we don't lose data.
+                    extras = {k: row.get(k) for k in EXTRAS_FOR_COMMENT if row.get(k)}
+                    if extras:
+                        amt = extras.get("deal_amount")
+                        amt_parsed = parse_deal_amount(amt) if amt else None
+                        comment_lines = ["Импортировано:"]
+                        if amt_parsed is not None:
+                            comment_lines.append(f"Сумма сделки: {amt_parsed}")
+                        elif amt:
+                            comment_lines.append(f"Сумма сделки: {amt}")
+                        if extras.get("notes"):
+                            comment_lines.append(f"Заметки: {extras['notes']}")
+                        session.add(
+                            Activity(
+                                lead_id=lead.id,
+                                user_id=user_id,
+                                type="comment",
+                                payload_json={
+                                    "text": "\n".join(comment_lines),
+                                    "source": "import",
+                                    "import_job_id": str(job.id),
+                                },
+                            )
+                        )
+
+                    job.succeeded += 1
+                except Exception as exc:
+                    # Roll back this row only, don't poison subsequent rows.
+                    await session.rollback()
+                    session.add(
+                        ImportError(
+                            job_id=job.id,
+                            row_number=i,
+                            field="",
+                            message=f"{type(exc).__name__}: {exc}"[:1000],
+                        )
+                    )
+                    job.failed += 1
+                finally:
+                    job.processed += 1
+                    await session.commit()
+
+            job.status = (
+                ImportJobStatus.succeeded.value
+                if job.failed == 0
+                else ImportJobStatus.failed.value
+            )
+            if job.failed:
+                job.error_summary = (
+                    f"{job.failed}/{job.total_rows} rows failed — "
+                    "see import_errors for details"
+                )
             job.finished_at = datetime.now(tz=_tz.utc)
             await session.commit()
-            return {"job": "bulk_import_run", "id": str(job_id), "skeleton": True}
+            return {
+                "job": "bulk_import_run",
+                "id": str(job_id),
+                "succeeded": job.succeeded,
+                "failed": job.failed,
+            }
     except Exception as exc:
         log.exception("bulk_import_run.failed", job_id=str(job_id))
         return {"job": "bulk_import_run", "error": f"{type(exc).__name__}: {exc}"}
