@@ -7,6 +7,7 @@ import {
   Loader2,
   ArrowRight,
   ArrowLeft,
+  ClipboardList,
 } from "lucide-react";
 import {
   useActivities,
@@ -23,6 +24,7 @@ const FILTER_OPTIONS = [
   { label: "Email", value: "email" },
   { label: "Телеграм", value: "telegram" },
   { label: "Этапы", value: "stage_change" },
+  { label: "Заявки", value: "form_submission" },
   { label: "Файлы", value: "file" },
 ];
 
@@ -361,6 +363,45 @@ function ActivityItem({
 
   if (activity.type === "email") {
     return <EmailActivityItem activity={activity} dateStr={dateStr} timeStr={timeStr} />;
+  }
+
+  if (activity.type === "form_submission") {
+    const payload = (activity.payload_json ?? {}) as {
+      form_name?: string;
+      source_domain?: string;
+      utm?: Record<string, string>;
+    };
+    const formName = payload.form_name ?? "Веб-форма";
+    const sourceDomain = payload.source_domain || "";
+    const utmSource = payload.utm?.utm_source || "";
+    return (
+      <div className="p-3 bg-canvas rounded-xl border border-black/5">
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <ClipboardList size={14} className="text-accent shrink-0" />
+            <span className="text-[10px] font-mono text-muted-3 uppercase tracking-wide">
+              Заявка с формы
+            </span>
+          </div>
+          <span className="font-mono text-[10px] text-muted-3 shrink-0">
+            {dateStr} {timeStr}
+          </span>
+        </div>
+        <p className="text-sm font-bold text-ink leading-snug break-words">
+          {formName}
+        </p>
+        {sourceDomain && (
+          <p className="mt-0.5 text-xs text-muted-2">
+            Источник: <span className="font-mono">{sourceDomain}</span>
+          </p>
+        )}
+        {utmSource && (
+          <p className="mt-0.5 text-xs text-muted-2">
+            Кампания: <span className="font-mono">{utmSource}</span>
+          </p>
+        )}
+      </div>
+    );
   }
 
   if (activity.type === "stage_change") {

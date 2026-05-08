@@ -181,6 +181,7 @@ async def submit_form(
             form=form,
             payload=payload,
             source_domain=src_domain,
+            utm=utm or None,
         )
     except Exception as exc:  # noqa: BLE001 — surface as 500 with safe detail
         log.exception("forms.lead_creation_failed", slug=slug)

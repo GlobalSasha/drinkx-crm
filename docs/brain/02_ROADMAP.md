@@ -85,24 +85,40 @@
 - 0 new npm deps; 2 new Python deps (`cryptography>=43.0.3`, `openpyxl>=3.1.5`)
 - ADR-007 satisfied at the diff-preview level for stage moves (documented in `diff_engine.apply_diff_item`)
 
+**Sprint 2.2 — DONE (pending merge)** · `SPRINT_2_2_WEBFORMS.md` · branch `sprint/2.2-webforms` (range `32b5d79..HEAD`, 4 groups)
+- **WebForms — Phase 2 third slice (public lead-capture)**
+- Migration 0012 (`web_forms` + `form_submissions` + indexes)
+- New `app/forms/` package: models, schemas, repositories, services (auto-slug + IntegrityError retry × 3, soft_delete returns 410), slug.py (stdlib-only RU translit + 6-char base36 suffix), routers (admin REST), public_routers (`/api/public/forms/{slug}/{submit,embed.js}`), rate_limit (Redis INCR + conditional EXPIRE, fail-open), embed.py (self-contained ~90-line JS, once-loaded guard), lead_factory (RU+EN field dict, ADR-007 — never assigns / never advances)
+- Scoped `PublicFormsCORSMiddleware` for `/api/public/*` only; global CORS stays restrictive
+- `form_submission` joins the `ActivityType` enum; carries `{form_name, form_slug, source_domain, utm}`
+- New `/forms` admin page (admin/head gated) + `FormEditor` modal with «Настройки» + «Встроить» tabs; AppShell «Формы» nav item; Activity Feed `form_submission` render with ClipboardList icon + «Заявки» filter chip; Lead Card header `source` chip
+- 18 mock-only tests (test_webforms.py 9 + test_public_submit.py 9). Combined baseline: **117 mock tests passing**
+- 0 new npm deps; 0 new Python deps; `pnpm build` 12 routes (was 11)
+- ADR-007 satisfied: forms capture leads, never auto-assign / never advance stage / never trigger AI
+
 ## 🔜 NEXT
 
-### Phase 2 — Sprint 2.2 — WebForms (~3 days)
+### Phase 2 — Sprint 2.3 — Multi-pipeline switcher (~? days)
 See `docs/brain/04_NEXT_SPRINT.md` for full scope.
 
 Surface area:
-- **Public lead-capture endpoints** — `POST /api/forms/{slug}/submit`, no auth, IP rate-limit
-- **Embed code generator** — `<script src=".../embed.js">` produces an HTML form on the customer's landing page that POSTs back to us
-- **Form builder UI** — `/forms` page (admin/head-only) with field config, target stage, redirect URL, embed code panel
-- **Source attribution** — `lead.source = form.name`, UTM params + Referer captured per submission
+- **Workspace can host multiple pipelines** — sales / partners / refunds / etc., each with its own stages
+- **Pipeline switcher dropdown** in `/pipeline` header
+- **`+ Новая воронка`** in Settings; backend allows pipeline create/clone/delete (defensive: can't delete pipeline with leads on it)
+- **`workspaces.default_pipeline_id` FK** — when a manager opens `/pipeline` cold, we land them on the workspace default
+- **`/today` and `/leads-pool` show leads across ALL of the user's pipelines** (no switcher there — too distracting); only `/pipeline` is single-pipeline
+- **Recommended breakdown:** 4 groups (schema + backend, switcher dropdown UI, settings panel, polish + tests)
 
-Outstanding deferred work to bundle into 2.2 housekeeping or 2.3:
-- **AmoCRM adapter** — same plumbing as Bitrix24, drops into `app/import_export/adapters/`
+Outstanding deferred work to bundle into 2.3 housekeeping or 2.4:
+- **AmoCRM adapter** — same plumbing as Bitrix24 (Sprint 2.1 G5 deferred)
 - **Telegram Business inbox** + **email send (gmail.send scope)** — deferred since Sprint 2.0
 - **Quote / КП builder**, **Knowledge Base CRUD UI** — deferred from 2.0 envelope
 - **`_GENERIC_DOMAINS` per-workspace setting** (Sprint 2.0 carryover)
 - **Gmail history-sync resumable / paginated job** (Sprint 2.0 2000-msg cap)
-- **`apps/web/package-lock.json` cleanup** — stale npm lockfile, removal pending (Sprint 2.2 G1 housekeeping)
+- **`target_stage_id` cross-workspace validation in form services** (Sprint 2.2 carryover)
+- **Notification debounce** on form-submission fan-out (Sprint 2.2 carryover)
+- **Honeypot / timing trap on `embed.js`** (Sprint 2.2 carryover)
+- **`pnpm add @sentry/nextjs`** + DSN env vars (Sprint 2.1 G10 carryover)
 - **Phase G (Sprint 1.3 follow-on)** — move enrichment off FastAPI BackgroundTasks onto Celery; WebSocket `/ws/{user_id}` for real-time progress
 - DST-aware cron edge handling
 - pg_dump cron + Sentry DSNs activation (soft-launch checklist carryover from 1.5)

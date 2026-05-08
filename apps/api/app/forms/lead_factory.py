@@ -101,9 +101,18 @@ async def create_lead_from_submission(
     form: WebForm,
     payload: dict[str, Any],
     source_domain: str | None,
+    utm: dict[str, str] | None = None,
 ) -> Lead:
-    """Build the Lead + optional comment Activity in the caller's session.
-    Caller commits."""
+    """Build the Lead + form_submission Activity (+ optional comment
+    Activity if the payload included a freeform note) in the caller's
+    session. Caller commits.
+
+    Two activities are emitted by design — separating them lets the
+    Activity Feed render the manager-facing comment as plain text while
+    the form_submission row carries the structured provenance
+    (form_name/slug/source_domain/utm) that is searchable and survives
+    re-rendering even if the comment is later edited.
+    """
     from app.pipelines import repositories as pipelines_repo
 
     projected = _project_payload(payload)
@@ -164,6 +173,24 @@ async def create_lead_from_submission(
                 },
             )
         )
+
+    # Always emit a form_submission Activity — the canonical record that
+    # this lead arrived via a public form. The Activity Feed renders this
+    # with form_name + source_domain + utm chips so the manager sees
+    # provenance at a glance without opening the FormSubmission row.
+    session.add(
+        Activity(
+            lead_id=lead.id,
+            user_id=None,
+            type="form_submission",
+            payload_json={
+                "form_name": form.name,
+                "form_slug": form.slug,
+                "source_domain": (source_domain or "")[:300],
+                "utm": dict(utm) if utm else {},
+            },
+        )
+    )
 
     return lead
 

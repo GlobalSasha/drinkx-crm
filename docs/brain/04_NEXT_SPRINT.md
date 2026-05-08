@@ -1,227 +1,259 @@
-# Next Sprint: Phase 2 Sprint 2.2 — WebForms
+# Next Sprint: Phase 2 Sprint 2.3 — Multi-pipeline switcher
 
-Status: **READY TO START** (after Sprint 2.1 merge / deploy / smoke check)
-Branch: `sprint/2.2-webforms` (create from main once 2.1 lands)
+Status: **READY TO START** (after Sprint 2.2 merge / deploy / smoke check)
+Branch: `sprint/2.3-multi-pipeline` (create from main once 2.2 lands)
 
 ## Goal
 
-Phase 1 + Sprint 2.0 + 2.1 made DrinkX CRM a working pipeline + a system
-of record for the conversation + a wide pipe in/out of the data model.
-The next ergonomic gap is **inbound lead capture**: the team's landing
-pages still drop submissions into Tilda/Senler/typeform-style mailboxes
-and a manager has to copy-paste them into the CRM by hand.
+Phase 1 + Sprints 2.0 / 2.1 / 2.2 took DrinkX CRM from a working
+single-pipeline system to a system of record for the conversation,
+plus a wide pipe in/out of the data model, plus an inbound lead-capture
+surface. The next ergonomic gap is **multi-pipeline support**.
 
-Sprint 2.2 closes that gap with a focused WebForms surface — a form
-builder in the admin UI, a public submit endpoint with rate-limiting,
-and a one-line embed snippet that drops on any landing page. No new
-domains, no new vendors, no new AI capability. Smallest sprint in
-Phase 2 (~3 days).
+Today every workspace has exactly one auto-bootstrapped pipeline (the
+11-stage B2B template from Sprint 1.1). Real customers want at least
+two:
+
+- **Продажи (sales)** — the existing 11-stage B2B funnel
+- **Партнёры (partners)** — much shorter funnel for distributor /
+  reseller deals, different stage names, different gate criteria
+- **Возвраты / гарантии (refunds)** — issue-tracker shape, mostly
+  for после-продажного сопровождения
+- **Лиды апсейла (upsell)** — separate from net-new sales, owned by
+  account managers not BDRs
+
+Sprint 2.3 closes the gap: a workspace can have N pipelines; the
+manager switches between them via a dropdown in the `/pipeline`
+header; «+ Новая воронка» lives in Settings; `/today` and
+`/leads-pool` continue to show leads across ALL of the user's
+pipelines (no switcher there — too distracting).
+
+No new domains, no new vendors, no new AI capability. Estimated 3–4
+days.
 
 ## Read before starting
 
-- `docs/brain/00_CURRENT_STATE.md` — what Sprint 2.1 left
+- `docs/brain/00_CURRENT_STATE.md` — what Sprint 2.2 left
 - `docs/brain/02_ROADMAP.md` — Phase 2 envelope
-- `docs/brain/sprint_reports/SPRINT_2_1_BULK_IMPORT_EXPORT.md` — known
-  issues / risks; production checklist carryover (FERNET_KEY,
-  package-lock cleanup, Sentry activation)
-- `docs/PRD-v2.0.md` §8 (Forms) — original spec
-- `docs/brain/03_DECISIONS.md` — ADR-007 (no auto-actions; form
-  submissions still land as leads, no auto-assignment / auto-actions)
+- `docs/brain/sprint_reports/SPRINT_2_2_WEBFORMS.md` — known issues
+  (notification debounce, honeypot, sentry@nextjs activation, cross-
+  workspace stage validation — 2.3 should fold the stage-validation
+  carryover in)
+- `docs/PRD-v2.0.md` §4 (Pipeline) — original spec contemplated
+  multi-pipeline from day one (`pipelines.workspace_id` FK is already
+  in the schema since Sprint 1.1)
+- `docs/brain/03_DECISIONS.md` — ADR-007 still applies (no auto-actions
+  on pipeline switch); look for any ADR mentioning «default pipeline»
+  before committing to the FK shape
 - Production state at sprint start: 4 app containers + 4 cron entries
-  running, manager workflows for Pipeline / Inbox / Import / Export
-  all live, Sprint 2.1 merged
+  running, manager workflows for Pipeline / Inbox / Import / Export /
+  Forms all live, Sprints 2.1 + 2.2 merged
 
 ## Scope
 
 ### ALLOWED
 
-#### 1. Schema + ORM
+#### 1. Schema + backend (Group 1, ~1 day)
 
-Migration `0012_web_forms`:
+Migration `0013_default_pipeline`:
 
-- `web_forms` — id (UUID PK), workspace_id (FK CASCADE), name (str 120),
-  slug (str 60, UNIQUE per workspace), fields_json (JSON; list of
-  `{key, label, type, required, options[]}`), target_pipeline_id (FK
-  SET NULL), target_stage_id (FK SET NULL), redirect_url (str 500),
-  is_active (bool), submissions_count (int), created_by (FK SET
-  NULL → users), created_at, updated_at.
-- `form_submissions` — id, web_form_id (FK CASCADE), lead_id (FK SET
-  NULL — keep submission row even if lead deleted), raw_payload (JSON),
-  utm_json (JSON), source_domain (str 200), ip_address (str 45 — fits
-  IPv6), user_agent (text), created_at.
-- Indexes: `(workspace_id, slug)` UNIQUE on web_forms;
-  `(web_form_id, created_at DESC)` on form_submissions;
-  `(workspace_id, created_at DESC)` on form_submissions.
+- `workspaces.default_pipeline_id` — `UUID NULL`, FK to
+  `pipelines.id ON DELETE SET NULL`. Backfill: for each workspace,
+  set `default_pipeline_id = (SELECT id FROM pipelines WHERE
+  workspace_id = workspaces.id ORDER BY created_at LIMIT 1)`. The FK
+  is nullable forever — `SET NULL` rather than `NO ACTION` so deleting
+  the last pipeline (an admin-only destructive op we don't expose in
+  v1) doesn't cascade-fail.
+- No change to `pipelines` itself — `pipelines.workspace_id` FK is
+  already there since Sprint 1.1.
+- No change to `leads.pipeline_id` — already required since Sprint 1.2.
 
-ORM models in `app/forms/` package — same package-per-domain pattern as
-the rest (ADR-009). Schemas + services + routers as per shape.
+ORM:
+- `Workspace.default_pipeline_id: Mapped[uuid.UUID | None]` +
+  `default_pipeline: Mapped["Pipeline" | None]` relationship.
 
-#### 2. Public submit endpoint
+Services:
+- `app.pipelines.services.list_for_workspace(session, workspace_id)`
+  — paginated.
+- `app.pipelines.services.create_pipeline(session, workspace_id, *,
+  name, stages: list[StageIn])` — admin/head only at the router; auto-
+  bootstraps stages from the explicit `stages` list (NOT the 11-stage
+  B2B template — caller passes whatever they want). Workspace must own
+  the call (auth dependency).
+- `app.pipelines.services.delete_pipeline(session, workspace_id, *,
+  pipeline_id)` — defensive: refuse with 409 if any leads are on it
+  (return count); refuse with 409 if it's the workspace's
+  `default_pipeline_id` (force the admin to set a new default first).
+  Soft-delete via an `is_active` column on pipelines? Probably not —
+  pipelines are workspace-internal, not embedded into landing pages
+  the way forms are; a hard delete with the «move leads first» guard
+  rail is enough.
+- `app.pipelines.services.set_default(session, workspace_id, *,
+  pipeline_id)` — flips `workspaces.default_pipeline_id`. Admin/head
+  only. Validates the pipeline belongs to this workspace.
 
-- `POST /api/forms/{slug}/submit` — **NO AUTH**. Open to any origin
-  (CORS `*` for this single endpoint, scoped via FastAPI's
-  `add_middleware` per-router or per-route override).
-- Rate-limit: 10 submissions per IP per minute via Redis counter
-  (`forms:rl:{ip_hash}` with `incr` + `expire 60`). Hash IP to avoid
-  storing raw addresses in keys. 429 on overflow.
-- Body: arbitrary JSON. Server resolves the form by slug, validates
-  the payload against `fields_json` (required-field check; type
-  coercion is best-effort — strings stay strings, dropdown values
-  must be in `options`).
-- On success: create a `Lead` in `assignment_status='pool'`, place
-  in `target_pipeline_id` + `target_stage_id` if set (else default
-  pipeline first stage), source = `form:{slug}`. Create a
-  `form_submission` row carrying the raw payload. Increment
-  `web_forms.submissions_count`. Return `{"ok": true, "redirect": url}`.
-- On rate-limit: 429 with `Retry-After`. On unknown slug: 404. On
-  validation error: 422 with field-by-field error list.
-- **Activity Feed**: emit `Activity(type='form_submission', payload_json={form_name, source_domain, utm_*})`
-  on the new lead so the manager sees attribution at a glance.
+Routers:
+- `GET /api/pipelines` — list workspace's pipelines + their stages.
+  All roles.
+- `POST /api/pipelines` — create. Admin/head.
+- `PATCH /api/pipelines/{id}` — rename / reorder stages. Admin/head.
+- `DELETE /api/pipelines/{id}` — defensive delete. Admin/head.
+- `POST /api/pipelines/{id}/set-default` — set workspace default.
+  Admin/head.
 
-#### 3. Embed code generator
+Tests (mock-only target ~10):
+- create + auto-bootstrap stage list
+- delete refuses when leads exist (409, returns count)
+- delete refuses when target is default (409, forces re-default first)
+- set_default rejects cross-workspace pipeline (404 from get-or-404)
+- list returns only workspace-scoped pipelines
+- create rejects non-admin (403 — auth dependency)
 
-- `GET /api/forms/{slug}/embed.js` — returns a JS payload that, when
-  loaded on a customer's landing page, renders the form HTML and wires
-  the submit handler. Content-Type `application/javascript`.
-- The generated JS reads `window.location.search` for UTM params and
-  `document.referrer` for source domain, attaches them to the POST
-  body. Manager doesn't have to do anything to get UTM tracking.
-- Form HTML rendered inline (no external CSS) — minimal styling, layout
-  inherits from the host page. `<style>` scoped via a unique class
-  prefix to avoid leaking into the host's CSS.
-- Submit redirects to `redirect_url` on success, surfaces inline error
-  on failure. No iframes (CSP-friendly, easier to debug).
-- Cache: `Cache-Control: public, max-age=300` so the script doesn't
-  re-fetch on every page view. Bust with `?v=N` if the form definition
-  changes.
+**Bundle the Sprint 2.2 carryover here:** add a service-layer check
+in `forms.services.create_form` / `update_form` that
+`target_pipeline_id` and `target_stage_id` belong to the form's
+workspace. Cheap to fold in, single-test addition.
 
-#### 4. Admin UI — `/forms`
+#### 2. Switcher dropdown UI (Group 2, ~1 day)
 
-- New top-level route `/forms` — visible to admin + head roles only.
-  Manager role gets a "request access" placeholder.
-- List view: table of forms (name, slug, target stage, submissions
-  count, is_active toggle, edit / archive / copy-embed actions).
-- Form builder modal: name + slug (auto-derived from name with a
-  manual override) + fields (drag-drop reorder, type from
-  text/email/phone/textarea/select), target pipeline + stage,
-  redirect URL, is_active toggle.
-- Embed code panel: textarea with the `<script>` snippet + «Скопировать»
-  button (matches the AI bulk-update prompt UX from Sprint 2.1 G8).
-- Sidebar nav item «Формы» (admin/head only — same role-gating pattern
-  as «Журнал»).
+Frontend:
 
-#### 5. Lead-card source attribution
+- `usePipelines()` hook against `/api/pipelines` with TanStack Query;
+  staleTime 5 min (pipelines change once a quarter, not once a request).
+- `useSetDefaultPipeline()` mutation — invalidates `['pipelines']` +
+  `['me']` on success (the `me` payload should carry
+  `default_pipeline_id` so the dropdown initial state is correct
+  cold-load).
+- `usePipelineStore` (zustand) — current `selectedPipelineId`. Persists
+  to `localStorage` so a refresh stays on the same pipeline. Falls
+  back to `me.default_pipeline_id` when nothing is in localStorage.
 
-- Lead Card → existing Activity Feed gets a new branch for
-  `type='form_submission'` (mirrors the email branch from Sprint 2.0
-  G5): icon + form name + source domain + UTM chips, no body.
-- `lead.source` displays as `form:{slug}` in the Lead Card chip strip
-  alongside priority / deal type / score chips.
+`/pipeline` page:
 
-### FORBIDDEN
+- Header dropdown to the LEFT of the existing «+ Импорт» / «Экспорт»
+  buttons. shadcn/ui `Select` or a custom `<details>` widget — match
+  whatever the rest of the app uses.
+- Items: each pipeline's `name`, with the workspace default tagged
+  «(по умолчанию)» in muted text.
+- Selecting a pipeline updates the store + refetches lead lists with
+  the new `pipeline_id` filter param.
+- The drag-drop board re-renders against the selected pipeline's
+  stages.
 
-- Drag-drop visual form designer with live preview — Sprint 2.3+
-- Captcha / bot-detection — Sprint 2.3+ (rely on rate-limit for v1)
-- File-upload fields — Sprint 2.3+ (need S3-compatible storage first)
-- Outbound webhooks (form submission triggers a webhook to a third-party)
-  — Sprint 2.3+
-- Payment fields — never (PCI scope)
-- Multi-step / wizard forms — Sprint 2.3+
-- A/B test variants per form — Phase 3
-- Anything that requires a new payment / subscription account
-- New npm dependencies — keep the streak (0 new since Sprint 2.0)
+`/leads-pool`, `/today`:
 
-## Tests required
+- NO switcher — these surfaces aggregate across all the user's
+  pipelines on purpose. Keep current behaviour.
 
-- pytest mock-only suites for the new domain (`app/forms/`):
-  - submission validation against `fields_json` (required, type, enum)
-  - source attribution (UTM extraction from query string, Referer →
-    source_domain)
-  - rate-limit counter behavior (mock Redis, verify counter increments
-    + 429 after threshold)
-  - embed.js generation (asserts the script body includes the right
-    field names + slug)
-- pytest integration: at least one DB-backed test for the new tables
-  (web_forms + form_submissions migration smoke)
-- Web Playwright skip-if-env: form public submit → lead lands in pool
-- Manual: load embed.js on a real landing page (any production-looking
-  HTML) → fill the form → confirm a Lead row appears with the right
-  source + UTM JSON
+Lead REST:
 
-## Deliverables
+- `GET /api/leads` already accepts `pipeline_id` filter (Sprint 1.2);
+  verify it's wired through. Backend ALREADY enforces workspace scope.
+- `GET /api/leads/pool` already aggregates across the workspace; no
+  change.
 
-- Migration 0012 applied on production (auto-via Dockerfile entrypoint)
-- `/api/forms/...` endpoints live (submit, embed.js, admin CRUD)
-- `/forms` admin route in production
-- One real form created on a real DrinkX landing page, embed snippet
-  copied, one submission lands in pool with attribution
-- `docs/brain/sprint_reports/SPRINT_2_2_WEBFORMS.md` written
-- `docs/brain/00_CURRENT_STATE.md` updated
-- `docs/brain/02_ROADMAP.md` — Sprint 2.2 → DONE, Sprint 2.3 → NEXT
-- `docs/brain/04_NEXT_SPRINT.md` rewritten for Sprint 2.3
+Tests: `pnpm typecheck` + `pnpm build` clean. No frontend unit tests
+this sprint (consistent with Sprint 2.0 / 2.1 / 2.2 — backend mock
+tests, frontend structural verification only).
 
-## Stop conditions
+#### 3. Settings panel — pipeline management (Group 3, ~1 day)
 
-- All tests pass → report written → committed → push only with
-  explicit product-owner approval
-- No scope creep into Sprint 2.3 / Phase 3 items (especially: no
-  drag-drop form designer, no captcha, no file-upload, no webhooks)
-- No new npm dependencies
-- No new payment vendor
+`/settings` page (NEW — currently doesn't exist as a real page in the
+app, only stub navigation). Sections:
+
+- **Воронки** — list of workspace pipelines + «+ Новая воронка» CTA.
+  Each row: name, stage count, lead count, set-default button (or
+  «по умолчанию» chip if it is), delete trash icon.
+- `PipelineEditor` modal (similar shape to `FormEditor` from Sprint
+  2.2 G3): name, drag-reorderable stage list with name + color +
+  is_won/is_lost flags. Reuse `dnd-kit` from Pipeline drag-drop.
+- Confirm-delete modal explaining the «can't delete with leads on it»
+  rule.
+
+Other settings sections (out-of-scope for this sprint, stub headings
+only — full Settings panel is a Phase 3 surface): «Профиль»,
+«Уведомления», «Интеграции», «API».
+
+Auth:
+- `/settings` accessible to all roles, but admin/head-only sections
+  (Воронки, Интеграции) gated by `useMe().role`.
+
+Tests: `pnpm typecheck` + `pnpm build` clean.
+
+#### 4. Polish + sprint close (Group 4)
+
+- Audit log emit hooks for pipeline.create / pipeline.delete /
+  pipeline.set_default (we already log lead.create / lead.transfer /
+  lead.move_stage / enrichment.trigger from Sprint 1.5).
+- Notifications — when an admin sets a new default pipeline, fire a
+  `system`-kind notification to all workspace members so their next
+  `/pipeline` cold-load is the new default («Воронка по умолчанию
+  изменилась на …»).
+- AppShell: `/settings` nav item activates (currently disabled).
+- Sprint report `SPRINT_2_3_MULTI_PIPELINE.md`.
+- Brain memory rotation: 00 + 02 + 04 updates as usual.
+
+### NOT ALLOWED (out of scope)
+
+- **Pipeline templates / cloning.** A workspace creates a new pipeline
+  from scratch in v1. Cloning «Продажи → Партнёры minus 5 stages» is
+  a 2.4+ ergonomic.
+- **Per-pipeline gate criteria configuration UI.** The gate engine
+  already supports it via `stages.gate_criteria_json`, but we don't
+  expose a UI for editing gate criteria in v1 — the bootstrap stage
+  list covers the common case, and the seeded B2B template's gates
+  are good defaults.
+- **Multi-pipeline reporting (cross-pipeline funnel comparison).**
+  Reporting / analytics is Phase 3.
+- **Pipeline-level permissions.** «User X can only see Pipeline Y»
+  is a 3.x permission model; v1 trusts workspace membership.
+
+## Risks
+
+1. **Migration 0013 backfill on a workspace with 0 pipelines** is a
+   no-op (pipelines.workspace_id FK forces ≥0). Verify the bootstrap
+   path on a fresh sign-in (`auth.bootstrap_workspace`) still seeds
+   the default pipeline AND sets `default_pipeline_id` to its id.
+2. **Pipeline switcher state leak between workspaces.** The
+   `localStorage` key MUST be namespaced by `workspace_id`, otherwise
+   a user who belongs to two workspaces sees stale selection on the
+   wrong workspace. Use `drinkx:pipeline:{workspace_id}` as the key.
+3. **Lead-list query performance** with the new `pipeline_id` filter
+   — the existing `idx_leads_workspace_stage` index covers it, but
+   verify `EXPLAIN ANALYZE` on a workspace with >5k leads.
+4. **`SPRINT_2_2_WEBFORMS.md` carryover bundling.** Don't blow up
+   2.3 scope by trying to also fix notification debounce + honeypot
+   + Sentry@nextjs in this sprint. Stage-validation in form services
+   is the only piece that fits naturally into the multi-pipeline
+   work; the rest stays carryover.
+
+## Done definition
+
+- Migration 0013 applies cleanly via `alembic upgrade head` on staging.
+- Backfilled `default_pipeline_id` non-null on all existing
+  workspaces.
+- `/pipeline` page renders a switcher dropdown; selecting a different
+  pipeline reflows the board.
+- `/settings` page exists with at least the «Воронки» section live.
+- 10+ new mock tests (`test_pipelines_service.py` or similar).
+  Combined baseline ≥127 mock tests passing.
+- `pnpm typecheck` + `pnpm build` clean.
+- Sprint report written, brain memory rotated.
+- 0 new npm deps target (matches Sprints 2.0 / 2.1 / 2.2).
 
 ---
 
-## Recommended task breakdown (~one PR per group)
+**Out-of-scope but parked here for awareness — fold into 2.4+:**
 
-This list is provisional — refine at sprint start with product owner.
-
-1. **Schema + ORM + admin CRUD scaffold** — migration 0012, `app/forms/`
-   models + schemas + services + admin routers (list / create / update
-   / archive). Mock-only tests for service-layer validation.
-2. **Public submit endpoint + rate-limit + lead creation** — `POST
-   /api/forms/{slug}/submit` with CORS open, Redis counter, Lead
-   creation in pool, Activity emit, form_submission row.
-3. **embed.js generator** — `GET /api/forms/{slug}/embed.js`,
-   inline HTML + JS, UTM + Referer extraction, scoped CSS class
-   prefix, cache headers.
-4. **Admin UI** — `/forms` page (list + builder modal + embed panel),
-   sidebar nav for admin/head, source attribution on Lead Card.
-5. **Activity Feed integration + cumulative tests + sprint close** —
-   `form_submission` activity branch in Lead Card, end-to-end tests,
-   sprint report, brain doc updates.
-
-After all merged: schedule a Phase 2 Sprint 2.2 retro before opening 2.3.
-
----
-
-## Followups parked from earlier sprints
-
-- **Sprint 2.1 carryovers**:
-  - `apps/web/package-lock.json` removal (Sprint 2.2 G1 housekeeping)
-  - AmoCRM adapter (`app/import_export/adapters/amocrm.py` slots into
-    the same plumbing G4 used for Bitrix24)
-  - `pnpm add @sentry/nextjs` + DSN activation if production needs
-    real telemetry
-  - E2E UX smoke for /import / /export / AI bulk-update flows on
-    staging — Sprint 2.1 was structurally verified only
-- **Sprint 2.0 carryovers**:
-  - `_GENERIC_DOMAINS` per-workspace setting (matcher.py)
-  - Gmail history-sync 2000-message cap → resumable / paginated job
-  - `GOOGLE_CLIENT_ID/SECRET` activation if any new manager wants to
-    connect Gmail (graceful 503 until then)
-- **Phase G (Sprint 1.3 follow-on)** — move enrichment off FastAPI
-  BackgroundTasks onto Celery; WebSocket `/ws/{user_id}` for real-time
-  enrichment progress; replace the 2s polling
-- **DST-aware daily plan / digest cron** — handle hour-skip and
-  hour-duplicate edge cases
-- **TransferModal user picker** — replace UUID input with a
-  workspace-users picker once `GET /api/users` lands
-- **Tab content overflow audit at 375px** — DealTab / ScoringTab /
-  AIBriefTab / ContactsTab / ActivityTab / PilotTab not exhaustively
-  reviewed for mobile in Sprint 1.5 G6
-- **Cron retry on per-user LLM failure** (Sprint 1.4 carryover)
-- **Anthropic 403-from-RU mitigation** — possibly add a
-  reachable-fallback skip rule so the chain doesn't waste a round-trip
-  on every call
-- **pg_dump cron** + onboarding doc + log-volume review (Sprint 1.5
-  soft-launch tail)
+- AmoCRM adapter (Sprint 2.1 G5 deferred)
+- Telegram Business inbox + `gmail.send` scope (Sprint 2.0 deferred)
+- Quote / КП builder, Knowledge Base CRUD UI (Sprint 2.0 deferred)
+- `_GENERIC_DOMAINS` per-workspace setting (Sprint 2.0 carryover)
+- Gmail history-sync resumable / paginated job (Sprint 2.0 carryover)
+- Notification debounce on form-submission fan-out (Sprint 2.2 carryover)
+- Honeypot / timing trap on `embed.js` (Sprint 2.2 carryover)
+- `pnpm add @sentry/nextjs` activation (Sprint 2.1 G10 carryover)
+- pg_dump cron + Sentry DSNs (Sprint 1.5 soft-launch carryover)
+- Phase G (Sprint 1.3) — move enrichment off FastAPI BackgroundTasks
+  onto Celery; WebSocket `/ws/{user_id}` for real-time progress
+- DST-aware cron edge handling

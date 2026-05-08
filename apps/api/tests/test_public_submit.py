@@ -418,6 +418,14 @@ async def test_company_name_fallback_to_form_name():
                 setattr(self, k, v)
             self.id = uuid.uuid4()
 
+    # Sprint 2.2 G4: lead_factory now always emits a form_submission
+    # Activity, so we have to spy that constructor too — the stubbed
+    # ORM Activity class doesn't accept kwargs.
+    class _ActivitySpy:
+        def __init__(self, **kw):
+            for k, v in kw.items():
+                setattr(self, k, v)
+
     db = _make_db()
 
     pipelines_module = ModuleType("app.pipelines")
@@ -426,6 +434,7 @@ async def test_company_name_fallback_to_form_name():
     pipelines_module.repositories = repos_module
 
     with patch("app.forms.lead_factory.Lead", _LeadSpy), \
+         patch("app.forms.lead_factory.Activity", _ActivitySpy), \
          patch.dict(sys.modules, {
              "app.pipelines": pipelines_module,
              "app.pipelines.repositories": repos_module,

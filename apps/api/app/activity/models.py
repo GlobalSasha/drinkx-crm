@@ -22,6 +22,7 @@ class ActivityType(str, Enum):
     system = "system"
     stage_change = "stage_change"
     score_update = "score_update"
+    form_submission = "form_submission"
 
 
 class Activity(Base, UUIDPrimaryKeyMixin, TimestampedMixin):

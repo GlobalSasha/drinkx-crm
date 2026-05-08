@@ -102,6 +102,77 @@ from app.forms.slug import generate_slug  # noqa: E402
 WS = uuid.uuid4()
 
 
+# ---------------------------------------------------------------------------
+# Lead-factory fixtures — Sprint 2.2 G4
+#
+# The lead_factory module constructs Lead and Activity ORM objects. Under
+# the sqlalchemy stub above, those classes inherit from a stub
+# DeclarativeBase whose default __init__ rejects kwargs. We swap them
+# (and the local pipelines repo import) for spy classes that capture
+# constructor kwargs into a list — enough to assert which Activity rows
+# would be persisted.
+# ---------------------------------------------------------------------------
+
+def _make_lead_factory_env():
+    """Build the patches + capture lists needed to drive
+    create_lead_from_submission without a real DB. Returns (lead_kw_list,
+    activity_kw_list, contextmanager-stack-builder)."""
+    leads_captured: list[dict] = []
+    activities_captured: list[dict] = []
+
+    class _LeadSpy:
+        def __init__(self, **kw):
+            leads_captured.append(kw)
+            for k, v in kw.items():
+                setattr(self, k, v)
+            self.id = uuid.uuid4()
+
+    class _ActivitySpy:
+        def __init__(self, **kw):
+            activities_captured.append(kw)
+            for k, v in kw.items():
+                setattr(self, k, v)
+
+    # Always feed the factory a stage tuple so it never tries to hit
+    # the real pipelines repo when target_* is None.
+    async def fake_get_default_first_stage(_session, _ws):
+        return (uuid.uuid4(), uuid.uuid4())
+
+    from app.forms import lead_factory as lf_mod
+
+    patches = [
+        patch.object(lf_mod, "Lead", _LeadSpy),
+        patch.object(lf_mod, "Activity", _ActivitySpy),
+        patch(
+            "app.pipelines.repositories.get_default_first_stage",
+            new=fake_get_default_first_stage,
+        ),
+    ]
+    return leads_captured, activities_captured, patches
+
+
+def _make_form(**overrides):
+    """Mock WebForm instance for lead_factory. We don't construct the
+    real ORM class — the factory only reads attributes."""
+    form = MagicMock()
+    form.workspace_id = WS
+    form.target_pipeline_id = uuid.uuid4()
+    form.target_stage_id = uuid.uuid4()
+    form.name = "Тестовая форма"
+    form.slug = "testovaya-forma-abc123"
+    for k, v in overrides.items():
+        setattr(form, k, v)
+    return form
+
+
+def _make_session():
+    """AsyncSession mock — sync .add(), async .flush()."""
+    session = AsyncMock()
+    session.add = MagicMock()
+    session.flush = AsyncMock()
+    return session
+
+
 # ===========================================================================
 # Slug
 # ===========================================================================
@@ -224,3 +295,100 @@ async def test_list_forms_scoped_to_workspace():
     assert captured["page_size"] == 20
     assert rows == []
     assert total == 0
+
+
+# ===========================================================================
+# Lead-factory: form_submission Activity — Sprint 2.2 G4
+# ===========================================================================
+
+@pytest.mark.asyncio
+async def test_form_submission_activity_created():
+    """Every public-form submission lands at least one
+    Activity(type='form_submission') on the new lead, carrying form_name,
+    form_slug, source_domain and utm. This is the canonical provenance
+    record the Activity Feed renders as «Заявка с формы»."""
+    from app.forms import lead_factory as lf_mod
+
+    leads, activities, patches = _make_lead_factory_env()
+    form = _make_form(name="Лендинг QSR", slug="lending-qsr-xx9911")
+    session = _make_session()
+
+    with patches[0], patches[1], patches[2]:
+        lead = await lf_mod.create_lead_from_submission(
+            session,
+            form=form,
+            payload={"company": "ООО Кофейня"},
+            source_domain="example.ru",
+            utm={"utm_source": "google", "utm_campaign": "qsr-q4"},
+        )
+
+    assert lead is not None
+    assert len(leads) == 1, "exactly one Lead should be created"
+
+    fs = [a for a in activities if a.get("type") == "form_submission"]
+    assert len(fs) == 1, "exactly one form_submission activity expected"
+    payload = fs[0]["payload_json"]
+    assert payload["form_name"] == "Лендинг QSR"
+    assert payload["form_slug"] == "lending-qsr-xx9911"
+    assert payload["source_domain"] == "example.ru"
+    assert payload["utm"] == {"utm_source": "google", "utm_campaign": "qsr-q4"}
+
+
+@pytest.mark.asyncio
+async def test_notes_activity_created_when_comment_in_payload():
+    """When the submitted payload carries a freeform note (RU
+    «комментарий» or EN «comment»/«message»), the factory emits BOTH a
+    type='comment' activity (with the surfaced text) and a separate
+    type='form_submission' activity. The two are intentionally
+    independent — the comment renders as plain text in the feed, the
+    form_submission carries structured provenance."""
+    from app.forms import lead_factory as lf_mod
+
+    leads, activities, patches = _make_lead_factory_env()
+    form = _make_form()
+    session = _make_session()
+
+    with patches[0], patches[1], patches[2]:
+        await lf_mod.create_lead_from_submission(
+            session,
+            form=form,
+            payload={
+                "company": "ООО Тест",
+                "comment": "Хочу узнать цены на кофейные станции",
+            },
+            source_domain="example.ru",
+        )
+
+    types = [a.get("type") for a in activities]
+    assert "form_submission" in types
+    assert "comment" in types
+
+    comment = next(a for a in activities if a.get("type") == "comment")
+    assert "Хочу узнать цены" in comment["payload_json"]["text"]
+    assert comment["payload_json"]["source"] == "webform"
+
+
+@pytest.mark.asyncio
+async def test_no_comment_activity_when_no_notes():
+    """A payload with no comment/notes/message field produces ONLY the
+    form_submission activity — we don't fabricate an empty comment row,
+    which would clutter the Activity Feed with «Комментарий: » that
+    has nothing in it."""
+    from app.forms import lead_factory as lf_mod
+
+    leads, activities, patches = _make_lead_factory_env()
+    form = _make_form()
+    session = _make_session()
+
+    with patches[0], patches[1], patches[2]:
+        await lf_mod.create_lead_from_submission(
+            session,
+            form=form,
+            payload={"company": "ООО Без Комментария", "email": "a@b.ru"},
+            source_domain=None,
+        )
+
+    types = [a.get("type") for a in activities]
+    assert types == ["form_submission"], (
+        f"expected only form_submission, got {types!r}"
+    )

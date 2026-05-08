@@ -1,6 +1,6 @@
 # DrinkX CRM — Current State
 
-Last updated: 2026-05-08 (Sprint 2.1 ready for review; Sprint 2.0 merged + deployed)
+Last updated: 2026-05-08 (Sprint 2.2 ready for review; Sprint 2.1 ready for review; Sprint 2.0 merged + deployed)
 
 ## Phase 0 — COMPLETED ✅ (lives in `crm-prototype` repo)
 
@@ -214,8 +214,44 @@ Known issues / risks (carryover-aware):
 9. AmoCRM adapter (G5) deferred — same plumbing as Bitrix24, lands in 2.2+
 10. E2E UX smoke deferred to staging — all Sprint 2.1 verifications are structural (`tsc`, `next build`, mock pytest)
 
+### ✅ Sprint 2.2 — WebForms (READY FOR REVIEW — branch `sprint/2.2-webforms`)
+**4 groups, commit range `32b5d79..HEAD`**
+
+Backend:
+- Migration `0012_webforms` — `web_forms` (workspace_id CASCADE, name, slug UNIQUE, fields_json, target_pipeline_id SET NULL, target_stage_id SET NULL, redirect_url, is_active default true, submissions_count default 0, created_by SET NULL, created_at, updated_at) + `form_submissions` (web_form_id CASCADE, lead_id SET NULL, raw_payload, utm_json, source_domain, ip, created_at) + indexes
+- New `app/forms/` package: models, schemas (FieldDefinition + WebFormOut + FormSubmissionOut), repositories, services (create_form auto-slug + IntegrityError retry × 3, soft_delete, update with model_dump exclude_unset), slug.py (stdlib-only RU translit + 6-char base36 random suffix), routers (admin REST, admin/head gated for write), public_routers (`/api/public/forms/{slug}/{submit,embed.js}`), rate_limit (Redis INCR + conditional EXPIRE, fail-open envelope), embed.py (self-contained ~90-line JS blob, once-loaded guard via `window.__drinkxFormLoaded_<slug>`), lead_factory (FORM_FIELD_TO_LEAD case-insensitive RU+EN dictionary, projects payload → Lead in pool, ADR-007 compliance — never assigns / never advances stage / never triggers AI)
+- `PublicFormsCORSMiddleware` (Starlette `BaseHTTPMiddleware`) — wildcard CORS scoped to `/api/public/*` only; global `CORSMiddleware` stays restrictive
+- Activity types extended: `form_submission` joins the enum (DB column is `String(30)`, no migration); `Activity(type='form_submission')` carries `{form_name, form_slug, source_domain, utm}` for the Activity-Feed render
+
+Frontend:
+- New `/forms` admin page (admin/head gated, redirect non-privileged via `useMe`): sticky header + table (name + slug + submissions_count + is_active toggle + relative-time + delete) + empty state + confirm-delete modal explaining soft-delete semantics
+- New `FormEditor` modal — «Настройки» tab (name + fields editor with stable `_clientId` keys + target stage flat picker + redirect URL) and «Встроить» tab (composes full snippet from `embed_snippet`, copy button with `clipboard.writeText` + select-fallback, direct embed.js URL, slug-stability tip)
+- AppShell: «Формы» nav item with ClipboardList icon, gated to admin/head
+- Lead Card Activity Feed: new `form_submission` branch — ClipboardList icon, bold form name, source domain mono, optional UTM source; «Заявки» filter chip
+- Lead Card header: `source` chip (mono, max-w-[180px], truncate with title attr) — surfaces provenance (form:slug, import:bitrix, manual…)
+
+Tests:
+- 18 mock-only Sprint 2.2 tests (`test_webforms.py` 9 + `test_public_submit.py` 9), 0 DB / 0 Redis / 0 network
+- Combined with Sprint 1.5 / 2.0 / 2.1 baseline: **117 mock tests passing**
+- `pnpm typecheck` + `pnpm build` clean (12 routes prerender, was 11)
+- 0 new npm deps; 0 new Python deps
+
+Architecture decisions (full list in `SPRINT_2_2_WEBFORMS.md`):
+- Scoped `PublicFormsCORSMiddleware`, not global wildcard
+- Per-`(slug, ip)` rate-limit, not per-IP global
+- Once-loaded guard in embed.js, not idempotent rendering
+- Soft-delete returns 410 Gone (not 404) so embed.js doesn't crash landing pages
+- `form_submission` separate Activity type, not a plain comment — keeps provenance from being eroded by manager-edited comments and lets filter chips separate the two
+
+Known issues / risks (full list in `SPRINT_2_2_WEBFORMS.md`):
+1. `target_stage_id` workspace validation client-side only — backend service-layer check TODO Sprint 2.3
+2. Notification fan-out has no debounce — bot abuse could page every admin
+3. CORS preflight smoke test deferred to staging (needs real DNS)
+4. ~~Sentry `@sentry/nextjs` package~~ — still carryover from 2.1, not addressed
+5. No honeypot / CAPTCHA on public endpoint — rate-limit alone protects v1
+
 ### ⏸ NOT YET BUILT
-- **Phase 2** — WebForms (Sprint 2.2 NEXT), AmoCRM adapter, Telegram Business inbox + email send, Quote/КП builder, Knowledge Base CRUD UI, Apify, multi-pipeline switcher
+- **Phase 2** — Multi-pipeline switcher (Sprint 2.3 NEXT), AmoCRM adapter, Telegram Business inbox + email send, Quote/КП builder, Knowledge Base CRUD UI, Apify
 - **Phase 3** — MCP server, Sales Coach chat, OCR визиток, pgvector
 
 ---
@@ -262,4 +298,4 @@ Resolved this sprint:
 ---
 
 ## Next
-**Phase 2 Sprint 2.2 — WebForms (public lead-capture).** See `docs/brain/04_NEXT_SPRINT.md`.
+**Phase 2 Sprint 2.3 — Multi-pipeline switcher.** See `docs/brain/04_NEXT_SPRINT.md`.

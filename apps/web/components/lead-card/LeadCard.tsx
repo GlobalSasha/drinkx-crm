@@ -254,6 +254,18 @@ export function LeadCard({ leadId }: Props) {
                   </span>
                 )}
 
+                {/* Source — Sprint 2.2 G4. Surfaces provenance
+                    (form:slug, import:bitrix, manual…) so the manager
+                    sees at a glance how the lead landed. */}
+                {lead.source && (
+                  <span
+                    className="text-xs text-muted-2 bg-black/5 px-2 py-0.5 rounded-md font-mono truncate max-w-[180px]"
+                    title={`Источник: ${lead.source}`}
+                  >
+                    {lead.source}
+                  </span>
+                )}
+
                 {/* Score */}
                 <span
                   className={`font-mono text-xs font-semibold px-2 py-0.5 rounded-md tabular-nums ${scoreChipClass(lead.score)}`}
