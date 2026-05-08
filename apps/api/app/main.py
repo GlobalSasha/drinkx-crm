@@ -139,6 +139,9 @@ def create_app() -> FastAPI:
     from app.users.routers import router as users_router
     app.include_router(users_router)
 
+    from app.settings.routers import router as settings_router
+    app.include_router(settings_router)
+
     return app
 
 

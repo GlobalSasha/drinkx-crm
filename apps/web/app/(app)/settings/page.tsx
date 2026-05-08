@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 
+import { ChannelsSection } from "@/components/settings/ChannelsSection";
 import { PipelinesSection } from "@/components/settings/PipelinesSection";
 import { TeamSection } from "@/components/settings/TeamSection";
 
@@ -24,8 +25,8 @@ type SectionKey =
   | "pipelines"
   | "profile"
   | "team"
+  | "channels"
   | "notifications"
-  | "integrations"
   | "api";
 
 interface SectionDef {
@@ -39,9 +40,9 @@ interface SectionDef {
 const SECTIONS: SectionDef[] = [
   { key: "pipelines",     label: "Воронки",      icon: <Split size={15} />,    ready: true  },
   { key: "team",          label: "Команда",      icon: <Users size={15} />,    ready: true  },
+  { key: "channels",      label: "Каналы",       icon: <Plug size={15} />,     ready: true  },
   { key: "profile",       label: "Профиль",      icon: <User size={15} />,     ready: false },
   { key: "notifications", label: "Уведомления",  icon: <BellRing size={15} />, ready: false },
-  { key: "integrations",  label: "Интеграции",   icon: <Plug size={15} />,     ready: false },
   { key: "api",           label: "API",          icon: <KeyRound size={15} />, ready: false },
 ];
 
@@ -93,11 +94,14 @@ export default function SettingsPage() {
         <main className="min-w-0">
           {active === "pipelines" && <PipelinesSection />}
           {active === "team" && <TeamSection />}
-          {active !== "pipelines" && active !== "team" && (
-            <div className="bg-canvas/60 border border-black/5 rounded-2xl px-6 py-12 text-center">
-              <p className="text-sm text-muted">Эта секция появится позже.</p>
-            </div>
-          )}
+          {active === "channels" && <ChannelsSection />}
+          {active !== "pipelines" &&
+            active !== "team" &&
+            active !== "channels" && (
+              <div className="bg-canvas/60 border border-black/5 rounded-2xl px-6 py-12 text-center">
+                <p className="text-sm text-muted">Эта секция появится позже.</p>
+              </div>
+            )}
         </main>
       </div>
     </div>

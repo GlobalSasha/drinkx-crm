@@ -843,3 +843,27 @@ export interface UserInviteUpstreamError {
   message: string;
   upstream: string;
 }
+
+// ---- Settings → Каналы (Sprint 2.4 G2) ----
+
+export interface GmailChannelOut {
+  /** Server has GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET in env. */
+  configured: boolean;
+  /** Current user has an active ChannelConnection row. */
+  connected: boolean;
+  last_sync_at: string | null;
+}
+
+export interface SmtpConfigOut {
+  /** SMTP_HOST is non-empty — server is in stub mode otherwise. */
+  configured: boolean;
+  host: string;
+  port: number;
+  from_address: string;
+  user: string;
+}
+
+export interface ChannelsStatusOut {
+  gmail: GmailChannelOut;
+  smtp: SmtpConfigOut;
+}
