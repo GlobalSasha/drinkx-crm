@@ -1,27 +1,34 @@
-"""Settings REST endpoints — Sprint 2.4 G2.
+"""Settings REST endpoints — Sprint 2.4 G2 + G3.
 
-Read-only views the admin needs in /settings → «Каналы»:
-  GET /api/settings/channels — Gmail per-user state + SMTP config.
+Surface in /settings:
+  GET   /api/settings/channels — Gmail per-user state + SMTP config (G2)
+  GET   /api/settings/ai       — workspace AI section (admin) (G3)
+  PATCH /api/settings/ai       — flip budget cap / primary model (admin) (G3)
 
-Both pieces of data already live in the system (ChannelConnection
-table + app.config.Settings). This endpoint just resolves them
-into a single payload the frontend can render. No new persistent
-storage; no DB-backed SMTP credentials in v1 (Sprint 2.4 NOT-ALLOWED).
+Channels: read-only resolution of already-existing config (Sprint 2.0
+ChannelConnection rows + env-var SMTP). AI: resolves env defaults +
+workspace overrides into a typed payload, persists overrides in
+workspace.settings_json (no migration — JSON column existed since
+Sprint 1.1).
 """
 from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import current_user
+from app.audit.audit import log as log_audit_event
+from app.auth.dependencies import current_user, require_admin
 from app.auth.models import User
 from app.config import get_settings
 from app.db import get_db
 from app.inbox.models import ChannelConnection
+from app.settings import services as svc
 from app.settings.schemas import (
+    AISettingsOut,
+    AISettingsUpdateIn,
     ChannelsStatusOut,
     GmailChannelOut,
     SmtpConfigOut,
@@ -85,3 +92,71 @@ async def get_channels_status(
     )
 
     return ChannelsStatusOut(gmail=gmail, smtp=smtp)
+
+
+# ---------------------------------------------------------------------------
+# AI section — Sprint 2.4 G3
+# ---------------------------------------------------------------------------
+
+
+@router.get("/ai", response_model=AISettingsOut)
+async def get_ai_settings_endpoint(
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(require_admin)] = ...,
+) -> AISettingsOut:
+    """Return the workspace's AI configuration.
+
+    Admin-only — surfaces the daily spend (the budget guard reads the
+    same Redis counter so the UI gauge can't drift) plus the chosen
+    primary provider. Managers don't need this view; they only see
+    enrichment results, not the budget knobs.
+    """
+    payload = await svc.get_ai_settings(db, workspace_id=user.workspace_id)
+    return AISettingsOut.model_validate(payload)
+
+
+@router.patch("/ai", response_model=AISettingsOut)
+async def update_ai_settings_endpoint(
+    payload: AISettingsUpdateIn,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(require_admin)] = ...,
+) -> AISettingsOut:
+    """Update the workspace's AI configuration. Admin-only."""
+    try:
+        result = await svc.update_ai_settings(
+            db,
+            workspace_id=user.workspace_id,
+            daily_budget_usd=payload.daily_budget_usd,
+            primary_model=payload.primary_model,
+        )
+    except svc.InvalidAIModel as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "invalid_model",
+                "message": f"Неизвестная модель: {exc}",
+            },
+        ) from exc
+    except svc.InvalidBudget as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "invalid_budget",
+                "message": "Бюджет не может быть отрицательным.",
+            },
+        ) from exc
+
+    await log_audit_event(
+        db,
+        workspace_id=user.workspace_id,
+        user_id=user.id,
+        action="settings.ai_change",
+        entity_type="workspace",
+        entity_id=user.workspace_id,
+        delta={
+            "daily_budget_usd": payload.daily_budget_usd,
+            "primary_model": payload.primary_model,
+        },
+    )
+    await db.commit()
+    return AISettingsOut.model_validate(result)

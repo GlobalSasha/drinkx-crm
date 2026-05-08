@@ -43,3 +43,49 @@ class SmtpConfigOut(BaseModel):
 class ChannelsStatusOut(BaseModel):
     gmail: GmailChannelOut
     smtp: SmtpConfigOut
+
+
+# ---------------------------------------------------------------------------
+# AI section — Sprint 2.4 G3
+#
+# Surfaces the workspace's per-day spend cap + preferred LLM provider.
+# Stored in `workspace.settings_json["ai"]` (no migration — JSON column
+# already exists since Sprint 1.1). The fallback chain in
+# `app/enrichment/providers/factory.py` still reads env in v1; wiring the
+# workspace override into the chain is a 2.4+ polish carryover so the UI
+# value persists but doesn't yet alter live behavior. Documented in the
+# AI card copy.
+# ---------------------------------------------------------------------------
+
+# Names match `app/enrichment/providers/factory.py:_REGISTRY`. Add new
+# providers here in lock-step with the registry — anything not in this
+# tuple is rejected at PATCH time.
+AI_MODEL_CHOICES = ("deepseek", "anthropic", "gemini", "mimo")
+
+
+class AISettingsOut(BaseModel):
+    """GET /api/settings/ai response.
+
+    `daily_budget_usd` and `primary_model` are the workspace overrides
+    (or the env defaults if no override yet). `current_spend_usd_today`
+    is read from the Redis budget counter so the gauge in the UI matches
+    what the enrichment guard sees.
+    """
+    daily_budget_usd: float
+    # Default if workspace hasn't picked a model yet — first item of
+    # the env's llm_fallback_chain. Useful for the UI to render the
+    # selector with a meaningful initial value.
+    primary_model: str
+    # Live spend today (UTC day boundary). 0.0 when Redis is unreachable
+    # — see budget.get_daily_spend_usd's defensive fallback.
+    current_spend_usd_today: float
+    # Allowed values for the selector — keeps the frontend honest
+    # without hardcoding the same list in two places.
+    available_models: list[str]
+
+
+class AISettingsUpdateIn(BaseModel):
+    """PATCH /api/settings/ai body. Both fields optional — UI sends
+    only the field it's changing. None means «leave as-is»."""
+    daily_budget_usd: float | None = None
+    primary_model: str | None = None

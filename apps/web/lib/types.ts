@@ -867,3 +867,51 @@ export interface ChannelsStatusOut {
   gmail: GmailChannelOut;
   smtp: SmtpConfigOut;
 }
+
+// ---- Settings → AI (Sprint 2.4 G3) ----
+
+export interface AISettingsOut {
+  daily_budget_usd: number;
+  primary_model: string;
+  current_spend_usd_today: number;
+  available_models: string[];
+}
+
+export interface AISettingsUpdateIn {
+  daily_budget_usd?: number;
+  primary_model?: string;
+}
+
+// ---- Custom Attributes (Sprint 2.4 G3) ----
+
+export type AttributeKind = "text" | "number" | "date" | "select";
+
+export interface AttributeOption {
+  value: string;
+  label: string;
+}
+
+export interface CustomAttributeDefinitionOut {
+  id: string;
+  key: string;
+  label: string;
+  kind: AttributeKind;
+  options_json: AttributeOption[] | null;
+  is_required: boolean;
+  position: number;
+}
+
+export interface CustomAttributeDefinitionCreateIn {
+  key: string;
+  label: string;
+  kind: AttributeKind;
+  options_json?: AttributeOption[] | null;
+  is_required?: boolean;
+}
+
+export interface CustomAttributeDefinitionUpdateIn {
+  label?: string;
+  options_json?: AttributeOption[] | null;
+  is_required?: boolean;
+  position?: number;
+}
