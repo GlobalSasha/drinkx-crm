@@ -52,3 +52,17 @@ async def require_admin(user: Annotated[User, Depends(current_user)]) -> User:
     if user.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="admin role required")
     return user
+
+
+async def require_admin_or_head(
+    user: Annotated[User, Depends(current_user)],
+) -> User:
+    """Sprint 2.2: WebForms create/update/delete is gated to admin + head.
+    Plain `manager` role can read but not mutate forms — same shape as
+    other admin tooling (audit log, settings) but slightly looser."""
+    if user.role not in ("admin", "head"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="admin or head role required",
+        )
+    return user

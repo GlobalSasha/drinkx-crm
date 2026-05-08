@@ -90,6 +90,9 @@ def create_app() -> FastAPI:
     app.include_router(import_export_router)
     app.include_router(import_export_export_router)
 
+    from app.forms.routers import router as forms_router
+    app.include_router(forms_router)
+
     return app
 
 

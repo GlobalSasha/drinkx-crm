@@ -27,6 +27,7 @@ from app.notifications import models as _notifications_models  # noqa: F401, E40
 from app.audit import models as _audit_models  # noqa: F401, E402
 from app.inbox import models as _inbox_models  # noqa: F401, E402
 from app.import_export import models as _import_export_models  # noqa: F401, E402
+from app.forms import models as _forms_models  # noqa: F401, E402
 
 _s = get_settings()
 
