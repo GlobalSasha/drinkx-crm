@@ -4,10 +4,45 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import get_settings
+
+
+class PublicFormsCORSMiddleware(BaseHTTPMiddleware):
+    """Wildcard-CORS for `/api/public/*` (Sprint 2.2 WebForms).
+
+    The global CORSMiddleware below is restricted to `cors_origins` so
+    /api/leads etc. don't accidentally accept calls from arbitrary
+    domains. Public form submissions, by design, must accept any origin
+    — that's the whole point of an embeddable form. This middleware
+    runs ahead of the global one and short-circuits OPTIONS preflight
+    + adds permissive CORS headers on the response, ONLY for paths
+    starting with `/api/public/`.
+
+    Bearer-Authorization isn't a CORS credential per spec, so wildcard
+    origin + no credentials is the right shape here. Cookies are not
+    used for these endpoints.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        is_public = request.url.path.startswith("/api/public/")
+        if is_public and request.method == "OPTIONS":
+            return Response(
+                status_code=200,
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type",
+                    "Access-Control-Max-Age": "86400",
+                },
+            )
+        response = await call_next(request)
+        if is_public:
+            response.headers["Access-Control-Allow-Origin"] = "*"
+        return response
 
 log = structlog.get_logger()
 
@@ -40,6 +75,11 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # Added LAST so it runs FIRST in the middleware stack (Starlette
+    # executes outermost-to-innermost on request, innermost-to-outermost
+    # on response). This lets us short-circuit /api/public/* preflight
+    # before the restrictive global CORSMiddleware sees it.
+    app.add_middleware(PublicFormsCORSMiddleware)
 
     @app.get("/health", tags=["meta"])
     async def health() -> dict[str, str]:
@@ -92,6 +132,9 @@ def create_app() -> FastAPI:
 
     from app.forms.routers import router as forms_router
     app.include_router(forms_router)
+
+    from app.forms.public_routers import public_router as forms_public_router
+    app.include_router(forms_public_router)
 
     return app
 

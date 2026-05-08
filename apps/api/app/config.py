@@ -97,6 +97,10 @@ class Settings(BaseSettings):
     # write within sane bounds.
     import_max_upload_mb: int = 10
 
+    # WebForms (Sprint 2.2). Per-IP submit rate limit. 10/min is enough
+    # for any human + a small testing buffer; bots get throttled at 11.
+    form_rate_limit_per_minute: int = 10
+
 
 @lru_cache
 def get_settings() -> Settings:
