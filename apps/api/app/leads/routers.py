@@ -38,6 +38,7 @@ router = APIRouter(prefix="/leads", tags=["leads"])
 @router.get("", response_model=LeadListOut)
 async def list_leads(
     stage_id: UUID | None = None,
+    pipeline_id: UUID | None = None,
     segment: str | None = None,
     city: str | None = None,
     priority: str | None = None,
@@ -51,6 +52,7 @@ async def list_leads(
 ) -> LeadListOut:
     filters = dict(
         stage_id=stage_id,
+        pipeline_id=pipeline_id,
         segment=segment,
         city=city,
         priority=priority,

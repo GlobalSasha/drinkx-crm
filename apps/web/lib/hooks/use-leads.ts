@@ -16,6 +16,10 @@ import { Priority } from "@/lib/types";
 
 export interface LeadFilters {
   stage_id?: string;
+  // Sprint 2.3 G2: scope the board to one voronka. /today and
+  // /leads-pool intentionally don't pass this — they aggregate across
+  // all of the user's pipelines.
+  pipeline_id?: string;
   segment?: string;
   city?: string;
   priority?: string;
@@ -28,6 +32,7 @@ export interface LeadFilters {
 function buildQuery(filters: LeadFilters): string {
   const p = new URLSearchParams();
   if (filters.stage_id) p.set("stage_id", filters.stage_id);
+  if (filters.pipeline_id) p.set("pipeline_id", filters.pipeline_id);
   if (filters.segment) p.set("segment", filters.segment);
   if (filters.city) p.set("city", filters.city);
   if (filters.priority) p.set("priority", filters.priority);

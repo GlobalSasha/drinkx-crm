@@ -23,6 +23,7 @@ async def list_leads(
     workspace_id: uuid.UUID,
     *,
     stage_id: uuid.UUID | None = None,
+    pipeline_id: uuid.UUID | None = None,
     segment: str | None = None,
     city: str | None = None,
     priority: str | None = None,
@@ -32,13 +33,21 @@ async def list_leads(
     page: int = 1,
     page_size: int = 50,
 ) -> tuple[list[Lead], int]:
-    """Return (rows, total) — only assignment_status='assigned' leads."""
+    """Return (rows, total) — only assignment_status='assigned' leads.
+
+    Sprint 2.3 G2: pipeline_id filter scopes the result set to one
+    voronka. The /pipeline switcher passes the user-selected pipeline
+    id; /today and /leads-pool intentionally don't filter and keep
+    aggregating across all of the user's pipelines.
+    """
     base = select(Lead).where(
         Lead.workspace_id == workspace_id,
         Lead.assignment_status == "assigned",
     )
     if stage_id is not None:
         base = base.where(Lead.stage_id == stage_id)
+    if pipeline_id is not None:
+        base = base.where(Lead.pipeline_id == pipeline_id)
     if segment is not None:
         base = base.where(Lead.segment == segment)
     if city is not None:

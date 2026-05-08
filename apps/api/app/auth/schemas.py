@@ -15,6 +15,10 @@ class WorkspaceOut(BaseModel):
     name: str
     plan: str
     sprint_capacity_per_week: int
+    # Sprint 2.3 G2: surfaces the canonical default pipeline so the
+    # /pipeline switcher can hydrate cold-load to the right voronka
+    # without an extra round-trip.
+    default_pipeline_id: uuid.UUID | None = None
 
 
 class UserOut(BaseModel):

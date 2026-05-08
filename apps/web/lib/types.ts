@@ -469,6 +469,10 @@ export interface WorkspaceOut {
   name: string;
   plan: string;
   sprint_capacity_per_week: number;
+  // Sprint 2.3 G2: workspace's canonical default pipeline. Null while
+  // the bootstrap path hasn't run yet (impossible in practice — auth
+  // bootstrap creates one on first sign-in).
+  default_pipeline_id: string | null;
 }
 
 export type UserRole = "admin" | "head" | "manager";

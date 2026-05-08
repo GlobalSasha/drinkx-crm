@@ -1,12 +1,17 @@
-// Hook to fetch pipeline + stages.
-// The backend doesn't yet expose GET /pipelines, so we infer stages
-// from DEFAULT_STAGES hardcoded to match the seed data.
-// When the backend exposes a pipelines endpoint this can be replaced.
+// Hooks against the real GET /api/pipelines surface — Sprint 2.3 G2.
+//
+// Until G1 the frontend rendered a hardcoded fallback pipeline; now
+// that the backend exposes admin CRUD we read the workspace's actual
+// pipelines + their stages. The DEFAULT_STAGES export is kept around
+// purely as a seed for the upcoming Settings PipelineEditor (G3) — it
+// is no longer used by the live UI.
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api, ApiError } from "@/lib/api-client";
+import type { Pipeline, Stage } from "@/lib/types";
 
-import { useQuery } from "@tanstack/react-query";
-import type { Stage, Pipeline } from "@/lib/types";
-
-// Mirrors apps/api/app/pipelines/models.py DEFAULT_STAGES
+// Mirrors apps/api/app/pipelines/models.py DEFAULT_STAGES.
+// Used by the Settings PipelineEditor (G3) as the «start from the
+// 11-stage B2B template» seed. Not consumed by the live /pipeline view.
 export const DEFAULT_STAGES: Omit<Stage, "id" | "pipeline_id">[] = [
   { name: "Новый контакт",      position: 0,  color: "#a1a1a6", rot_days: 3,  probability: 5,   is_won: false, is_lost: false, gate_criteria_json: [] },
   { name: "Квалификация",       position: 1,  color: "#0a84ff", rot_days: 5,  probability: 15,  is_won: false, is_lost: false, gate_criteria_json: [] },
@@ -22,36 +27,33 @@ export const DEFAULT_STAGES: Omit<Stage, "id" | "pipeline_id">[] = [
   { name: "Закрыто (lost)",     position: 11, color: "#ff3b30", rot_days: 0,  probability: 0,   is_won: false, is_lost: true,  gate_criteria_json: [] },
 ];
 
-// Fallback pipeline used when backend has no /pipelines endpoint yet.
-// Stage IDs are derived from the first lead's stage_id on load — until that
-// happens we show named columns and map by name.
-const PLACEHOLDER_PIPELINE_ID = "default";
-
-function buildFallbackStages(): Stage[] {
-  return DEFAULT_STAGES.map((s, i) => ({
-    ...s,
-    id: `fallback-stage-${i}`,
-    pipeline_id: PLACEHOLDER_PIPELINE_ID,
-  }));
-}
-
 export function usePipelines() {
   return useQuery<Pipeline[]>({
     queryKey: ["pipelines"],
-    queryFn: async () => {
-      // Return a synthetic pipeline until the backend exposes GET /pipelines.
-      const stages = buildFallbackStages();
-      const pipeline: Pipeline = {
-        id: PLACEHOLDER_PIPELINE_ID,
-        workspace_id: "",
-        name: "Новые клиенты",
-        type: "sales",
-        is_default: true,
-        position: 0,
-        stages,
-      };
-      return [pipeline];
+    queryFn: () => api.get<Pipeline[]>("/pipelines"),
+    // Pipelines change once a quarter, not once a request. 60s is
+    // long enough to dedupe the obvious bursts during board reloads
+    // but short enough that a settings edit shows up on a tab switch
+    // without a hard refresh.
+    staleTime: 60_000,
+  });
+}
+
+/**
+ * POST /api/pipelines/{id}/set-default — flips the workspace default.
+ * Invalidates ['pipelines'] AND ['me'] on success: the dropdown's
+ * «по умолчанию» badge moves to the new default and the next cold-
+ * load picks it up. Caller is the Settings UI in G3 — left here in
+ * G2 so the hook surface is complete.
+ */
+export function useSetDefaultPipeline() {
+  const qc = useQueryClient();
+  return useMutation<Pipeline, ApiError, string>({
+    mutationFn: (pipelineId) =>
+      api.post<Pipeline>(`/pipelines/${pipelineId}/set-default`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pipelines"] });
+      qc.invalidateQueries({ queryKey: ["me"] });
     },
-    staleTime: Infinity, // static data
   });
 }

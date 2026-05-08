@@ -2,6 +2,7 @@
 import { Search, Plus, CalendarRange, Upload } from "lucide-react";
 import { usePipelineStore } from "@/lib/store/pipeline-store";
 import { ExportPopover } from "@/components/export/ExportPopover";
+import { PipelineSwitcher } from "@/components/pipeline/PipelineSwitcher";
 import type { LeadOut } from "@/lib/types";
 
 const SEGMENTS = [
@@ -46,6 +47,7 @@ export function PipelineHeader({ leads, totalCount }: Props) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <PipelineSwitcher />
           <button
             onClick={openCreateLeadModal}
             className="inline-flex items-center gap-1.5 bg-ink text-white rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-ink/90 active:scale-[0.98]"
