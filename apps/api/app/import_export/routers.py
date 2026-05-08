@@ -20,6 +20,11 @@ from app.auth.models import User
 from app.config import get_settings
 from app.db import get_db
 from app.import_export import services as svc
+from app.import_export.adapters.bitrix24 import (
+    apply_bitrix24_mapping,
+    is_bitrix24,
+    parse_bitrix24,
+)
 from app.import_export.field_map import LEAD_IMPORT_FIELDS
 from app.import_export.mapper import apply_mapping, suggest_mapping
 from app.import_export.models import ImportJobFormat, ImportJobStatus
@@ -135,23 +140,35 @@ async def upload(
     if resolved is None:
         resolved = detect_format(filename)
     if resolved is None or resolved in (
-        ImportJobFormat.bitrix24,
-        ImportJobFormat.amocrm,
-        ImportJobFormat.bulk_update_yaml,
+        ImportJobFormat.amocrm,           # Group 5
+        ImportJobFormat.bulk_update_yaml,  # Group 8
     ):
-        # Adapter formats are wired in Groups 4/5/8.
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="unsupported file extension; pass ?format=xlsx|csv|json|yaml",
+            detail="unsupported file extension; pass ?format=xlsx|csv|json|yaml|bitrix24",
         )
 
-    parsed = parse_file(content, filename, resolved)
+    if resolved == ImportJobFormat.bitrix24:
+        parsed = parse_bitrix24(content)
+    else:
+        parsed = parse_file(content, filename, resolved)
     if parsed.error:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=parsed.error
         )
 
-    suggestion = suggest_mapping(parsed.headers)
+    # Auto-detect: a CSV with Bitrix24-native headers gets the explicit
+    # treatment without `?format=bitrix24`. Manager just drops the file in.
+    auto_bitrix = (
+        resolved == ImportJobFormat.csv and is_bitrix24(parsed.headers)
+    )
+    if resolved == ImportJobFormat.bitrix24 or auto_bitrix:
+        suggestion = apply_bitrix24_mapping(parsed.headers)
+        if auto_bitrix:
+            # Reflect the actual treatment in the audit row, not the wire format.
+            resolved = ImportJobFormat.bitrix24
+    else:
+        suggestion = suggest_mapping(parsed.headers)
 
     # Validate against the suggested mapping so the preview surfaces
     # the validation summary the manager will see in step 2.
