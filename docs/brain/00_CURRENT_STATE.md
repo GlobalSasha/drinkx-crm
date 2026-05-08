@@ -1,6 +1,6 @@
 # DrinkX CRM — Current State
 
-Last updated: 2026-05-08 (Sprint 2.0 merged + deployed; Sprint 2.1 G1 in progress)
+Last updated: 2026-05-08 (Sprint 2.1 ready for review; Sprint 2.0 merged + deployed)
 
 ## Phase 0 — COMPLETED ✅ (lives in `crm-prototype` repo)
 
@@ -30,11 +30,13 @@ Repo: https://github.com/GlobalSasha/drinkx-crm
 drinkx-api-1       FastAPI + Alembic, port 8000 (127.0.0.1)
 drinkx-web-1       Next.js 15 + standalone, port 3000 (127.0.0.1)
 drinkx-worker-1    Celery worker — concurrency=2
-drinkx-beat-1      Celery beat — 4 cron entries (post-Sprint-2.0):
+drinkx-beat-1      Celery beat — 4 cron entries (unchanged in Sprint 2.1):
                      :00 hourly  → daily_plan_generator
                      :*/15       → followup_reminder_dispatcher
                      :30 hourly  → daily_email_digest (Sprint 1.5)
                      :*/5        → gmail_incremental_sync (Sprint 2.0)
+                   + Manual-trigger tasks (Sprint 2.1):
+                     bulk_import_run, run_bulk_update, run_export
 drinkx-postgres-1  Postgres 16
 drinkx-redis-1     Redis 7
 ```
@@ -168,8 +170,52 @@ Known issues / risks (full list in `SPRINT_2_0_GMAIL_INBOX.md`):
 6. ~~Migrations 0008 + 0009 NOT YET applied on production~~ — applied automatically via the api Dockerfile entrypoint (`uv run alembic upgrade head && uv run uvicorn`); `2938810` deploy verified web/api 200
 7. `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` not yet in production `.env` — graceful 503 on `Подключить Gmail` until set; rest of CRM unaffected
 
+### ✅ Sprint 2.1 — Bulk Import / Export + AI Bulk-Update (READY FOR REVIEW — branch `sprint/2.1-bulk-import-export`)
+**9 groups + G10 close (G5 AmoCRM deferred), commit range `46cc6a2..HEAD`**
+
+Backend:
+- Migration `0010_import_jobs` — `import_jobs` (workspace+user FKs, status enum, format enum, source_filename, upload_size_bytes, total/processed/succeeded/failed counters, error_summary, diff_json, created_at, finished_at) + `import_errors` (FK CASCADE, row_number, field, message)
+- Migration `0011_export_jobs` — `export_jobs` (workspace+user FKs, status/format enums, filters_json, row_count, error, redis_key, created_at, finished_at) + `(workspace_id, created_at DESC)` index
+- New `app/import_export/` package: parsers (XLSX/CSV/JSON/YAML with auto-detect delimiter + utf-8/cp1251 fallback), mapper (stdlib fuzzy match + conflict resolution), validators (email/INN/deal_amount/priority), exporters (5 formats incl. Markdown ZIP), snapshot (YAML for AI bulk-update), diff_engine (compute_diff with batched 3-query resolve + apply_diff_item), services (job lifecycle), routers (10 endpoints split across `/api/import` and `/api/export`)
+- New adapters: Bitrix24 (RU CSV with auto-detect via header signature, drops 8 bookkeeping columns), bulk_update (DrinkX Update Format v1.0 from external LLM)
+- New Celery tasks: `bulk_import_run` (per-row commit, real-time UI poll), `run_export` (Celery + Redis blob), `run_bulk_update` (diff apply with per-item rollback)
+- Redis bytes client (separate, no `decode_responses` so binary blobs survive)
+- Credentials encryption via Fernet (Sprint 2.0 carryover): `fernet:` prefix in existing TEXT column, graceful stub-mode fallback when FERNET_KEY empty, hard-fail on encrypted-row + missing-key
+
+Frontend:
+- New `/import` wizard: 4-step modal on `/pipeline` (upload → mapping → preview → progress); skips mapping step when uploaded file is bulk_update_yaml format
+- New «Экспорт» popover on `/pipeline` + `/leads-pool`: 5 format radio cards + AI Brief toggle + scope info; phase machine (idle → loading → polling → done|error); auth-aware blob download via `lib/download.ts` (works on prod cross-origin)
+- New «AI Обновление» modal on `/leads-pool`: 3-step (download snapshot → copy prompt → handoff to ImportWizard)
+- BulkUpdatePreview component for the AI bulk-update step 3: per-item collapsible rows with Change list, op-specific icons (+/−/↻/~), error panel separate
+- ImportWizard mounted globally in `(app)/layout.tsx` so any page can open it via pipeline-store
+
+Architecture decisions (full list in `SPRINT_2_1_BULK_IMPORT_EXPORT.md`):
+- Diff resolution via 3 batched queries, not N round-trips
+- Stage moves via diff bypass gate engine — preview UI is the human-in-the-loop ADR-007 gate
+- `is_bulk_update_yaml` is a 1KB regex sniff, not a yaml.safe_load
+- Per-item commit in apply tasks for real-time UI poll
+- Redis blob storage for exports (TTL 1h)
+- Separate `redis_bytes.py` client without `decode_responses`
+- Credentials at rest: prefix marker, not BYTEA migration
+
+Tests:
+- 64 mock-only Sprint 2.1 tests (crypto 6, import_jobs_service 6, import_parsers 16, bitrix24_adapter 9, exporters 10, snapshot 6, bulk_update 11). Combined with Sprint 1.5/2.0 baseline: **94 mock tests passing**, 0 DB, 0 network.
+- `pnpm typecheck` + `pnpm build` clean throughout, 0 new npm dependencies
+
+Known issues / risks (carryover-aware):
+1. `_GENERIC_DOMAINS` (Sprint 2.0) — still hardcoded, TODO 2.2+
+2. Gmail history-sync 2000-msg cap (Sprint 2.0) — TODO 2.2+ with resumable job
+3. `pg_dump` cron (Sprint 1.5) — still not configured
+4. ~~`credentials_json` plaintext~~ — closed in 2.1 G1
+5. ~~`pnpm-lock.yaml` not committed~~ — closed in 2.1 G10
+6. `apps/web/package-lock.json` is stale npm lockfile, causes Next.js multi-lockfile warning — TODO 2.2 G1 housekeeping
+7. Sentry DSNs still empty — backend init wired since 1.0, web stub added in 2.1 G10; operator just needs to set env vars + `pnpm add @sentry/nextjs`
+8. `FERNET_KEY` required pre-deploy — generation command in `SPRINT_2_1_BULK_IMPORT_EXPORT.md`
+9. AmoCRM adapter (G5) deferred — same plumbing as Bitrix24, lands in 2.2+
+10. E2E UX smoke deferred to staging — all Sprint 2.1 verifications are structural (`tsc`, `next build`, mock pytest)
+
 ### ⏸ NOT YET BUILT
-- **Phase 2** — Bulk Import/Export (Sprint 2.1 NEXT), Telegram Business inbox + email send (2.1+), Quote/КП builder, WebForms, Knowledge Base CRUD UI, Apify, multi-pipeline switcher
+- **Phase 2** — WebForms (Sprint 2.2 NEXT), AmoCRM adapter, Telegram Business inbox + email send, Quote/КП builder, Knowledge Base CRUD UI, Apify, multi-pipeline switcher
 - **Phase 3** — MCP server, Sales Coach chat, OCR визиток, pgvector
 
 ---
@@ -216,4 +262,4 @@ Resolved this sprint:
 ---
 
 ## Next
-**Phase 2 Sprint 2.1 — Bulk Import / Export.** See `docs/brain/04_NEXT_SPRINT.md`.
+**Phase 2 Sprint 2.2 — WebForms (public lead-capture).** See `docs/brain/04_NEXT_SPRINT.md`.
