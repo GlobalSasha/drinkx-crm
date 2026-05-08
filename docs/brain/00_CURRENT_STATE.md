@@ -1,6 +1,6 @@
 # DrinkX CRM — Current State
 
-Last updated: 2026-05-08 (Sprint 2.3 + 4 emergency hotfixes merged + deployed; HEAD = `6781145`)
+Last updated: 2026-05-08 (Sprint 2.4 G1+G2 in progress on branch; main HEAD = `b3f865c`)
 
 ## Phase 0 — COMPLETED ✅ (lives in `crm-prototype` repo)
 
@@ -311,8 +311,77 @@ After the hotfixes:
 - Migrations applied: `0013_default_pipeline`, `0014_bootstrap_orphan_workspaces`, `0015_merge_workspaces`.
 - Single-workspace assumption now baked in for the entire team. Multi-tenancy (second client) is Phase 3.
 
-### ⏸ NOT YET BUILT
-- **Phase 2** — Full Settings panel + Templates (Sprint 2.4 NEXT), Automation Builder, AmoCRM adapter, Telegram Business inbox + email send, Quote/КП builder, Knowledge Base CRUD UI, Apify
+### 🚧 Sprint 2.4 — Full Settings panel + Templates (IN PROGRESS — branch `sprint/2.4-settings-templates`)
+**5 groups planned, 2 of 5 done. Branch pushed; NOT merged to main per cadence (merge once after G5).**
+
+Commit range: `01e104a..871467c` (will extend through G3 / G4 / G5).
+
+#### G1 — Settings «Команда» + drop legacy `pipelines.is_default` ✅ DONE (`01e104a`)
+
+Backend:
+- New `app/users/` package: schemas / repositories / services / routers + `supabase_admin.py` (httpx wrapper around Supabase admin REST `invite_user_by_email`, stub-mode when SUPABASE_SECRET_KEY empty).
+- 4 endpoints under `/api/users`: `GET /` (all roles), `GET /invites` (all roles), `POST /invite` (admin), `PATCH /{id}/role` (admin).
+- Custom exceptions map to HTTP: UserNotFound (404), InvalidRole (400), LastAdminRefusal (409 with `code: last_admin`), InviteSendFailed (502 with `code: invite_send_failed`).
+- Idempotent re-invite: existing (workspace, email) row → re-send magic-link, no duplicate INSERT.
+- `app/auth/models.py:UserInvite` ORM class — workspace-scoped, FK SET NULL on `invited_by_user_id`, unique (workspace_id, email).
+- Migration `0016_user_invites` — table + indexes.
+- Migration `0017_drop_pipelines_is_default` — drops the legacy boolean. Idempotent (`DROP COLUMN IF EXISTS`). Downgrade re-creates + re-derives from `workspaces.default_pipeline_id`.
+- 5-place refactor stopping reads/writes of `is_default`: Pipeline model, PipelineOut schema, repositories.{get_default_pipeline_id, set_default, create_pipeline}, auth.bootstrap_workspace, diff_engine._resolve_stage_id (now reads `pipelines_repo.get_default_pipeline_id`).
+
+Frontend:
+- New `components/settings/TeamSection.tsx` — table of users (avatar + role chip + last login) + table of pending invites. Admin sees «Пригласить» CTA → `InviteModal` (email + suggested role, structured 502 retry handling) and inline role `<select>` per row (structured 409 last_admin handling).
+- New `lib/hooks/use-users.ts` — `useUsers / useUserInvites / useInviteUser / useChangeUserRole`.
+- `lib/types.ts` — Users domain types + `Pipeline.is_default` field removed.
+- `/settings/page.tsx` — «Команда» promoted out of «Скоро».
+
+Tests (mock-only, 0 DB / 0 Supabase / 0 network):
+- New `tests/test_users_service.py` — 9 tests (invite happy path / idempotent re-invite / aborts on Supabase error / role promote / role demote-last-admin refused / role demote allowed when ≥2 admins / invalid role × 2 / diff_engine reads via FK after drop).
+- `tests/test_auth_bootstrap.py:test_first_user_creates_workspace` updated: `"is_default" not in pipelines_created[0]`.
+- Combined baseline: **141 mock tests passing** (was 132 → +9).
+- `pnpm typecheck` + `pnpm build` clean. `/settings` 7.61 → 9.83 kB (+2.2 kB TeamSection).
+
+#### G2 — Settings «Каналы» (Gmail + SMTP read-only view) ✅ DONE (`871467c`)
+
+Backend (NEW `app/settings/` package):
+- `GET /api/settings/channels` (any role) — resolves env config + per-user `ChannelConnection` row into one payload.
+- `GmailChannelOut` (configured / connected / last_sync_at) + `SmtpConfigOut` (configured / host / port / from / user — NO password).
+- 0 new tables, 0 new migrations.
+
+Frontend:
+- New `components/settings/ChannelsSection.tsx` — Gmail card with 3 states (not configured / not connected / connected) + SMTP card with 4-field grid + active/stub-mode chip.
+- New `lib/hooks/use-channels.ts` — `useChannelsStatus()` with `refetchOnWindowFocus`.
+- `lib/types.ts` — channels types.
+- `lib/hooks/use-inbox.ts` — `useConnectGmail` typed with explicit `ApiError` generic.
+- `/settings/page.tsx` — «Каналы» replaces former «Интеграции» stub, positioned between «Команда» and «Профиль».
+
+Tests: 0 new (G2 spec: «build only — wires existing endpoints»). Baseline still **141 mock tests passing**. `/settings` 9.83 → **11.6 kB** (+1.8 kB ChannelsSection). 13 routes prerender.
+
+#### G3 ⏸ NEXT — Settings «AI» + «Кастомные поля» backend + UI
+
+Per spec in `04_NEXT_SPRINT.md`:
+- `GET / PATCH /api/settings/ai` (admin) — surfaces `workspace.settings_json` daily budget / model selection. NO migration (workspace.settings_json already exists since Sprint 1.1).
+- Migration `0018_custom_attributes`: `custom_attribute_definitions` (workspace_id CASCADE, key, label, kind ∈ text/number/date/select, options_json, is_required, position) + `lead_custom_values` (lead_id CASCADE, definition_id CASCADE, value_text/number/date — kind-discriminated).
+- New `app/custom_attributes/` package: models, schemas, repositories, services, routers (admin/head gated for writes).
+- New frontend sections: `AISection.tsx` (budget card + model selector + spend gauge) + `CustomFieldsSection.tsx` (list + create/edit + plain up/down position buttons — dnd-kit deferred).
+- Tests target ~8.
+
+Carryover for G5 polish (NOT G3):
+- Stage-replacement preview UX in PipelineEditor («N лидов потеряют стадию»).
+- Render custom fields on LeadCard — explicitly out of scope for G3 (Settings CRUD only).
+
+#### G4 ⏸ — Templates module
+Migration `0019_message_templates`. New `app/templates/` package. Tests ~6.
+
+#### G5 ⏸ — Polish + sprint close
+Audit hooks, notification on invite acceptance, sprint report, brain memory rotation, smoke checklist.
+
+#### Cadence note for next session
+- **DO NOT merge to main per group.** User wants a single merge after G5 close. G1 + G2 are pushed to `sprint/2.4-settings-templates` on origin; do NOT fast-forward main.
+- Migration 0017 (drop `pipelines.is_default`) is destructive — extra reason to hold the merge.
+- launch.json's web preview config was cleared (`b3f865c`) so the preview hook stops auto-firing on UI edits.
+
+### ⏸ NOT YET BUILT (after Sprint 2.4)
+- **Phase 2 Sprint 2.5+** — Automation Builder (consumes Templates from 2.4), AmoCRM adapter, Telegram Business inbox + email send, Quote/КП builder, Knowledge Base CRUD UI, Apify
 - **Phase 3** — Multi-tenancy (invite-flow + per-tenant routing for second client), MCP server, Sales Coach chat, OCR визиток, pgvector
 
 ---
@@ -385,4 +454,5 @@ Resolved this sprint:
 ---
 
 ## Next
-**Phase 2 Sprint 2.4 — Full Settings panel + Templates.** See `docs/brain/04_NEXT_SPRINT.md`.
+**Resume Sprint 2.4 G3** — Settings «AI» + «Кастомные поля» backend + UI + migration 0018.
+Branch `sprint/2.4-settings-templates` is at `871467c` on origin. See `04_NEXT_SPRINT.md` for the full G3 spec; the «Sprint 2.4 — IN PROGRESS» section above has up-to-date carryover + cadence notes.
