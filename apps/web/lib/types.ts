@@ -627,3 +627,28 @@ export interface ImportJobOut {
   created_at: string;
   finished_at: string | null;
 }
+
+// ---- Export ----
+
+export type ExportJobStatus = "pending" | "running" | "done" | "failed";
+
+export type ExportJobFormat = "xlsx" | "csv" | "json" | "yaml" | "md_zip";
+
+export interface ExportJobOut {
+  id: string;
+  workspace_id: string;
+  user_id: string | null;
+  status: ExportJobStatus | string;
+  format: ExportJobFormat | string;
+  row_count: number | null;
+  error: string | null;
+  created_at: string;
+  finished_at: string | null;
+  download_url: string | null;
+}
+
+export interface ExportRequestIn {
+  format: ExportJobFormat;
+  filters?: Record<string, unknown>;
+  include_ai_brief?: boolean;
+}

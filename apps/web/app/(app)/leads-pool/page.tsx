@@ -3,6 +3,7 @@ import { useState, useMemo, useCallback } from "react";
 import { Search, Loader2 } from "lucide-react";
 import { usePoolLeads, useClaimLead } from "@/lib/hooks/use-leads";
 import { Toast } from "@/components/ui/Toast";
+import { ExportPopover } from "@/components/export/ExportPopover";
 import { tierFromScore } from "@/lib/types";
 import type { LeadOut } from "@/lib/types";
 
@@ -228,11 +229,23 @@ export default function LeadsPoolPage() {
               )}
             </span>
           </div>
-          {/* "Только мой пул" placeholder toggle */}
-          <label className="flex items-center gap-2 cursor-pointer opacity-50" title="Скоро">
-            <span className="text-xs font-semibold text-muted">Только мой пул</span>
-            <div className="w-8 h-4 rounded-pill bg-black/10" />
-          </label>
+          <div className="flex items-center gap-3">
+            <ExportPopover
+              filters={{
+                city: cityFilter ?? undefined,
+                segment: segmentFilter ?? undefined,
+                fit_min: fitMin > 0 ? fitMin : undefined,
+                q: search || undefined,
+                assignment_status: "pool",
+              }}
+              leadCount={filtered.length}
+            />
+            {/* "Только мой пул" placeholder toggle */}
+            <label className="flex items-center gap-2 cursor-pointer opacity-50" title="Скоро">
+              <span className="text-xs font-semibold text-muted">Только мой пул</span>
+              <div className="w-8 h-4 rounded-pill bg-black/10" />
+            </label>
+          </div>
         </div>
 
         {/* Filter row */}

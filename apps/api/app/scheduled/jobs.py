@@ -288,6 +288,13 @@ async def _run_export(job_id: UUID) -> dict:
                     stmt = stmt.where(
                         Lead.assignment_status == filters["assignment_status"]
                     )
+                if filters.get("fit_min") is not None:
+                    try:
+                        stmt = stmt.where(
+                            Lead.fit_score >= float(filters["fit_min"])
+                        )
+                    except (TypeError, ValueError):
+                        pass
                 if filters.get("q"):
                     stmt = stmt.where(
                         Lead.company_name.ilike(f"%{filters['q']}%")

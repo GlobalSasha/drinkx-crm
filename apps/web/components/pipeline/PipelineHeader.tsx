@@ -1,6 +1,7 @@
 "use client";
 import { Search, Plus, CalendarRange, Upload } from "lucide-react";
 import { usePipelineStore } from "@/lib/store/pipeline-store";
+import { ExportPopover } from "@/components/export/ExportPopover";
 import type { LeadOut } from "@/lib/types";
 
 const SEGMENTS = [
@@ -60,6 +61,15 @@ export function PipelineHeader({ leads, totalCount }: Props) {
             <Upload size={14} />
             Импорт
           </button>
+          <ExportPopover
+            filters={{
+              segment: filters.segment ?? undefined,
+              city: filters.city ?? undefined,
+              q: filters.q || undefined,
+              assignment_status: "assigned",
+            }}
+            leadCount={totalCount}
+          />
           <button
             onClick={openSprintModal}
             className="inline-flex items-center gap-1.5 bg-accent text-white rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-accent/90 active:scale-[0.98]"
