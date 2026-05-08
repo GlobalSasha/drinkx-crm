@@ -83,6 +83,9 @@ def create_app() -> FastAPI:
     from app.inbox.routers import router as inbox_router
     app.include_router(inbox_router)
 
+    from app.import_export.routers import router as import_export_router
+    app.include_router(import_export_router)
+
     return app
 
 

@@ -17,6 +17,7 @@ from app.config import get_settings
 from app.db import get_db
 from app.inbox import oauth as oauth_helpers
 from app.inbox import services as inbox_services
+from app.inbox.crypto import encrypt_credentials
 from app.inbox.models import ChannelConnection
 from app.inbox.schemas import (
     InboxConfirmIn,
@@ -111,7 +112,9 @@ async def gmail_callback(
         )
     )
     conn = existing.scalar_one_or_none()
-    creds_json_str = json.dumps(creds_payload)
+    # Encrypt at-rest if FERNET_KEY is configured; falls back to plaintext
+    # in stub mode (with a startup-once WARNING — see app/inbox/crypto.py).
+    creds_json_str = encrypt_credentials(json.dumps(creds_payload))
 
     if conn is None:
         conn = ChannelConnection(

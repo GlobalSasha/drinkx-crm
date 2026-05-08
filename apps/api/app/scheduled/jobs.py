@@ -72,6 +72,18 @@ def generate_inbox_suggestion(inbox_item_id: str) -> dict:
     return asyncio.run(_run_inbox_suggestion(UUID(inbox_item_id)))
 
 
+@celery_app.task(name="app.scheduled.jobs.bulk_import_run")
+def bulk_import_run(job_id: str) -> dict:
+    """Sprint 2.1 G1 skeleton — Group 2 fills in the parse/apply body.
+
+    Loads the ImportJob row, walks its `diff_json`, applies confirmed rows
+    against Lead / Contact / Activity, updates progress counters, writes
+    one ImportError row per failure. Per-task NullPool engine like the
+    other Celery tasks (Sprint 1.4 pattern).
+    """
+    return asyncio.run(_run_bulk_import(UUID(job_id)))
+
+
 def _build_task_engine_and_factory():
     """Each Celery task needs its own engine because asyncio.run() creates a
     fresh event loop per invocation, while asyncpg connections are bound to
@@ -192,6 +204,53 @@ async def _run_inbox_suggestion(inbox_item_id: UUID) -> dict:
             error=str(exc)[:200],
         )
         return {"job": "generate_inbox_suggestion", "error": str(exc)[:200]}
+    finally:
+        await engine.dispose()
+
+
+async def _run_bulk_import(job_id: UUID) -> dict:
+    """Sprint 2.1 G1 placeholder. Loads the job, marks status=running,
+    immediately marks status=succeeded with a no-op summary. Group 2
+    replaces the body with the real parse/apply path.
+    """
+    from datetime import datetime, timezone as _tz
+    from sqlalchemy import select
+
+    from app.import_export.models import ImportJob, ImportJobStatus
+
+    engine, factory = _build_task_engine_and_factory()
+    try:
+        async with factory() as session:
+            res = await session.execute(
+                select(ImportJob).where(ImportJob.id == job_id)
+            )
+            job = res.scalar_one_or_none()
+            if job is None:
+                return {"job": "bulk_import_run", "error": "not_found"}
+
+            if job.status != ImportJobStatus.previewed.value:
+                # G2 will tighten this — for now we tolerate any non-terminal
+                # status and just log so dev kicks of the task aren't surprises.
+                log.info(
+                    "bulk_import.skipped_due_to_status",
+                    job_id=str(job_id),
+                    status=job.status,
+                )
+                return {"job": "bulk_import_run", "skipped": job.status}
+
+            job.status = ImportJobStatus.running.value
+            await session.commit()
+
+            # G2: parse diff_json → for each row, create/update Lead +
+            # Contact, write ImportError on failure, update counters.
+            job.status = ImportJobStatus.succeeded.value
+            job.error_summary = "skeleton — Group 2 fills in actual apply"
+            job.finished_at = datetime.now(tz=_tz.utc)
+            await session.commit()
+            return {"job": "bulk_import_run", "id": str(job_id), "skeleton": True}
+    except Exception as exc:
+        log.exception("bulk_import_run.failed", job_id=str(job_id))
+        return {"job": "bulk_import_run", "error": f"{type(exc).__name__}: {exc}"}
     finally:
         await engine.dispose()
 

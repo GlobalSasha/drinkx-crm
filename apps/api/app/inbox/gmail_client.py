@@ -5,11 +5,13 @@ library is sync, so we run blocking calls in a thread pool. All public
 methods are fail-soft: they catch transport / API errors, log them, and
 return an empty list (or None for single-message lookups).
 
-Token storage: callers pass `credentials_json` — the JSON-encoded payload
-from OAuth (refresh_token, client_id, client_secret, scopes, ...). On
-successful refresh GmailClient rewrites the same payload via
-`refreshed_credentials_json()`, and the caller is responsible for
-persisting it back to channel_connections.credentials_json.
+Token storage: callers pass the *stored* credentials string from
+ChannelConnection.credentials_json — which may be either plaintext JSON
+(stub mode / Sprint 2.0 legacy) or a `fernet:` encrypted payload (after
+Sprint 2.1 G1). The constructor calls
+`app.inbox.crypto.decrypt_credentials` to recover plaintext before
+parsing. On successful token refresh `refreshed_credentials_json()`
+returns the value to persist — already re-encrypted in encrypted mode.
 """
 from __future__ import annotations
 
@@ -71,7 +73,12 @@ class GmailClient:
     """Sync google-api-python-client wrapped in asyncio.to_thread()."""
 
     def __init__(self, credentials_json: str):
-        self._creds = credentials_from_json(credentials_json)
+        # Lazy import: keeps `crypto` module out of the import graph for
+        # tests that stub sqlalchemy and don't need crypto round-trips.
+        from app.inbox.crypto import decrypt_credentials
+
+        plaintext = decrypt_credentials(credentials_json)
+        self._creds = credentials_from_json(plaintext)
         self._service = None  # built lazily
 
     def _ensure_fresh(self) -> None:
@@ -94,8 +101,12 @@ class GmailClient:
         return self._service
 
     def refreshed_credentials_json(self) -> str:
-        """JSON to persist back to channel_connections after any refresh."""
-        return credentials_to_json(self._creds)
+        """Value to persist back to channel_connections.credentials_json
+        after any token refresh — already re-encrypted in encrypted mode."""
+        from app.inbox.crypto import encrypt_credentials
+
+        plaintext = credentials_to_json(self._creds)
+        return encrypt_credentials(plaintext)
 
     async def list_messages(
         self,

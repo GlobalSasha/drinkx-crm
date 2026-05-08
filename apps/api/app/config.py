@@ -85,6 +85,18 @@ class Settings(BaseSettings):
     gmail_sync_interval_minutes: int = 5
     gmail_max_body_chars: int = 10000
 
+    # Credential encryption at rest (Sprint 2.1 G1).
+    # If empty, channel credentials are stored as plaintext and a startup
+    # WARNING is logged once. Generate a key with:
+    #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    fernet_key: str = ""
+
+    # Bulk import (Sprint 2.1).
+    # Hard cap on a single uploaded file. 10MB covers ~50k rows of typical
+    # CRM exports while keeping the in-memory parse + Postgres diff_json
+    # write within sane bounds.
+    import_max_upload_mb: int = 10
+
 
 @lru_cache
 def get_settings() -> Settings:
