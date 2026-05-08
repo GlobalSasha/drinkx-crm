@@ -83,7 +83,14 @@ async def list_pool(
     segment: str | None = None,
     fit_min: float | None = None,
     page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=200),
+    # Hotfix 2026-05-08: cap raised 200 → 500 to match the frontend's
+    # intent. /leads-pool fetches the whole pool once and filters
+    # client-side (commit 480d0a9 on 2026-05-07 set page_size=500),
+    # but the cap still rejected with 422 every request — production
+    # has been silently broken on /leads-pool since the 480d0a9 deploy.
+    # 500 keeps a sane safety rail; longer-term fix is server-side
+    # filtering when the workspace pool exceeds this.
+    page_size: int = Query(50, ge=1, le=500),
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
     user: Annotated[User, Depends(current_user)] = ...,
 ) -> LeadListOut:
