@@ -72,6 +72,13 @@ def generate_inbox_suggestion(inbox_item_id: str) -> dict:
     return asyncio.run(_run_inbox_suggestion(UUID(inbox_item_id)))
 
 
+@celery_app.task(name="app.scheduled.jobs.run_export")
+def run_export(job_id: str) -> dict:
+    """Bulk-export task — render the requested format to bytes,
+    stash in Redis with a 1h TTL, mark the ExportJob as `done`."""
+    return asyncio.run(_run_export(UUID(job_id)))
+
+
 @celery_app.task(name="app.scheduled.jobs.bulk_import_run")
 def bulk_import_run(job_id: str) -> dict:
     """Sprint 2.1 G1 skeleton — Group 2 fills in the parse/apply body.
@@ -204,6 +211,155 @@ async def _run_inbox_suggestion(inbox_item_id: UUID) -> dict:
             error=str(exc)[:200],
         )
         return {"job": "generate_inbox_suggestion", "error": str(exc)[:200]}
+    finally:
+        await engine.dispose()
+
+
+async def _run_export(job_id: UUID) -> dict:
+    """Fetch leads with the saved filter snapshot, encode in the requested
+    format, store bytes in Redis, mark the row done.
+
+    Per-task NullPool engine (Sprint 1.4 pattern). Failures land in
+    ExportJob.error with status='failed' so the polling client can
+    surface a useful message.
+    """
+    from datetime import datetime, timezone as _tz
+    from sqlalchemy import select
+
+    from app.auth.models import User
+    from app.import_export.exporters import (
+        export_csv,
+        export_json,
+        export_md_zip,
+        export_xlsx,
+        export_yaml,
+        leads_to_rows,
+    )
+    from app.import_export.models import (
+        ExportJob,
+        ExportJobFormat,
+        ExportJobStatus,
+    )
+    from app.import_export.redis_bytes import store_export_bytes
+    from app.leads.models import Lead
+    from app.pipelines.models import Stage
+
+    engine, factory = _build_task_engine_and_factory()
+    try:
+        async with factory() as session:
+            res = await session.execute(
+                select(ExportJob).where(ExportJob.id == job_id)
+            )
+            job = res.scalar_one_or_none()
+            if job is None:
+                return {"job": "run_export", "error": "not_found"}
+
+            if job.status not in (
+                ExportJobStatus.pending.value,
+                ExportJobStatus.running.value,
+            ):
+                return {"job": "run_export", "skipped": job.status}
+
+            job.status = ExportJobStatus.running.value
+            await session.commit()
+
+            try:
+                filters = dict(job.filters_json or {})
+                include_ai_brief = bool(filters.pop("include_ai_brief", False))
+
+                # Build the lead query from saved filters. We mirror the
+                # filter set GET /api/leads accepts but DON'T limit by
+                # assignment_status — exporting "everything in workspace"
+                # is the common case and the manager can narrow via filters.
+                stmt = select(Lead).where(Lead.workspace_id == job.workspace_id)
+                if filters.get("stage_id"):
+                    stmt = stmt.where(Lead.stage_id == filters["stage_id"])
+                if filters.get("segment"):
+                    stmt = stmt.where(Lead.segment == filters["segment"])
+                if filters.get("city"):
+                    stmt = stmt.where(Lead.city == filters["city"])
+                if filters.get("priority"):
+                    stmt = stmt.where(Lead.priority == filters["priority"])
+                if filters.get("deal_type"):
+                    stmt = stmt.where(Lead.deal_type == filters["deal_type"])
+                if filters.get("assigned_to"):
+                    stmt = stmt.where(Lead.assigned_to == filters["assigned_to"])
+                if filters.get("assignment_status"):
+                    stmt = stmt.where(
+                        Lead.assignment_status == filters["assignment_status"]
+                    )
+                if filters.get("q"):
+                    stmt = stmt.where(
+                        Lead.company_name.ilike(f"%{filters['q']}%")
+                    )
+                stmt = stmt.order_by(Lead.created_at.desc())
+
+                leads_res = await session.execute(stmt)
+                leads = list(leads_res.scalars())
+
+                # Resolve relations the exporters need without N+1
+                stage_ids = {l.stage_id for l in leads if l.stage_id}
+                user_ids = {l.assigned_to for l in leads if l.assigned_to}
+                stage_lookup: dict = {}
+                user_email_lookup: dict = {}
+                if stage_ids:
+                    s_res = await session.execute(
+                        select(Stage.id, Stage.name).where(Stage.id.in_(stage_ids))
+                    )
+                    stage_lookup = {sid: name for sid, name in s_res.all()}
+                if user_ids:
+                    u_res = await session.execute(
+                        select(User.id, User.email).where(User.id.in_(user_ids))
+                    )
+                    user_email_lookup = {uid: email for uid, email in u_res.all()}
+
+                fmt = job.format
+                if fmt == ExportJobFormat.md_zip.value:
+                    payload = export_md_zip(
+                        leads,
+                        stage_lookup=stage_lookup,
+                        user_email_lookup=user_email_lookup,
+                    )
+                else:
+                    rows = leads_to_rows(
+                        leads,
+                        stage_lookup=stage_lookup,
+                        user_email_lookup=user_email_lookup,
+                        include_ai_brief=include_ai_brief,
+                    )
+                    if fmt == ExportJobFormat.csv.value:
+                        payload = export_csv(rows)
+                    elif fmt == ExportJobFormat.json.value:
+                        payload = export_json(rows)
+                    elif fmt == ExportJobFormat.yaml.value:
+                        payload = export_yaml(rows)
+                    elif fmt == ExportJobFormat.xlsx.value:
+                        payload = export_xlsx(rows)
+                    else:
+                        raise ValueError(f"unsupported format: {fmt}")
+
+                redis_key = await store_export_bytes(str(job_id), payload)
+                job.redis_key = redis_key
+                job.row_count = len(leads)
+                job.status = ExportJobStatus.done.value
+                job.finished_at = datetime.now(tz=_tz.utc)
+                await session.commit()
+                return {
+                    "job": "run_export",
+                    "id": str(job_id),
+                    "rows": len(leads),
+                    "bytes": len(payload),
+                }
+            except Exception as exc:
+                log.exception("run_export.failed", job_id=str(job_id))
+                job.status = ExportJobStatus.failed.value
+                job.error = f"{type(exc).__name__}: {exc}"[:1000]
+                job.finished_at = datetime.now(tz=_tz.utc)
+                await session.commit()
+                return {
+                    "job": "run_export",
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
     finally:
         await engine.dispose()
 

@@ -11,7 +11,10 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,11 +28,20 @@ from app.import_export.adapters.bitrix24 import (
     is_bitrix24,
     parse_bitrix24,
 )
+from app.import_export.exporters import (
+    content_type_for,
+    file_extension_for,
+)
 from app.import_export.field_map import LEAD_IMPORT_FIELDS
 from app.import_export.mapper import apply_mapping, suggest_mapping
 from app.import_export.models import ImportJobFormat, ImportJobStatus
 from app.import_export.parsers import detect_format, parse_file
-from app.import_export.schemas import ImportJobOut, ImportJobPageOut
+from app.import_export.schemas import (
+    ExportJobOut,
+    ExportRequestIn,
+    ImportJobOut,
+    ImportJobPageOut,
+)
 from app.import_export.validators import validate_row
 
 router = APIRouter(prefix="/api/import", tags=["import_export"])
@@ -256,8 +268,112 @@ async def apply_job(
     return ImportJobOut.model_validate(job)
 
 
+# ---------------------------------------------------------------------------
+# G6: export — Celery + Redis-backed download
+# ---------------------------------------------------------------------------
+
+export_router = APIRouter(prefix="/api/export", tags=["import_export"])
+
+
+@export_router.post(
+    "",
+    response_model=ExportJobOut,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def create_export(
+    payload: ExportRequestIn,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> ExportJobOut:
+    """Create an ExportJob and dispatch the Celery task. Returns 202
+    with the job row — clients poll GET /api/export/{id} for status."""
+    try:
+        job = await svc.create_export_job(
+            db,
+            workspace_id=user.workspace_id,
+            user_id=user.id,
+            format_value=payload.format,
+            filters=payload.filters,
+            include_ai_brief=payload.include_ai_brief,
+        )
+    except svc.ExportJobBadFormat as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
+
+    # Dispatch best-effort. Redis hiccup at request time should not 5xx —
+    # `_run_export` is idempotent via the status guard.
+    try:
+        from app.scheduled.celery_app import celery_app
+
+        celery_app.send_task(
+            "app.scheduled.jobs.run_export",
+            args=[str(job.id)],
+        )
+    except Exception:  # noqa: BLE001 — defensive
+        pass
+
+    return ExportJobOut.model_validate(svc.export_job_out(job))
+
+
+@export_router.get("/{job_id}", response_model=ExportJobOut)
+async def get_export(
+    job_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> ExportJobOut:
+    try:
+        job = await svc.get_export_job(
+            db, job_id=job_id, workspace_id=user.workspace_id
+        )
+    except svc.ExportJobNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
+    return ExportJobOut.model_validate(svc.export_job_out(job))
+
+
+@export_router.get("/{job_id}/download")
+async def download_export(
+    job_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> StreamingResponse:
+    try:
+        job, data = await svc.fetch_export_payload(
+            db, job_id=job_id, workspace_id=user.workspace_id
+        )
+    except svc.ExportJobNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
+    except svc.ExportJobNotReady:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Файл ещё не готов",
+        )
+    except svc.ExportPayloadGone:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="Файл устарел, создайте новый экспорт",
+        )
+
+    ext = file_extension_for(job.format)
+    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    filename = f"leads_{date_str}.{ext}"
+
+    def _gen():
+        yield data
+
+    return StreamingResponse(
+        _gen(),
+        media_type=content_type_for(job.format),
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(data)),
+        },
+    )
+
+
 __all__ = [
     "router",
+    "export_router",
     # Re-exported for direct in-process use (e.g. service tests):
     "ImportJobStatus",
 ]

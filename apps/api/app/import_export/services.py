@@ -15,7 +15,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.import_export.mapper import apply_mapping
-from app.import_export.models import ImportJob, ImportJobStatus
+from app.import_export.models import (
+    ExportJob,
+    ExportJobFormat,
+    ExportJobStatus,
+    ImportJob,
+    ImportJobStatus,
+)
 from app.import_export.validators import validate_row
 
 log = structlog.get_logger()
@@ -27,6 +33,22 @@ class ImportJobNotFound(Exception):
 
 class ImportJobBadState(Exception):
     """Raised when a transition isn't legal from the current status."""
+
+
+class ExportJobNotFound(Exception):
+    pass
+
+
+class ExportJobBadFormat(Exception):
+    pass
+
+
+class ExportJobNotReady(Exception):
+    """Download requested before the worker finished."""
+
+
+class ExportPayloadGone(Exception):
+    """Job is `done` but Redis lost the payload (TTL expired)."""
 
 
 PREVIEW_ROWS = 100  # how many rows we surface in the preview UI
@@ -193,6 +215,108 @@ async def request_apply(
         )
     return job
 
+
+# ---------------------------------------------------------------------------
+# Export
+# ---------------------------------------------------------------------------
+
+VALID_EXPORT_FORMATS = {fmt.value for fmt in ExportJobFormat}
+
+
+async def create_export_job(
+    session: AsyncSession,
+    *,
+    workspace_id: UUID,
+    user_id: UUID,
+    format_value: str,
+    filters: dict[str, Any] | None,
+    include_ai_brief: bool,
+) -> ExportJob:
+    """Stage a fresh ExportJob with status='pending'. The Celery task
+    `run_export_task` is dispatched separately by the router so the
+    DB write commits before the worker can race the row read."""
+    if format_value not in VALID_EXPORT_FORMATS:
+        raise ExportJobBadFormat(f"unknown export format: {format_value}")
+
+    payload_filters = dict(filters or {})
+    # Carry include_ai_brief inside filters_json — keeps the schema
+    # narrower; the worker pulls it back out at run time.
+    payload_filters["include_ai_brief"] = bool(include_ai_brief)
+
+    job = ExportJob(
+        workspace_id=workspace_id,
+        user_id=user_id,
+        status=ExportJobStatus.pending.value,
+        format=format_value,
+        filters_json=payload_filters,
+    )
+    session.add(job)
+    await session.commit()
+    await session.refresh(job)
+    return job
+
+
+async def get_export_job(
+    session: AsyncSession, *, job_id: UUID, workspace_id: UUID
+) -> ExportJob:
+    res = await session.execute(
+        select(ExportJob)
+        .where(ExportJob.id == job_id)
+        .where(ExportJob.workspace_id == workspace_id)
+    )
+    job = res.scalar_one_or_none()
+    if job is None:
+        raise ExportJobNotFound(str(job_id))
+    return job
+
+
+async def fetch_export_payload(
+    session: AsyncSession,
+    *,
+    job_id: UUID,
+    workspace_id: UUID,
+) -> tuple[ExportJob, bytes]:
+    """Resolve a download request. Raises:
+      ExportJobNotFound — bad UUID or cross-workspace
+      ExportJobNotReady — status != 'done'
+      ExportPayloadGone — Redis miss (TTL expired)
+    """
+    from app.import_export.redis_bytes import fetch_export_bytes
+
+    job = await get_export_job(session, job_id=job_id, workspace_id=workspace_id)
+    if job.status != ExportJobStatus.done.value:
+        raise ExportJobNotReady(job.status)
+    if not job.redis_key:
+        raise ExportPayloadGone("missing redis_key")
+    data = await fetch_export_bytes(job.redis_key)
+    if data is None:
+        raise ExportPayloadGone("redis miss")
+    return job, data
+
+
+def export_job_out(job: ExportJob) -> dict[str, Any]:
+    """ExportJobOut payload with the synthetic download_url."""
+    return {
+        "id": job.id,
+        "workspace_id": job.workspace_id,
+        "user_id": job.user_id,
+        "status": job.status,
+        "format": job.format,
+        "row_count": job.row_count,
+        "error": job.error,
+        "created_at": job.created_at,
+        "finished_at": job.finished_at,
+        "download_url": (
+            f"/api/export/{job.id}/download"
+            if job.status == ExportJobStatus.done.value
+            else None
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Cancel (import-only — export tasks are short-running)
+# ---------------------------------------------------------------------------
 
 async def cancel_job(
     session: AsyncSession,

@@ -48,3 +48,29 @@ class ImportJobPageOut(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+# ---------------------------------------------------------------------------
+# Export
+# ---------------------------------------------------------------------------
+
+class ExportJobOut(BaseModel):
+    """Pydantic model_validate doesn't know about the synthetic
+    `download_url` field — services / routers populate it via
+    `from_orm_with_url(job)` (see services.export_job_out)."""
+    id: UUID
+    workspace_id: UUID
+    user_id: UUID | None
+    status: str
+    format: str
+    row_count: int | None
+    error: str | None
+    created_at: datetime
+    finished_at: datetime | None
+    download_url: str | None
+
+
+class ExportRequestIn(BaseModel):
+    format: str  # validated against ExportJobFormat in services
+    filters: dict[str, Any] = {}
+    include_ai_brief: bool = False
