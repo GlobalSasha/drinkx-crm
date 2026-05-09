@@ -380,19 +380,20 @@ async def _resolve_stage_id(
 ) -> UUID | None:
     """Find a Stage matching the given name in the lead's pipeline.
     Falls back to the workspace default pipeline when the lead has
-    no pipeline_id yet."""
-    from app.pipelines.models import Pipeline, Stage
+    no pipeline_id yet.
+
+    Sprint 2.4 G1: switched from `Pipeline.is_default=true` to
+    `pipelines_repo.get_default_pipeline_id()` — the canonical
+    workspace.default_pipeline_id FK. Migration 0017 drops the
+    legacy boolean column."""
+    from app.pipelines import repositories as pipelines_repo
+    from app.pipelines.models import Stage
 
     pipeline_id = lead.pipeline_id
     if pipeline_id is None:
-        # Workspace's default pipeline
-        res = await session.execute(
-            select(Pipeline.id)
-            .where(Pipeline.workspace_id == lead.workspace_id)
-            .where(Pipeline.is_default.is_(True))
-            .limit(1)
+        pipeline_id = await pipelines_repo.get_default_pipeline_id(
+            session, workspace_id=lead.workspace_id
         )
-        pipeline_id = res.scalar_one_or_none()
     if pipeline_id is None:
         return None
     res = await session.execute(

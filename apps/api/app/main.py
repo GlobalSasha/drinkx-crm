@@ -136,6 +136,18 @@ def create_app() -> FastAPI:
     from app.forms.public_routers import public_router as forms_public_router
     app.include_router(forms_public_router)
 
+    from app.users.routers import router as users_router
+    app.include_router(users_router)
+
+    from app.settings.routers import router as settings_router
+    app.include_router(settings_router)
+
+    from app.custom_attributes.routers import router as custom_attributes_router
+    app.include_router(custom_attributes_router)
+
+    from app.template.routers import router as templates_router
+    app.include_router(templates_router)
+
     return app
 
 

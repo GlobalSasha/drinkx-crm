@@ -79,7 +79,9 @@ async def upsert_user_from_token(session: AsyncSession, claims: TokenClaims) -> 
             workspace_id=workspace.id,
             name="Новые клиенты",
             type="sales",
-            is_default=True,
+            # Sprint 2.4 G1: legacy `is_default` column dropped by
+            # migration 0017. The canonical default-pointer is
+            # `workspace.default_pipeline_id`, set right below.
             position=0,
         )
         session.add(pipeline)

@@ -23,13 +23,7 @@ import { AIBriefTab } from "./AIBriefTab";
 import { FollowupsRail } from "./FollowupsRail";
 import { GateModal } from "./GateModal";
 import { TransferModal } from "./TransferModal";
-
-const PRIORITY_STYLES: Record<string, string> = {
-  A: "bg-accent/10 text-accent",
-  B: "bg-warning/10 text-warning",
-  C: "bg-canvas text-muted",
-  D: "bg-black/5 text-muted-2",
-};
+import { priorityChip } from "@/lib/ui/priority";
 
 function scoreChipClass(score: number | null | undefined): string {
   if (score == null) return "bg-black/5 text-muted-2";
@@ -240,7 +234,7 @@ export function LeadCard({ leadId }: Props) {
                 {lead.priority && (
                   <span
                     className={`text-xs font-semibold px-2 py-0.5 rounded-md ${
-                      PRIORITY_STYLES[lead.priority] ?? "bg-black/5 text-muted"
+                      priorityChip(lead.priority)
                     }`}
                   >
                     {priorityLabel(lead.priority)}

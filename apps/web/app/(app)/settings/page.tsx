@@ -8,23 +8,34 @@
 import { useState } from "react";
 import {
   BellRing,
+  Bot,
   KeyRound,
   Plug,
+  ScrollText,
   Settings as SettingsIcon,
+  Sparkles,
   Split,
   User,
   Users,
 } from "lucide-react";
 import clsx from "clsx";
 
+import { AISection } from "@/components/settings/AISection";
+import { ChannelsSection } from "@/components/settings/ChannelsSection";
+import { CustomFieldsSection } from "@/components/settings/CustomFieldsSection";
 import { PipelinesSection } from "@/components/settings/PipelinesSection";
+import { TeamSection } from "@/components/settings/TeamSection";
+import { TemplatesSection } from "@/components/settings/TemplatesSection";
 
 type SectionKey =
   | "pipelines"
   | "profile"
   | "team"
+  | "channels"
+  | "ai"
+  | "custom_fields"
+  | "templates"
   | "notifications"
-  | "integrations"
   | "api";
 
 interface SectionDef {
@@ -37,10 +48,13 @@ interface SectionDef {
 
 const SECTIONS: SectionDef[] = [
   { key: "pipelines",     label: "Воронки",      icon: <Split size={15} />,    ready: true  },
+  { key: "team",          label: "Команда",      icon: <Users size={15} />,    ready: true  },
+  { key: "channels",      label: "Каналы",       icon: <Plug size={15} />,     ready: true  },
+  { key: "ai",            label: "AI",           icon: <Bot size={15} />,      ready: true  },
+  { key: "custom_fields", label: "Кастомные поля", icon: <Sparkles size={15} />, ready: true },
+  { key: "templates",     label: "Шаблоны",      icon: <ScrollText size={15} />, ready: true },
   { key: "profile",       label: "Профиль",      icon: <User size={15} />,     ready: false },
-  { key: "team",          label: "Команда",      icon: <Users size={15} />,    ready: false },
   { key: "notifications", label: "Уведомления",  icon: <BellRing size={15} />, ready: false },
-  { key: "integrations",  label: "Интеграции",   icon: <Plug size={15} />,     ready: false },
   { key: "api",           label: "API",          icon: <KeyRound size={15} />, ready: false },
 ];
 
@@ -91,11 +105,21 @@ export default function SettingsPage() {
         {/* Main */}
         <main className="min-w-0">
           {active === "pipelines" && <PipelinesSection />}
-          {active !== "pipelines" && (
-            <div className="bg-canvas/60 border border-black/5 rounded-2xl px-6 py-12 text-center">
-              <p className="text-sm text-muted">Эта секция появится позже.</p>
-            </div>
-          )}
+          {active === "team" && <TeamSection />}
+          {active === "channels" && <ChannelsSection />}
+          {active === "ai" && <AISection />}
+          {active === "custom_fields" && <CustomFieldsSection />}
+          {active === "templates" && <TemplatesSection />}
+          {active !== "pipelines" &&
+            active !== "team" &&
+            active !== "channels" &&
+            active !== "ai" &&
+            active !== "custom_fields" &&
+            active !== "templates" && (
+              <div className="bg-canvas/60 border border-black/5 rounded-2xl px-6 py-12 text-center">
+                <p className="text-sm text-muted">Эта секция появится позже.</p>
+              </div>
+            )}
         </main>
       </div>
     </div>

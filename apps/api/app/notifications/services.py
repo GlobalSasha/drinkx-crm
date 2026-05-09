@@ -157,3 +157,31 @@ async def mark_all_read(
     affected = result.rowcount or 0
     await db.flush()
     return int(affected)
+
+
+async def dismiss(
+    db: AsyncSession,
+    *,
+    notification_id: UUID,
+    user_id: UUID,
+) -> bool:
+    """Hard-delete one notification row owned by this user (Sprint 2.4 G5).
+
+    «Dismiss» is the persistent escape hatch for system / daily-plan
+    rows that don't navigate to a lead — the manager can clear them
+    without leaving stale «прочитано» rows around. Returns True when a
+    row was removed; False on cross-user lookup or already-dismissed.
+    Caller commits.
+    """
+    result = await db.execute(
+        select(Notification).where(
+            Notification.id == notification_id,
+            Notification.user_id == user_id,
+        )
+    )
+    row = result.scalar_one_or_none()
+    if row is None:
+        return False
+    await db.delete(row)
+    await db.flush()
+    return True

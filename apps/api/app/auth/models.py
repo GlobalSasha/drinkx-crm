@@ -90,6 +90,43 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     workspace: Mapped[Workspace] = relationship(back_populates="users")
 
 
+class UserInvite(Base, UUIDPrimaryKeyMixin):
+    """Track team invitations issued via Supabase magic-link
+    (Sprint 2.4 G1). Source of truth for the admin UI; auth bootstrap
+    does NOT read this table on sign-in — the invitee just joins the
+    canonical workspace as `manager` per ADR-021, and the inviter
+    promotes them via PATCH /api/users/{id}/role afterwards."""
+
+    __tablename__ = "user_invites"
+
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    invited_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    email: Mapped[str] = mapped_column(String(254), nullable=False)
+    suggested_role: Mapped[str] = mapped_column(
+        String(20), default="manager", nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id", "email", name="ix_user_invites_workspace_email"
+        ),
+    )
+
+
 class ScoringCriteria(Base, UUIDPrimaryKeyMixin):
     __tablename__ = "scoring_criteria"
 

@@ -37,9 +37,12 @@ export interface Pipeline {
   workspace_id: string;
   name: string;
   type: string;
-  is_default: boolean;
   position: number;
   stages: Stage[];
+  // `is_default` removed in Sprint 2.4 G1 (backend dropped the
+  // column via migration 0017). Compare pipeline.id to
+  // me.workspace.default_pipeline_id to render the «по умолчанию»
+  // badge.
 }
 
 // ---- Pipeline write shapes (Sprint 2.3 G3) ----
@@ -544,6 +547,11 @@ export interface AuditLogOut {
   id: string;
   workspace_id: string;
   user_id: string | null;
+  // Sprint 2.4 G5: server-joined from users table. Both NULL when
+  // user_id is NULL (system event) or the user has been deleted —
+  // the audit table falls back to first-8-chars of user_id.
+  user_full_name: string | null;
+  user_email: string | null;
   action: AuditAction | string;
   entity_type: string;
   entity_id: string | null;
@@ -791,4 +799,153 @@ export interface FormSubmissionOut {
   utm_json: Record<string, string> | null;
   source_domain: string | null;
   created_at: string;
+}
+
+// ---- Users domain (Sprint 2.4 G1 — Settings «Команда») ----
+
+export interface UserListItemOut {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole | string;
+  last_login_at: string | null;
+}
+
+export interface UserListOut {
+  items: UserListItemOut[];
+  total: number;
+}
+
+export interface UserInviteIn {
+  email: string;
+  role: UserRole;
+}
+
+export interface UserInviteOut {
+  id: string;
+  email: string;
+  suggested_role: UserRole | string;
+  invited_by_user_id: string | null;
+  created_at: string;
+  accepted_at: string | null;
+}
+
+export interface UserRoleUpdateIn {
+  role: UserRole;
+}
+
+// Structured 409 detail emitted by PATCH /api/users/{id}/role when
+// demoting the workspace's last admin would leave it without one.
+export interface UserRoleConflict {
+  code: "last_admin";
+  message: string;
+}
+
+// Structured 502 detail emitted by POST /api/users/invite when the
+// Supabase admin API call fails — UI shows a «retry later» state.
+export interface UserInviteUpstreamError {
+  code: "invite_send_failed";
+  message: string;
+  upstream: string;
+}
+
+// ---- Settings → Каналы (Sprint 2.4 G2) ----
+
+export interface GmailChannelOut {
+  /** Server has GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET in env. */
+  configured: boolean;
+  /** Current user has an active ChannelConnection row. */
+  connected: boolean;
+  last_sync_at: string | null;
+}
+
+export interface SmtpConfigOut {
+  /** SMTP_HOST is non-empty — server is in stub mode otherwise. */
+  configured: boolean;
+  host: string;
+  port: number;
+  from_address: string;
+  user: string;
+}
+
+export interface ChannelsStatusOut {
+  gmail: GmailChannelOut;
+  smtp: SmtpConfigOut;
+}
+
+// ---- Settings → AI (Sprint 2.4 G3) ----
+
+export interface AISettingsOut {
+  daily_budget_usd: number;
+  primary_model: string;
+  current_spend_usd_today: number;
+  available_models: string[];
+}
+
+export interface AISettingsUpdateIn {
+  daily_budget_usd?: number;
+  primary_model?: string;
+}
+
+// ---- Custom Attributes (Sprint 2.4 G3) ----
+
+export type AttributeKind = "text" | "number" | "date" | "select";
+
+export interface AttributeOption {
+  value: string;
+  label: string;
+}
+
+export interface CustomAttributeDefinitionOut {
+  id: string;
+  key: string;
+  label: string;
+  kind: AttributeKind;
+  options_json: AttributeOption[] | null;
+  is_required: boolean;
+  position: number;
+}
+
+export interface CustomAttributeDefinitionCreateIn {
+  key: string;
+  label: string;
+  kind: AttributeKind;
+  options_json?: AttributeOption[] | null;
+  is_required?: boolean;
+}
+
+export interface CustomAttributeDefinitionUpdateIn {
+  label?: string;
+  options_json?: AttributeOption[] | null;
+  is_required?: boolean;
+  position?: number;
+}
+
+// ---- Message Templates (Sprint 2.4 G4) ----
+
+export type TemplateChannel = "email" | "tg" | "sms";
+
+export interface MessageTemplateOut {
+  id: string;
+  name: string;
+  channel: TemplateChannel;
+  category: string | null;
+  text: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MessageTemplateCreate {
+  name: string;
+  channel: TemplateChannel;
+  category?: string | null;
+  text: string;
+}
+
+export interface MessageTemplateUpdate {
+  name?: string;
+  channel?: TemplateChannel;
+  category?: string | null;
+  text?: string;
 }

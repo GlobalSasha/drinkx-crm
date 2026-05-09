@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useUpdateLead } from "@/lib/hooks/use-lead";
 import type { LeadOut, Priority, DealType, LeadUpdateExtended } from "@/lib/types";
 import { tierFromScore } from "@/lib/types";
+import { priorityConfig } from "@/lib/ui/priority";
 
 const DEAL_TYPE_OPTIONS: { value: DealType; label: string }[] = [
   { value: "enterprise_direct",  label: "Прямой enterprise-клиент" },
@@ -14,20 +15,6 @@ const DEAL_TYPE_OPTIONS: { value: DealType; label: string }[] = [
 ];
 
 const PRIORITY_OPTIONS: Priority[] = ["A", "B", "C", "D"];
-
-const PRIORITY_STYLES: Record<Priority, string> = {
-  A: "bg-accent/10 text-accent border-accent/30",
-  B: "bg-success/10 text-success border-success/30",
-  C: "bg-warning/10 text-warning border-warning/30",
-  D: "bg-black/5 text-muted border-black/10",
-};
-
-const TIER_COLORS: Record<string, string> = {
-  A: "bg-accent text-white",
-  B: "bg-success text-white",
-  C: "bg-warning text-white",
-  D: "bg-muted text-white",
-};
 
 interface Props {
   lead: LeadOut;
@@ -131,7 +118,7 @@ export function DealTab({ lead }: Props) {
               onClick={() => onPriorityChange(p)}
               className={`flex-1 py-2 text-sm font-bold rounded-xl border transition-all ${
                 priority === p
-                  ? PRIORITY_STYLES[p]
+                  ? priorityConfig[p].chipBordered
                   : "bg-canvas text-muted border-black/10 hover:bg-canvas-2"
               }`}
             >
@@ -150,7 +137,7 @@ export function DealTab({ lead }: Props) {
           <div className="flex items-center gap-2">
             <span className="font-mono text-sm font-bold text-ink">{score}</span>
             <span
-              className={`text-xs font-bold px-2 py-0.5 rounded-pill ${TIER_COLORS[tier]}`}
+              className={`text-xs font-bold px-2 py-0.5 rounded-pill ${priorityConfig[tier as Priority]?.solid ?? "bg-muted text-white"}`}
             >
               {tier}
             </span>

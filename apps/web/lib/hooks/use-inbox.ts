@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api-client";
+import { api, ApiError } from "@/lib/api-client";
 import type {
   InboxConfirmIn,
   InboxCountOut,
@@ -57,9 +57,11 @@ export function useDismissItem() {
   });
 }
 
-/** Start the Gmail OAuth flow — backend returns the consent URL. */
+/** Start the Gmail OAuth flow — backend returns the consent URL.
+ * Error type is ApiError so callers can distinguish 503
+ * «not configured» (GOOGLE_CLIENT_ID missing) from other failures. */
 export function useConnectGmail() {
-  return useMutation({
+  return useMutation<{ redirect_url: string }, ApiError, void>({
     mutationFn: () =>
       api.post<{ redirect_url: string }>("/api/inbox/connect-gmail"),
   });

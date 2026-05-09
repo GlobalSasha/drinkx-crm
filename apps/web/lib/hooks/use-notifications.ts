@@ -54,3 +54,18 @@ export function useMarkAllRead() {
     },
   });
 }
+
+/**
+ * Permanent dismiss for system / daily-plan rows that don't navigate
+ * to a lead (Sprint 2.4 G5). Hard-delete server-side — the row
+ * disappears from both filtered views.
+ */
+export function useDismissNotification() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete<void>(`/notifications/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+}

@@ -24,7 +24,8 @@ class Pipeline(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     )
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     type: Mapped[str] = mapped_column(String(40), default="sales", nullable=False)
-    is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Legacy `is_default` boolean dropped in migration 0017 (Sprint
+    # 2.4 G1). Canonical default-pointer is `workspaces.default_pipeline_id`.
     position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     workspace = relationship(

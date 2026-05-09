@@ -12,10 +12,10 @@ const PAGE_SIZE = 50;
 
 const ACTION_FILTERS: { value: string | null; label: string }[] = [
   { value: null, label: "Все" },
-  { value: "lead.create", label: "lead.create" },
-  { value: "lead.transfer", label: "lead.transfer" },
-  { value: "lead.move_stage", label: "lead.move_stage" },
-  { value: "enrichment.trigger", label: "enrichment.trigger" },
+  { value: "lead.create", label: "Создан лид" },
+  { value: "lead.transfer", label: "Передан лид" },
+  { value: "lead.move_stage", label: "Смена стадии" },
+  { value: "enrichment.trigger", label: "Запрошен AI Brief" },
 ];
 
 function shortId(id: string | null): string {
@@ -23,11 +23,52 @@ function shortId(id: string | null): string {
   return id.slice(0, 8);
 }
 
-function formatDelta(delta: Record<string, unknown> | null): string {
+/**
+ * Render a delta payload for the «Изменения» column.
+ *
+ * Specific actions get a friendly inline format — for everyone else
+ * we fall back to a truncated JSON dump. Truncation budget = 80 chars
+ * so single-row scanning stays comfortable in the audit page table.
+ */
+function formatDelta(
+  action: string,
+  delta: Record<string, unknown> | null,
+): string {
   if (!delta) return "—";
+  const get = (key: string): string | null => {
+    const v = delta[key];
+    return typeof v === "string" ? v : null;
+  };
+  switch (action) {
+    case "lead.move_stage": {
+      const from = get("from_stage");
+      const to = get("to_stage");
+      if (from && to) return `${from} → ${to}`;
+      break;
+    }
+    case "lead.transfer": {
+      const from = get("from_user");
+      const to = get("to_user");
+      if (from && to) return `${from} → ${to}`;
+      break;
+    }
+    case "lead.create": {
+      const name = get("name") ?? get("company_name");
+      if (name) return name;
+      break;
+    }
+    case "template.create":
+    case "template.update": {
+      const name = get("name");
+      if (name) return name;
+      break;
+    }
+  }
+  // Generic JSON-dump fallback. Same behavior as the pre-G5 default,
+  // just used for actions that don't have a tailored renderer.
   try {
     const s = JSON.stringify(delta);
-    return s.length > 80 ? s.slice(0, 77) + "…" : s;
+    return s.length > 80 ? s.slice(0, 80) + "…" : s;
   } catch {
     return "—";
   }
@@ -69,17 +110,32 @@ function AuditRow({ row }: { row: AuditLogOut }) {
           )}
         </span>
       </td>
-      <td className="px-4 py-3 align-top">
-        <span className="font-mono text-[11px] text-muted-3">
-          {shortId(row.user_id)}
-        </span>
+      <td className="px-4 py-3 align-top max-w-[200px]">
+        {row.user_full_name && row.user_email ? (
+          <span className="text-[11px] text-ink truncate block">
+            <span
+              className="font-semibold"
+              title={row.user_email}
+            >
+              {row.user_full_name}
+            </span>
+            <span className="text-muted-3 font-mono"> · {row.user_email}</span>
+          </span>
+        ) : (
+          <span
+            className="font-mono text-[11px] text-muted-3"
+            title={row.user_id ?? "system"}
+          >
+            {shortId(row.user_id)}
+          </span>
+        )}
       </td>
       <td className="px-4 py-3 align-top max-w-[480px]">
         <span
           className="font-mono text-[11px] text-muted-2 break-all"
           title={row.delta_json ? JSON.stringify(row.delta_json) : ""}
         >
-          {formatDelta(row.delta_json)}
+          {formatDelta(row.action, row.delta_json)}
         </span>
       </td>
     </tr>

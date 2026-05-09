@@ -92,31 +92,19 @@ async def count_leads_on_pipeline(
 async def get_default_pipeline_id(
     db: AsyncSession, *, workspace_id: uuid.UUID
 ) -> uuid.UUID | None:
-    """Return the workspace's canonical default pipeline.
+    """Return the workspace's canonical default pipeline via the
+    `workspaces.default_pipeline_id` FK. Single source of truth as
+    of Sprint 2.4 G1; the legacy `pipelines.is_default` boolean is
+    dropped by migration 0017 in this same group.
 
-    Reads `workspaces.default_pipeline_id` first (Sprint 2.3 source of
-    truth). Falls back to the legacy `pipelines.is_default=true` row
-    so a workspace mid-migration (column added but backfill not yet
-    run by alembic) doesn't see «no default» until alembic catches up.
-    """
+    Returns None if the workspace has no default — the caller is
+    expected to handle that (the auth bootstrap creates a default
+    pipeline on first sign-in, so this only happens for workspaces
+    in a transient state)."""
     from app.auth.models import Workspace
 
     result = await db.execute(
         select(Workspace.default_pipeline_id).where(Workspace.id == workspace_id)
-    )
-    pid = result.scalar_one_or_none()
-    if pid is not None:
-        return pid
-
-    # Fallback path — read the legacy boolean.
-    result = await db.execute(
-        select(Pipeline.id)
-        .where(
-            Pipeline.workspace_id == workspace_id,
-            Pipeline.is_default.is_(True),
-        )
-        .order_by(Pipeline.created_at.asc())
-        .limit(1)
     )
     return result.scalar_one_or_none()
 
@@ -167,7 +155,9 @@ async def create_pipeline(
         workspace_id=workspace_id,
         name=name[:120],
         type=type_[:40] or "sales",
-        is_default=False,  # default is set explicitly via set_default
+        # Default is set via workspaces.default_pipeline_id FK; the
+        # legacy is_default column is dropped in migration 0017
+        # (Sprint 2.4 G1).
         position=next_position,
     )
     db.add(pipeline)
@@ -248,25 +238,16 @@ async def set_default(
     workspace_id: uuid.UUID,
     pipeline_id: uuid.UUID,
 ) -> None:
-    """Flip the workspace's `default_pipeline_id` to the given pipeline
-    + maintain the legacy `is_default` boolean for any reader that
-    hasn't migrated to the FK yet (diff_engine, the auth bootstrap's
-    initial row). Caller commits."""
+    """Flip the workspace's `default_pipeline_id` to the given pipeline.
+
+    Sprint 2.4 G1: dropped the redundant maintenance of the legacy
+    `pipelines.is_default` boolean — migration 0017 in this same
+    group removes the column. The FK on `workspaces.default_pipeline_id`
+    is now the single source of truth (per ADR-021's prep work in
+    Sprint 2.3 G1)."""
     from app.auth.models import Workspace
     from sqlalchemy import update as sa_update
 
-    # Maintain the legacy boolean across the workspace's pipelines.
-    await db.execute(
-        sa_update(Pipeline)
-        .where(Pipeline.workspace_id == workspace_id)
-        .values(is_default=False)
-    )
-    await db.execute(
-        sa_update(Pipeline)
-        .where(Pipeline.id == pipeline_id, Pipeline.workspace_id == workspace_id)
-        .values(is_default=True)
-    )
-    # Set the canonical FK.
     await db.execute(
         sa_update(Workspace)
         .where(Workspace.id == workspace_id)

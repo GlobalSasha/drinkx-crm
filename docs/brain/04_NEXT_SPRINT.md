@@ -1,277 +1,188 @@
-# Next Sprint: Phase 2 Sprint 2.4 — Full Settings panel + Templates
+# Next Sprint: Phase 2 Sprint 2.5 — Automation Builder
 
-Status: **READY TO START** (after Sprint 2.3 merge / deploy / smoke check)
-Branch: `sprint/2.4-settings-templates` (create from main once 2.3 lands)
+Status: **READY TO START** (after Sprint 2.4 merge / deploy / smoke)
+Branch: `sprint/2.5-automation-builder` (create from main once 2.4 lands)
 
 ## Goal
 
-Sprint 2.3 shipped `/settings` with one live section («Воронки») and
-five «Скоро» stubs. Sprint 2.4 fills out the rest of the panel into a
-real admin-control surface — and adds a **Templates module** that the
-upcoming Automation Builder (Sprint 2.5) will consume to render
-outbound messages without reinventing the wheel.
+Sprint 2.4 shipped the Templates data model + admin CRUD without a
+consumer. Sprint 2.5 wires templates into actual outbound flows by
+building the **Automation Builder** — a workspace-scoped configuration
+of «when X happens, run Y». Plus closes a stack of carryovers from
+2.4 that the customer-facing Automation surface depends on (notification
+dedupe, invite accept-flow).
 
-Scope is two parallel tracks: **Settings completion** (4 sections) and
-**Templates** (new domain). Both share the admin/head-only gate the
-existing Settings UI already enforces. No new domains beyond
-Templates, no new vendors, no new AI capability.
+Scope is one big new domain (`automations`) plus four polish gates. No
+new vendors. No new AI capability beyond «use existing fallback chain
+to render template variables», deferred to G1 plan-review.
 
 ## Read before starting
 
-- `docs/brain/00_CURRENT_STATE.md` — what Sprint 2.3 left
-- `docs/brain/02_ROADMAP.md` — Phase 2 envelope
-- `docs/brain/sprint_reports/SPRINT_2_3_MULTI_PIPELINE.md` — known
-  issues + carryover (notification debounce, sentry@nextjs,
-  drop-is_default housekeeping, stage-replacement preview)
-- `docs/PRD-v2.0.md` §9 (Settings) + §10 (Templates / Automation)
+- `docs/brain/00_CURRENT_STATE.md` — Sprint 2.4 close summary
+- `docs/brain/02_ROADMAP.md` — Phase 2 envelope + carryover list
+- `docs/SPRINT_2_4_SETTINGS_TEMPLATES.md` — full 2.4 close + 14-item carryover list
+- `docs/PRD-v2.0.md` §10 (Automation Builder)
 - Existing surfaces to extend, not replace:
-  - `app/auth/*` — User / role model already in place
-  - `app/inbox/oauth.py` — Gmail OAuth flow already shipped (Sprint 2.0); «Каналы» section just exposes it from Settings
-  - `app/notifications/email_sender.py` — SMTP scaffolding from Sprint 1.5; «Каналы» surfaces config
-  - `app/enrichment/budget.py` — daily budget cap from Sprint 1.3; «AI» section surfaces it
-- Production state at sprint start: 4 app containers + 4 cron entries running, manager workflows for Pipeline / Inbox / Import / Export / Forms / Pipelines all live, Sprints 2.1 + 2.2 + 2.3 merged
+  - `app/template/*` — template definitions (Sprint 2.4 G4)
+  - `app/automation/stage_change.py` — already has pre/post hook plumbing for stage transitions; the trigger source for «when stage changes»
+  - `app/forms/*` — form-submission hook is the trigger source for «when a form is submitted»
+  - `app/inbox/*` — inbox-match is the trigger source for «when an email matches a lead»
+  - `app/notifications/*` — destination for in-app action types
+- Production state at sprint start: 4 app containers + 4 cron entries running, all 2.0–2.4 surfaces live, Sprint 2.4 merged.
 
 ## Scope
 
 ### ALLOWED
 
-#### G1 — Settings «Команда» backend + UI (~1 day)
+#### G1 — Automation Builder core (~2 days)
 
 Backend:
-- `GET /api/users` — list workspace users (id, email, name, role,
-  last_login_at). All roles read; admin/head only for the email
-  invite path below.
-- `POST /api/users/invite` — admin-only. Body `{email, role}`.
-  Sends a sign-in magic-link via Supabase admin API; the new user
-  becomes a workspace member on first sign-in (existing auth
-  bootstrap path handles it). Track invitations in a new
-  `user_invites` table for the admin UI.
-- `PATCH /api/users/{id}/role` — admin-only. Validates the role is
-  one of `('admin', 'head', 'manager')`. Refuses to demote the
-  last admin (defensive — every workspace MUST have at least one
-  admin).
-- Migration `0016_user_invites` (or fold into user table — TBD;
-  migration shape decided in G1 plan review). NOTE: 0014 and 0015
-  were taken by post-Sprint-2.3 hotfixes (0014_bootstrap_orphan_workspaces,
-  0015_merge_workspaces).
-- Migration `0017_drop_pipelines_is_default` — housekeeping
-  carryover from Sprint 2.3. Drop the legacy `pipelines.is_default`
-  boolean. Prep step: in `app/import_export/diff_engine.py` swap
-  the one `Pipeline.is_default.is_(True)` read for
-  `pipelines_repo.get_default_pipeline_id(...)`. Then the column
-  is no longer read anywhere and the migration just drops it.
+- Migration `0020_automations`:
+  - `automations` (workspace_id CASCADE, name, trigger ∈ ('stage_change', 'form_submission', 'inbox_match'), trigger_config_json, condition_json, action_type ∈ ('send_template', 'create_task', 'move_stage'), action_config_json, is_active, created_by SET NULL, created_at, updated_at)
+  - `automation_runs` (automation_id CASCADE, lead_id SET NULL, status ∈ ('queued', 'success', 'skipped', 'failed'), error, executed_at) — append-only audit of every fire
+- New `app/automation_builder/` package (do NOT extend existing
+  `app/automation/` — that one is the stage-change hook engine, this
+  is the user-defined builder; different concern, deserves its own
+  module). Models / schemas / repositories / services / routers.
+- Service: `evaluate_trigger(trigger_type, payload)` looks up matching automations, evaluates condition_json against the lead, schedules the action via Celery.
+- Action handlers: `send_template_action(template_id, lead_id, channel)` — renders template via simple `{{lead.field}}` substitution, hands to existing channel sender (email via `app/notifications/email_sender.py`; tg + sms stub mode in v1).
+- Trigger wiring (the hard part):
+  - `app/automation/stage_change.py` post-hook fans out to `evaluate_trigger("stage_change", {...})`.
+  - `app/forms/services.py` after-create-lead hook fires `evaluate_trigger("form_submission", {...})`.
+  - `app/inbox/processor.py` after-match hook fires `evaluate_trigger("inbox_match", {...})`.
+- Routers: `/api/automations` admin/head gated for writes.
 
 Frontend:
-- New `app/web/components/settings/TeamSection.tsx` — table of
-  users (Avatar, Name, Email, Role chip, Last login, Actions).
-- Invite modal: email + role dropdown.
-- Role-edit inline dropdown (gated by useMe().role === 'admin').
-- Confirm-modal for «demote last admin» refusal carries the same
-  structured-409 pattern as 2.3's pipeline delete.
+- New `/automations` admin page — table + drawer-style builder.
+- Builder UI: trigger picker → condition rule chips → action picker (with template dropdown for `send_template`).
+- `automation_runs` history per automation.
 
-Tests (mock-only target ~7):
-- invite generates magic-link (mocked Supabase admin client)
-- invite refused for non-admin
-- role-change refused if it would leave zero admins
-- list scoped to workspace
-- diff_engine still resolves the default pipeline via the new
-  reader after the is_default drop
+Tests (~12 mock-only):
+- automation create / list / update / delete with workspace scope
+- evaluate_trigger correctly filters by trigger type
+- condition_json evaluator (priority eq, score gte, lead.field is null/notnull)
+- send_template action renders `{{lead.company_name}}` substitution
+- run-history append on every fire (success / skipped / failed)
+- role-gate: manager can read, can't create
 
-#### G2 — Settings «Каналы» UI (~0.5 day)
+#### G2 — Notification dedupe + day-grouping (~0.5 day)
 
-No new backend. Reuse existing surface:
-- Gmail: `GET /api/inbox/oauth/url` + `/oauth/callback` (Sprint 2.0)
-- SMTP: `email_sender.py` reads from settings already
-
-Frontend:
-- New `app/web/components/settings/ChannelsSection.tsx`:
-  - Gmail card: connection state (connected / disconnected / error),
-    «Подключить» CTA pointing at `/inbox/oauth/url`.
-  - SMTP card: read-only display of `SMTP_HOST` / `SMTP_PORT` /
-    `SMTP_FROM` from a new `GET /api/settings/channels` admin
-    endpoint that returns the resolved server config. Editing
-    SMTP is intentionally left to env vars in v1 — no DB-backed
-    SMTP config means we don't have to ship a credentials-at-rest
-    story for this sprint (carryover from the Sprint 2.0 Fernet
-    work).
-- Tests: 0 (build only — wires existing endpoints).
-
-#### G3 — Settings «AI» + «Кастомные поля» backend + UI (~1 day)
-
-AI section — surfaces existing config:
-- `GET /api/settings/ai` (admin) returns daily budget cap,
-  selected model, current spend.
-- `PATCH /api/settings/ai` (admin) flips model selection +
-  budget cap. Reads from `workspace.settings_json` (already
-  exists since Sprint 1.1) — no migration.
-- New `app/web/components/settings/AISection.tsx` with budget
-  card + model selector + spend gauge.
-
-Custom fields — new EAV-shaped surface:
-- Migration `0018_custom_attributes`:
-  - `custom_attribute_definitions` (workspace_id CASCADE, key,
-    label, kind ∈ ('text','number','date','select'), options_json,
-    is_required, position, created_at)
-  - `lead_custom_values` (lead_id CASCADE, definition_id CASCADE,
-    value_text / value_number / value_date — one populated per
-    row depending on kind)
-- `app/custom_attributes/` package: models, schemas (CreateIn,
-  UpdateIn, Out), repositories, services, routers
-  (`/api/custom-attributes/*` admin/head gated for writes).
-- New `app/web/components/settings/CustomFieldsSection.tsx` —
-  list + create + edit + drag-reorder.
-- LeadCard integration deferred to a follow-on (G3 only ships the
-  Settings CRUD; rendering the custom fields on the lead detail
-  is a 2.4+ polish item).
-
-Tests (~8 mock-only):
-- definition create / list / update / delete
-- value upsert per kind
-- role gating
-
-#### G4 — Templates module (~1 day)
+Carryover from Sprint 2.4. Two parts:
 
 Backend:
-- Migration `0019_message_templates`:
-  - `message_templates` (workspace_id CASCADE, channel ∈
-    ('email', 'tg', 'sms'), name, subject, body, variables_json,
-    is_active, created_by SET NULL, created_at, updated_at)
-- `app/templates/` package: models, schemas, repositories,
-  services, routers (`/api/templates/*` admin/head gated for
-  writes).
-- Variable substitution helper (`render_template(template, ctx)`)
-  — string-replace `{{lead.company_name}}` style placeholders.
-  Documented but not yet consumed (Automation Builder lands in
-  2.5).
+- Add a `dedupe_key` String(120) column to `notifications` (migration `0021_notifications_dedupe`). Index on `(user_id, dedupe_key, created_at desc)`.
+- `services.notify` accepts optional `dedupe_key`; if a notification with the same `(user_id, dedupe_key)` exists in the last 1h, skip the insert (return None).
+- `daily_plan_ready` cron writes empty plans with `dedupe_key="daily_plan_empty:{date}"`; the dedupe check stops a flood when a manager has nothing scheduled for many consecutive days.
 
 Frontend:
-- New `/settings/templates` sub-route OR a new section in
-  `/settings` (TBD G4 plan review — sub-route reads more
-  natural for a list+detail surface).
-- Template list table + editor modal with channel selector +
-  subject + body textarea + a static «Доступные переменные»
-  reference panel.
+- NotificationsDrawer: group items by day (Сегодня / Вчера / DD.MM.YYYY) with sticky day headers.
 
-Tests (~6 mock-only):
-- create / update / delete with workspace scope
-- variables_json validation
-- rendering with missing variable falls back gracefully
+Tests (~3 mock-only).
+
+#### G3 — AmoCRM adapter (~1 day)
+
+Sprint 2.1 G5 carryover. Mirror Bitrix24:
+- New `app/import_export/adapters/amocrm.py` — auth via long-lived refresh token; OAuth dance handled by ops manually (the prod env already has Bitrix24 manual config — same shape).
+- Lead-import job creates a `bulk_import_run` task with format=`amocrm`.
+- Tests (~5 mock-only): adapter parser + mapper happy path + auth-failed branch.
+
+#### G4 — Invite accept-flow + notification (~0.5 day)
+
+Sprint 2.4 carryover. `upsert_user_from_token` should:
+- Look up `user_invites` row by email on first sign-in.
+- Set `accepted_at = now()` if found.
+- Fire `safe_notify(kind='invite_accepted', user_id=invite.invited_by_user_id, ...)` so the inviter sees «{name} принял приглашение» in the bell.
+- Tests (~3 mock-only).
+
+Depends on G2 — without dedupe the inviter's drawer fills with system
+rows the day they invite a batch of people.
 
 #### G5 — Polish + sprint close (~0.5 day)
 
-- Audit log emit hooks for `user.invite / user.role_change /
-  template.create / template.delete / custom_attribute.*`.
-- Notifications — invitation acceptance pings the inviter
-  («{name} принял приглашение в воронку»).
-- AppShell: nothing new (the «Настройки» entry covers everything;
-  Templates land as a sub-section).
-- Sprint report `SPRINT_2_4_SETTINGS_TEMPLATES.md`.
-- Brain memory rotation: 00 + 02 + 04 updates as usual.
+- Audit emit hooks for `automation.{create,update,delete}` + `automation_run.{success,failed}`.
+- Sprint report `SPRINT_2_5_AUTOMATION_BUILDER.md`.
+- Brain memory rotation (00 + 02 + 04).
+- Smoke checklist additions: /automations + invite-accept ping.
 
 ### NOT ALLOWED (out of scope)
 
-- **Automation Builder.** Templates are the data model + admin UI
-  only. Wiring templates into actual outbound flows is Sprint 2.5.
-- **Workspace-level RBAC beyond admin/head/manager.** «Custom
-  permissions» is a 3.x concept.
-- **DB-backed SMTP credentials.** Env-var reads only in v1 — see
-  G2 rationale.
-- **Drag-reorder in Custom Fields v1.** Position is editable but
-  the UI is plain up/down buttons; dnd-kit can land in a follow-on.
-- **Cross-workspace template sharing.** «Marketplace» is Phase 3.
+- **Multi-step automation chains.** v1 is one trigger → one action. Sequential «send email then wait 3 days then create task» lands in a future sprint.
+- **Automation marketplace / cross-workspace sharing.** Phase 3.
+- **AI-generated message bodies.** v1 only renders existing templates with `{{lead.field}}` substitution. Generative inserts are a separate feature.
+- **Custom Webhook trigger / action.** Useful but big surface; lands in 2.6+.
+- **Workspace AI override → fallback chain wiring** — still env-first; carries over from 2.4.
+- **Custom-field render on LeadCard** — still carries over.
+- **Sentry activation** — still parked.
+
+## Carryovers from Sprint 2.4 (full list)
+
+Folded into the gate plan above where applicable; rest tracked here:
+
+1. ✅ G2: notification dedupe + grouping
+2. ✅ G4: invite accept-flow + notification
+3. ⏸ Pipeline header (accent → +Лид; Sprint → outline) — 2.5 polish or 2.6
+4. ⏸ Default pipeline 6–7 stages confirm — light-touch DB seed change
+5. ⏸ Settings sidebar «Скоро» collapse — frontend-only
+6. ⏸ LeadCard `window.confirm` → modal on Lost
+7. ⏸ Mobile Pipeline fallback (<md) — better vertical card layout
+8. ⏸ Custom-field render on LeadCard — still deferred (2.5+ polish)
+9. ⏸ Stage-replacement preview in PipelineEditor — Sprint 2.3 carryover
+10. ⏸ Workspace AI override → fallback chain wiring — Sprint 2.4 G3 carryover
+11. ⏸ dnd-kit reorder for Custom Fields position — Sprint 2.4 G3 carryover
+12. ⏸ Sentry activation — Sprint 2.1 G10 carryover, parked
 
 ## Risks
 
-1. **Magic-link invite delivery in stub mode.** SMTP host is
-   empty in production today (Sprint 1.5 stub mode). Invites
-   should still produce a clickable URL in the worker logs (same
-   pattern as the daily digest stub). G1 should NOT block on
-   real SMTP — verify the URL is logged and the user copies it
-   manually until staging gets real SMTP creds.
-2. **Custom-field render on /pipeline + LeadCard.** Defining
-   custom fields without a place to display them is a footgun.
-   Carryover to a 2.4+ polish ticket — at minimum, the LeadCard
-   should grow a «Дополнительные поля» tab in 2.4 after G3.
-3. **Template variable schema drift.** Hardcoding the lead-shape
-   into the variables reference panel risks falling out of sync
-   if Lead grows new columns. G4 should derive the reference
-   list from a single source of truth (e.g.
-   `app/leads/schemas.py:LeadOut.model_fields`).
-4. **2.3 carryover bundling.** Drop-`is_default` migration is now
-   wired into G1 (migration 0017). Stage-replacement preview UX
-   stays a small isolated PR within G5 — keep the new work clean,
-   don't smear it across other groups.
-5. **Settings page surface area.** Three new backend endpoints
-   for «AI» + «Кастомные поля» + «Команда» + «Templates». Add
-   them to the existing routers list in `app/main.py` carefully;
-   the route count will jump and `pnpm build` time will too.
+1. **Trigger-hook fan-out cost.** Every stage_change / form_submission / inbox_match now spends extra time iterating workspace automations. v1 ships with a synchronous evaluator; if any workspace gets >50 automations, profile the hot path before the next sprint.
+2. **Template variable schema drift.** G1 needs a single source of truth for «what `{{lead.*}}` keys exist». Use `app/leads/schemas.py:LeadOut.model_fields` at render time so removing a column doesn't silently render «{{lead.deleted_field}}» literally — substitute with a clear «[unknown field]» marker plus a worker log warning.
+3. **Notification dedupe + accept-flow ordering.** G4 requires G2 to ship first. The plan above has G2 → G3 → G4; do not reorder.
+4. **AmoCRM OAuth refresh.** Bitrix24 has a manual ops dance; AmoCRM is similar. The adapter should run in stub mode if `AMOCRM_REFRESH_TOKEN` is empty — same pattern as the SMTP/Supabase stubs.
+5. **2.4 carryover bundling.** Most of the carryover items live as small isolated polish tickets; do NOT smear them across the automation gates.
 
 ## Stop conditions — post-deploy smoke checklist
 
-**Before declaring Sprint 2.4 complete, run this ritual on
-staging (and again on prod after merge to main).** Lesson from
-2026-05-08: `/leads-pool` was silently broken for >24h because
-nobody hit the page after a frontend `page_size` bump. We don't
-catch latent 4xx without explicit verification.
-
-For each of the live pages, open it logged-in, watch the Network
-tab Fetch/XHR rows, and confirm zero non-2xx responses:
-
-- [ ] `/today` — daily plan loads, no 422/500 on `/api/me/today`
-      or `/api/leads`.
-- [ ] `/pipeline` — switcher dropdown renders, board reflows,
-      `/api/pipelines` 200, `/api/leads?pipeline_id=...` 200.
-- [ ] `/leads-pool` — pool table renders OR empty state shows;
-      `/api/leads/pool?page_size=500` 200 (NOT 422 — see hotfix
-      `8349516`).
-- [ ] `/inbox` — pending list renders (or empty-state OAuth CTA).
-- [ ] `/forms` — admin/head only, table loads, embed snippet
-      copies (Sprint 2.2).
-- [ ] `/settings` — all 4 sections render, «Воронки» table opens,
-      switch + delete + create flows работают.
-- [ ] `/audit` — admin only, recent events visible.
-
-If any row 4xx/5xx, sprint is NOT complete — fix before close.
-The smoke checklist gets a row in `SPRINT_2_4_*.md`'s production-
-readiness section and again as a pre-PR-merge gate.
-
-Same pattern carries forward to Sprint 2.5+. Add new pages to the
-list as they ship.
+Update `docs/SMOKE_CHECKLIST_2_4.md` (or fork to `_2_5.md`) with:
+- [ ] /automations — admin only, table loads, builder modal opens
+- [ ] Trigger fires — move a lead's stage, the matching automation runs, history row visible
+- [ ] /settings → Команда — invite a teammate, sign in as them, the inviter's bell shows «принял приглашение»
+- [ ] All 9 prior smoke checks (from 2.4) still pass
 
 ## Done definition
 
-- Migrations 0016 (user_invites), 0017 (drop pipelines.is_default),
-  0018 (custom_attributes), 0019 (message_templates) apply cleanly
-  via `alembic upgrade head` on staging.
-- All 4 Settings sections live: Команда / Каналы / AI /
-  Кастомные поля.
-- Templates module live at `/settings/templates` (or sub-route
-  TBD).
-- Audit log shows the new emit kinds.
-- ≥20 new mock tests across G1 / G3 / G4. Combined baseline
-  ≥149 mock tests passing.
+- Migrations 0020 (automations / automation_runs) + 0021 (notifications dedupe_key) apply cleanly via `alembic upgrade head` on staging.
+- Automation Builder ships end-to-end: create automation → trigger fires → action executes → run history appears.
+- Invite accept-flow writes `accepted_at` and pings the inviter.
+- Notification dedupe stops the empty-daily-plan fan-out.
+- ≥23 new mock tests across G1–G4. Combined baseline ≥304 mock tests passing (281 + 23).
 - `pnpm typecheck` + `pnpm build` clean.
 - Sprint report written, brain memory rotated.
-- 0 new npm deps target (matches Sprints 2.0 / 2.1 / 2.2 / 2.3).
+- 0 new npm deps target (matches Sprints 2.0 / 2.1 / 2.2 / 2.3 / 2.4).
 
 ---
 
-**Out-of-scope but parked here for awareness — fold into 2.5+:**
+**Out-of-scope but parked here for awareness — fold into 2.6+:**
 
-- Automation Builder (consumes Templates from 2.4)
-- AmoCRM adapter (Sprint 2.1 G5 deferred)
+- AI-generated message bodies in templates (Sprint 2.5 NOT-ALLOWED)
+- Multi-step automation chains (Sprint 2.5 NOT-ALLOWED)
+- Custom Webhook trigger / action (Sprint 2.5 NOT-ALLOWED)
 - Telegram Business inbox + `gmail.send` scope (Sprint 2.0 deferred)
 - Quote / КП builder (Sprint 2.0 deferred)
 - Knowledge Base CRUD UI (Sprint 2.0 deferred)
 - `_GENERIC_DOMAINS` per-workspace setting (Sprint 2.0 carryover)
 - Gmail history-sync resumable / paginated job (Sprint 2.0 carryover)
-- Notification debounce on form-submission fan-out (Sprint 2.2 carryover)
 - Honeypot / timing trap on `embed.js` (Sprint 2.2 carryover)
 - `pnpm add @sentry/nextjs` activation (Sprint 2.1 G10 carryover)
-- pg_dump cron + Sentry DSNs (Sprint 1.5 soft-launch carryover)
+- Sentry DSNs (Sprint 1.5 soft-launch carryover; pg_dump cron CLOSED in 2.4 G5)
 - Per-stage gate-criteria editor (Phase 3)
 - Pipeline cloning / templates (Sprint 2.3 carryover)
 - Cross-pipeline reporting (Phase 3)
 - DST-aware cron edge handling
-- Custom-field render on LeadCard (Sprint 2.4 polish carryover; G3
-  ships Settings CRUD only)
+- Custom-field render on LeadCard (Sprint 2.4 carryover)
+- Stage-replacement preview in PipelineEditor (Sprint 2.3 carryover)
+- Workspace AI override → fallback chain (Sprint 2.4 G3 carryover)
+- dnd-kit reorder for Custom Fields position (Sprint 2.4 G3 carryover)
+- Pipeline header polish (accent / outline button variants)
+- Default pipeline 6–7 stages confirm
+- Settings sidebar «Скоро» collapse
+- LeadCard `window.confirm` → modal on Lost
+- Mobile Pipeline fallback (<md)

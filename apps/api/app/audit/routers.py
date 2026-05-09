@@ -27,7 +27,7 @@ async def list_audit(
 ) -> AuditLogPageOut:
     """Admin-only. Always scoped to caller's workspace — `workspace_id` is
     not user-supplied, it comes from the authenticated User row."""
-    items, total = await repo.list_for_workspace(
+    rows, total = await repo.list_for_workspace(
         db,
         workspace_id=user.workspace_id,
         entity_type=entity_type,
@@ -35,8 +35,17 @@ async def list_audit(
         page=page,
         page_size=page_size,
     )
+    # Each row is (AuditLog, user_full_name, user_email) — fold the
+    # joined user fields into the Pydantic output so the frontend can
+    # render «Имя · email» without a second round-trip.
+    items: list[AuditLogOut] = []
+    for row, full_name, email in rows:
+        item = AuditLogOut.model_validate(row)
+        item.user_full_name = full_name
+        item.user_email = email
+        items.append(item)
     return AuditLogPageOut(
-        items=[AuditLogOut.model_validate(i) for i in items],
+        items=items,
         total=total,
         page=page,
         page_size=page_size,

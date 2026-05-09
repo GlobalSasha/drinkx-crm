@@ -36,9 +36,11 @@ class PipelineOut(BaseModel):
     workspace_id: UUID
     name: str
     type: str
-    is_default: bool
     position: int
     stages: list[StageOut]
+    # `is_default` removed in Sprint 2.4 G1 (migration 0017 drops
+    # the column). Use `me.workspace.default_pipeline_id` to decide
+    # which pipeline is the workspace's default.
 
 
 # ---------------------------------------------------------------------------
