@@ -921,6 +921,32 @@ export interface CustomAttributeDefinitionUpdateIn {
   position?: number;
 }
 
+// ---- Sprint 2.6 G4: lead custom fields + reorder ----
+
+export interface LeadAttributeOut {
+  definition_id: string;
+  key: string;
+  label: string;
+  kind: AttributeKind;
+  options_json: AttributeOption[] | null;
+  is_required: boolean;
+  position: number;
+  // string for text/select; number for number kind; ISO date string for date.
+  // null when the manager hasn't set a value yet.
+  value: string | number | null;
+}
+
+export interface LeadAttributeUpsertIn {
+  definition_id: string;
+  // Always sent as a string from the input element; backend parses
+  // per the definition's kind. Null / empty string clears the value.
+  value: string | null;
+}
+
+export interface CustomAttributeReorderIn {
+  ordered_ids: string[];
+}
+
 // ---- Message Templates (Sprint 2.4 G4) ----
 
 export type TemplateChannel = "email" | "tg" | "sms";

@@ -160,6 +160,159 @@ async def delete_definition(
 # Value upsert
 # ---------------------------------------------------------------------------
 
+async def list_values_with_definitions(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+) -> list[dict]:
+    """Sprint 2.6 G4 — load every workspace definition, merge with the
+    matching lead value (NULL if the user hasn't set one yet). Returns
+    a list of dicts ready to serialize as `LeadCustomValueOut`:
+        {definition_id, key, label, kind, options_json, value}
+    Sorted by `position` (matches Settings list order).
+    """
+    definitions = await repo.list_definitions(
+        db, workspace_id=workspace_id
+    )
+    values = await repo.list_values_for_lead(db, lead_id=lead_id)
+    by_def = {v.definition_id: v for v in values}
+
+    out: list[dict] = []
+    for d in definitions:
+        v = by_def.get(d.id)
+        # Flatten the polymorphic value columns into a single field —
+        # the kind discriminator on the definition tells the frontend
+        # how to render. None when no value is set yet.
+        flat_value: object = None
+        if v is not None:
+            if d.kind == "text" or d.kind == "select":
+                flat_value = v.value_text
+            elif d.kind == "number":
+                # Numeric → return as float so the UI can format with
+                # toLocaleString. Defensive: `value_number` from
+                # SQLAlchemy may come back as Decimal in pg.
+                flat_value = (
+                    float(v.value_number) if v.value_number is not None else None
+                )
+            elif d.kind == "date":
+                flat_value = v.value_date
+        out.append(
+            {
+                "definition_id": d.id,
+                "key": d.key,
+                "label": d.label,
+                "kind": d.kind,
+                "options_json": d.options_json,
+                "is_required": d.is_required,
+                "position": d.position,
+                "value": flat_value,
+            }
+        )
+    return out
+
+
+async def upsert_value_from_string(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+    definition_id: uuid.UUID,
+    raw_value: str | None,
+) -> LeadCustomValue:
+    """Sprint 2.6 G4 entry-point used by `PATCH
+    /api/leads/{id}/attributes`. Parses a single string against the
+    definition's `kind` and forwards to `upsert_value`. Empty
+    `raw_value` (None or "") clears the value column.
+
+    Number / date parse failures raise `InvalidValueForKind` so the
+    router maps to 400 with a clear message instead of a 500.
+    """
+    definition = await repo.get_definition(
+        db, definition_id=definition_id, workspace_id=workspace_id
+    )
+    if definition is None:
+        raise DefinitionNotFound(str(definition_id))
+
+    is_empty = raw_value is None or (
+        isinstance(raw_value, str) and raw_value.strip() == ""
+    )
+
+    text: str | None = None
+    number: float | None = None
+    dt: date | None = None
+
+    if not is_empty:
+        if definition.kind == "text" or definition.kind == "select":
+            text = raw_value
+        elif definition.kind == "number":
+            try:
+                number = float(raw_value)  # type: ignore[arg-type]
+            except (TypeError, ValueError) as exc:
+                raise InvalidValueForKind(
+                    f"can't parse '{raw_value}' as number"
+                ) from exc
+        elif definition.kind == "date":
+            try:
+                dt = date.fromisoformat(str(raw_value))
+            except ValueError as exc:
+                raise InvalidValueForKind(
+                    f"can't parse '{raw_value}' as ISO date"
+                ) from exc
+
+    return await upsert_value(
+        db,
+        workspace_id=workspace_id,
+        lead_id=lead_id,
+        definition_id=definition_id,
+        value_text=text,
+        value_number=number,
+        value_date=dt,
+    )
+
+
+async def reorder_definitions(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    ordered_ids: list[uuid.UUID],
+) -> list[CustomAttributeDefinition]:
+    """Sprint 2.6 G4 — set `position` on each definition in the order
+    received. Validates EVERY id belongs to the workspace before
+    writing anything (cross-workspace ids raise DefinitionNotFound;
+    refuses partial updates). Caller commits.
+    """
+    if not ordered_ids:
+        return []
+
+    # Load all referenced definitions in one query, validate
+    # workspace membership.
+    from sqlalchemy import select
+
+    res = await db.execute(
+        select(CustomAttributeDefinition).where(
+            CustomAttributeDefinition.id.in_(ordered_ids),
+            CustomAttributeDefinition.workspace_id == workspace_id,
+        )
+    )
+    rows = list(res.scalars().all())
+    by_id = {row.id: row for row in rows}
+
+    # Any missing → reject the whole reorder. Either a stale UI bundle
+    # sent a deleted id or — worse — a cross-workspace probe; both are
+    # 400-territory.
+    for target_id in ordered_ids:
+        if target_id not in by_id:
+            raise DefinitionNotFound(str(target_id))
+
+    for index, target_id in enumerate(ordered_ids):
+        by_id[target_id].position = index
+
+    await db.flush()
+    # Return in the new order so the caller can echo back the result.
+    return [by_id[i] for i in ordered_ids]
+
+
 async def upsert_value(
     db: AsyncSession,
     *,

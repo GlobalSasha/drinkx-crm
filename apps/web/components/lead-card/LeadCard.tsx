@@ -21,6 +21,7 @@ import { ActivityTab } from "./ActivityTab";
 import { PilotTab } from "./PilotTab";
 import { AIBriefTab } from "./AIBriefTab";
 import { FollowupsRail } from "./FollowupsRail";
+import { CustomFieldsPanel } from "./CustomFieldsPanel";
 import { GateModal } from "./GateModal";
 import { LostModal } from "./LostModal";
 import { TransferModal } from "./TransferModal";
@@ -430,6 +431,10 @@ export function LeadCard({ leadId }: Props) {
           {/* Rail — 296px fixed on desktop, full-width strip on mobile */}
           <div className="w-full md:w-[296px] md:shrink-0 flex flex-col gap-4">
             <FollowupsRail leadId={lead.id} />
+            {/* Sprint 2.6 G4 — workspace custom-attribute values rendered
+                inline below the follow-ups rail. Section renders nothing
+                when the workspace has no definitions. */}
+            <CustomFieldsPanel leadId={lead.id} />
           </div>
 
           {/* Tab body */}

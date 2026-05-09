@@ -1,15 +1,30 @@
 "use client";
-// CustomFieldsSection — Sprint 2.4 G3.
+// CustomFieldsSection — Sprint 2.4 G3 + Sprint 2.6 G4 reorder.
 //
 // Workspace-defined extra fields on Lead. Admin/head-only writes;
 // managers can read the list but action buttons hide.
 //
-// v1 ships definition CRUD only — rendering values on the LeadCard /
-// pipeline filters / segments is a 2.4+ polish carryover. The section
-// surfaces this so admins don't expect the new field to show up on
-// /pipeline immediately.
-import { useState } from "react";
+// Sprint 2.6 G4 added drag-reorder via dnd-kit (same lib already
+// driving the Pipeline Kanban). Reorder PATCHes the backend with
+// the new ordered id list; backend writes `position = index` on
+// each row in one transaction.
+import { useEffect, useState } from "react";
 import {
+  DndContext,
+  DragEndEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
+  GripVertical,
   Loader2,
   Pencil,
   Plus,
@@ -24,6 +39,7 @@ import {
   useCreateCustomAttribute,
   useCustomAttributes,
   useDeleteCustomAttribute,
+  useReorderCustomAttributes,
   useUpdateCustomAttribute,
 } from "@/lib/hooks/use-custom-attributes";
 import { useMe } from "@/lib/hooks/use-me";
@@ -113,79 +129,13 @@ export function CustomFieldsSection() {
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-black/5 rounded-2xl shadow-soft overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-canvas">
-              <tr className="text-left text-[10px] font-mono uppercase tracking-wide text-muted-3">
-                <th className="px-4 py-2 font-semibold">Метка</th>
-                <th className="px-4 py-2 font-semibold">Ключ</th>
-                <th className="px-4 py-2 font-semibold">Тип</th>
-                <th className="px-4 py-2 font-semibold">Обязательно</th>
-                {isAdminOrHead && (
-                  <th className="px-4 py-2 font-semibold text-right">
-                    Действия
-                  </th>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((def) => (
-                <tr
-                  key={def.id}
-                  className="border-t border-black/5 hover:bg-canvas/40 transition-colors"
-                >
-                  <td className="px-4 py-3 font-semibold text-ink">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Tag size={11} className="text-muted-3" />
-                      {def.label}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-xs font-mono text-muted">
-                    {def.key}
-                  </td>
-                  <td className="px-4 py-3 text-xs">
-                    {KIND_LABELS[def.kind]}
-                    {def.kind === "select" && def.options_json && (
-                      <span className="text-muted-3 ml-1">
-                        · {def.options_json.length} опций
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-xs">
-                    {def.is_required ? (
-                      <span className="text-warning font-semibold">Да</span>
-                    ) : (
-                      <span className="text-muted-3">—</span>
-                    )}
-                  </td>
-                  {isAdminOrHead && (
-                    <td className="px-4 py-3 text-right">
-                      <div className="inline-flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(def)}
-                          className="text-muted hover:text-ink p-1.5 rounded-md hover:bg-black/5 transition-colors"
-                          title="Редактировать"
-                        >
-                          <Pencil size={13} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onDelete(def)}
-                          disabled={del.isPending}
-                          className="text-muted hover:text-rose p-1.5 rounded-md hover:bg-rose/5 transition-colors disabled:opacity-40"
-                          title="Удалить"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DraggableList
+          items={items}
+          isAdminOrHead={isAdminOrHead}
+          onEdit={openEdit}
+          onDelete={onDelete}
+          deletePending={del.isPending}
+        />
       )}
 
       {editorOpen && (
@@ -450,6 +400,209 @@ function CustomFieldEditor({
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+
+// ---------------------------------------------------------------------------
+// Sprint 2.6 G4 — drag-reorder list. dnd-kit (@dnd-kit/core +
+// @dnd-kit/sortable) is already in the bundle from the Pipeline
+// Kanban; no new dep. Each row is a sortable item with a grip handle
+// on the left. On drag end the new order is sent to the backend in
+// one PATCH; cache is invalidated on success.
+// ---------------------------------------------------------------------------
+
+function DraggableList({
+  items,
+  isAdminOrHead,
+  onEdit,
+  onDelete,
+  deletePending,
+}: {
+  items: CustomAttributeDefinitionOut[];
+  isAdminOrHead: boolean;
+  onEdit: (def: CustomAttributeDefinitionOut) => void;
+  onDelete: (def: CustomAttributeDefinitionOut) => void;
+  deletePending: boolean;
+}) {
+  const reorder = useReorderCustomAttributes();
+
+  // Local order state — lets the UI reflect the new order
+  // immediately on drop without waiting for the server round-trip.
+  // Re-syncs from `items` whenever the upstream list refreshes.
+  const [orderedIds, setOrderedIds] = useState<string[]>(() =>
+    items.map((d) => d.id),
+  );
+  useEffect(() => {
+    setOrderedIds(items.map((d) => d.id));
+  }, [items]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      // 6px drag distance before activating — keeps Edit/Delete
+      // button clicks from accidentally starting a drag.
+      activationConstraint: { distance: 6 },
+    }),
+  );
+
+  const byId = new Map(items.map((d) => [d.id, d]));
+  const ordered = orderedIds
+    .map((id) => byId.get(id))
+    .filter((d): d is CustomAttributeDefinitionOut => !!d);
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = orderedIds.indexOf(String(active.id));
+    const newIndex = orderedIds.indexOf(String(over.id));
+    if (oldIndex < 0 || newIndex < 0) return;
+    const next = arrayMove(orderedIds, oldIndex, newIndex);
+    setOrderedIds(next);
+    if (isAdminOrHead) {
+      reorder.mutate(next, {
+        onError: () => {
+          // Revert local order on backend failure so the UI matches
+          // server state after the next list re-fetch.
+          setOrderedIds(items.map((d) => d.id));
+        },
+      });
+    }
+  }
+
+  return (
+    <div className="bg-white border border-black/5 rounded-2xl shadow-soft overflow-hidden">
+      <div className="bg-canvas grid grid-cols-[28px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,140px)_minmax(0,90px)_64px] gap-3 px-4 py-2 text-[10px] font-mono uppercase tracking-wide text-muted-3 font-semibold">
+        <span aria-hidden />
+        <span>Метка</span>
+        <span>Ключ</span>
+        <span>Тип</span>
+        <span>Обяз.</span>
+        {isAdminOrHead ? (
+          <span className="text-right">Действия</span>
+        ) : (
+          <span aria-hidden />
+        )}
+      </div>
+      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+        <SortableContext
+          items={orderedIds}
+          strategy={verticalListSortingStrategy}
+        >
+          {ordered.map((def) => (
+            <SortableRow
+              key={def.id}
+              def={def}
+              isAdminOrHead={isAdminOrHead}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              deletePending={deletePending}
+            />
+          ))}
+        </SortableContext>
+      </DndContext>
+    </div>
+  );
+}
+
+
+function SortableRow({
+  def,
+  isAdminOrHead,
+  onEdit,
+  onDelete,
+  deletePending,
+}: {
+  def: CustomAttributeDefinitionOut;
+  isAdminOrHead: boolean;
+  onEdit: (def: CustomAttributeDefinitionOut) => void;
+  onDelete: (def: CustomAttributeDefinitionOut) => void;
+  deletePending: boolean;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: def.id, disabled: !isAdminOrHead });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="grid grid-cols-[28px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,140px)_minmax(0,90px)_64px] gap-3 px-4 py-3 border-t border-black/5 hover:bg-canvas/40 transition-colors text-sm items-center"
+    >
+      {isAdminOrHead ? (
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          className="text-muted-3 hover:text-muted cursor-grab active:cursor-grabbing touch-none p-1 rounded-md hover:bg-black/5 transition-colors"
+          aria-label="Перетащить"
+          title="Перетащить для изменения порядка"
+        >
+          <GripVertical size={13} />
+        </button>
+      ) : (
+        <span aria-hidden />
+      )}
+      <span className="font-semibold text-ink truncate">
+        <span className="inline-flex items-center gap-1.5">
+          <Tag size={11} className="text-muted-3" />
+          {def.label}
+        </span>
+      </span>
+      <span className="text-xs font-mono text-muted truncate">
+        {def.key}
+      </span>
+      <span className="text-xs truncate">
+        {KIND_LABELS[def.kind]}
+        {def.kind === "select" && def.options_json && (
+          <span className="text-muted-3 ml-1">
+            · {def.options_json.length}
+          </span>
+        )}
+      </span>
+      <span className="text-xs">
+        {def.is_required ? (
+          <span className="text-warning font-semibold">Да</span>
+        ) : (
+          <span className="text-muted-3">—</span>
+        )}
+      </span>
+      {isAdminOrHead ? (
+        <span className="text-right">
+          <span className="inline-flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => onEdit(def)}
+              className="text-muted hover:text-ink p-1.5 rounded-md hover:bg-black/5 transition-colors"
+              title="Редактировать"
+            >
+              <Pencil size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(def)}
+              disabled={deletePending}
+              className="text-muted hover:text-rose p-1.5 rounded-md hover:bg-rose/5 transition-colors disabled:opacity-40"
+              title="Удалить"
+            >
+              <Trash2 size={13} />
+            </button>
+          </span>
+        </span>
+      ) : (
+        <span aria-hidden />
+      )}
     </div>
   );
 }

@@ -95,6 +95,7 @@ _stub_sqlalchemy()
 from app.custom_attributes import services as svc  # noqa: E402
 
 WS = uuid.uuid4()
+WS_OTHER = uuid.uuid4()
 LEAD = uuid.uuid4()
 
 
@@ -407,3 +408,164 @@ async def test_upsert_value_date_dispatch():
     assert upsert_calls[0]["value_date"] == target
     assert upsert_calls[0]["value_text"] is None
     assert upsert_calls[0]["value_number"] is None
+
+
+# ===========================================================================
+# Sprint 2.6 G4 — string-typed upsert + cross-workspace defence + reorder
+# ===========================================================================
+
+@pytest.mark.asyncio
+async def test_upsert_value_from_string_parses_per_kind():
+    """Sprint 2.6 G4: `upsert_value_from_string` is the API entry-
+    point used by `PATCH /api/leads/{id}/attributes`. It parses the
+    raw string against the definition's kind. For kind='number' the
+    string «42.5» becomes float 42.5 in the dispatched call. For
+    kind='date' the ISO string «2026-05-09» becomes date(2026, 5, 9).
+    """
+    db = AsyncMock()
+    target = _make_definition(kind="number", key="amount")
+    upsert_calls: list[dict] = []
+
+    async def fake_get_definition(_db, **kw):
+        return target
+
+    async def fake_upsert(_db, **kw):
+        upsert_calls.append(kw)
+        return MagicMock()
+
+    with patch(
+        "app.custom_attributes.repositories.get_definition",
+        new=fake_get_definition,
+    ), patch(
+        "app.custom_attributes.repositories.upsert_value", new=fake_upsert
+    ):
+        await svc.upsert_value_from_string(
+            db,
+            workspace_id=WS,
+            lead_id=LEAD,
+            definition_id=target.id,
+            raw_value="42.5",
+        )
+
+    assert len(upsert_calls) == 1
+    assert upsert_calls[0]["value_number"] == 42.5
+    assert upsert_calls[0]["value_text"] is None
+    assert upsert_calls[0]["value_date"] is None
+
+
+@pytest.mark.asyncio
+async def test_upsert_value_from_string_rejects_cross_workspace_definition():
+    """Sprint 2.6 G4 audit fix: definition lookup is workspace-scoped
+    via `repo.get_definition(definition_id, workspace_id=...)`. A
+    definition belonging to workspace B → returns None → service
+    raises `DefinitionNotFound`, router maps to 403 (caller's
+    workspace ≠ definition's workspace = security boundary).
+
+    This test simulates the cross-workspace case: get_definition
+    returns None when called with the caller's WS even though a
+    definition with this id exists in WS_OTHER. The repository's
+    AND-of-(id, workspace_id) WHERE clause does the work; the test
+    just pins the service layer's reaction (raise → router 403)."""
+    db = AsyncMock()
+    foreign_def_id = uuid.uuid4()
+
+    async def fake_get_definition(_db, **kw):
+        # workspace_id from caller doesn't match the row's workspace
+        # → repo returns None per its AND filter.
+        assert kw["workspace_id"] == WS
+        assert kw["definition_id"] == foreign_def_id
+        return None
+
+    upsert_calls: list[dict] = []
+
+    async def fake_upsert(_db, **kw):
+        upsert_calls.append(kw)
+        return MagicMock()
+
+    with patch(
+        "app.custom_attributes.repositories.get_definition",
+        new=fake_get_definition,
+    ), patch(
+        "app.custom_attributes.repositories.upsert_value", new=fake_upsert
+    ):
+        with pytest.raises(svc.DefinitionNotFound):
+            await svc.upsert_value_from_string(
+                db,
+                workspace_id=WS,
+                lead_id=LEAD,
+                definition_id=foreign_def_id,
+                raw_value="anything",
+            )
+
+    # Critical: NO upsert was attempted before the workspace check
+    # rejected the request. Otherwise we'd be writing values for a
+    # definition the caller doesn't own.
+    assert len(upsert_calls) == 0
+
+
+@pytest.mark.asyncio
+async def test_reorder_definitions_updates_positions_in_received_order():
+    """Sprint 2.6 G4 — `reorder_definitions` writes `position = index`
+    on each row in the order received. Validates every id belongs to
+    the workspace BEFORE writing (refuses partial reorders if any id
+    is foreign / deleted).
+
+    This test pins the position assignment: pass [B, A, C] → after
+    reorder, B has position=0, A has position=1, C has position=2.
+    """
+    db = AsyncMock()
+    a = _make_definition(key="a")
+    b = _make_definition(key="b")
+    c = _make_definition(key="c")
+    a.position = 0
+    b.position = 1
+    c.position = 2
+
+    # `reorder_definitions` runs `select(...).where(id IN ordered_ids)
+    # AND workspace_id == ws)`. The mock returns all three; the
+    # service maps id → row and overwrites positions.
+    res = MagicMock()
+    res.scalars = lambda: MagicMock(all=lambda: [a, b, c])
+    db.execute = AsyncMock(return_value=res)
+
+    out = await svc.reorder_definitions(
+        db,
+        workspace_id=WS,
+        ordered_ids=[b.id, a.id, c.id],
+    )
+
+    assert b.position == 0
+    assert a.position == 1
+    assert c.position == 2
+    # Returned in the new order so the router can echo back.
+    assert [r.key for r in out] == ["b", "a", "c"]
+
+
+@pytest.mark.asyncio
+async def test_reorder_definitions_refuses_partial_set():
+    """If any id in `ordered_ids` is missing from the
+    workspace-filtered SELECT (deleted between the UI fetch and the
+    save, or a cross-workspace probe), the whole reorder is rejected
+    with `DefinitionNotFound`. Refusing partial keeps the position
+    column consistent — no half-applied state."""
+    db = AsyncMock()
+    a = _make_definition(key="a")
+    a.position = 0
+    foreign_id = uuid.uuid4()  # not in this workspace
+
+    res = MagicMock()
+    # SELECT only returns `a` — `foreign_id` is filtered out by the
+    # AND workspace_id clause.
+    res.scalars = lambda: MagicMock(all=lambda: [a])
+    db.execute = AsyncMock(return_value=res)
+
+    with pytest.raises(svc.DefinitionNotFound):
+        await svc.reorder_definitions(
+            db,
+            workspace_id=WS,
+            ordered_ids=[a.id, foreign_id],
+        )
+
+    # `a.position` was NOT mutated — partial-reorder rejection
+    # leaves all rows untouched.
+    assert a.position == 0

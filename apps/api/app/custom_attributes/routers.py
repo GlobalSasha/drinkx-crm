@@ -25,6 +25,7 @@ from app.custom_attributes.schemas import (
     CustomAttributeDefinitionCreateIn,
     CustomAttributeDefinitionOut,
     CustomAttributeDefinitionUpdateIn,
+    CustomAttributeReorderIn,
 )
 from app.db import get_db
 
@@ -155,6 +156,47 @@ async def update_definition_endpoint(
     )
     await db.commit()
     return CustomAttributeDefinitionOut.model_validate(definition)
+
+
+@router.patch(
+    "/reorder", response_model=list[CustomAttributeDefinitionOut]
+)
+async def reorder_definitions_endpoint(
+    payload: CustomAttributeReorderIn,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(require_admin_or_head)] = ...,
+) -> list[CustomAttributeDefinitionOut]:
+    """Sprint 2.6 G4 — set `position` on each definition in the
+    received order. Admin/head only. Refuses any reorder that
+    references a definition outside the caller's workspace (404 on
+    the first stale id)."""
+    try:
+        rows = await svc.reorder_definitions(
+            db,
+            workspace_id=user.workspace_id,
+            ordered_ids=payload.ordered_ids,
+        )
+    except svc.DefinitionNotFound as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": "definition_not_found",
+                "message": "Some custom attribute id is not in this workspace.",
+                "missing_id": str(exc),
+            },
+        ) from exc
+
+    await log_audit_event(
+        db,
+        workspace_id=user.workspace_id,
+        user_id=user.id,
+        action="custom_attribute.reorder",
+        entity_type="custom_attribute_definition",
+        entity_id=None,
+        delta={"ordered_ids": [str(i) for i in payload.ordered_ids]},
+    )
+    await db.commit()
+    return [CustomAttributeDefinitionOut.model_validate(r) for r in rows]
 
 
 @router.delete("/{definition_id}", status_code=status.HTTP_204_NO_CONTENT)

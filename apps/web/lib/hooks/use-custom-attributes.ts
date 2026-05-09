@@ -64,3 +64,28 @@ export function useDeleteCustomAttribute() {
     },
   });
 }
+
+/**
+ * Sprint 2.6 G4 — drag-reorder. Caller passes the full ordered id
+ * list; backend writes `position = index` on each row in one
+ * transaction (refuses any reorder that includes a stale / cross-
+ * workspace id). Cache is invalidated on success so the next list
+ * fetch reflects the new position order.
+ */
+export function useReorderCustomAttributes() {
+  const qc = useQueryClient();
+  return useMutation<
+    CustomAttributeDefinitionOut[],
+    ApiError,
+    string[]
+  >({
+    mutationFn: (orderedIds) =>
+      api.patch<CustomAttributeDefinitionOut[]>(
+        "/custom-attributes/reorder",
+        { ordered_ids: orderedIds },
+      ),
+    onSuccess: (rows) => {
+      qc.setQueryData(KEY, rows);
+    },
+  });
+}
