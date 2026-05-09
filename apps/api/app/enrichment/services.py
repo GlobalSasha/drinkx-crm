@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import uuid as _uuid_mod
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
+import structlog
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +14,13 @@ from app.enrichment.concurrency import is_at_concurrency_limit
 from app.enrichment.models import EnrichmentRun
 from app.leads.models import Lead
 from app.leads.services import LeadNotFound
+
+log = structlog.get_logger()
+
+# Stuck-run guard: a BG task that crashed mid-run leaves the row at status
+# 'running' forever. The UI polls /latest and spins indefinitely. After this
+# many seconds we declare the run failed so the UI can stop spinning.
+STUCK_RUN_TIMEOUT_SECONDS = 300  # 5 minutes
 
 
 class EnrichmentAlreadyRunning(Exception):
@@ -103,7 +112,13 @@ async def get_latest_run(
     workspace_id: UUID,
     lead_id: UUID,
 ) -> EnrichmentRun | None:
-    """Return the most recent EnrichmentRun for the given lead, workspace-scoped."""
+    """Return the most recent EnrichmentRun for the given lead, workspace-scoped.
+
+    Auto-expires zombie 'running' rows: if a BG task crashed (worker restart,
+    asyncio mishap, etc.) the row never transitions out of 'running' and the
+    UI spinner runs forever. We flip rows older than STUCK_RUN_TIMEOUT_SECONDS
+    to 'failed' so the spinner stops.
+    """
     result = await db.execute(
         select(EnrichmentRun)
         .join(Lead, EnrichmentRun.lead_id == Lead.id)
@@ -111,7 +126,32 @@ async def get_latest_run(
         .order_by(desc(EnrichmentRun.started_at))
         .limit(1)
     )
-    return result.scalar_one_or_none()
+    run = result.scalar_one_or_none()
+    if run is None:
+        return None
+
+    if run.status == "running":
+        started = run.started_at
+        # started_at is timezone-aware (server_default=now()) — make naive
+        # comparisons robust by coercing both sides to UTC-aware.
+        if started is not None and started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
+        cutoff = datetime.now(tz=timezone.utc) - timedelta(seconds=STUCK_RUN_TIMEOUT_SECONDS)
+        if started is not None and started < cutoff:
+            run.status = "failed"
+            run.error = (
+                run.error
+                or f"stuck-run guard: no completion within {STUCK_RUN_TIMEOUT_SECONDS}s"
+            )
+            run.finished_at = datetime.now(tz=timezone.utc)
+            await db.commit()
+            log.warning(
+                "enrichment.stuck_run_expired",
+                run_id=str(run.id),
+                lead_id=str(lead_id),
+                age_seconds=int((datetime.now(tz=timezone.utc) - started).total_seconds()),
+            )
+    return run
 
 
 async def list_runs(

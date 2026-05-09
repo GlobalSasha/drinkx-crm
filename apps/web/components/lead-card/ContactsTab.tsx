@@ -172,6 +172,54 @@ export function ContactsTab({ lead }: Props) {
         </div>
       )}
 
+      {/* AI-extracted contacts without an assigned role land here so they
+          stay visible until the manager confirms a role_type. Without this
+          bucket they were filtered out by the role-based grouping below. */}
+      {(() => {
+        const uncategorised = contacts.filter(
+          (c) => !c.role_type || !ROLE_ORDER.includes(c.role_type as ContactRoleType),
+        );
+        if (uncategorised.length === 0) return null;
+        return (
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-warning mb-2">
+              AI · нужна проверка
+              <span className="ml-1.5 text-muted-3">({uncategorised.length})</span>
+            </p>
+            <div className="space-y-2">
+              {uncategorised.map((contact) =>
+                editingId === contact.id ? (
+                  <ContactForm
+                    key={contact.id}
+                    form={form}
+                    setForm={setForm}
+                    onSubmit={handleEditSubmit}
+                    onCancel={cancelForm}
+                    isLoading={updateContact.isPending}
+                    submitLabel="Сохранить"
+                  />
+                ) : (
+                  <ContactCard
+                    key={contact.id}
+                    contact={contact}
+                    onEdit={() => startEdit(contact)}
+                    onDelete={() => setDeleteConfirmId(contact.id)}
+                    deleteConfirm={deleteConfirmId === contact.id}
+                    onDeleteConfirm={() => confirmDelete(contact.id)}
+                    onDeleteCancel={() => setDeleteConfirmId(null)}
+                    onVerify={() => verifyContact.mutate(contact.id)}
+                    isVerifying={
+                      verifyContact.isPending &&
+                      verifyContact.variables === contact.id
+                    }
+                  />
+                ),
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Role buckets */}
       {ROLE_ORDER.map((role) => {
         const roleContacts = contacts.filter((c) => c.role_type === role);

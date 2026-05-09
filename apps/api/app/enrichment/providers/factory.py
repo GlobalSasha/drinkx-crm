@@ -15,12 +15,14 @@ from app.enrichment.providers.base import (
 )
 from app.enrichment.providers.deepseek import DeepSeekProvider
 from app.enrichment.providers.gemini import GeminiProvider
+from app.enrichment.providers.groq import GroqProvider
 from app.enrichment.providers.mimo import MiMoProvider
 
 log = structlog.get_logger()
 
 _REGISTRY: dict[str, LLMProvider] = {
     "mimo": MiMoProvider(),
+    "groq": GroqProvider(),
     "anthropic": AnthropicProvider(),
     "gemini": GeminiProvider(),
     "deepseek": DeepSeekProvider(),

@@ -50,13 +50,18 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-2.0-flash-exp"
     deepseek_api_key: str = ""
     deepseek_model: str = "deepseek-chat"
+    # Groq — free-tier OpenAI-compatible gateway, reliable from RU IPs.
+    # Sits in the fallback chain after MiMo. Model name may need to track
+    # Groq's available-model list (they deprecate aggressively).
+    groq_api_key: str = ""
+    groq_model: str = "llama-3.1-70b-instruct"
     openai_api_key: str = ""                 # vision (GPT-4o) + emergency only
     brave_api_key: str = ""
     apify_token: str = ""
 
     # Default LLM backend + fallback chain (ADR-018)
     crm_ai_backend: str = "mimo"
-    llm_fallback_chain: list[str] = ["mimo", "anthropic", "gemini", "deepseek"]
+    llm_fallback_chain: list[str] = ["mimo", "groq", "anthropic", "gemini", "deepseek"]
 
     # Sentry
     sentry_dsn: str = ""
