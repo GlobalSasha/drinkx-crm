@@ -11,6 +11,13 @@ isolation is already handled at the lead level
 The previous behavior (a workspace per user) was creating
 disconnected silos as soon as a second team member signed in —
 they'd land in an empty workspace with no leads.
+
+Sprint 2.5 G4 added the invite accept-flow: after the user is
+located/created, look for a matching UserInvite row with
+`accepted_at IS NULL` and flip it. Notifies the inviter via
+`safe_notify(kind="invite_accepted")` — fits the same transaction
+boundary as the user upsert, so an inviter ping never lands without
+the corresponding `accepted_at` write (and vice versa).
 """
 from __future__ import annotations
 
@@ -20,9 +27,61 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.jwt import TokenClaims
-from app.auth.models import User, Workspace
+from app.auth.models import User, UserInvite, Workspace
 from app.config import get_settings
+from app.notifications.services import safe_notify
 from app.pipelines.models import DEFAULT_STAGES, Pipeline, Stage
+
+
+async def _apply_pending_invite(
+    session: AsyncSession, *, user: User
+) -> None:
+    """Sprint 2.5 G4. Mark a matching pending invite as accepted and
+    ping the inviter. Idempotent — re-runs on subsequent sign-ins are
+    no-ops because `accepted_at IS NULL` filters out the now-accepted
+    row.
+
+    The notification path goes through `safe_notify`, which means:
+      - Sprint 2.5 G2 dedupe applies — a second ping of the same kind
+        within an hour silently skips (admin invited several people
+        in a row → only the first acceptance pings; the rest go to
+        the audit log, not the bell).
+      - `invited_by_user_id` is nullable (FK SET NULL on user delete);
+        we skip the notify call when it's None instead of letting
+        Notification.user_id NOT NULL fail.
+
+    Caller controls the transaction boundary — we only set the
+    column and stage the notification row; flush happens via the
+    parent `upsert_user_from_token`.
+    """
+    res = await session.execute(
+        select(UserInvite)
+        .where(
+            UserInvite.email == user.email,
+            UserInvite.workspace_id == user.workspace_id,
+            UserInvite.accepted_at.is_(None),
+        )
+        .limit(1)
+    )
+    invite = res.scalar_one_or_none()
+    if invite is None:
+        return
+
+    invite.accepted_at = datetime.now(timezone.utc)
+
+    if invite.invited_by_user_id is None:
+        # Inviter was removed; row stays as a historical breadcrumb.
+        return
+
+    await safe_notify(
+        session,
+        workspace_id=invite.workspace_id,
+        user_id=invite.invited_by_user_id,
+        kind="invite_accepted",
+        title="Приглашение принято",
+        body=f"{user.name or user.email} принял приглашение в workspace",
+        lead_id=None,
+    )
 
 
 async def upsert_user_from_token(session: AsyncSession, claims: TokenClaims) -> User:
@@ -56,6 +115,14 @@ async def upsert_user_from_token(session: AsyncSession, claims: TokenClaims) -> 
         if claims.name and not user.name:
             user.name = claims.name
         user.last_login_at = datetime.now(timezone.utc)
+        await session.flush()
+        # Sprint 2.5 G4: cover the «invite issued for someone who was
+        # already a workspace member» edge — re-invite is idempotent
+        # at the API layer (services.invite_user just re-sends the
+        # magic link), but the row's `accepted_at` was never written.
+        # Flip it on the next sign-in so the admin UI doesn't display
+        # a stale «pending» chip indefinitely.
+        await _apply_pending_invite(session, user=user)
         await session.flush()
         return user
 
@@ -112,5 +179,10 @@ async def upsert_user_from_token(session: AsyncSession, claims: TokenClaims) -> 
         last_login_at=datetime.now(timezone.utc),
     )
     session.add(user)
+    await session.flush()
+    # Sprint 2.5 G4: typical accept-flow path — first sign-in by a
+    # user who got a magic-link invite. `_apply_pending_invite` flips
+    # `accepted_at` and pings the inviter inside the same transaction.
+    await _apply_pending_invite(session, user=user)
     await session.flush()
     return user

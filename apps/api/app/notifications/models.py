@@ -20,6 +20,10 @@ class NotificationKind(str, Enum):
     followup_due = "followup_due"
     mention = "mention"
     system = "system"
+    # Sprint 2.5 G4 — fired by `app.auth.services.upsert_user_from_token`
+    # when a UserInvite's `accepted_at` flips from NULL on the
+    # invitee's first sign-in. Targeted at `invite.invited_by_user_id`.
+    invite_accepted = "invite_accepted"
 
 
 class Notification(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
