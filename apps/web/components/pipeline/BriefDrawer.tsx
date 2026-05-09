@@ -146,7 +146,7 @@ function DrawerBody({ lead }: { lead: LeadOut }) {
       </div>
 
       {/* AI Brief */}
-      <Section title="AI Brief">
+      <Section title="AI Бриф">
         {lead.ai_data ? (
           <AiBriefContent data={lead.ai_data} />
         ) : (

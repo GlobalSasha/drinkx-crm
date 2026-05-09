@@ -74,7 +74,7 @@ export function PilotTab({ lead }: Props) {
   return (
     <div className="space-y-6">
       <div className="bg-accent/5 border border-accent/15 rounded-xl px-4 py-3">
-        <p className="text-sm font-semibold text-accent">Pilot Success Contract (ADR-011)</p>
+        <p className="text-sm font-semibold text-accent">Контракт успеха пилота (ADR-011)</p>
         <p className="text-xs text-muted-2 mt-0.5">
           Заполните условия пилота перед запуском
         </p>
@@ -201,10 +201,10 @@ export function PilotTab({ lead }: Props) {
               className="w-full px-3 py-2 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
             >
               <option value="">— не выбрано —</option>
-              <option value="scale">Scale</option>
-              <option value="extend">Extend</option>
-              <option value="reject">Reject</option>
-              <option value="refine">Refine</option>
+              <option value="scale">Масштабировать</option>
+              <option value="extend">Продлить</option>
+              <option value="reject">Отклонить</option>
+              <option value="refine">Доработать</option>
             </select>
           </div>
         </div>
@@ -216,7 +216,7 @@ export function PilotTab({ lead }: Props) {
         disabled={updateLead.isPending}
         className="w-full py-2.5 rounded-pill text-sm font-semibold bg-ink text-white hover:bg-ink/90 disabled:opacity-50 transition-all"
       >
-        {updateLead.isPending ? "Сохранение..." : "Сохранить Pilot Contract"}
+        {updateLead.isPending ? "Сохранение..." : "Сохранить пилот-контракт"}
       </button>
     </div>
   );

@@ -324,7 +324,7 @@ function InviteModal({
     setError(null);
     const trimmed = email.trim();
     if (!trimmed) {
-      setError("Email обязателен");
+      setError("Почта обязательна");
       return;
     }
     const body: UserInviteIn = { email: trimmed, role };

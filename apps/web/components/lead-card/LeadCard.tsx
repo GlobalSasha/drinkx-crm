@@ -26,19 +26,20 @@ import { GateModal } from "./GateModal";
 import { LostModal } from "./LostModal";
 import { TransferModal } from "./TransferModal";
 import { priorityChip } from "@/lib/ui/priority";
+import { C } from "@/lib/design-system";
 
 function scoreChipClass(score: number | null | undefined): string {
-  if (score == null) return "bg-black/5 text-muted-2";
-  if (score >= 80) return "bg-success/10 text-success";
+  if (score == null) return "bg-brand-panel text-brand-muted";
+  if (score >= 80) return "bg-brand-soft text-brand-accent-text";
   if (score >= 60) return "bg-warning/10 text-warning";
-  return "bg-black/5 text-muted-2";
+  return "bg-brand-panel text-brand-muted";
 }
 
 function fitChipClass(fit: number | null | undefined): string {
-  if (fit == null) return "bg-black/5 text-muted-2";
-  if (fit >= 8) return "bg-success/10 text-success";
+  if (fit == null) return "bg-brand-panel text-brand-muted";
+  if (fit >= 8) return "bg-brand-soft text-brand-accent-text";
   if (fit >= 5) return "bg-warning/10 text-warning";
-  return "bg-black/5 text-muted-2";
+  return "bg-brand-panel text-brand-muted";
 }
 
 function formatWonLostDate(iso: string | null | undefined): string {
@@ -58,11 +59,11 @@ type TabKey = "deal" | "ai-brief" | "contacts" | "scoring" | "activity" | "pilot
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "deal",     label: "Сделка" },
-  { key: "ai-brief", label: "AI Brief" },
+  { key: "ai-brief", label: "AI Бриф" },
   { key: "contacts", label: "Контакты" },
-  { key: "scoring",  label: "Scoring" },
+  { key: "scoring",  label: "Оценка" },
   { key: "activity", label: "Активность" },
-  { key: "pilot",    label: "Pilot" },
+  { key: "pilot",    label: "Пилот" },
 ];
 
 interface Props {
@@ -156,21 +157,18 @@ export function LeadCard({ leadId }: Props) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-canvas flex items-center justify-center">
-        <Loader2 size={24} className="animate-spin text-muted-2" />
+      <div className="font-sans min-h-screen bg-canvas flex items-center justify-center">
+        <Loader2 size={24} className="animate-spin text-brand-muted" />
       </div>
     );
   }
 
   if (isError || !lead) {
     return (
-      <div className="min-h-screen bg-canvas flex flex-col items-center justify-center gap-4">
+      <div className="font-sans min-h-screen bg-canvas flex flex-col items-center justify-center gap-4">
         <AlertTriangle size={24} className="text-rose" />
-        <p className="text-sm text-rose">Лид не найден или ошибка загрузки</p>
-        <Link
-          href="/pipeline"
-          className="text-sm text-accent hover:underline"
-        >
+        <p className={`${C.bodySm} text-rose`}>Лид не найден или ошибка загрузки</p>
+        <Link href="/pipeline" className={`${C.bodySm} ${C.color.accent}`}>
           ← Назад к воронке
         </Link>
       </div>
@@ -181,16 +179,23 @@ export function LeadCard({ leadId }: Props) {
   const isLost = !!displayStage?.is_lost;
   const closedAt = isWon ? lead.won_at : isLost ? lead.lost_at : null;
 
+  // Priority A pops with the solid brand accent — see PipelineLeadCard
+  // for the same convention.
+  const priorityClass =
+    lead.priority === "A"
+      ? "bg-brand-accent text-white"
+      : priorityChip(lead.priority);
+
   return (
-    <div className="min-h-screen bg-canvas flex flex-col">
+    <div className="font-sans min-h-screen bg-canvas flex flex-col">
       {/* Sticky header */}
-      <header className="sticky top-0 z-20 bg-white border-b border-black/5 shadow-soft">
+      <header className="sticky top-0 z-20 bg-white border-b border-brand-border">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3">
           <div className="flex flex-wrap items-start gap-3 sm:gap-4">
             {/* Back */}
             <Link
               href="/pipeline"
-              className="mt-1 p-1.5 rounded-lg hover:bg-canvas text-muted transition-colors shrink-0"
+              className="mt-1 p-1.5 rounded-full text-brand-muted transition-colors shrink-0"
               aria-label="Назад"
             >
               <ArrowLeft size={18} />
@@ -208,12 +213,12 @@ export function LeadCard({ leadId }: Props) {
                     if (e.key === "Enter") commitName();
                     if (e.key === "Escape") setEditingName(false);
                   }}
-                  className="text-xl sm:text-2xl font-extrabold tracking-tight text-ink bg-transparent border-b-2 border-accent outline-none w-full"
+                  className={`${C.cardTitle} font-bold tracking-tight ${C.color.text} bg-transparent border-b-2 border-brand-accent outline-none w-full`}
                 />
               ) : (
                 <h1
                   onClick={startEditName}
-                  className="text-xl sm:text-2xl font-extrabold tracking-tight text-ink cursor-text hover:text-ink/80 transition-colors truncate"
+                  className={`${C.cardTitle} font-bold tracking-tight ${C.color.text} cursor-text transition-colors truncate`}
                   title="Нажмите для редактирования"
                 >
                   {lead.company_name}
@@ -224,7 +229,7 @@ export function LeadCard({ leadId }: Props) {
               <div className="flex flex-wrap items-center gap-2 mt-1.5">
                 {/* Stage chip */}
                 <span
-                  className="text-xs font-semibold px-2.5 py-1 rounded-pill text-white"
+                  className={`${C.bodyXs} font-semibold px-2.5 py-1 rounded-full text-white`}
                   style={{ backgroundColor: displayStage?.color ?? "#a1a1a6" }}
                 >
                   {displayStage?.name ?? "—"}
@@ -233,9 +238,7 @@ export function LeadCard({ leadId }: Props) {
                 {/* Priority */}
                 {lead.priority && (
                   <span
-                    className={`text-xs font-semibold px-2 py-0.5 rounded-md ${
-                      priorityChip(lead.priority)
-                    }`}
+                    className={`${C.bodyXs} font-semibold px-2.5 py-0.5 rounded-full ${priorityClass}`}
                   >
                     {priorityLabel(lead.priority)}
                   </span>
@@ -243,7 +246,7 @@ export function LeadCard({ leadId }: Props) {
 
                 {/* Deal type */}
                 {lead.deal_type && (
-                  <span className="text-xs text-muted-2 bg-black/5 px-2 py-0.5 rounded-md">
+                  <span className={`${C.bodyXs} ${C.color.mutedLight} bg-brand-panel px-2.5 py-0.5 rounded-full`}>
                     {dealTypeLabel(lead.deal_type)}
                   </span>
                 )}
@@ -253,7 +256,7 @@ export function LeadCard({ leadId }: Props) {
                     sees at a glance how the lead landed. */}
                 {lead.source && (
                   <span
-                    className="text-xs text-muted-2 bg-black/5 px-2 py-0.5 rounded-md font-mono truncate max-w-[180px]"
+                    className={`${C.bodyXs} ${C.color.mutedLight} bg-brand-panel px-2.5 py-0.5 rounded-full font-mono truncate max-w-[180px]`}
                     title={`Источник: ${lead.source}`}
                   >
                     {lead.source}
@@ -262,7 +265,7 @@ export function LeadCard({ leadId }: Props) {
 
                 {/* Score */}
                 <span
-                  className={`font-mono text-xs font-semibold px-2 py-0.5 rounded-md tabular-nums ${scoreChipClass(lead.score)}`}
+                  className={`font-mono ${C.bodyXs} font-semibold px-2.5 py-0.5 rounded-full tabular-nums ${scoreChipClass(lead.score)}`}
                   title="0–100, weighted scoring"
                 >
                   {lead.score ?? "—"}/100
@@ -271,7 +274,7 @@ export function LeadCard({ leadId }: Props) {
                 {/* fit_score */}
                 {lead.fit_score != null && (
                   <span
-                    className={`font-mono text-xs font-semibold px-2 py-0.5 rounded-md tabular-nums ${fitChipClass(Number(lead.fit_score))}`}
+                    className={`font-mono ${C.bodyXs} font-semibold px-2.5 py-0.5 rounded-full tabular-nums ${fitChipClass(Number(lead.fit_score))}`}
                     title="AI fit_score, 0–10"
                   >
                     AI {lead.fit_score}/10
@@ -280,7 +283,7 @@ export function LeadCard({ leadId }: Props) {
 
                 {/* Rotting */}
                 {(lead.is_rotting_stage || lead.is_rotting_next_step) && (
-                  <span className="flex items-center gap-1 text-xs text-warning">
+                  <span className={`flex items-center gap-1 ${C.bodyXs} text-warning`}>
                     <AlertTriangle size={12} />
                     Протухает
                   </span>
@@ -293,7 +296,7 @@ export function LeadCard({ leadId }: Props) {
               {/* Transfer */}
               <button
                 onClick={() => setTransferOpen(true)}
-                className="px-3 py-1.5 text-sm font-semibold text-muted bg-canvas border border-black/10 rounded-pill hover:bg-canvas-2 transition-all"
+                className={`px-4 py-1.5 ${C.btnLg} font-semibold ${C.button.ghost} transition-opacity`}
               >
                 Передать
               </button>
@@ -302,7 +305,7 @@ export function LeadCard({ leadId }: Props) {
               <button
                 onClick={handleWon}
                 disabled={moveStage.isPending || isWon}
-                className="px-3 py-1.5 text-sm font-semibold bg-success text-white rounded-pill hover:bg-success/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                className={`px-4 py-1.5 ${C.btnLg} font-semibold bg-success text-white rounded-full disabled:opacity-40 disabled:cursor-not-allowed transition-opacity`}
               >
                 Выиграна
               </button>
@@ -311,7 +314,7 @@ export function LeadCard({ leadId }: Props) {
               <button
                 onClick={handleLost}
                 disabled={moveStage.isPending || isLost}
-                className="px-3 py-1.5 text-sm font-semibold bg-rose text-white rounded-pill hover:bg-rose/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                className={`px-4 py-1.5 ${C.btnLg} font-semibold bg-rose text-white rounded-full disabled:opacity-40 disabled:cursor-not-allowed transition-opacity`}
               >
                 Проиграна
               </button>
@@ -320,7 +323,7 @@ export function LeadCard({ leadId }: Props) {
               <div className="relative">
                 <button
                   onClick={() => setStageDropdownOpen((v) => !v)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold bg-ink text-white rounded-pill hover:bg-ink/90 transition-all"
+                  className={`flex items-center gap-1.5 px-4 py-1.5 ${C.btnLg} font-semibold bg-brand-primary text-white rounded-full transition-opacity`}
                 >
                   Сменить стадию
                   <ChevronDown size={13} />
@@ -331,15 +334,15 @@ export function LeadCard({ leadId }: Props) {
                       className="fixed inset-0 z-10"
                       onClick={() => setStageDropdownOpen(false)}
                     />
-                    <div className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-black/10 rounded-2xl shadow-soft z-20 overflow-hidden">
+                    <div className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-brand-border rounded-2xl z-20 overflow-hidden">
                       {stages
                         .filter((s) => !s.is_won && !s.is_lost)
                         .map((stage) => (
                           <button
                             key={stage.id}
                             onClick={() => handleStageSelect(stage)}
-                            className={`flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-left hover:bg-canvas transition-colors ${
-                              stage.id === lead.stage_id ? "bg-canvas" : ""
+                            className={`flex items-center gap-2.5 w-full px-4 py-2.5 ${C.bodySm} text-left transition-colors ${
+                              stage.id === lead.stage_id ? "bg-brand-bg" : ""
                             }`}
                           >
                             <span
@@ -349,8 +352,8 @@ export function LeadCard({ leadId }: Props) {
                             <span
                               className={
                                 stage.id === lead.stage_id
-                                  ? "font-semibold text-ink"
-                                  : "text-ink"
+                                  ? `font-semibold ${C.color.text}`
+                                  : `${C.color.text}`
                               }
                             >
                               {stage.name}
@@ -369,7 +372,7 @@ export function LeadCard({ leadId }: Props) {
               tab switcher so it can't be missed. */}
           {(isWon || isLost) && (
             <div
-              className={`mt-3 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold ${
+              className={`mt-3 flex items-center gap-2 px-3 py-2 rounded-2xl ${C.bodyXs} font-semibold ${
                 isWon
                   ? "bg-success/10 text-success"
                   : "bg-rose/10 text-rose"
@@ -391,22 +394,22 @@ export function LeadCard({ leadId }: Props) {
               id="lead-tab-select"
               value={activeTab}
               onChange={(e) => setActiveTab(e.target.value as TabKey)}
-              className="w-full px-3 py-2.5 text-sm font-semibold bg-canvas border border-black/10 rounded-pill outline-none focus:border-accent/40 transition-colors"
+              className={`w-full px-4 py-2.5 ${C.bodySm} font-semibold bg-white border border-brand-border rounded-full outline-none focus:border-brand-accent transition-colors ${C.color.text}`}
             >
               {visibleTabs.map((tab) => (
                 <option key={tab.key} value={tab.key}>{tab.label}</option>
               ))}
             </select>
           </div>
-          <div className="hidden sm:flex gap-0 mt-4 border-b border-black/5 -mb-px overflow-x-auto">
+          <div className="hidden sm:flex gap-0 mt-4 border-b border-brand-border -mb-px overflow-x-auto">
             {visibleTabs.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-all whitespace-nowrap ${
+                className={`px-4 py-2.5 ${C.bodySm} font-semibold border-b-2 transition-all whitespace-nowrap ${
                   activeTab === tab.key
-                    ? "border-accent text-accent"
-                    : "border-transparent text-muted-2 hover:text-ink"
+                    ? "border-brand-accent text-brand-accent-text"
+                    : "border-transparent text-brand-muted"
                 }`}
               >
                 {tab.label}
@@ -485,7 +488,7 @@ export function LeadCard({ leadId }: Props) {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-ink text-white text-sm font-semibold px-5 py-2.5 rounded-pill shadow-soft z-50 transition-all">
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 bg-brand-primary text-white ${C.bodySm} font-semibold px-5 py-2.5 rounded-full z-50 transition-all`}>
           {toast}
         </div>
       )}

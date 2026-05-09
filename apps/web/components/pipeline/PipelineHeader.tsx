@@ -40,7 +40,7 @@ export function PipelineHeader({ leads, totalCount }: Props) {
       {/* Top row */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 shrink-0">
-          <h1 className="text-xl font-extrabold tracking-tight">Pipeline</h1>
+          <h1 className="text-xl font-extrabold tracking-tight">Воронка</h1>
           <span className="bg-black/5 text-muted-2 text-xs font-mono px-2 py-0.5 rounded-pill">
             {totalCount}
           </span>

@@ -100,7 +100,7 @@ export function AIBriefTab({ leadId }: Props) {
           would duplicate the action on a single screen. */}
       <header className="flex items-start justify-between gap-6">
         <div className="min-w-0">
-          <h2 className="text-2xl font-extrabold tracking-tight text-ink">AI Brief</h2>
+          <h2 className="text-2xl font-extrabold tracking-tight text-ink">AI Бриф</h2>
           {run && <RunMetaLine run={run} />}
         </div>
 

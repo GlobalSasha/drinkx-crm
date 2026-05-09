@@ -7,6 +7,15 @@
   --ink: #0a0a0a;
   --accent: #1f4d3f;
   --accent-glow: #5a8c7a;
+
+  /* DrinkX design-system brand tokens (sync with tailwind.config.ts → colors.brand) */
+  --brand-accent:  #ff4e00;
+  --brand-text:    #d63f00;
+  --brand-soft:    #ffe1d6;
+  --brand-ink:     #111111;
+  --brand-surface: #f5f4f0;
+  --brand-panel:   #e5e3dc;
+  --brand-border:  #d6d4ce;
 }
 
 html, body { background: var(--canvas); color: var(--ink); }

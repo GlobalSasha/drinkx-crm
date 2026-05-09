@@ -5,6 +5,7 @@ import { AlertTriangle, Clock } from "lucide-react";
 import type { LeadOut } from "@/lib/types";
 import { usePipelineStore } from "@/lib/store/pipeline-store";
 import { priorityChip } from "@/lib/ui/priority";
+import { C } from "@/lib/design-system";
 
 interface Props {
   lead: LeadOut;
@@ -31,6 +32,13 @@ export function PipelineLeadCard({ lead, visibleLeads }: Props) {
 
   const isRotting = lead.is_rotting_stage || lead.is_rotting_next_step;
 
+  // Priority A pops with the solid brand accent — everything else
+  // keeps the existing tier palette (B/C/D) but in pill form.
+  const priorityClass =
+    lead.priority === "A"
+      ? "bg-brand-accent text-white"
+      : priorityChip(lead.priority);
+
   return (
     <div
       ref={setNodeRef}
@@ -38,11 +46,11 @@ export function PipelineLeadCard({ lead, visibleLeads }: Props) {
       {...attributes}
       {...listeners}
       onClick={() => openDrawer(lead, visibleLeads)}
-      className="bg-white border border-black/5 rounded-xl p-3 shadow-soft cursor-pointer select-none hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 ease-soft group"
+      className="font-sans bg-white border border-brand-border rounded-2xl p-3 cursor-pointer select-none transition-opacity duration-200"
     >
       {/* Company name */}
       <div className="flex items-start justify-between gap-1 mb-1.5">
-        <p className="font-semibold text-sm text-ink truncate leading-snug">
+        <p className={`${C.bodySm} font-bold ${C.color.text} truncate leading-snug`}>
           {lead.company_name}
         </p>
         {isRotting && (
@@ -52,7 +60,7 @@ export function PipelineLeadCard({ lead, visibleLeads }: Props) {
 
       {/* Segment + city */}
       {(lead.segment || lead.city) && (
-        <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted-2 truncate mb-2">
+        <p className={`font-mono text-[10px] uppercase tracking-[0.08em] ${C.color.mutedLight} truncate mb-2`}>
           {[lead.segment, lead.city].filter(Boolean).join(" · ")}
         </p>
       )}
@@ -61,22 +69,20 @@ export function PipelineLeadCard({ lead, visibleLeads }: Props) {
       <div className="flex flex-wrap items-center gap-1">
         {lead.priority && (
           <span
-            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
-              priorityChip(lead.priority)
-            }`}
+            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${priorityClass}`}
           >
             {lead.priority}
           </span>
         )}
 
         {lead.score > 0 && (
-          <span className="text-[10px] font-mono bg-black/5 text-muted px-1.5 py-0.5 rounded-md">
+          <span className="text-[10px] font-bold font-mono bg-brand-soft text-brand-accent-text px-2 py-0.5 rounded-full tabular-nums">
             {lead.score}
           </span>
         )}
 
         {lead.fit_score != null && (
-          <span className="text-[10px] font-mono bg-accent/10 text-accent px-1.5 py-0.5 rounded-md">
+          <span className="text-[10px] font-mono bg-brand-panel text-brand-muted-strong px-2 py-0.5 rounded-full tabular-nums">
             fit {lead.fit_score}
           </span>
         )}

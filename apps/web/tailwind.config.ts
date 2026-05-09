@@ -27,6 +27,22 @@ const config: Config = {
         success: "#2D7A5A",
         warning: "#B7672D",
         rose: "#B23A48",
+        // ─── Design System (DrinkX brand) ─────────────────────
+        // Consumed via the C object in lib/design-system.ts.
+        // Direct usage as Tailwind classes is allowed but should
+        // go through C tokens for consistency.
+        brand: {
+          accent:         "#FF4E00",
+          "accent-text":  "#D63F00",
+          soft:           "#FFE1D6",
+          primary:        "#111111",
+          "muted-strong": "#1A1A1A",
+          muted:          "#6B6B6B",
+          bg:             "#F5F4F0",
+          panel:          "#E5E3DC",
+          border:         "#D6D4CE",
+          dark:           "#111111",
+        },
       },
       fontFamily: {
         sans: ["var(--font-jakarta)", "system-ui", "sans-serif"],

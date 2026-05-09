@@ -45,7 +45,7 @@ import type {
 const TRIGGER_LABELS: Record<AutomationTrigger, string> = {
   stage_change: "Смена стадии",
   form_submission: "Заявка с формы",
-  inbox_match: "Email привязан к лиду",
+  inbox_match: "Почта привязана к лиду",
 };
 
 const ACTION_LABELS: Record<AutomationAction, string> = {

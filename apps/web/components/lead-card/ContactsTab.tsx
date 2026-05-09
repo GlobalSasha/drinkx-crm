@@ -572,15 +572,15 @@ function ContactForm({
           className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
         >
           <option value="">— не выбрано —</option>
-          <option value="economic_buyer">Economic Buyer</option>
-          <option value="champion">Champion</option>
-          <option value="technical">Technical</option>
-          <option value="operational">Operational</option>
+          <option value="economic_buyer">ЛПР (тот, кто платит)</option>
+          <option value="champion">Чемпион</option>
+          <option value="technical">Технический специалист</option>
+          <option value="operational">Операционный сотрудник</option>
         </select>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        {field("email", "Email", "email", "ivan@example.com")}
+        {field("email", "Почта", "email", "ivan@example.com")}
         {field("phone", "Телефон", "tel", "+7 (999) 000-00-00")}
       </div>
 
