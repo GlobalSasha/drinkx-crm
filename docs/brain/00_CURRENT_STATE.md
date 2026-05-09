@@ -1,6 +1,6 @@
 # DrinkX CRM — Current State
 
-Last updated: 2026-05-09 (Sprint 2.5 DONE on branch `sprint/2.5-automation-builder`; Sprint 2.4 already merged into main `9587d47`)
+Last updated: 2026-05-09 (Sprint 2.6 DONE on branch `sprint/2.6-outbound-email`; Sprint 2.5 already merged into main `3aa78f3`)
 
 ## Phase 0 — COMPLETED ✅ (lives in `crm-prototype` repo)
 
@@ -432,8 +432,40 @@ Test baseline (mock-only): **301 passing** (281 base + 12 G1 + 5 G2 + 3 G4). 14 
 
 `pnpm typecheck` clean throughout. 0 new npm deps; 0 new Python deps.
 
-### ⏸ NOT YET BUILT (after Sprint 2.5)
-- **Phase 2 Sprint 2.6+** — Real outbound dispatch for `send_template` (currently stubs to Activity row); multi-step automation chains; Pipeline + LeadCard polish carryovers; Custom-field render on LeadCard; AmoCRM adapter (back in long-tail backlog after G3 skip); Telegram Business inbox + email send; Quote/КП builder; Knowledge Base CRUD UI; Apify
+### ✅ Sprint 2.6 — Real outbound email + UX polish (DONE — branch `sprint/2.6-outbound-email`, pending merge)
+**4 of 5 gates shipped (G2 multi-step automation chains skipped by product decision). 2 mid-sprint stability commits landed alongside the planned gates.**
+
+Commit range: `b740a76..HEAD` on `sprint/2.6-outbound-email`.
+
+Full sprint report: `docs/SPRINT_2_6_OUTBOUND_EMAIL.md`.
+
+Gates summary:
+- **G1** (`b740a76`) Real email dispatch — new `app/email/sender.py` (tri-state True/False/EmailSendError), `_send_template_action` routes by channel
+- **STB #1** (`cc8db53`) Stability audit fixes — SMTP-after-commit (new `app/automation_builder/dispatch.py` post-commit queue), per-automation SAVEPOINT, whitespace email strip
+- **STB #2** (`323aa85`) Stability audit fixes — `TemplateInUse` 409 guard on delete, N+1 bulk-fetch in followups dispatcher
+- **G3** (`6f19d4d`) Pipeline + LeadCard polish — accent +Лид, outline Sprint, Settings «Скоро» disclosure, LostModal, mobile pipeline polish
+- **G4** (`df7bfc2`) Custom fields inline editing on LeadCard + dnd-kit reorder in Settings
+- **G2** SKIPPED — Multi-step automation chains (product decision; back to long-tail)
+- **G5** (this commit) Sprint close — report, brain rotation, smoke checklist additions
+
+New modules in this sprint:
+- `apps/api/app/email/sender.py` — tri-state SMTP wrapper for the Automation Builder
+- `apps/api/app/automation_builder/dispatch.py` — post-commit email dispatch queue (contextvar-scoped)
+- `apps/web/components/lead-card/LostModal.tsx` — replaces window.confirm/prompt
+- `apps/web/components/lead-card/CustomFieldsPanel.tsx` — inline-edit custom fields on LeadCard
+- `apps/web/lib/hooks/use-lead-attributes.ts`
+- `docs/SPRINT_2_6_OUTBOUND_EMAIL.md` + `docs/SMOKE_CHECKLIST_2_6.md`
+
+No new migrations this sprint — pure code on the existing schema.
+
+Test baseline (mock-only): **112 passing** (108 → +4 G4 = 112; full sprint trajectory 95 → 99 → 100 → 108 → 112). 14 pre-existing fastapi-import failures unchanged.
+
+`pnpm typecheck` clean throughout. 0 new npm deps; 0 new Python deps.
+
+Stability audit summary: 0 CRITICAL remain, 2 of 4 HIGH fixed (template delete 409 + followups N+1). The remaining 2 HIGH (cron swallow, BackgroundTasks-strands-running) both depend on Sentry activation in Sprint 2.7 G1.
+
+### ⏸ NOT YET BUILT (after Sprint 2.6)
+- **Phase 2 Sprint 2.7+** — Sentry activation (frontend `@sentry/nextjs` + backend DSN; carryover since 2.1 G10); multi-step automation chains; tg / sms outbound dispatch (provider eval); enrichment → Celery + WebSocket; multi-clause condition UI; AmoCRM adapter (long-tail since 2.1); Telegram Business inbox + email send; Quote/КП builder; Knowledge Base CRUD UI
 - **Phase 3** — Multi-tenancy (invite-flow + per-tenant routing for second client), MCP server, Sales Coach chat, OCR визиток, pgvector
 
 ---
@@ -506,19 +538,19 @@ Resolved this sprint:
 ---
 
 ## Next
-**Sprint 2.6 — Real outbound dispatch** is the main driver. Spec
-lives in `04_NEXT_SPRINT.md`. Sprint 2.5's Automation Builder is the
-consumer: today an automation with `action_type=send_template`
-stages an Activity row with `outbound_pending=true` instead of
-actually sending. Sprint 2.6 G1 wires the channel-aware sender and
-flips the flag once dispatch succeeds.
+**Sprint 2.7 — Sentry activation + multi-step automations** is the
+main driver. Spec lives in `04_NEXT_SPRINT.md`. Activating Sentry
+(frontend `@sentry/nextjs` + backend DSN env vars) is the load-
+bearing infra step — it surfaces the cron-swallow and audit-log-
+swallow tech debt that the Sprint 2.6 stability audit flagged but
+couldn't fix without an error-reporting target.
 
-Carryovers from 2.5 to fold into 2.6:
-- Real `send_template` dispatch (G1 driver)
-- Multi-step automation chains (send → wait N days → action)
-- Pipeline header tweak / LeadCard modal-on-Lost / Mobile Pipeline fallback (UX polish bundle)
-- Custom-field render on LeadCard + dnd-kit reorder (Sprint 2.4 G3 carryovers, finally consumable)
-- Multi-clause condition UI in the Automation Builder modal
-- AmoCRM adapter (was 2.5 G3, dropped; back in long-tail)
+Carryovers from 2.6 to fold into 2.7:
+- Sentry activation (G1 driver, carryover since 2.1 G10)
+- Multi-step automation chains (G2 — was 2.6 G2 skip)
+- Real tg / sms outbound dispatch (G3 — provider eval)
+- Enrichment → Celery + WebSocket (G4 — Phase G carryover)
+- pg_dump cron install on host (operator step open since 2.4 G5)
+- inbox/processor Celery dispatch retry path
 
-Active migrations on `sprint/2.5-automation-builder`: `0001..0020`. Next free index: `0021`.
+Active migrations on `sprint/2.6-outbound-email`: `0001..0020` (no new ones in 2.6). Next free index: `0021`.
