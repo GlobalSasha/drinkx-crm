@@ -27,6 +27,7 @@ from app.import_export import models as _import_export_models  # noqa: F401
 from app.forms import models as _forms_models  # noqa: F401
 from app.custom_attributes import models as _custom_attr_models  # noqa: F401
 from app.template import models as _template_models  # noqa: F401
+from app.automation_builder import models as _automation_builder_models  # noqa: F401
 
 config = context.config
 

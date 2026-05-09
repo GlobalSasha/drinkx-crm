@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Check, BellOff, RefreshCw, ArrowRight } from "lucide-react";
 import {
@@ -35,6 +35,53 @@ const KIND_STYLE: Record<string, string> = {
 interface Props {
   open: boolean;
   onClose: () => void;
+}
+
+// Sprint 2.5 G2: group drawer items by day («Сегодня» / «Вчера» /
+// «D MMM» Russian locale). Native Intl is enough — no date-fns/dayjs
+// dependency needed (the drawer wasn't using one before either).
+const _RU_MONTH_FORMAT = new Intl.DateTimeFormat("ru-RU", {
+  day: "numeric",
+  month: "short",
+});
+
+function _ymdLocal(d: Date): string {
+  // Local date YYYY-MM-DD — used as the group key. Local (not UTC)
+  // because the manager's «сегодня» is whatever timezone they're in,
+  // not server UTC.
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function _dayHeader(rowDate: Date, today: Date): string {
+  const rowKey = _ymdLocal(rowDate);
+  const todayKey = _ymdLocal(today);
+  if (rowKey === todayKey) return "Сегодня";
+  const yest = new Date(today);
+  yest.setDate(today.getDate() - 1);
+  if (rowKey === _ymdLocal(yest)) return "Вчера";
+  return _RU_MONTH_FORMAT.format(rowDate);
+}
+
+interface NotifGroup {
+  key: string;
+  header: string;
+  items: NotificationOut[];
+}
+
+function groupByDay(items: NotificationOut[]): NotifGroup[] {
+  const today = new Date();
+  const groups: NotifGroup[] = [];
+  for (const n of items) {
+    const d = new Date(n.created_at);
+    const key = _ymdLocal(d);
+    const last = groups[groups.length - 1];
+    if (last && last.key === key) {
+      last.items.push(n);
+    } else {
+      groups.push({ key, header: _dayHeader(d, today), items: [n] });
+    }
+  }
+  return groups;
 }
 
 export function NotificationsDrawer({ open, onClose }: Props) {
@@ -185,7 +232,17 @@ export function NotificationsDrawer({ open, onClose }: Props) {
 
           {!isLoading && !isError && items.length > 0 && (
             <ul className="divide-y divide-black/5">
-              {items.map((n) => {
+              {groupByDay(items).map((group) => (
+                <Fragment key={group.key}>
+                  <li
+                    className="bg-canvas/60 px-5 py-1.5 sticky top-0 z-10 border-b border-black/5"
+                    role="presentation"
+                  >
+                    <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-muted-3 font-semibold">
+                      {group.header}
+                    </span>
+                  </li>
+                  {group.items.map((n) => {
                 const kindLabel = KIND_LABEL[n.kind] ?? n.kind;
                 const kindStyle = KIND_STYLE[n.kind] ?? "bg-black/5 text-muted";
                 const isUnread = n.read_at == null;
@@ -296,6 +353,8 @@ export function NotificationsDrawer({ open, onClose }: Props) {
                   </li>
                 );
               })}
+                </Fragment>
+              ))}
             </ul>
           )}
         </div>

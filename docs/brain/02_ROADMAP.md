@@ -96,7 +96,20 @@
 - 0 new npm deps; 0 new Python deps; `pnpm build` 12 routes (was 11)
 - ADR-007 satisfied: forms capture leads, never auto-assign / never advance stage / never trigger AI
 
-**Sprint 2.4 — DONE (pending merge)** · `docs/SPRINT_2_4_SETTINGS_TEMPLATES.md` · branch `sprint/2.4-settings-templates` (range `01e104a..HEAD`, 5 gates + G4.5 quick wins)
+**Sprint 2.5 — DONE (pending merge)** · `docs/SPRINT_2_5_AUTOMATION_BUILDER.md` · branch `sprint/2.5-automation-builder` (range `363b371..HEAD`, 4 of 5 gates shipped — G3 AmoCRM skipped by product decision)
+- **Automation Builder + notification dedup + invite accept-flow — Phase 2 sixth slice**
+- Migration 0020 (`automations` + `automation_runs`)
+- New `app/automation_builder/` package — workspace-scoped «when X happens, run Y» rules with 3 trigger sources (stage_change / form_submission / inbox_match), condition tree evaluator (allowlisted Lead fields), `{{lead.field}}` render substitution (allowlisted RENDER_FIELDS, `[unknown:foo]` marker for non-allowlisted), 3 action handlers (send_template / create_task / move_stage)
+- Trigger fan-out wired into existing hot paths: `app/automation/stage_change.py` POST_ACTIONS, `app/forms/lead_factory.py` after-create-lead, `app/inbox/processor.py` before-commit (atomic with email Activity). All wrapped in `safe_evaluate_trigger` so a misconfigured rule cannot roll back the parent transaction
+- 5 endpoints under `/api/automations` (admin/head writes; any-role reads); audit emits on `automation.{create,update,delete}`
+- Notification dedupe: 1h window in `notify()` + empty `daily_plan_ready` body suppression (regex on `^0\s+карточек`); `DEDUP_EXEMPT_KINDS = {"lead.urgent_signal"}`
+- NotificationsDrawer day grouping (`Сегодня` / `Вчера` / `D MMM`) via Intl.DateTimeFormat ru-RU
+- Invite accept-flow: `_apply_pending_invite` in `app/auth/services.py` flips `accepted_at` (column existed since 0016 but never written) + `safe_notify(invite_accepted)` to inviter inside the same transaction
+- Frontend: new `/automations` page with builder modal + RunsDrawer; AppShell sidebar entry «Автоматизации» (admin/head)
+- 20 new mock tests (12 G1 + 5 G2 + 3 G4); baseline 281 → 301
+- 0 new npm deps; 0 new Python deps; `send_template` dispatch is a stub (Activity row with `outbound_pending=true`) — real outbound wiring is Sprint 2.6 G1
+
+**Sprint 2.4 — DONE** · `docs/SPRINT_2_4_SETTINGS_TEMPLATES.md` · branch `sprint/2.4-settings-templates` (range `01e104a..HEAD`, 5 gates + G4.5 quick wins) · merged to main `9587d47`
 - **Full Settings panel + Templates module — Phase 2 fifth slice**
 - Migrations 0016 (`user_invites`) + 0017 (drop `pipelines.is_default`) + 0018 (`custom_attribute_definitions` + `lead_custom_values` EAV) + 0019 (`message_templates`)
 - New `app/users/` package (invite via Supabase admin REST, role-change with last-admin guard, idempotent re-invite)
@@ -126,33 +139,37 @@
 
 ## 🔜 NEXT
 
-### Phase 2 — Sprint 2.5 — Automation Builder (~4–5 gates)
+### Phase 2 — Sprint 2.6 — Real outbound dispatch + UX polish (~5 gates)
 See `docs/brain/04_NEXT_SPRINT.md` for full scope.
 
-**Main driver:** consume Templates from 2.4 to render outbound messages
-through a builder of the form trigger → condition → action.
+**Main driver:** flip Sprint 2.5's `send_template` from a stubbed
+Activity row (`outbound_pending=true`) to actual dispatch via the
+existing email_sender (Sprint 1.5) and stub channels for tg + sms
+until proper providers land in 2.7+.
 
-Tentative gate breakdown (refined at sprint kickoff):
-- **G1 — Automation Builder** core: trigger (stage-change / form-submission / inbox-match) → condition (lead.priority, lead.score thresholds) → action (use_template + send_email / create_task / move_stage). Migration `0020_automations`.
-- **G2 — Notification dedupe + grouping** (carryover from 2.4): suppress empty `daily_plan_ready`, 1h dedup window keyed on (user, kind); frontend day-section grouping in the drawer.
-- **G3 — AmoCRM adapter** (Sprint 2.1 G5 deferred): import leads — same plumbing shape as Bitrix24.
-- **G4 — Invite accept-flow** (carryover from 2.4): write `accepted_at` in `upsert_user_from_token`; ping inviter via notification on first sign-in. Prerequisite: G2 dedupe must land first or the inviter's drawer fills with system rows.
+Tentative gate breakdown:
+- **G1 — Real outbound dispatch** for `send_template`: render template body, route by `template.channel` (email via `email_sender.py`; tg + sms remain stub-mode with structured worker log), flip `outbound_pending` flag, surface delivery status in the Activity Feed.
+- **G2 — Multi-step automation chains** («send email → wait 3 days → create task»). Likely needs migration `0021_automation_steps` + a Celery beat scheduler watching `wait_until` timestamps.
+- **G3 — Pipeline + LeadCard polish bundle** (carryovers): pipeline header tweak (accent → +Лид; Sprint → outline), LeadCard `window.confirm` → modal on Lost, mobile Pipeline fallback (<md) vertical card layout.
+- **G4 — Custom-field render on LeadCard + dnd-kit reorder** (Sprint 2.4 G3 carryovers). Values exist in `lead_custom_values` since 0018; G4 finally exposes them in the LeadCard right-rail.
+- **G5 — Sprint close** — sprint report, brain rotation, smoke checklist.
 
-Carryovers from 2.4 to fold into 2.5:
-- Notification dedupe (backend) + frontend day-grouping
+Carryovers from 2.5 to fold into 2.6 (full list also in
+`SPRINT_2_5_AUTOMATION_BUILDER.md`):
+- Real `send_template` dispatch (G1 driver)
+- Multi-step automation chains (G2 driver)
 - Pipeline header tweak (accent → +Лид; Sprint → outline)
 - Default pipeline 6–7 stages confirm + ICP fields
 - Settings sidebar «Скоро» collapse into disclosure
 - LeadCard `window.confirm` → modal on Lost
 - Mobile Pipeline fallback (<md)
-- Invite accept-flow + notification on acceptance
-- Sentry activation (Sprint 2.1 G10 carryover)
 - Custom-field render on LeadCard
 - Stage-replacement preview in PipelineEditor
-- Workspace AI override → fallback chain wiring (G3 persists, env still wins)
+- Multi-clause condition UI in Automation Builder modal
 - dnd-kit reorder for Custom Fields position
+- AmoCRM adapter (skipped in 2.5 G3, back in long-tail)
 
-Other outstanding deferred work for 2.5+:
+Other outstanding deferred work for 2.6+:
 - **Telegram Business inbox** + **email send (gmail.send scope)** — deferred since Sprint 2.0
 - **Quote / КП builder**, **Knowledge Base CRUD UI** — deferred from 2.0 envelope
 - **`_GENERIC_DOMAINS` per-workspace setting** (Sprint 2.0 carryover)
@@ -160,6 +177,8 @@ Other outstanding deferred work for 2.5+:
 - **Notification debounce** on form-submission fan-out (Sprint 2.2 carryover)
 - **Honeypot / timing trap on `embed.js`** (Sprint 2.2 carryover)
 - **Pipeline cloning / templates** (Sprint 2.3 deferred; «start from template» CTA in PipelineEditor)
+- **Workspace AI override → fallback chain wiring** (Sprint 2.4 G3 carryover; UI persists, env still wins)
+- **`pnpm add @sentry/nextjs`** + DSN env vars (Sprint 2.1 G10 carryover)
 - **Phase G (Sprint 1.3 follow-on)** — move enrichment off FastAPI BackgroundTasks onto Celery; WebSocket `/ws/{user_id}` for real-time progress
 - DST-aware cron edge handling
 - Sentry DSNs activation (Sprint 1.5 soft-launch carryover; pg_dump cron closed by Sprint 2.4 G5)

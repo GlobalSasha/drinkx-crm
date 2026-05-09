@@ -148,6 +148,9 @@ def create_app() -> FastAPI:
     from app.template.routers import router as templates_router
     app.include_router(templates_router)
 
+    from app.automation_builder.routers import router as automations_router
+    app.include_router(automations_router)
+
     return app
 
 

@@ -16,6 +16,7 @@ import {
   Menu,
   X,
   ClipboardList,
+  Workflow,
 } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { User } from "@supabase/supabase-js";
@@ -218,6 +219,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               >
                 <ClipboardList size={18} />
                 Формы
+              </Link>
+            );
+          })()}
+
+          {/* Admin/head-only: Automations (Sprint 2.5 G1) */}
+          {isAdminOrHead && (() => {
+            const href = "/automations";
+            const isActive = pathname === href || pathname.startsWith(href + "/");
+            return (
+              <Link
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                href={href as any}
+                className={clsx(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
+                  isActive
+                    ? "bg-accent/10 text-accent"
+                    : "text-muted hover:bg-black/5",
+                )}
+              >
+                <Workflow size={18} />
+                Автоматизации
               </Link>
             );
           })()}

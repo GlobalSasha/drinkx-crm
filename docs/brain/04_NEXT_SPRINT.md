@@ -1,170 +1,276 @@
-# Next Sprint: Phase 2 Sprint 2.5 — Automation Builder
+# Next Sprint: Phase 2 Sprint 2.6 — Real outbound dispatch + UX polish
 
-Status: **READY TO START** (after Sprint 2.4 merge / deploy / smoke)
-Branch: `sprint/2.5-automation-builder` (create from main once 2.4 lands)
+Status: **READY TO START** (after Sprint 2.5 merge / deploy / smoke)
+Branch: `sprint/2.6-outbound-dispatch` (create from main once 2.5 lands)
 
 ## Goal
 
-Sprint 2.4 shipped the Templates data model + admin CRUD without a
-consumer. Sprint 2.5 wires templates into actual outbound flows by
-building the **Automation Builder** — a workspace-scoped configuration
-of «when X happens, run Y». Plus closes a stack of carryovers from
-2.4 that the customer-facing Automation surface depends on (notification
-dedupe, invite accept-flow).
+Sprint 2.5 shipped the Automation Builder end-to-end with one
+critical caveat: `action_type=send_template` stages an Activity row
+with `outbound_pending=true` instead of actually delivering the
+message. That's the main driver for 2.6 — wire the channel-aware
+sender so an admin who configures «when stage moves to Pilot, send
+welcome.txt via email» actually sees an email arrive.
 
-Scope is one big new domain (`automations`) plus four polish gates. No
-new vendors. No new AI capability beyond «use existing fallback chain
-to render template variables», deferred to G1 plan-review.
+Plus a UX polish bundle that's been carrying since 2.3 / 2.4 (Pipeline
+header, LeadCard modal-on-Lost, mobile fallback, Custom-field
+rendering on the LeadCard right-rail) — the kind of work that's been
+parked because the data layer was the priority through 2.5.
 
 ## Read before starting
 
-- `docs/brain/00_CURRENT_STATE.md` — Sprint 2.4 close summary
+- `docs/brain/00_CURRENT_STATE.md` — Sprint 2.5 close summary
 - `docs/brain/02_ROADMAP.md` — Phase 2 envelope + carryover list
-- `docs/SPRINT_2_4_SETTINGS_TEMPLATES.md` — full 2.4 close + 14-item carryover list
+- `docs/SPRINT_2_5_AUTOMATION_BUILDER.md` — full 2.5 close + carryover list
 - `docs/PRD-v2.0.md` §10 (Automation Builder)
 - Existing surfaces to extend, not replace:
-  - `app/template/*` — template definitions (Sprint 2.4 G4)
-  - `app/automation/stage_change.py` — already has pre/post hook plumbing for stage transitions; the trigger source for «when stage changes»
-  - `app/forms/*` — form-submission hook is the trigger source for «when a form is submitted»
-  - `app/inbox/*` — inbox-match is the trigger source for «when an email matches a lead»
-  - `app/notifications/*` — destination for in-app action types
-- Production state at sprint start: 4 app containers + 4 cron entries running, all 2.0–2.4 surfaces live, Sprint 2.4 merged.
+  - `app/automation_builder/services.py:_send_template_action` — the place to flip from stub to real dispatch
+  - `app/notifications/email_sender.py` — Sprint 1.5 SMTP wrapper, stub-mode-aware
+  - `app/template/models.py` — `MessageTemplate.channel` discriminates email / tg / sms
+  - `app/scheduled/celery_app.py` — beat scheduler; multi-step chains will need a new entry
+  - `apps/web/components/lead-card/LeadCard.tsx` — `window.confirm` on Lost lives here
+  - `apps/web/components/pipeline/` — header polish + mobile fallback
+- Production state at sprint start: 4 app containers + 4 cron entries running, all 2.0–2.5 surfaces live, Sprint 2.5 merged.
 
 ## Scope
 
 ### ALLOWED
 
-#### G1 — Automation Builder core (~2 days)
+#### G1 — Real outbound dispatch for `send_template` (~1 day)
 
 Backend:
-- Migration `0020_automations`:
-  - `automations` (workspace_id CASCADE, name, trigger ∈ ('stage_change', 'form_submission', 'inbox_match'), trigger_config_json, condition_json, action_type ∈ ('send_template', 'create_task', 'move_stage'), action_config_json, is_active, created_by SET NULL, created_at, updated_at)
-  - `automation_runs` (automation_id CASCADE, lead_id SET NULL, status ∈ ('queued', 'success', 'skipped', 'failed'), error, executed_at) — append-only audit of every fire
-- New `app/automation_builder/` package (do NOT extend existing
-  `app/automation/` — that one is the stage-change hook engine, this
-  is the user-defined builder; different concern, deserves its own
-  module). Models / schemas / repositories / services / routers.
-- Service: `evaluate_trigger(trigger_type, payload)` looks up matching automations, evaluates condition_json against the lead, schedules the action via Celery.
-- Action handlers: `send_template_action(template_id, lead_id, channel)` — renders template via simple `{{lead.field}}` substitution, hands to existing channel sender (email via `app/notifications/email_sender.py`; tg + sms stub mode in v1).
-- Trigger wiring (the hard part):
-  - `app/automation/stage_change.py` post-hook fans out to `evaluate_trigger("stage_change", {...})`.
-  - `app/forms/services.py` after-create-lead hook fires `evaluate_trigger("form_submission", {...})`.
-  - `app/inbox/processor.py` after-match hook fires `evaluate_trigger("inbox_match", {...})`.
-- Routers: `/api/automations` admin/head gated for writes.
+- `app/automation_builder/services.py:_send_template_action` —
+  current behaviour: stages an Activity with `outbound_pending=true`.
+  G1 changes:
+    1. Render template via existing `render_template_text` (already
+       in place).
+    2. Route by `template.channel`:
+        * `email` — call `email_sender.send(...)` using the lead's
+          primary email address from `lead.email`. Stub-mode
+          (`SMTP_HOST=""`) keeps the existing behaviour: log the
+          payload, set `outbound_pending=false`, mark
+          `delivery_status='stub'`.
+        * `tg` / `sms` — log via structlog,
+          `delivery_status='stub_no_provider'`, no actual send.
+          Real providers land in 2.7+.
+    3. Stage the Activity row with the resolved status (success
+       / stub / failed) so the lead's feed shows what happened.
+    4. Append a delivery row to `automation_runs.error` if dispatch
+       fails — the run row already exists; just enrich it.
+- New `app/automation_builder/dispatch.py` — small dispatcher that
+  routes a (channel, recipient, body) triple. Keeps the action
+  handler thin.
+- Defensive: wrap dispatch in try/except. Failures → run row's
+  `status='failed'` + `error=str(exc)[:500]`. The action handler
+  doesn't propagate the exception so other automations in the same
+  fan-out still fire.
 
 Frontend:
-- New `/automations` admin page — table + drawer-style builder.
-- Builder UI: trigger picker → condition rule chips → action picker (with template dropdown for `send_template`).
-- `automation_runs` history per automation.
+- LeadCard Activity Feed: add a tiny chip next to outbound-comment
+  rows showing the delivery status («отправлено» / «черновик» /
+  «ошибка»). Renders from `payload_json.delivery_status`.
+- /automations RunsDrawer: surface the failure error in the row
+  (truncate to 80 chars, full text on hover via `title`).
 
-Tests (~12 mock-only):
-- automation create / list / update / delete with workspace scope
-- evaluate_trigger correctly filters by trigger type
-- condition_json evaluator (priority eq, score gte, lead.field is null/notnull)
-- send_template action renders `{{lead.company_name}}` substitution
-- run-history append on every fire (success / skipped / failed)
-- role-gate: manager can read, can't create
+Tests (~6 mock-only):
+- email channel + SMTP stub-mode → status='stub'
+- email channel + real SMTP_HOST → calls email_sender.send + status='success'
+- tg channel → always status='stub_no_provider'
+- sms channel → always status='stub_no_provider'
+- dispatch failure → automation_run row's status='failed' with error
+- unknown lead.email (None) for email channel → status='skipped' with «no recipient» reason
 
-#### G2 — Notification dedupe + day-grouping (~0.5 day)
-
-Carryover from Sprint 2.4. Two parts:
+#### G2 — Multi-step automation chains (~1.5 days)
 
 Backend:
-- Add a `dedupe_key` String(120) column to `notifications` (migration `0021_notifications_dedupe`). Index on `(user_id, dedupe_key, created_at desc)`.
-- `services.notify` accepts optional `dedupe_key`; if a notification with the same `(user_id, dedupe_key)` exists in the last 1h, skip the insert (return None).
-- `daily_plan_ready` cron writes empty plans with `dedupe_key="daily_plan_empty:{date}"`; the dedupe check stops a flood when a manager has nothing scheduled for many consecutive days.
+- Migration `0021_automation_steps`:
+  - Drop the single `action_type` / `action_config_json` columns from
+    `automations` (or keep them as «step 0» legacy with a new
+    `steps_json` array). TBD at G2 plan-review — pick the cheaper path.
+  - Add `automation_step_runs` (automation_run_id CASCADE,
+    step_index, scheduled_at, executed_at, status, error). One
+    row per step per fire.
+- `evaluate_trigger` plumbing — when an automation has multiple
+  steps, fire step 0 immediately and schedule subsequent steps via
+  Celery countdown task.
+- New beat entry `automation_step_scheduler` — every 5 min, picks up
+  due `automation_step_runs` rows where `executed_at IS NULL` and
+  `scheduled_at <= now()`, runs the step, flips the row.
+- Step types: `delay_hours` (no action, just gates the next step's
+  schedule) + the existing 3 action types as steps.
 
 Frontend:
-- NotificationsDrawer: group items by day (Сегодня / Вчера / DD.MM.YYYY) with sticky day headers.
+- /automations builder modal — switch from single-action picker to
+  a step list with «Добавить шаг» CTA. Reorder via dnd-kit (the
+  same lib custom-fields will use in G4 — pull lib in once for both).
+- RunsDrawer renders a per-step status grid below the parent run.
 
-Tests (~3 mock-only).
+Tests (~8 mock-only):
+- 2-step chain happy path (action → delay → action)
+- delay step schedules at correct timestamp
+- failure in step 0 stops chain; step 1 stays unscheduled
+- failure in step 1 doesn't roll back step 0's effect
+- beat scheduler picks up due rows + skips not-yet-due
+- multi-clause condition still works at the chain entry
+- step ordering preserved
+- migration 0021 upgrade + downgrade clean
 
-#### G3 — AmoCRM adapter (~1 day)
+Risk: this gate alone is the largest in 2.6. If G2 scope creeps,
+defer multi-step to 2.7 and use the freed time for additional polish
+in G3+G4. Document the decision in the G2 plan-review note.
 
-Sprint 2.1 G5 carryover. Mirror Bitrix24:
-- New `app/import_export/adapters/amocrm.py` — auth via long-lived refresh token; OAuth dance handled by ops manually (the prod env already has Bitrix24 manual config — same shape).
-- Lead-import job creates a `bulk_import_run` task with format=`amocrm`.
-- Tests (~5 mock-only): adapter parser + mapper happy path + auth-failed branch.
+#### G3 — Pipeline + LeadCard polish (~1 day)
 
-#### G4 — Invite accept-flow + notification (~0.5 day)
+Carryovers bundled into one frontend gate. No new backend.
 
-Sprint 2.4 carryover. `upsert_user_from_token` should:
-- Look up `user_invites` row by email on first sign-in.
-- Set `accepted_at = now()` if found.
-- Fire `safe_notify(kind='invite_accepted', user_id=invite.invited_by_user_id, ...)` so the inviter sees «{name} принял приглашение» in the bell.
-- Tests (~3 mock-only).
+- `apps/web/components/pipeline/` header: accent button → `+Лид`
+  primary, Sprint button → outline secondary. Visual de-emphasis on
+  Sprint since it's a manager flow not a daily one.
+- Default pipeline seed (`app/pipelines/models.DEFAULT_STAGES`) —
+  confirm the 12-stage list maps to the current ICP (drop / merge
+  redundant stages, target ~6-7). Light migration `0022_seed_stages`
+  if the live workspaces need a re-seed; otherwise just a code change.
+- `apps/web/app/(app)/settings/page.tsx` — fold the 3 «Скоро»
+  sections (Профиль / Уведомления / API) under a `<details>`
+  disclosure. Reduces visual noise without removing the placeholders.
+- `apps/web/components/lead-card/LeadCard.tsx` — `window.confirm`
+  on Lost → styled modal matching the rest of the LeadCard (Plus
+  Jakarta Sans, soft shadow, double-bezel — see
+  `apps/web/components/settings/PipelineEditor.tsx` for a copyable
+  reference).
+- Mobile pipeline fallback (<md): `apps/web/app/(app)/pipeline/page.tsx`
+  exposes a list-view as fallback today; G3 polishes the actual
+  vertical card layout (compact cards, swipe-to-stage, no
+  drag-and-drop on touch — long-press for context menu).
 
-Depends on G2 — without dedupe the inviter's drawer fills with system
-rows the day they invite a batch of people.
+Tests (~3 mock-only — frontend mostly, light backend):
+- pipelines.repositories.list returns ≤7 default stages after
+  re-seed (confirms the migration if shipped)
+- LeadCard Lost-modal acceptance (component test if framework-ready)
+- mobile breakpoint snapshot stays stable (snapshot test)
+
+#### G4 — Custom-field render on LeadCard + dnd-kit reorder (~0.5 day)
+
+Carryover from Sprint 2.4 G3 — custom_attribute_definitions exist
+since migration 0018, lead_custom_values too, but no UI consumes them.
+
+Backend:
+- New endpoint `GET /api/leads/{id}/custom-values` — list values
+  for a lead joined with the matching definition. Already implicit
+  via `LeadCustomValue.definition` relationship; just expose.
+- `PUT /api/leads/{id}/custom-values/{def_id}` — upsert one value
+  per (lead, definition). Already exists at the service layer
+  (`app.custom_attributes.services.upsert_value`); just expose at
+  the router.
+
+Frontend:
+- New right-rail section in LeadCard «Дополнительные поля» — list
+  every workspace definition + render the matching value (or empty
+  state to fill in). Inline edit per kind (text input / number / date /
+  select).
+- Settings → Кастомные поля: replace the v1 up/down position
+  buttons with dnd-kit reorder. Pull `@dnd-kit/sortable` once (G2
+  also wants it for step ordering — share the install).
+
+Tests (~3 mock-only):
+- list_values_for_lead joins definitions correctly
+- upsert via PUT endpoint roundtrips
+- reorder PATCHes positions in batch (or per-row)
 
 #### G5 — Polish + sprint close (~0.5 day)
 
-- Audit emit hooks for `automation.{create,update,delete}` + `automation_run.{success,failed}`.
-- Sprint report `SPRINT_2_5_AUTOMATION_BUILDER.md`.
+- Audit emit hooks for `automation.dispatch.{success,failed}` (so
+  ops can filter «show me all the failed sends today» in /audit).
+- Sprint report `SPRINT_2_6_OUTBOUND_DISPATCH.md`.
 - Brain memory rotation (00 + 02 + 04).
-- Smoke checklist additions: /automations + invite-accept ping.
+- Smoke checklist additions: `docs/SMOKE_CHECKLIST_2_6.md`.
 
 ### NOT ALLOWED (out of scope)
 
-- **Multi-step automation chains.** v1 is one trigger → one action. Sequential «send email then wait 3 days then create task» lands in a future sprint.
-- **Automation marketplace / cross-workspace sharing.** Phase 3.
-- **AI-generated message bodies.** v1 only renders existing templates with `{{lead.field}}` substitution. Generative inserts are a separate feature.
-- **Custom Webhook trigger / action.** Useful but big surface; lands in 2.6+.
-- **Workspace AI override → fallback chain wiring** — still env-first; carries over from 2.4.
-- **Custom-field render on LeadCard** — still carries over.
-- **Sentry activation** — still parked.
+- **Real tg / sms providers.** v1 keeps them in stub_no_provider
+  state. Picking a Telegram bot library + an SMS provider is its own
+  evaluation gate that lands in 2.7+.
+- **Workspace-level webhook trigger / action** — still parked.
+- **AI-generated message bodies** in templates — still parked.
+- **AmoCRM adapter** — still in long-tail backlog after 2.5 G3 skip.
+- **Multi-tenancy** — Phase 3.
+- **Sentry activation** — still parked. (`pnpm add @sentry/nextjs` +
+  DSN env vars.)
 
-## Carryovers from Sprint 2.4 (full list)
+## Carryovers from Sprint 2.5 (full list)
 
 Folded into the gate plan above where applicable; rest tracked here:
 
-1. ✅ G2: notification dedupe + grouping
-2. ✅ G4: invite accept-flow + notification
-3. ⏸ Pipeline header (accent → +Лид; Sprint → outline) — 2.5 polish or 2.6
-4. ⏸ Default pipeline 6–7 stages confirm — light-touch DB seed change
-5. ⏸ Settings sidebar «Скоро» collapse — frontend-only
-6. ⏸ LeadCard `window.confirm` → modal on Lost
-7. ⏸ Mobile Pipeline fallback (<md) — better vertical card layout
-8. ⏸ Custom-field render on LeadCard — still deferred (2.5+ polish)
-9. ⏸ Stage-replacement preview in PipelineEditor — Sprint 2.3 carryover
-10. ⏸ Workspace AI override → fallback chain wiring — Sprint 2.4 G3 carryover
-11. ⏸ dnd-kit reorder for Custom Fields position — Sprint 2.4 G3 carryover
-12. ⏸ Sentry activation — Sprint 2.1 G10 carryover, parked
+1. ✅ G1: Real outbound dispatch for `send_template`
+2. ✅ G2: Multi-step automation chains
+3. ✅ G3: Pipeline header tweak / LeadCard modal-on-Lost / Mobile Pipeline fallback / Settings «Скоро» disclosure / Default pipeline 6–7 stages
+4. ✅ G4: Custom-field render on LeadCard + dnd-kit reorder for Custom Fields position
+5. ⏸ Stage-replacement preview in PipelineEditor — Sprint 2.3 carryover; couldn't fit in G3 polish bundle
+6. ⏸ Multi-clause condition UI in the Automation Builder modal (backend supports n-clause; frontend currently ships single row)
+7. ⏸ Workspace AI override → fallback chain wiring (Sprint 2.4 G3 carryover; UI persists, env still wins)
+8. ⏸ AmoCRM adapter (carried since 2.1; skipped 2.5 G3)
+9. ⏸ `pnpm add @sentry/nextjs` activation (Sprint 2.1 G10 carryover)
 
 ## Risks
 
-1. **Trigger-hook fan-out cost.** Every stage_change / form_submission / inbox_match now spends extra time iterating workspace automations. v1 ships with a synchronous evaluator; if any workspace gets >50 automations, profile the hot path before the next sprint.
-2. **Template variable schema drift.** G1 needs a single source of truth for «what `{{lead.*}}` keys exist». Use `app/leads/schemas.py:LeadOut.model_fields` at render time so removing a column doesn't silently render «{{lead.deleted_field}}» literally — substitute with a clear «[unknown field]» marker plus a worker log warning.
-3. **Notification dedupe + accept-flow ordering.** G4 requires G2 to ship first. The plan above has G2 → G3 → G4; do not reorder.
-4. **AmoCRM OAuth refresh.** Bitrix24 has a manual ops dance; AmoCRM is similar. The adapter should run in stub mode if `AMOCRM_REFRESH_TOKEN` is empty — same pattern as the SMTP/Supabase stubs.
-5. **2.4 carryover bundling.** Most of the carryover items live as small isolated polish tickets; do NOT smear them across the automation gates.
+1. **G2 scope creep.** Multi-step chains touch migration shape +
+   Celery beat + frontend builder UI. If the migration design isn't
+   straightforward (drop+re-add columns vs JSON-array migration), G2
+   could blow past 1.5 days. Plan-review at G2 kickoff: pick path
+   based on whether the production `automations` table has any rows
+   at that point.
+2. **SMTP stub still active in production.** G1's email path falls
+   into stub mode if `SMTP_HOST=""`. Verify the prod env BEFORE the
+   sprint to know if real delivery is testable end-to-end. If still
+   stub-mode, the smoke checklist confirms «stub status surfaces in
+   the Activity Feed» instead of «email arrived».
+3. **`@dnd-kit/sortable` is a new dep** — first npm install in this
+   sprint cycle since Sprint 2.0. The «0 new deps» streak breaks
+   here; document explicitly in the sprint report.
+4. **Default pipeline re-seed (G3).** If the production workspace
+   has historical data on stages that get merged / dropped, the
+   migration needs a backfill path. Plan-review G3 with the actual
+   production stage IDs in hand.
+5. **Carryover bundling in G3.** Five small items in one gate is
+   tight. If any single one needs more than 2 hours, peel it off
+   into G3.5 or push to 2.7.
 
 ## Stop conditions — post-deploy smoke checklist
 
-Update `docs/SMOKE_CHECKLIST_2_4.md` (or fork to `_2_5.md`) with:
-- [ ] /automations — admin only, table loads, builder modal opens
-- [ ] Trigger fires — move a lead's stage, the matching automation runs, history row visible
-- [ ] /settings → Команда — invite a teammate, sign in as them, the inviter's bell shows «принял приглашение»
-- [ ] All 9 prior smoke checks (from 2.4) still pass
+Update `docs/SMOKE_CHECKLIST_2_6.md` with:
+- [ ] /automations — configure a `send_template` automation, trigger it, the lead's Activity Feed shows «отправлено» chip (or «черновик» in stub mode)
+- [ ] Real email arrives at the inbox (skip if SMTP still stub)
+- [ ] Multi-step chain: 2-step automation → first step fires immediately, second step shows «scheduled» status until the delay elapses
+- [ ] LeadCard right-rail «Дополнительные поля» shows all workspace definitions
+- [ ] Mobile Pipeline (<375px viewport): vertical card layout renders
+- [ ] LeadCard «Закрыть как Lost» opens styled modal (no `window.confirm`)
+- [ ] All 9 prior smoke checks (from 2.4) + 7 from 2.5 still pass
 
 ## Done definition
 
-- Migrations 0020 (automations / automation_runs) + 0021 (notifications dedupe_key) apply cleanly via `alembic upgrade head` on staging.
-- Automation Builder ships end-to-end: create automation → trigger fires → action executes → run history appears.
-- Invite accept-flow writes `accepted_at` and pings the inviter.
-- Notification dedupe stops the empty-daily-plan fan-out.
-- ≥23 new mock tests across G1–G4. Combined baseline ≥304 mock tests passing (281 + 23).
+- Migration 0021 (automation_steps) applies cleanly via `alembic
+  upgrade head` on staging.
+- `send_template` produces real outbound messages on email when SMTP
+  is configured; stub mode surfaces in the Activity Feed clearly.
+- Multi-step chains end-to-end: trigger → step 0 → wait → step 1 →
+  run row history shows per-step status.
+- Custom-field values render on LeadCard right-rail.
+- Pipeline + LeadCard polish bundle merged.
+- ≥20 new mock tests across G1–G4. Combined baseline ≥321 mock
+  tests passing (301 + 20).
 - `pnpm typecheck` + `pnpm build` clean.
 - Sprint report written, brain memory rotated.
-- 0 new npm deps target (matches Sprints 2.0 / 2.1 / 2.2 / 2.3 / 2.4).
+- Net-new npm deps: 1 (`@dnd-kit/sortable`) — explicitly documented.
 
 ---
 
-**Out-of-scope but parked here for awareness — fold into 2.6+:**
+**Out-of-scope but parked here for awareness — fold into 2.7+:**
 
+- Real tg / sms provider integration (Sprint 2.6 NOT-ALLOWED)
+- Multi-tenancy (Phase 3)
+- Workspace-level webhook trigger / action (Sprint 2.5 NOT-ALLOWED)
 - AI-generated message bodies in templates (Sprint 2.5 NOT-ALLOWED)
-- Multi-step automation chains (Sprint 2.5 NOT-ALLOWED)
-- Custom Webhook trigger / action (Sprint 2.5 NOT-ALLOWED)
+- AmoCRM adapter (long-tail since 2.1)
 - Telegram Business inbox + `gmail.send` scope (Sprint 2.0 deferred)
 - Quote / КП builder (Sprint 2.0 deferred)
 - Knowledge Base CRUD UI (Sprint 2.0 deferred)
@@ -172,17 +278,10 @@ Update `docs/SMOKE_CHECKLIST_2_4.md` (or fork to `_2_5.md`) with:
 - Gmail history-sync resumable / paginated job (Sprint 2.0 carryover)
 - Honeypot / timing trap on `embed.js` (Sprint 2.2 carryover)
 - `pnpm add @sentry/nextjs` activation (Sprint 2.1 G10 carryover)
-- Sentry DSNs (Sprint 1.5 soft-launch carryover; pg_dump cron CLOSED in 2.4 G5)
 - Per-stage gate-criteria editor (Phase 3)
-- Pipeline cloning / templates (Sprint 2.3 carryover)
+- Pipeline cloning / templates marketplace (Sprint 2.3 carryover)
 - Cross-pipeline reporting (Phase 3)
 - DST-aware cron edge handling
-- Custom-field render on LeadCard (Sprint 2.4 carryover)
 - Stage-replacement preview in PipelineEditor (Sprint 2.3 carryover)
 - Workspace AI override → fallback chain (Sprint 2.4 G3 carryover)
-- dnd-kit reorder for Custom Fields position (Sprint 2.4 G3 carryover)
-- Pipeline header polish (accent / outline button variants)
-- Default pipeline 6–7 stages confirm
-- Settings sidebar «Скоро» collapse
-- LeadCard `window.confirm` → modal on Lost
-- Mobile Pipeline fallback (<md)
+- Multi-clause condition UI in the Automation Builder modal

@@ -949,3 +949,73 @@ export interface MessageTemplateUpdate {
   category?: string | null;
   text?: string;
 }
+
+// ---- Automation Builder (Sprint 2.5 G1) ----
+
+export type AutomationTrigger =
+  | "stage_change"
+  | "form_submission"
+  | "inbox_match";
+
+export type AutomationAction =
+  | "send_template"
+  | "create_task"
+  | "move_stage";
+
+export type AutomationRunStatus =
+  | "queued"
+  | "success"
+  | "skipped"
+  | "failed";
+
+export interface AutomationOut {
+  id: string;
+  name: string;
+  trigger: AutomationTrigger;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  trigger_config_json: Record<string, any> | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  condition_json: Record<string, any> | null;
+  action_type: AutomationAction;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  action_config_json: Record<string, any>;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AutomationCreate {
+  name: string;
+  trigger: AutomationTrigger;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  trigger_config_json?: Record<string, any> | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  condition_json?: Record<string, any> | null;
+  action_type: AutomationAction;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  action_config_json: Record<string, any>;
+  is_active?: boolean;
+}
+
+export interface AutomationUpdate {
+  name?: string;
+  trigger?: AutomationTrigger;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  trigger_config_json?: Record<string, any> | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  condition_json?: Record<string, any> | null;
+  action_type?: AutomationAction;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  action_config_json?: Record<string, any>;
+  is_active?: boolean;
+}
+
+export interface AutomationRunOut {
+  id: string;
+  automation_id: string;
+  lead_id: string | null;
+  status: AutomationRunStatus;
+  error: string | null;
+  executed_at: string;
+}

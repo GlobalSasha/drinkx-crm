@@ -1,6 +1,6 @@
 # DrinkX CRM — Current State
 
-Last updated: 2026-05-09 (Sprint 2.4 DONE on branch `sprint/2.4-settings-templates`; merge to main pending after G5 commit)
+Last updated: 2026-05-09 (Sprint 2.5 DONE on branch `sprint/2.5-automation-builder`; Sprint 2.4 already merged into main `9587d47`)
 
 ## Phase 0 — COMPLETED ✅ (lives in `crm-prototype` repo)
 
@@ -409,8 +409,31 @@ Audit hooks, notification on invite acceptance, sprint report, brain memory rota
 - Migration 0017 (drop `pipelines.is_default`) is destructive — extra reason to hold the merge.
 - launch.json's web preview config was cleared (`b3f865c`) so the preview hook stops auto-firing on UI edits.
 
-### ⏸ NOT YET BUILT (after Sprint 2.4)
-- **Phase 2 Sprint 2.5+** — Automation Builder (consumes Templates from 2.4), AmoCRM adapter, Telegram Business inbox + email send, Quote/КП builder, Knowledge Base CRUD UI, Apify
+### ✅ Sprint 2.5 — Automation Builder (DONE — branch `sprint/2.5-automation-builder`, pending merge)
+**4 of 5 gates shipped (G3 AmoCRM skipped by product decision).**
+
+Commit range: `363b371..HEAD` on `sprint/2.5-automation-builder`.
+
+Full sprint report: `docs/SPRINT_2_5_AUTOMATION_BUILDER.md`.
+
+Gates summary:
+- **G1** (`363b371`) Automation Builder core — migration 0020, condition evaluator, render, 3 trigger fan-outs, `/automations` page
+- **G2** (`a3b48ad`) Notification dedupe (1h window + empty daily_plan_ready skip) + day grouping in drawer
+- **G3** SKIPPED — AmoCRM adapter dropped (Bitrix24 covers the lead-import story for ops)
+- **G4** (`f32fe89`) Invite accept-flow — `accepted_at` write + `safe_notify(invite_accepted)` to inviter inside the same transaction
+- **G5** (this commit) Sprint close — report, brain rotation, smoke checklist additions
+
+New modules in this sprint:
+- `apps/api/app/automation_builder/` — distinct from `app/automation/` (the gate engine); user-defined builder rules
+- `docs/SPRINT_2_5_AUTOMATION_BUILDER.md`
+- `docs/SMOKE_CHECKLIST_2_5.md` (supplement to 2.4 checklist)
+
+Test baseline (mock-only): **301 passing** (281 base + 12 G1 + 5 G2 + 3 G4). 14 pre-existing failures (env-related fastapi import) unchanged.
+
+`pnpm typecheck` clean throughout. 0 new npm deps; 0 new Python deps.
+
+### ⏸ NOT YET BUILT (after Sprint 2.5)
+- **Phase 2 Sprint 2.6+** — Real outbound dispatch for `send_template` (currently stubs to Activity row); multi-step automation chains; Pipeline + LeadCard polish carryovers; Custom-field render on LeadCard; AmoCRM adapter (back in long-tail backlog after G3 skip); Telegram Business inbox + email send; Quote/КП builder; Knowledge Base CRUD UI; Apify
 - **Phase 3** — Multi-tenancy (invite-flow + per-tenant routing for second client), MCP server, Sales Coach chat, OCR визиток, pgvector
 
 ---
@@ -483,12 +506,19 @@ Resolved this sprint:
 ---
 
 ## Next
-**Sprint 2.5 — Automation Builder** is the main driver. Spec lives in
-`04_NEXT_SPRINT.md`. Templates module from 2.4 is the data dependency.
-14 carryovers from 2.4 documented in the sprint report; the most
-load-bearing for 2.5 are:
-- Invite accept-flow + notification on acceptance (prerequisite for the «Команда» UX feeling complete)
-- Notification dedupe + day-grouping (drawer is getting noisy; 2.5 will likely add more system-kind events)
-- Workspace AI override → fallback chain wiring (G3 persists the value but env still wins)
+**Sprint 2.6 — Real outbound dispatch** is the main driver. Spec
+lives in `04_NEXT_SPRINT.md`. Sprint 2.5's Automation Builder is the
+consumer: today an automation with `action_type=send_template`
+stages an Activity row with `outbound_pending=true` instead of
+actually sending. Sprint 2.6 G1 wires the channel-aware sender and
+flips the flag once dispatch succeeds.
 
-Active migrations on the branch: `0001..0019`. Next free index: `0020`.
+Carryovers from 2.5 to fold into 2.6:
+- Real `send_template` dispatch (G1 driver)
+- Multi-step automation chains (send → wait N days → action)
+- Pipeline header tweak / LeadCard modal-on-Lost / Mobile Pipeline fallback (UX polish bundle)
+- Custom-field render on LeadCard + dnd-kit reorder (Sprint 2.4 G3 carryovers, finally consumable)
+- Multi-clause condition UI in the Automation Builder modal
+- AmoCRM adapter (was 2.5 G3, dropped; back in long-tail)
+
+Active migrations on `sprint/2.5-automation-builder`: `0001..0020`. Next free index: `0021`.

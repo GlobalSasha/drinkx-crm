@@ -111,11 +111,18 @@ import app.notifications.services as svc_mod  # noqa: E402
 # ---------------------------------------------------------------------------
 
 def _make_db():
-    """AsyncMock session with the methods notify/list/mark_* call."""
+    """AsyncMock session with the methods notify/list/mark_* call.
+
+    Default `db.execute(...).scalar_one_or_none()` returns None — i.e.
+    «no recent duplicate» for the Sprint 2.5 G2 dedup check inside
+    `notify()`. Tests that need a non-empty execute result reassign
+    `db.execute` per-test (mark_read, list_for_user etc.)."""
     db = AsyncMock()
     db.add = MagicMock()
     db.flush = AsyncMock()
-    db.execute = AsyncMock()
+    no_result = MagicMock()
+    no_result.scalar_one_or_none = MagicMock(return_value=None)
+    db.execute = AsyncMock(return_value=no_result)
     return db
 
 
@@ -129,6 +136,14 @@ def _captured_notification_kwargs(MockNotification: MagicMock) -> dict:
 # notify() — staging shape
 # ---------------------------------------------------------------------------
 
+async def _no_recent_dupe(*args, **kwargs):
+    """Sprint 2.5 G2 dedupe helper stub — always reports «no recent
+    duplicate» so the existing happy-path notify() tests can run
+    unchanged. The new dedupe-specific tests below patch it the other
+    way to assert the suppression branch."""
+    return False
+
+
 @pytest.mark.asyncio
 async def test_notify_stages_row_with_supplied_fields():
     """notify() builds a Notification with the kwargs supplied, db.add + flush called."""
@@ -138,7 +153,8 @@ async def test_notify_stages_row_with_supplied_fields():
     lead_id = uuid.uuid4()
 
     fake_row = MagicMock()
-    with patch.object(svc_mod, "Notification", return_value=fake_row) as MockNotification:
+    with patch.object(svc_mod, "Notification", return_value=fake_row) as MockNotification, \
+         patch.object(svc_mod, "_has_recent_same_kind", new=_no_recent_dupe):
         result = await svc_mod.notify(
             db,
             workspace_id=workspace_id,
@@ -167,7 +183,8 @@ async def test_notify_truncates_long_title_to_200_chars():
     db = _make_db()
     long_title = "A" * 500
 
-    with patch.object(svc_mod, "Notification") as MockNotification:
+    with patch.object(svc_mod, "Notification") as MockNotification, \
+         patch.object(svc_mod, "_has_recent_same_kind", new=_no_recent_dupe):
         MockNotification.return_value = MagicMock()
         await svc_mod.notify(
             db,
@@ -186,7 +203,8 @@ async def test_notify_normalizes_falsy_body_to_empty_string():
     """`body=None` (or any falsy) becomes '' so the NOT NULL column is satisfied."""
     db = _make_db()
 
-    with patch.object(svc_mod, "Notification") as MockNotification:
+    with patch.object(svc_mod, "Notification") as MockNotification, \
+         patch.object(svc_mod, "_has_recent_same_kind", new=_no_recent_dupe):
         MockNotification.return_value = MagicMock()
         await svc_mod.notify(
             db,
@@ -349,3 +367,122 @@ async def test_list_for_user_returns_three_part_tuple():
     assert total == 5
     assert unread == 2
     assert db.execute.await_count == 3
+
+
+# ---------------------------------------------------------------------------
+# Sprint 2.5 G2 — dedupe + empty daily_plan_ready suppression
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_notify_skips_empty_daily_plan_ready():
+    """Body convention from app.daily_plan.services is
+    `f"{n} карточек, ~{m} мин"`. When n=0 we suppress the row outright
+    so a manager with no scheduled work isn't pinged at 08:00 with
+    «у тебя 0 задач». The suppression returns None — no DB hit, no
+    Notification constructor call."""
+    db = _make_db()
+
+    with patch.object(svc_mod, "Notification") as MockNotification, \
+         patch.object(svc_mod, "_has_recent_same_kind", new=_no_recent_dupe):
+        result = await svc_mod.notify(
+            db,
+            workspace_id=uuid.uuid4(),
+            user_id=uuid.uuid4(),
+            kind="daily_plan_ready",
+            title="План на сегодня готов",
+            body="0 карточек, ~0 мин",
+        )
+
+    assert result is None
+    MockNotification.assert_not_called()
+    db.add.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_notify_does_not_skip_non_empty_daily_plan_ready():
+    """Sanity: «5 карточек» daily plan still goes through. The empty-
+    suppression regex must not over-match — anything other than a
+    leading «0 карточек» renders normally."""
+    db = _make_db()
+
+    with patch.object(svc_mod, "Notification") as MockNotification, \
+         patch.object(svc_mod, "_has_recent_same_kind", new=_no_recent_dupe):
+        MockNotification.return_value = MagicMock()
+        result = await svc_mod.notify(
+            db,
+            workspace_id=uuid.uuid4(),
+            user_id=uuid.uuid4(),
+            kind="daily_plan_ready",
+            title="План на сегодня готов",
+            body="5 карточек, ~120 мин",
+        )
+
+    assert result is not None
+    MockNotification.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_notify_skips_when_recent_same_kind_exists():
+    """1h dedup window: if `_has_recent_same_kind` reports True for
+    (workspace, user, kind), notify() returns None without staging a
+    row. Defends the bell against cron / fan-out flurries (e.g. five
+    `lead_transferred` events to the same user inside one minute)."""
+    db = _make_db()
+
+    async def has_recent(*a, **kw):
+        return True
+
+    with patch.object(svc_mod, "Notification") as MockNotification, \
+         patch.object(svc_mod, "_has_recent_same_kind", new=has_recent):
+        result = await svc_mod.notify(
+            db,
+            workspace_id=uuid.uuid4(),
+            user_id=uuid.uuid4(),
+            kind="lead_transferred",
+            title="Передан лид: Acme",
+            body="hello",
+        )
+
+    assert result is None
+    MockNotification.assert_not_called()
+    db.add.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_notify_lead_urgent_signal_bypasses_dedup_window():
+    """`lead.urgent_signal` is in DEDUP_EXEMPT_KINDS — must reach the
+    user every time even if the same kind fired 5 minutes ago. The
+    dedup helper isn't even called for exempt kinds (cheap short-
+    circuit before the DB query)."""
+    db = _make_db()
+
+    dedup_calls = {"n": 0}
+
+    async def has_recent(*a, **kw):
+        dedup_calls["n"] += 1
+        return True  # would suppress if it ran — but it shouldn't
+
+    with patch.object(svc_mod, "Notification") as MockNotification, \
+         patch.object(svc_mod, "_has_recent_same_kind", new=has_recent):
+        MockNotification.return_value = MagicMock()
+        result = await svc_mod.notify(
+            db,
+            workspace_id=uuid.uuid4(),
+            user_id=uuid.uuid4(),
+            kind="lead.urgent_signal",
+            title="Срочный сигнал",
+            body="something",
+        )
+
+    assert result is not None
+    MockNotification.assert_called_once()
+    # Confirms the exempt branch short-circuited before the DB query.
+    assert dedup_calls["n"] == 0
+
+
+@pytest.mark.asyncio
+async def test_dedup_exempt_kinds_constant_includes_urgent_signal():
+    """Forward-looking guard — `lead.urgent_signal` must stay in the
+    exempt set. Drift here would silently start dropping urgent
+    signals once another notification fires within the hour."""
+    assert "lead.urgent_signal" in svc_mod.DEDUP_EXEMPT_KINDS
