@@ -159,7 +159,14 @@ def _build_queries(lead: Lead) -> list[str]:
     return [q for q in queries if q.strip()]
 
 
-def _format_brave_block(results: list[SourceResult]) -> str:
+def _format_brave_block(results: list[SourceResult], max_chars: int | None = None) -> str:
+    """Format Brave results for the synthesis prompt.
+
+    `max_chars` truncates the joined block — used on re-enrichment of large
+    leads (e.g. Пятёрочка) where the full Brave dump balloons the prompt
+    and pushes the LLM into timeouts. Truncation is char-based with an
+    explicit suffix so the LLM doesn't try to interpret a half-cut line.
+    """
     lines: list[str] = []
     for sr in results:
         for item in sr.items[:5]:
@@ -167,7 +174,10 @@ def _format_brave_block(results: list[SourceResult]) -> str:
             url = item.get("url", "")
             desc = item.get("description", "")
             lines.append(f"- {title}\n  URL: {url}\n  {desc}")
-    return "\n".join(lines) if lines else "(нет результатов)"
+    block = "\n".join(lines) if lines else "(нет результатов)"
+    if max_chars is not None and len(block) > max_chars:
+        block = block[:max_chars].rstrip() + "\n…(обрезано)"
+    return block
 
 
 def _format_hh_block(result: SourceResult) -> str:
@@ -444,7 +454,13 @@ async def run_enrichment(*, db: AsyncSession, run_id: UUID) -> None:
         sources_used = _collect_sources_used(brave_results, hh_result, web_result)
 
         # --- Step 3: Compose synthesis prompt ---
-        brave_block = _format_brave_block(brave_results)
+        # Re-enrichment of large retailers can blow past the model's context
+        # budget; cap Brave at 2000 chars when ai_data is already populated.
+        is_reenrichment = lead.ai_data is not None
+        brave_block = _format_brave_block(
+            brave_results,
+            max_chars=2000 if is_reenrichment else None,
+        )
         hh_block = _format_hh_block(hh_result)
         web_block = _format_web_block(web_result)
 

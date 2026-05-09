@@ -41,7 +41,7 @@ async def complete_with_fallback(
     task_type: TaskType,
     max_tokens: int = 1024,
     temperature: float = 0.4,
-    timeout_seconds: float = 90.0,
+    timeout_seconds: float = 30.0,
     chain: list[str] | None = None,
 ) -> CompletionResult:
     """Try each provider in the chain until one succeeds. Raises LLMError if all fail.
