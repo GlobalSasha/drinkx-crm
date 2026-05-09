@@ -24,6 +24,7 @@ import { NotificationsDrawer } from "@/components/notifications/NotificationsDra
 import { useNotificationsBadge } from "@/lib/hooks/use-notifications";
 import { useInboxCount } from "@/lib/hooks/use-inbox";
 import { useMe } from "@/lib/hooks/use-me";
+import { C } from "@/lib/design-system";
 
 interface NavItem {
   label: string;
@@ -33,15 +34,22 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: "Сегодня", href: "/today", icon: <CalendarDays size={18} /> },
-  { label: "Pipeline", href: "/pipeline", icon: <Kanban size={18} /> },
+  { label: "Сегодня",   href: "/today",      icon: <CalendarDays size={18} /> },
+  { label: "Воронка",   href: "/pipeline",   icon: <Kanban size={18} /> },
   { label: "База лидов", href: "/leads-pool", icon: <Target size={18} /> },
 ];
 
 const DISABLED_ITEMS: NavItem[] = [
-  { label: "Knowledge", href: "#", icon: <BookOpen size={18} />, disabled: true },
-  { label: "Team", href: "#", icon: <Users size={18} />, disabled: true },
+  { label: "База знаний", href: "#", icon: <BookOpen size={18} />, disabled: true },
+  { label: "Команда",   href: "#", icon: <Users size={18} />,    disabled: true },
 ];
+
+// Shared classes for sidebar nav rows. Keeping the active/inactive
+// strings literal (no template interpolation) lets Tailwind's content
+// scanner pick them up reliably.
+const NAV_BASE = `flex items-center gap-3 px-3 py-2 rounded-full font-medium transition-all duration-200 ${C.bodySm}`;
+const NAV_ACTIVE = "bg-brand-soft text-brand-accent-text";
+const NAV_INACTIVE = "text-brand-muted";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -99,17 +107,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // overlay — see translate classes on <aside> below.
   return (
     <div
-      className="block md:grid min-h-screen bg-canvas"
+      className="font-sans block md:grid min-h-screen bg-canvas"
       style={{ gridTemplateColumns: "220px minmax(0, 1fr)" }}
     >
       {/* Mobile top bar — only visible on < md */}
-      <header className="md:hidden sticky top-0 z-20 bg-white border-b border-black/5 flex items-center justify-between px-4 py-3">
-        <Link href="/today" className="text-base font-extrabold tracking-tight">
-          drinkx<span className="text-accent">.</span>crm
+      <header className="md:hidden sticky top-0 z-20 bg-white border-b border-brand-border flex items-center justify-between px-4 py-3">
+        <Link href="/today" className={`${C.body} font-black tracking-tight ${C.color.text}`}>
+          drinkx<span className={C.color.accent}>.</span>crm
         </Link>
         <button
           onClick={() => setMobileNavOpen(true)}
-          className="p-2 -mr-2 rounded-lg text-muted hover:bg-canvas hover:text-ink transition-colors"
+          className="p-2 -mr-2 rounded-full text-brand-muted transition-colors"
           aria-label="Открыть меню"
         >
           <Menu size={20} />
@@ -130,21 +138,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           Mobile (<md): slides in from the left when mobileNavOpen flips. */}
       <aside
         className={clsx(
-          "fixed top-0 left-0 h-screen w-[220px] bg-white border-r border-black/5 flex flex-col z-40 transition-transform duration-200 ease-out",
+          "fixed top-0 left-0 h-screen w-[220px] bg-white border-r border-brand-border flex flex-col z-40 transition-transform duration-200 ease-out",
           mobileNavOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
         )}
       >
         {/* Logo + mobile close */}
-        <div className="px-5 py-5 border-b border-black/5 flex items-center justify-between">
+        <div className="px-5 py-5 border-b border-brand-border flex items-center justify-between">
           <Link
             href="/today"
-            className="text-lg font-extrabold tracking-tight hover:opacity-80 transition-opacity"
+            className={`${C.body} font-black tracking-tight ${C.color.text} transition-opacity`}
           >
-            drinkx<span className="text-accent">.</span>crm
+            drinkx<span className={C.color.accent}>.</span>crm
           </Link>
           <button
             onClick={() => setMobileNavOpen(false)}
-            className="md:hidden p-1 rounded-lg text-muted-3 hover:bg-canvas hover:text-ink transition-colors"
+            className="md:hidden p-1 rounded-full text-brand-muted transition-colors"
             aria-label="Закрыть меню"
           >
             <X size={16} />
@@ -152,7 +160,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-4 flex flex-col gap-0.5 overflow-y-auto">
+        <nav className="flex-1 px-3 py-4 flex flex-col gap-1 overflow-y-auto">
           {NAV_ITEMS.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
             return (
@@ -160,12 +168,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={item.href}
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 href={item.href as any}
-                className={clsx(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
-                  isActive
-                    ? "bg-accent/10 text-accent"
-                    : "text-muted hover:bg-black/5"
-                )}
+                className={clsx(NAV_BASE, isActive ? NAV_ACTIVE : NAV_INACTIVE)}
               >
                 {item.icon}
                 {item.label}
@@ -181,18 +184,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 href={href as any}
-                className={clsx(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 relative",
-                  isActive
-                    ? "bg-accent/10 text-accent"
-                    : "text-muted hover:bg-black/5",
-                )}
+                className={clsx(NAV_BASE, "relative", isActive ? NAV_ACTIVE : NAV_INACTIVE)}
                 aria-label={`Входящие${inboxPending > 0 ? ` (${inboxPending} ожидают)` : ""}`}
               >
                 <span className="relative">
                   <Inbox size={18} />
                   {inboxPending > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-accent text-white text-[9px] font-mono font-bold rounded-pill px-1 flex items-center justify-center tabular-nums">
+                    <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-brand-accent text-white text-[9px] font-mono font-bold rounded-full px-1 flex items-center justify-center tabular-nums">
                       {inboxPending > 99 ? "99+" : inboxPending}
                     </span>
                   )}
@@ -210,12 +208,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 href={href as any}
-                className={clsx(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
-                  isActive
-                    ? "bg-accent/10 text-accent"
-                    : "text-muted hover:bg-black/5",
-                )}
+                className={clsx(NAV_BASE, isActive ? NAV_ACTIVE : NAV_INACTIVE)}
               >
                 <ClipboardList size={18} />
                 Формы
@@ -231,12 +224,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 href={href as any}
-                className={clsx(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
-                  isActive
-                    ? "bg-accent/10 text-accent"
-                    : "text-muted hover:bg-black/5",
-                )}
+                className={clsx(NAV_BASE, isActive ? NAV_ACTIVE : NAV_INACTIVE)}
               >
                 <Workflow size={18} />
                 Автоматизации
@@ -252,12 +240,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 href={href as any}
-                className={clsx(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
-                  isActive
-                    ? "bg-accent/10 text-accent"
-                    : "text-muted hover:bg-black/5"
-                )}
+                className={clsx(NAV_BASE, isActive ? NAV_ACTIVE : NAV_INACTIVE)}
               >
                 <History size={18} />
                 Журнал
@@ -268,16 +251,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {/* Notifications bell — opens drawer */}
           <button
             onClick={() => setNotifOpen(true)}
-            className={clsx(
-              "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 w-full text-left relative",
-              "text-muted hover:bg-black/5",
-            )}
+            className={clsx(NAV_BASE, "w-full text-left relative", NAV_INACTIVE)}
             aria-label={`Уведомления${unreadCount > 0 ? ` (${unreadCount} непрочитанных)` : ""}`}
           >
             <span className="relative">
               <Bell size={18} />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-accent text-white text-[9px] font-mono font-bold rounded-pill px-1 flex items-center justify-center tabular-nums">
+                <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-brand-accent text-white text-[9px] font-mono font-bold rounded-full px-1 flex items-center justify-center tabular-nums">
                   {unreadCount > 99 ? "99+" : unreadCount}
                 </span>
               )}
@@ -295,12 +275,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 href={href as any}
-                className={clsx(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
-                  isActive
-                    ? "bg-accent/10 text-accent"
-                    : "text-muted hover:bg-black/5",
-                )}
+                className={clsx(NAV_BASE, isActive ? NAV_ACTIVE : NAV_INACTIVE)}
               >
                 <Settings size={18} />
                 Настройки
@@ -309,14 +284,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })()}
 
           {/* Divider */}
-          <div className="my-2 border-t border-black/5" />
+          <div className="my-2 border-t border-brand-border" />
 
           {/* Phase 2 items — disabled */}
           {DISABLED_ITEMS.map((item) => (
             <div
               key={item.label}
               title="Sprint 1.5+"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-muted-3 cursor-not-allowed select-none"
+              className={`${NAV_BASE} text-brand-muted/50 cursor-not-allowed select-none`}
             >
               {item.icon}
               {item.label}
@@ -325,20 +300,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* User pill */}
-        <div className="px-3 py-4 border-t border-black/5">
-          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-canvas">
-            <div className="w-7 h-7 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
-              <span className="text-[11px] font-bold text-accent">{avatarLetter}</span>
+        <div className="px-3 py-4 border-t border-brand-border">
+          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl bg-brand-bg">
+            <div className="w-7 h-7 rounded-xl bg-brand-accent flex items-center justify-center shrink-0">
+              <span className={`${C.bodyXs} font-bold text-white`}>{avatarLetter}</span>
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-ink truncate">{displayName}</p>
-              <p className="text-[10px] font-mono text-muted-3 truncate">{displayEmail}</p>
+              <p className={`${C.bodyXs} font-semibold ${C.color.text} truncate`}>{displayName}</p>
+              <p className={`text-[10px] font-mono ${C.color.mutedLight} truncate`}>{displayEmail}</p>
             </div>
           </div>
           {user && (
             <button
               onClick={handleSignOut}
-              className="mt-1 w-full text-[10px] font-mono text-muted-3 hover:text-accent text-center py-1 transition-colors"
+              className={`mt-1 w-full text-[10px] font-mono ${C.color.mutedLight} text-center py-1 transition-colors`}
             >
               Выйти
             </button>

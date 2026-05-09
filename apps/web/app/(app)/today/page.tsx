@@ -23,7 +23,7 @@ const TIME_BLOCK_LABEL: Record<TimeBlock, string> = {
 
 const TASK_KIND_LABEL: Record<TaskKind, string> = {
   call: "Звонок",
-  email: "Email",
+  email: "Почта",
   meeting: "Встреча",
   research: "Изучить",
   follow_up: "Follow-up",

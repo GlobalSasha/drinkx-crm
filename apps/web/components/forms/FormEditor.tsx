@@ -27,7 +27,7 @@ type Tab = "settings" | "embed";
 
 const FIELD_TYPES: { value: FieldType; label: string }[] = [
   { value: "text", label: "Текст" },
-  { value: "email", label: "Email" },
+  { value: "email", label: "Почта" },
   { value: "phone", label: "Телефон" },
   { value: "textarea", label: "Многострочный текст" },
   { value: "select", label: "Выпадающий список" },
@@ -35,7 +35,7 @@ const FIELD_TYPES: { value: FieldType; label: string }[] = [
 
 const DEFAULT_FIELDS: FieldDefinition[] = [
   { key: "company_name", label: "Название компании", type: "text", required: true },
-  { key: "email", label: "Email", type: "email", required: false },
+  { key: "email", label: "Почта", type: "email", required: false },
   { key: "phone", label: "Телефон", type: "phone", required: false },
 ];
 

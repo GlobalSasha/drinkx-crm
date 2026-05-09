@@ -33,7 +33,7 @@ import type {
 
 
 const CHANNEL_LABELS: Record<TemplateChannel, string> = {
-  email: "Email",
+  email: "Почта",
   tg: "Telegram",
   sms: "SMS",
 };
@@ -321,7 +321,7 @@ function TemplateEditor({
               type="text"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              placeholder="Onboarding"
+              placeholder="Онбординг"
               className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-accent"
             />
           </div>

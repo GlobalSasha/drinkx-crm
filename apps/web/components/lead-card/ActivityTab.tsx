@@ -21,7 +21,7 @@ const FILTER_OPTIONS = [
   { label: "Комментарии", value: "comment" },
   { label: "Задачи", value: "task" },
   { label: "Звонки", value: "call" },
-  { label: "Email", value: "email" },
+  { label: "Почта", value: "email" },
   { label: "Телеграм", value: "telegram" },
   { label: "Этапы", value: "stage_change" },
   { label: "Заявки", value: "form_submission" },
@@ -440,7 +440,7 @@ function ActivityItem({
     reminder: "Напоминание",
     file: "Файл",
     call: "Звонок",
-    email: "Email",
+    email: "Почта",
     telegram: "Telegram",
   };
 
