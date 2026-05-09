@@ -384,15 +384,31 @@ async def _dispatch_action(
 async def _send_template_action(
     db: AsyncSession, *, automation: Automation, lead: Lead
 ) -> None:
-    """Render the configured template against the lead and stage an
-    Activity row of type='comment' with the rendered body. v1 does NOT
-    actually dispatch the message — the existing email_sender stub
-    pattern (Sprint 1.5) means there's no live SMTP / tg / sms wiring
-    yet for templated outbound. The Activity row gives the manager
-    full visibility («the automation would have sent THIS») and is the
-    audit trail until 2.6+ wires real dispatch."""
+    """Render the configured template against the lead and stage the
+    Activity row that records what happened.
+
+    Sprint 2.6 G1 wires real dispatch for the `email` channel — the
+    rendered body is sent via `app.email.sender.send_email` and the
+    Activity payload's `delivery_status` reflects the outcome:
+      - `sent`               → SMTP_HOST set + aiosmtplib succeeded
+      - `stub`               → SMTP_HOST empty; nothing left the box
+      - `skipped_no_email`   → lead.email is None — can't send
+      - `failed`             → SMTP attempted, raised EmailSendError
+                               (also re-raises so the parent run row
+                               flips to status='failed' with the error)
+      - `pending`            → tg / sms — same as Sprint 2.5 stub;
+                               real dispatch lands in 2.7+ when tg
+                               and sms providers are picked
+
+    Activity stays `type="comment"` (no new ActivityType enum value —
+    the discriminator is `payload_json.delivery_status`, matches the
+    Sprint 2.5 stub-row shape). The frontend chip-renderer reads this
+    field; «отправлено» / «черновик» / «нет email» / «ошибка» map per
+    delivery_status.
+    """
     from sqlalchemy import select
 
+    from app.email.sender import EmailSendError, send_email
     from app.template.models import MessageTemplate
 
     config = automation.action_config_json or {}
@@ -411,20 +427,94 @@ async def _send_template_action(
         raise ValueError(f"template {template_id} not found in workspace")
 
     rendered = render_template_text(template.text, lead)
+
+    # Common payload — extended below per channel + dispatch outcome.
+    payload: dict = {
+        "text": rendered[:5000],
+        "source": "automation",
+        "automation_id": str(automation.id),
+        "template_id": str(template.id),
+        "template_name": template.name,
+        "channel": template.channel,
+    }
+
+    if template.channel == "email":
+        if not lead.email:
+            # No recipient on the lead — record the skip but don't
+            # treat as failure (the parent run row stays 'success').
+            # Admin sees the row in the lead's feed and knows the
+            # automation fired but bounced for lack of an address.
+            payload["delivery_status"] = "skipped_no_email"
+            payload["outbound_pending"] = False
+            log.warning(
+                "automation.send_template.skipped_no_email",
+                automation_id=str(automation.id),
+                lead_id=str(lead.id),
+            )
+            db.add(
+                Activity(
+                    lead_id=lead.id,
+                    user_id=None,
+                    type="comment",
+                    payload_json=payload,
+                )
+            )
+            return
+
+        # Subject: MessageTemplate has no `subject` column in v1 —
+        # admins type a single name. Use it as the email subject;
+        # the template body is the rendered plain-text content.
+        subject = template.name
+
+        try:
+            sent = await send_email(
+                to=lead.email,
+                subject=subject,
+                body=rendered,
+            )
+        except EmailSendError as exc:
+            # Mark the Activity as failed THEN re-raise so the
+            # parent fan-out logs `automation_runs.status='failed'`
+            # with this exception's message (truncated). The
+            # commit-vs-rollback boundary is owned by the trigger
+            # caller — `safe_evaluate_trigger` swallows at the top.
+            payload["delivery_status"] = "failed"
+            payload["delivery_error"] = str(exc)[:300]
+            payload["outbound_pending"] = False
+            db.add(
+                Activity(
+                    lead_id=lead.id,
+                    user_id=None,
+                    type="comment",
+                    payload_json=payload,
+                )
+            )
+            raise
+
+        payload["delivery_status"] = "sent" if sent else "stub"
+        payload["outbound_pending"] = False
+        db.add(
+            Activity(
+                lead_id=lead.id,
+                user_id=None,
+                type="comment",
+                payload_json=payload,
+            )
+        )
+        return
+
+    # Non-email channels (tg / sms) — Sprint 2.5 stub stays. Sprint
+    # 2.7+ will pick providers; until then the Activity row records
+    # what would have been sent. `outbound_pending=True` flags
+    # «not yet dispatched» so a future migration can reconcile.
+    payload["outbound_pending"] = True
+    payload["delivery_status"] = "pending"
     db.add(
         Activity(
             lead_id=lead.id,
             user_id=None,
             type="comment",
-            payload_json={
-                "text": rendered[:5000],
-                "source": "automation",
-                "automation_id": str(automation.id),
-                "template_id": str(template.id),
-                "template_name": template.name,
-                "channel": template.channel,
-                "outbound_pending": True,  # 2.5 G1: stub, no real send
-            },
+            payload_json=payload,
         )
     )
 
