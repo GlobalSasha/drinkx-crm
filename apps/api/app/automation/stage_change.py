@@ -151,9 +151,37 @@ async def log_stage_change_activity(
     db.add(activity)
 
 
+async def fan_out_automation_builder(
+    ctx: TransitionContext, db: AsyncSession
+) -> None:
+    """Sprint 2.5 G1: dispatch the user-defined Automation Builder
+    rules whose trigger='stage_change' matches this transition.
+
+    Wrapped in `safe_evaluate_trigger` — failures in any single
+    automation MUST NOT roll back the parent stage move. Only logs.
+    """
+    # Lazy import: the Automation Builder package is loaded by main.py
+    # and the alembic env, but the stage_change module is imported
+    # at startup before the routers register, so circular guards are
+    # cheap insurance.
+    from app.automation_builder.services import safe_evaluate_trigger
+
+    await safe_evaluate_trigger(
+        db,
+        workspace_id=ctx.lead.workspace_id,
+        trigger="stage_change",
+        lead=ctx.lead,
+        payload={
+            "from_stage_id": str(ctx.from_stage.id) if ctx.from_stage else None,
+            "to_stage_id": str(ctx.to_stage.id),
+        },
+    )
+
+
 POST_ACTIONS: list[PostAction] = [
     set_won_lost_timestamps,
     log_stage_change_activity,
+    fan_out_automation_builder,
 ]
 
 

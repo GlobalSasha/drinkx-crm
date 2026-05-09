@@ -135,6 +135,30 @@ async def process_message(
                 },
             )
             session.add(activity)
+
+            # Sprint 2.5 G1: fan out to the Automation Builder before
+            # commit so any action handlers (send_template Activity,
+            # create_task, etc.) commit atomically with the email
+            # attachment. Need the matched Lead — load it now.
+            from app.automation_builder.services import safe_evaluate_trigger
+            from app.leads.models import Lead
+
+            lead_res = await session.execute(
+                select(Lead).where(Lead.id == match.lead_id)
+            )
+            matched_lead = lead_res.scalar_one_or_none()
+            if matched_lead is not None:
+                await safe_evaluate_trigger(
+                    session,
+                    workspace_id=workspace_id,
+                    trigger="inbox_match",
+                    lead=matched_lead,
+                    payload={
+                        "match_type": match.match_type,
+                        "direction": direction,
+                    },
+                )
+
             await session.commit()
             bound_log.info(
                 "inbox.process_message.attached_to_lead",

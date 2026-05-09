@@ -192,6 +192,20 @@ async def create_lead_from_submission(
         )
     )
 
+    # Sprint 2.5 G1: fan out to the Automation Builder. Wrapped in
+    # safe_evaluate_trigger so a misconfigured automation can't roll
+    # back the public form-submission transaction (worst case: lead
+    # is created but no automation fires; ops sees the warning log).
+    from app.automation_builder.services import safe_evaluate_trigger
+
+    await safe_evaluate_trigger(
+        session,
+        workspace_id=lead.workspace_id,
+        trigger="form_submission",
+        lead=lead,
+        payload={"form_id": str(form.id)},
+    )
+
     return lead
 
 
