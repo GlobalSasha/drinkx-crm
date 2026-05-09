@@ -1,6 +1,8 @@
 """LLM provider factory with fallback chain."""
 from __future__ import annotations
 
+import time
+
 import structlog
 
 from app.config import get_settings
@@ -58,6 +60,7 @@ async def complete_with_fallback(
             log.warning("llm.unknown_provider_in_chain", provider=provider_name)
             attempts.append((provider_name, "unknown provider"))
             continue
+        attempt_start = time.perf_counter()
         try:
             log.info("llm.attempt", provider=provider_name, task_type=task_type.value)
             result = await provider.complete(
@@ -74,11 +77,18 @@ async def complete_with_fallback(
                 model=result.model,
                 tokens=result.prompt_tokens + result.completion_tokens,
                 cost_usd=round(result.cost_usd, 5),
+                duration_ms=int((time.perf_counter() - attempt_start) * 1000),
             )
             return result
         except LLMError as e:
+            duration_ms = int((time.perf_counter() - attempt_start) * 1000)
             reason = f"{type(e).__name__}({e.status or '-'}): {str(e)[:120]}"
-            log.warning("llm.fallback", provider=provider_name, reason=reason)
+            log.warning(
+                "llm.fallback",
+                provider=provider_name,
+                reason=reason,
+                duration_ms=duration_ms,
+            )
             attempts.append((provider_name, reason))
             continue
 

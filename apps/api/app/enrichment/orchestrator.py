@@ -212,9 +212,22 @@ async def _materialise_found_contacts(
       - email matches an existing Contact on this lead (case-insensitive)
       - name matches an existing Contact on this lead (case-insensitive)
 
-    Caller commits — we only stage rows on the session.
+    Caller commits — we only stage rows on the session. Always emits a
+    structlog summary (even when 0 created) so we can distinguish "LLM
+    returned nothing" from "all entries filtered" in production.
     """
+    skipped_low_confidence = 0
+    skipped_no_name = 0
+    skipped_dup_email = 0
+    skipped_dup_name = 0
+
     if not found:
+        log.info(
+            "enrichment.contacts_summary",
+            lead_id=str(lead.id),
+            input_count=0,
+            created=0,
+        )
         return 0
 
     existing = await db.execute(select(Contact).where(Contact.lead_id == lead.id))
@@ -225,14 +238,18 @@ async def _materialise_found_contacts(
     created = 0
     for fc in found:
         if fc.confidence < CONTACT_AUTOCREATE_MIN_CONFIDENCE:
+            skipped_low_confidence += 1
             continue
         name_key = _norm(fc.name)
         email_key = _norm(fc.email)
         if not name_key:
+            skipped_no_name += 1
             continue
         if email_key and email_key in existing_emails:
+            skipped_dup_email += 1
             continue
         if name_key in existing_names:
+            skipped_dup_name += 1
             continue
 
         contact = Contact(
@@ -252,6 +269,16 @@ async def _materialise_found_contacts(
             existing_emails.add(email_key)
         created += 1
 
+    log.info(
+        "enrichment.contacts_summary",
+        lead_id=str(lead.id),
+        input_count=len(found),
+        created=created,
+        skipped_low_confidence=skipped_low_confidence,
+        skipped_no_name=skipped_no_name,
+        skipped_dup_email=skipped_dup_email,
+        skipped_dup_name=skipped_dup_name,
+    )
     return created
 
 
@@ -448,6 +475,24 @@ async def run_enrichment(*, db: AsyncSession, run_id: UUID) -> None:
         if not parse_ok:
             bound_log.warning("enrichment.output_parse_failed")
 
+        # Diagnostic: confirm the LLM honoured the contacts_found instruction.
+        # exclude_unset=True returns only fields the LLM actually set, so we can
+        # see whether `confidence` is being omitted (which would cause every
+        # entry to fall to the 0.0 default and get filtered out).
+        first_set_keys: list[str] = []
+        first_confidence: float | None = None
+        if research_output.contacts_found:
+            first = research_output.contacts_found[0]
+            first_set_keys = sorted(first.model_dump(exclude_unset=True).keys())
+            first_confidence = first.confidence
+        bound_log.info(
+            "enrichment.contacts_found_raw",
+            count=len(research_output.contacts_found),
+            first_set_keys=first_set_keys,
+            first_confidence=first_confidence,
+            parse_ok=parse_ok,
+        )
+
         # Merge sources_used from LLM output with our observed list
         if research_output.sources_used:
             for s in research_output.sources_used:
@@ -465,9 +510,8 @@ async def run_enrichment(*, db: AsyncSession, run_id: UUID) -> None:
 
         # Auto-materialise high-confidence FoundContacts as Contact rows
         # (verified_status='to_verify' — manager confirms or deletes in UI).
-        created = await _materialise_found_contacts(db, lead, research_output.contacts_found)
-        if created:
-            bound_log.info("enrichment.contacts_created", count=created)
+        # The helper emits its own structlog summary.
+        await _materialise_found_contacts(db, lead, research_output.contacts_found)
 
         run.status = "succeeded"
         run.provider = completion.provider
