@@ -411,7 +411,7 @@ def _existing_contact(*, name: str | None = None, email: str | None = None):
 
 @pytest.mark.asyncio
 async def test_contacts_created_from_research_output():
-    """Two FoundContacts (0.8 + 0.3) → only the >=0.5 one is materialised."""
+    """Two FoundContacts (0.8 + 0.2) → only the one above the threshold is created."""
     lead = _make_lead()
     db = _db_with_existing_contacts([])
 
@@ -419,7 +419,7 @@ async def test_contacts_created_from_research_output():
         FoundContact(name="Анна Иванова", title="Категорийный менеджер",
                      source="LinkedIn", confidence=0.8),
         FoundContact(name="Пётр Сидоров", title="Стажёр",
-                     source="HH.ru", confidence=0.3),
+                     source="HH.ru", confidence=0.2),
     ]
 
     created = await _materialise_found_contacts(db, lead, found)

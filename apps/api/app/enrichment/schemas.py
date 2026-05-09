@@ -37,7 +37,9 @@ class FoundContact(BaseModel):
     phone: str | None = None
     linkedin_url: str | None = None
     source: str = ""
-    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    # Default 0.6 (was 0.0) so LLM responses that omit `confidence` still pass
+    # the auto-create gate — they land as verified_status='to_verify' anyway.
+    confidence: float = Field(default=0.6, ge=0.0, le=1.0)
 
     @field_validator("confidence", mode="before")
     @classmethod
