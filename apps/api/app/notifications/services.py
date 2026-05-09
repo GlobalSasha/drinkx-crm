@@ -1,4 +1,4 @@
-"""Notifications service layer — Sprint 1.5.
+"""Notifications service layer — Sprint 1.5 + Sprint 2.5 G2 dedupe.
 
 `notify()` is the single emit point. It only stages a row on the session
 (`session.add()`) and flushes; it does NOT commit. The caller controls the
@@ -8,11 +8,26 @@ domain change or roll back together.
 For best-effort emit from background tasks (orchestrator, cron, hook
 exception path), wrap your `notify()` call in `_safe_notify()` — failures
 are swallowed and logged, never bubbled up.
+
+Sprint 2.5 G2 layered two suppression rules on top:
+
+  1. **Empty `daily_plan_ready`.** When the daily plan generator
+     produces zero items it still wants to ping the user, but waking
+     them up to «у тебя нет задач сегодня» is noise. Detected by the
+     body convention `"0 карточек, ..."` — daily_plan/services.py
+     emits exactly this shape.
+
+  2. **1h dedup window.** Same `(workspace_id, user_id, kind)` within
+     the last hour → silent skip. Stops cron / fan-out flurries from
+     drowning the bell. The exempt list is small and deliberate;
+     `lead.urgent_signal` is the canonical example because by design
+     it should reach the user every time.
 """
 from __future__ import annotations
 
+import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Sequence
 from uuid import UUID
 
@@ -25,6 +40,45 @@ from app.notifications.models import Notification
 log = structlog.get_logger()
 
 
+# Kinds that bypass the 1h dedup window. These are «must reach the
+# user» events; suppressing duplicates would defeat the purpose.
+# Add new entries here in lock-step with the producing code path.
+DEDUP_EXEMPT_KINDS: frozenset[str] = frozenset({
+    "lead.urgent_signal",
+})
+
+DEDUP_WINDOW = timedelta(hours=1)
+
+# `daily_plan_ready` body convention from `app.daily_plan.services` —
+# `f"{len(orm_items)} карточек, ~{minutes} мин"`. Zero-items plans
+# render as «0 карточек, ...» which is exactly what we want to skip.
+_EMPTY_DAILY_PLAN_BODY_RE = re.compile(r"^\s*0\s+карточек\b")
+
+
+async def _has_recent_same_kind(
+    db: AsyncSession,
+    *,
+    workspace_id: UUID,
+    user_id: UUID,
+    kind: str,
+) -> bool:
+    """Return True if the user already received a notification with
+    this kind within DEDUP_WINDOW. Cheap existence check — uses the
+    `(user_id, created_at)` index that the model already declares."""
+    cutoff = datetime.now(tz=timezone.utc) - DEDUP_WINDOW
+    res = await db.execute(
+        select(Notification.id)
+        .where(
+            Notification.workspace_id == workspace_id,
+            Notification.user_id == user_id,
+            Notification.kind == kind,
+            Notification.created_at > cutoff,
+        )
+        .limit(1)
+    )
+    return res.scalar_one_or_none() is not None
+
+
 async def notify(
     db: AsyncSession,
     *,
@@ -34,8 +88,44 @@ async def notify(
     title: str,
     body: str = "",
     lead_id: UUID | None = None,
-) -> Notification:
-    """Stage a notification row on the current session. Caller commits."""
+) -> Notification | None:
+    """Stage a notification row on the current session. Caller commits.
+
+    Returns None when the row is silently suppressed:
+      - daily_plan_ready with empty body
+      - same (workspace, user, kind) within the last hour, unless kind
+        is in DEDUP_EXEMPT_KINDS
+
+    The two suppression rules run BEFORE the row is staged — no
+    «check after insert» pattern, no half-written rows on rollback.
+    """
+    # Rule 1: empty daily_plan_ready. Cheap string check — no DB hit.
+    if kind == "daily_plan_ready" and _EMPTY_DAILY_PLAN_BODY_RE.match(
+        body or ""
+    ):
+        log.info(
+            "notifications.skip_empty_daily_plan",
+            user_id=str(user_id),
+        )
+        return None
+
+    # Rule 2: 1h dedup window. Skipped for exempt kinds — those are
+    # «must always reach the user» events.
+    if kind not in DEDUP_EXEMPT_KINDS:
+        if await _has_recent_same_kind(
+            db,
+            workspace_id=workspace_id,
+            user_id=user_id,
+            kind=kind,
+        ):
+            log.info(
+                "notifications.skip_dedup_window",
+                kind=kind,
+                user_id=str(user_id),
+                window_hours=DEDUP_WINDOW.total_seconds() / 3600,
+            )
+            return None
+
     row = Notification(
         workspace_id=workspace_id,
         user_id=user_id,
