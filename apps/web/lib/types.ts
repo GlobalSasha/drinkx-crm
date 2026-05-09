@@ -915,3 +915,32 @@ export interface CustomAttributeDefinitionUpdateIn {
   is_required?: boolean;
   position?: number;
 }
+
+// ---- Message Templates (Sprint 2.4 G4) ----
+
+export type TemplateChannel = "email" | "tg" | "sms";
+
+export interface MessageTemplateOut {
+  id: string;
+  name: string;
+  channel: TemplateChannel;
+  category: string | null;
+  text: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MessageTemplateCreate {
+  name: string;
+  channel: TemplateChannel;
+  category?: string | null;
+  text: string;
+}
+
+export interface MessageTemplateUpdate {
+  name?: string;
+  channel?: TemplateChannel;
+  category?: string | null;
+  text?: string;
+}
