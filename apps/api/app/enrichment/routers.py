@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import current_user
 from app.auth.models import User
-from app.db import get_db, get_session_factory
+from app.db import get_db
 from app.enrichment import services
 from app.enrichment.api_schemas import EnrichmentRunOut, EnrichmentTriggerOut
 from app.enrichment.orchestrator import run_enrichment
@@ -24,10 +24,30 @@ router = APIRouter(prefix="/leads/{lead_id}/enrichment", tags=["enrichment"])
 
 
 async def _bg_run(run_id: UUID) -> None:
-    """Background task: open a fresh DB session and run the orchestrator."""
-    factory = get_session_factory()
-    async with factory() as session:
-        await run_enrichment(db=session, run_id=run_id)
+    """Background task: open a per-task DB engine + session and run the
+    orchestrator. NullPool mirrors the Sprint 1.4 pattern (see
+    app/scheduled/jobs.py) — a long-running BG task shouldn't hold a
+    connection from the shared request pool, which can starve concurrent
+    requests or trip 'Future attached to a different loop' if the pooled
+    connection was created against a different event loop's lifetime.
+    """
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    from sqlalchemy.pool import NullPool
+
+    from app.config import get_settings
+
+    s = get_settings()
+    engine = create_async_engine(
+        s.database_url,
+        echo=False,
+        poolclass=NullPool,
+    )
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with factory() as session:
+            await run_enrichment(db=session, run_id=run_id)
+    finally:
+        await engine.dispose()
 
 
 @router.post("", response_model=EnrichmentTriggerOut, status_code=status.HTTP_202_ACCEPTED)

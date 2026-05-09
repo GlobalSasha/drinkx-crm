@@ -388,6 +388,14 @@ async def _materialise_found_contacts(
             existing_emails.add(email_key)
         created += 1
 
+    # Flush staged contacts now so any INSERT error surfaces here (caught by
+    # the orchestrator's outer except) instead of being deferred to commit
+    # time, where a later session-poisoning bug could mask it. The caller
+    # still owns the final commit — flush only sends the rows to the DB
+    # within the open transaction.
+    if created:
+        await db.flush()
+
     log.info(
         "enrichment.contacts_summary",
         lead_id=str(lead.id),
@@ -646,21 +654,32 @@ async def run_enrichment(*, db: AsyncSession, run_id: UUID) -> None:
         run.finished_at = datetime.now(tz=timezone.utc)
 
         # Notify the lead's current owner (unassigned leads have assigned_to=NULL — skip).
+        # Run inside a SAVEPOINT so a notification flush failure (e.g. FK
+        # violation if the assignee was deleted) rolls back only the
+        # notification — contacts and ai_data must survive.
         if lead.assigned_to is not None:
-            from app.notifications.services import safe_notify
+            from app.notifications.services import notify
 
             company = lead.company_name or "—"
-            await safe_notify(
-                db,
-                workspace_id=lead.workspace_id,
-                user_id=lead.assigned_to,
-                kind="enrichment_done",
-                title=f"AI Brief готов: {company}",
-                body=research_output.company_profile[:300] if research_output.company_profile else "",
-                lead_id=lead.id,
-            )
+            try:
+                async with db.begin_nested():
+                    await notify(
+                        db,
+                        workspace_id=lead.workspace_id,
+                        user_id=lead.assigned_to,
+                        kind="enrichment_done",
+                        title=f"AI Brief готов: {company}",
+                        body=research_output.company_profile[:300] if research_output.company_profile else "",
+                        lead_id=lead.id,
+                    )
+            except Exception as notify_exc:
+                bound_log.warning(
+                    "enrichment.notify_failed",
+                    error=str(notify_exc)[:200],
+                )
 
         await db.commit()
+        bound_log.info("enrichment.commit_done")
 
         # Track daily spend in Redis (best-effort, never fail the run)
         await add_to_daily_spend(lead.workspace_id, completion.cost_usd)
@@ -691,19 +710,28 @@ async def run_enrichment(*, db: AsyncSession, run_id: UUID) -> None:
             # `lead` may be None if the failure happened during lookup —
             # in that case we have no workspace_id to attribute, so skip.
             # Notify the lead's owner; unassigned leads have no recipient.
+            # Wrapped in begin_nested so a notify error doesn't prevent the
+            # run.status='failed' commit from going through.
             if lead is not None and lead.assigned_to is not None:
-                from app.notifications.services import safe_notify
+                from app.notifications.services import notify
 
                 company = lead.company_name or "—"
-                await safe_notify(
-                    db,
-                    workspace_id=lead.workspace_id,
-                    user_id=lead.assigned_to,
-                    kind="enrichment_failed",
-                    title=f"AI Brief не собрался: {company}",
-                    body=f"{error_type}: {str(exc)[:200]}",
-                    lead_id=lead.id,
-                )
+                try:
+                    async with db.begin_nested():
+                        await notify(
+                            db,
+                            workspace_id=lead.workspace_id,
+                            user_id=lead.assigned_to,
+                            kind="enrichment_failed",
+                            title=f"AI Brief не собрался: {company}",
+                            body=f"{error_type}: {str(exc)[:200]}",
+                            lead_id=lead.id,
+                        )
+                except Exception as notify_exc:
+                    bound_log.warning(
+                        "enrichment.notify_failed",
+                        error=str(notify_exc)[:200],
+                    )
 
             await db.commit()
         except Exception as commit_exc:
