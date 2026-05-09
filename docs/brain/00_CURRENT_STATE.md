@@ -1,6 +1,6 @@
 # DrinkX CRM — Current State
 
-Last updated: 2026-05-08 (Sprint 2.4 G1+G2 in progress on branch; main HEAD = `b3f865c`)
+Last updated: 2026-05-09 (Sprint 2.4 DONE on branch `sprint/2.4-settings-templates`; merge to main pending after G5 commit)
 
 ## Phase 0 — COMPLETED ✅ (lives in `crm-prototype` repo)
 
@@ -311,10 +311,39 @@ After the hotfixes:
 - Migrations applied: `0013_default_pipeline`, `0014_bootstrap_orphan_workspaces`, `0015_merge_workspaces`.
 - Single-workspace assumption now baked in for the entire team. Multi-tenancy (second client) is Phase 3.
 
-### 🚧 Sprint 2.4 — Full Settings panel + Templates (IN PROGRESS — branch `sprint/2.4-settings-templates`)
-**5 groups planned, 2 of 5 done. Branch pushed; NOT merged to main per cadence (merge once after G5).**
+### ✅ Sprint 2.4 — Full Settings panel + Templates (DONE — branch `sprint/2.4-settings-templates`, pending merge)
+**5 groups complete. Single merge to main scheduled after G5 commit lands.**
 
-Commit range: `01e104a..871467c` (will extend through G3 / G4 / G5).
+Commit range: `01e104a..HEAD` on `sprint/2.4-settings-templates`.
+
+Full sprint report: `docs/SPRINT_2_4_SETTINGS_TEMPLATES.md`.
+
+Gates summary:
+- **G1** (`01e104a`) Settings «Команда» + drop `pipelines.is_default`
+- **G2** (`871467c`) Settings «Каналы»
+- **G3** (`12be0d6`) Settings «AI» + «Кастомные поля» (migration 0018)
+- **G4** (`1ff4419`) Templates module (migration 0019)
+- **G4.5** (`36a4c97`) Quick wins (accent / dropzone / audit labels)
+- **G5** (this commit) Audit user-join + formatDelta + notifications click split + dismiss endpoint + priority colour centralization (`lib/ui/priority.ts`) + `scripts/pg_dump_backup.sh` + `docs/crontab.example` + sprint report + smoke checklist + brain memory rotation.
+
+New modules in this sprint:
+- `apps/api/app/users/` (G1)
+- `apps/api/app/settings/` (G2 + G3)
+- `apps/api/app/custom_attributes/` (G3)
+- `apps/api/app/template/` (G4 — singular per CLAUDE.md domain registry; route prefix `/api/templates`)
+- `apps/web/lib/ui/priority.ts` (G5)
+- `scripts/pg_dump_backup.sh` (G5 — soft-launch carryover from 1.5)
+- `docs/SPRINT_2_4_SETTINGS_TEMPLATES.md` (G5)
+- `docs/SMOKE_CHECKLIST_2_4.md` (G5)
+- `docs/crontab.example` (G5)
+
+Test baseline (mock-only, the codebase pattern): **281 passed / 14 pre-existing failed (env-related, fastapi import) / 58 skipped**.
+
+`pnpm typecheck` clean throughout. 0 new npm deps; 0 new Python deps in this sprint.
+
+Old per-gate notes preserved below for reference; the canonical write-up lives in the sprint report.
+
+Commit range: `01e104a..HEAD`.
 
 #### G1 — Settings «Команда» + drop legacy `pipelines.is_default` ✅ DONE (`01e104a`)
 
@@ -454,5 +483,12 @@ Resolved this sprint:
 ---
 
 ## Next
-**Resume Sprint 2.4 G3** — Settings «AI» + «Кастомные поля» backend + UI + migration 0018.
-Branch `sprint/2.4-settings-templates` is at `871467c` on origin. See `04_NEXT_SPRINT.md` for the full G3 spec; the «Sprint 2.4 — IN PROGRESS» section above has up-to-date carryover + cadence notes.
+**Sprint 2.5 — Automation Builder** is the main driver. Spec lives in
+`04_NEXT_SPRINT.md`. Templates module from 2.4 is the data dependency.
+14 carryovers from 2.4 documented in the sprint report; the most
+load-bearing for 2.5 are:
+- Invite accept-flow + notification on acceptance (prerequisite for the «Команда» UX feeling complete)
+- Notification dedupe + day-grouping (drawer is getting noisy; 2.5 will likely add more system-kind events)
+- Workspace AI override → fallback chain wiring (G3 persists the value but env still wins)
+
+Active migrations on the branch: `0001..0019`. Next free index: `0020`.

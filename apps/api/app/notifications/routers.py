@@ -68,3 +68,28 @@ async def mark_all_read(
     affected = await services.mark_all_read(db, user_id=user.id)
     await db.commit()
     return MarkAllReadOut(affected=affected)
+
+
+@router.delete(
+    "/{notification_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+async def dismiss_notification(
+    notification_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> None:
+    """Permanent dismiss for system / daily-plan rows (Sprint 2.4 G5).
+
+    Distinguished from «mark as read» — read items still occupy drawer
+    space when «Все» is selected. Dismiss is hard-delete, scoped to
+    the caller's own rows.
+    """
+    ok = await services.dismiss(
+        db, notification_id=notification_id, user_id=user.id
+    )
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Notification not found",
+        )
+    await db.commit()

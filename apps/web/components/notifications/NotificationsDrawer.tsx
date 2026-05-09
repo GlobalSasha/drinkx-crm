@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Check, BellOff, RefreshCw, ArrowRight } from "lucide-react";
 import {
+  useDismissNotification,
   useMarkAllRead,
   useMarkRead,
   useNotificationsList,
@@ -43,6 +44,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
     useNotificationsList({ unread: unreadOnly });
   const { mutate: markRead } = useMarkRead();
   const { mutate: markAll, isPending: isMarkingAll } = useMarkAllRead();
+  const { mutate: dismiss } = useDismissNotification();
 
   // Esc-to-close
   useEffect(() => {
@@ -54,15 +56,18 @@ export function NotificationsDrawer({ open, onClose }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  function handleRowClick(n: NotificationOut) {
+  // Sprint 2.4 G5 click split: rows WITH lead_id navigate (and mark
+  // read on the way out). Rows WITHOUT lead_id (system /
+  // daily_plan_ready) don't navigate from a row click — the user
+  // gets explicit Check (mark-read) and X (dismiss) controls instead.
+  function handleNavRowClick(n: NotificationOut) {
+    if (!n.lead_id) return; // defensive — caller already gates
     if (!n.read_at) {
       markRead(n.id);
     }
-    if (n.lead_id) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      router.push(`/leads/${n.lead_id}` as any);
-      onClose();
-    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    router.push(`/leads/${n.lead_id}` as any);
+    onClose();
   }
 
   const items = data?.items ?? [];
@@ -184,58 +189,110 @@ export function NotificationsDrawer({ open, onClose }: Props) {
                 const kindLabel = KIND_LABEL[n.kind] ?? n.kind;
                 const kindStyle = KIND_STYLE[n.kind] ?? "bg-black/5 text-muted";
                 const isUnread = n.read_at == null;
+                const isNavigable = !!n.lead_id;
 
-                return (
-                  <li key={n.id}>
-                    <button
-                      onClick={() => handleRowClick(n)}
-                      className={`w-full text-left px-5 py-3 transition-colors hover:bg-canvas ${
-                        isUnread ? "bg-accent/[0.02]" : ""
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        {/* Unread dot */}
-                        <div className="pt-1.5 shrink-0">
-                          <div
-                            className={`w-2 h-2 rounded-full ${
-                              isUnread ? "bg-accent" : "bg-transparent"
-                            }`}
-                          />
-                        </div>
+                // Body content used by both branches — keeps the
+                // unread dot + meta + title/body identical regardless
+                // of whether the row is a button or a static block.
+                const body = (
+                  <div className="flex items-start gap-3">
+                    <div className="pt-1.5 shrink-0">
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          isUnread ? "bg-accent" : "bg-transparent"
+                        }`}
+                      />
+                    </div>
 
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span
-                              className={`font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${kindStyle}`}
-                            >
-                              {kindLabel}
-                            </span>
-                            <span className="font-mono text-[10px] text-muted-3">
-                              {relativeTime(n.created_at)}
-                            </span>
-                          </div>
-                          <p
-                            className={`text-sm leading-snug truncate ${
-                              isUnread ? "font-semibold text-ink" : "text-muted"
-                            }`}
-                          >
-                            {n.title}
-                          </p>
-                          {n.body && (
-                            <p className="text-xs text-muted-2 truncate mt-0.5">
-                              {n.body}
-                            </p>
-                          )}
-                        </div>
-
-                        {n.lead_id && (
-                          <ArrowRight
-                            size={14}
-                            className="text-muted-3 shrink-0 mt-1"
-                          />
-                        )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span
+                          className={`font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${kindStyle}`}
+                        >
+                          {kindLabel}
+                        </span>
+                        <span className="font-mono text-[10px] text-muted-3">
+                          {relativeTime(n.created_at)}
+                        </span>
                       </div>
-                    </button>
+                      <p
+                        className={`text-sm leading-snug truncate ${
+                          isUnread ? "font-semibold text-ink" : "text-muted"
+                        }`}
+                      >
+                        {n.title}
+                      </p>
+                      {n.body && (
+                        <p className="text-xs text-muted-2 truncate mt-0.5">
+                          {n.body}
+                        </p>
+                      )}
+                    </div>
+
+                    {isNavigable && (
+                      <ArrowRight
+                        size={14}
+                        className="text-muted-3 shrink-0 mt-1"
+                      />
+                    )}
+                  </div>
+                );
+
+                // Navigable rows (lead_id set) — entire row click goes
+                // to the lead; preserves the pre-G5 behaviour.
+                if (isNavigable) {
+                  return (
+                    <li key={n.id}>
+                      <button
+                        onClick={() => handleNavRowClick(n)}
+                        className={`w-full text-left px-5 py-3 transition-colors hover:bg-canvas ${
+                          isUnread ? "bg-accent/[0.02]" : ""
+                        }`}
+                      >
+                        {body}
+                      </button>
+                    </li>
+                  );
+                }
+
+                // System / daily_plan_ready rows — no navigation.
+                // Persistent Check icon marks-read; X (visible on hover)
+                // dismisses permanently. The outer <div> intentionally
+                // is NOT a button — it shouldn't trap focus or look
+                // clickable when it doesn't navigate.
+                return (
+                  <li
+                    key={n.id}
+                    className={`group relative px-5 py-3 transition-colors hover:bg-canvas ${
+                      isUnread ? "bg-accent/[0.02]" : ""
+                    }`}
+                  >
+                    {body}
+
+                    {/* Action cluster — sits in the trailing edge.
+                        Check is always visible; X fades in on hover. */}
+                    <div className="absolute top-3 right-4 flex items-center gap-1">
+                      {isUnread && (
+                        <button
+                          type="button"
+                          onClick={() => markRead(n.id)}
+                          className="p-1.5 rounded-md text-muted-3 hover:bg-success/10 hover:text-success transition-colors"
+                          aria-label="Прочитано"
+                          title="Отметить прочитанным"
+                        >
+                          <Check size={13} />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => dismiss(n.id)}
+                        className="p-1.5 rounded-md text-muted-3 opacity-0 group-hover:opacity-100 hover:bg-rose/10 hover:text-rose transition-all"
+                        aria-label="Скрыть"
+                        title="Удалить уведомление"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
                   </li>
                 );
               })}

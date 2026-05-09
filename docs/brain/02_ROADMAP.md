@@ -96,6 +96,19 @@
 - 0 new npm deps; 0 new Python deps; `pnpm build` 12 routes (was 11)
 - ADR-007 satisfied: forms capture leads, never auto-assign / never advance stage / never trigger AI
 
+**Sprint 2.4 — DONE (pending merge)** · `docs/SPRINT_2_4_SETTINGS_TEMPLATES.md` · branch `sprint/2.4-settings-templates` (range `01e104a..HEAD`, 5 gates + G4.5 quick wins)
+- **Full Settings panel + Templates module — Phase 2 fifth slice**
+- Migrations 0016 (`user_invites`) + 0017 (drop `pipelines.is_default`) + 0018 (`custom_attribute_definitions` + `lead_custom_values` EAV) + 0019 (`message_templates`)
+- New `app/users/` package (invite via Supabase admin REST, role-change with last-admin guard, idempotent re-invite)
+- New `app/settings/` package — channels read-view (Gmail per-user OAuth state + SMTP env config) + AI section (workspace.settings_json overrides for daily budget cap + primary model)
+- New `app/custom_attributes/` package — EAV definitions + per-lead values, kind-aware upsert dispatch (text/number/date/select), select kind validates against options_json
+- New `app/template/` package (singular per CLAUDE.md domain registry; route prefix `/api/templates`) — UUID PK, channel as String(20) + VALID_CHANNELS guard, rename-aware duplicate check, audit on create/update/delete
+- Frontend: 5 new sections under `/settings` — TeamSection / ChannelsSection / AISection / CustomFieldsSection / TemplatesSection
+- G5 polish: audit page server-joins users for «Имя · email» rendering with shortId fallback; formatDelta switches per action (`lead.move_stage` → from→to, `template.create` → name, etc.); NotificationsDrawer click split (system/daily_plan rows non-navigable, persistent Check + hover X with backend DELETE endpoint); priority colour palette centralized in `lib/ui/priority.ts`; `scripts/pg_dump_backup.sh` + `docs/crontab.example` close the Sprint 1.5 backup carryover
+- 281 mock tests passing / 14 pre-existing failed (fastapi env) / 58 skipped — was 132 at sprint start
+- 0 new npm deps; 0 new Python deps
+- ADRs reaffirmed: ADR-018, ADR-019, ADR-020, ADR-021
+
 **Sprint 2.3 — DONE (pending merge)** · `SPRINT_2_3_MULTI_PIPELINE.md` · branch `sprint/2.3-multi-pipeline` (range `4294988..HEAD`, 4 groups)
 - **Multi-pipeline switcher — Phase 2 fourth slice**
 - Migration 0013 (`workspaces.default_pipeline_id` UUID NULL FK SET NULL + two-pass backfill)
@@ -113,33 +126,43 @@
 
 ## 🔜 NEXT
 
-### Phase 2 — Sprint 2.4 — Full Settings panel + Templates (~5 groups)
+### Phase 2 — Sprint 2.5 — Automation Builder (~4–5 gates)
 See `docs/brain/04_NEXT_SPRINT.md` for full scope.
 
-Surface area:
-- **Settings panel** — fill out the «Скоро» stubs from 2.3 G3:
-  - «Команда» — list users, invite by email, role management
-  - «Каналы» — wire existing Gmail OAuth flow into Settings, surface SMTP config
-  - «AI» — budget, model selection, API keys
-  - «Кастомные поля» — EAV custom_attributes CRUD
-- **Templates module** — `templates` table (channel, name, subject, body, variables_json), CRUD endpoints + admin UI; consumed by Automation Builder (Sprint 2.5)
-- **Recommended breakdown:** 5 groups (Команда / Каналы / AI + Кастомные поля / Templates / polish)
+**Main driver:** consume Templates from 2.4 to render outbound messages
+through a builder of the form trigger → condition → action.
 
-Outstanding deferred work to bundle into 2.4 housekeeping or 2.5:
-- **AmoCRM adapter** — same plumbing as Bitrix24 (Sprint 2.1 G5 deferred)
+Tentative gate breakdown (refined at sprint kickoff):
+- **G1 — Automation Builder** core: trigger (stage-change / form-submission / inbox-match) → condition (lead.priority, lead.score thresholds) → action (use_template + send_email / create_task / move_stage). Migration `0020_automations`.
+- **G2 — Notification dedupe + grouping** (carryover from 2.4): suppress empty `daily_plan_ready`, 1h dedup window keyed on (user, kind); frontend day-section grouping in the drawer.
+- **G3 — AmoCRM adapter** (Sprint 2.1 G5 deferred): import leads — same plumbing shape as Bitrix24.
+- **G4 — Invite accept-flow** (carryover from 2.4): write `accepted_at` in `upsert_user_from_token`; ping inviter via notification on first sign-in. Prerequisite: G2 dedupe must land first or the inviter's drawer fills with system rows.
+
+Carryovers from 2.4 to fold into 2.5:
+- Notification dedupe (backend) + frontend day-grouping
+- Pipeline header tweak (accent → +Лид; Sprint → outline)
+- Default pipeline 6–7 stages confirm + ICP fields
+- Settings sidebar «Скоро» collapse into disclosure
+- LeadCard `window.confirm` → modal on Lost
+- Mobile Pipeline fallback (<md)
+- Invite accept-flow + notification on acceptance
+- Sentry activation (Sprint 2.1 G10 carryover)
+- Custom-field render on LeadCard
+- Stage-replacement preview in PipelineEditor
+- Workspace AI override → fallback chain wiring (G3 persists, env still wins)
+- dnd-kit reorder for Custom Fields position
+
+Other outstanding deferred work for 2.5+:
 - **Telegram Business inbox** + **email send (gmail.send scope)** — deferred since Sprint 2.0
 - **Quote / КП builder**, **Knowledge Base CRUD UI** — deferred from 2.0 envelope
 - **`_GENERIC_DOMAINS` per-workspace setting** (Sprint 2.0 carryover)
 - **Gmail history-sync resumable / paginated job** (Sprint 2.0 2000-msg cap)
 - **Notification debounce** on form-submission fan-out (Sprint 2.2 carryover)
 - **Honeypot / timing trap on `embed.js`** (Sprint 2.2 carryover)
-- **`pnpm add @sentry/nextjs`** + DSN env vars (Sprint 2.1 G10 carryover)
-- **Drop legacy `pipelines.is_default` boolean** (Sprint 2.3 carryover housekeeping)
 - **Pipeline cloning / templates** (Sprint 2.3 deferred; «start from template» CTA in PipelineEditor)
-- **Stage-replacement preview** — surface «N лидов потеряют стадию» in PipelineEditor save flow (Sprint 2.3 polish carryover)
 - **Phase G (Sprint 1.3 follow-on)** — move enrichment off FastAPI BackgroundTasks onto Celery; WebSocket `/ws/{user_id}` for real-time progress
 - DST-aware cron edge handling
-- pg_dump cron + Sentry DSNs activation (soft-launch checklist carryover from 1.5)
+- Sentry DSNs activation (Sprint 1.5 soft-launch carryover; pg_dump cron closed by Sprint 2.4 G5)
 
 ## 📅 LATER
 

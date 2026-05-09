@@ -547,6 +547,11 @@ export interface AuditLogOut {
   id: string;
   workspace_id: string;
   user_id: string | null;
+  // Sprint 2.4 G5: server-joined from users table. Both NULL when
+  // user_id is NULL (system event) or the user has been deleted —
+  // the audit table falls back to first-8-chars of user_id.
+  user_full_name: string | null;
+  user_email: string | null;
   action: AuditAction | string;
   entity_type: string;
   entity_id: string | null;

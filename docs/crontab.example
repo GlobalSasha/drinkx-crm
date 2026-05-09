@@ -1,0 +1,32 @@
+# DrinkX CRM — production crontab example
+#
+# Drop these lines into the deploy user's crontab (`crontab -e`) on
+# crm.drinkx.tech. They are NOT installed automatically — operator
+# applies them by hand after reviewing paths and DATABASE_URL source.
+#
+# Sprint 2.4 G5 closes the soft-launch carryover from Sprint 1.5 by
+# adding the daily pg_dump line below. The Celery beat scheduler
+# already covers the application-level cron (daily plan, follow-up
+# dispatcher, Gmail sync, daily digest); this file only contains
+# system-level entries.
+
+# ---- Environment ----------------------------------------------------------
+# DATABASE_URL is read from /opt/drinkx-crm/infra/production/.env in the
+# deploy host setup. Mirror it into the cron environment via the
+# wrapper or with `EnvironmentFile=` if you switch to a systemd timer.
+#
+# Example using a tiny wrapper that sources the env file before the
+# script — keeps DATABASE_URL out of crontab itself, where it would be
+# world-readable to root.
+
+# ---- Daily Postgres backup, 03:00 server time -----------------------------
+# 0 3 * * * /bin/bash /opt/drinkx-crm/scripts/pg_dump_backup.sh >> /var/log/drinkx_backup.log 2>&1
+0 3 * * * /bin/bash /opt/drinkx/scripts/pg_dump_backup.sh >> /var/log/drinkx_backup.log 2>&1
+
+# ---- Notes ----------------------------------------------------------------
+# - Logs append; rotate via /etc/logrotate.d/drinkx_backup if size grows.
+# - Restore: gunzip + psql; full procedure in
+#   docs/brain/06_OPERATING_PROTOCOL.md (TODO Sprint 2.5+).
+# - All Celery-driven jobs (daily_plan_generator, gmail_incremental_sync,
+#   followup_reminder_dispatcher, daily_email_digest) live in
+#   apps/api/app/scheduled/celery_app.py — DO NOT add them here.

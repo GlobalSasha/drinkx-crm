@@ -4,13 +4,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { AlertTriangle, Clock } from "lucide-react";
 import type { LeadOut } from "@/lib/types";
 import { usePipelineStore } from "@/lib/store/pipeline-store";
-
-const PRIORITY_STYLES: Record<string, string> = {
-  A: "bg-accent/10 text-accent",
-  B: "bg-success/10 text-success",
-  C: "bg-warning/10 text-warning",
-  D: "bg-black/5 text-muted",
-};
+import { priorityChip } from "@/lib/ui/priority";
 
 interface Props {
   lead: LeadOut;
@@ -68,7 +62,7 @@ export function PipelineLeadCard({ lead, visibleLeads }: Props) {
         {lead.priority && (
           <span
             className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
-              PRIORITY_STYLES[lead.priority] ?? "bg-black/5 text-muted"
+              priorityChip(lead.priority)
             }`}
           >
             {lead.priority}
