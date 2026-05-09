@@ -39,6 +39,24 @@ class DuplicateTemplate(Exception):
         self.channel = channel
 
 
+class TemplateInUse(Exception):
+    """409 — refuse to delete a template referenced by an active
+    automation's `action_config_json["template_id"]`. Sprint 2.6
+    stability fix: the JSON column is not a real FK, so deleting an
+    in-use template would silently break the automation on next fire
+    («template not found» mid-fan-out). Mirrors the Sprint 2.3
+    `PipelineHasLeads` shape — carries an example offending
+    automation id for the structured 409 detail.
+
+    Stops at the FIRST match (LIMIT 1) — the admin only needs to
+    know the rule is in use, not the exact list.
+    """
+
+    def __init__(self, automation_id) -> None:
+        super().__init__(f"template referenced by automation {automation_id}")
+        self.automation_id = automation_id
+
+
 # ---------------------------------------------------------------------------
 # Reads
 # ---------------------------------------------------------------------------
@@ -147,9 +165,41 @@ async def delete_template(
     template_id: uuid.UUID,
     workspace_id: uuid.UUID,
 ) -> None:
+    """Refuse delete if any active automation in the workspace
+    references this template via `action_config_json["template_id"]`
+    (Sprint 2.6 stability fix). The JSON column is not a real FK; an
+    unguarded delete would silently break the automation at next fire.
+
+    Caller commits.
+    """
+    from sqlalchemy import String, cast, select
+
+    from app.automation_builder.models import Automation
+
     template = await repo.get_by_id(
         db, template_id=template_id, workspace_id=workspace_id
     )
     if template is None:
         raise TemplateNotFound(str(template_id))
+
+    # Workspace-scoped check — only ACTIVE automations matter (admin
+    # can soft-disable an automation referencing the template, then
+    # delete the template, then re-enable). LIMIT 1: we just need any
+    # one offender for the 409 message.
+    in_use_res = await db.execute(
+        select(Automation.id)
+        .where(
+            Automation.workspace_id == workspace_id,
+            Automation.is_active.is_(True),
+            Automation.action_type == "send_template",
+            cast(
+                Automation.action_config_json["template_id"], String
+            ) == str(template.id),
+        )
+        .limit(1)
+    )
+    referencing_automation_id = in_use_res.scalar_one_or_none()
+    if referencing_automation_id is not None:
+        raise TemplateInUse(referencing_automation_id)
+
     await repo.delete(db, template=template)

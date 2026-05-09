@@ -138,3 +138,104 @@ async def test_dispatcher_skips_done_followups():
     result = await run_followup_dispatch(session)
     assert result == 0
     session.add.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Sprint 2.6 stability fix — bulk lead fetch + lead-missing edge case
+# ---------------------------------------------------------------------------
+
+def _make_session_with_leads(followups: list, leads: list) -> AsyncMock:
+    """Variant of `_make_session` that distinguishes the followups
+    SELECT from the bulk-leads SELECT introduced in the Sprint 2.6
+    stability fix. The first execute call is the followups query
+    (consumed via .scalars().all()); the second is the bulk leads
+    query (consumed via .all()).
+    """
+    fu_result = MagicMock()
+    fu_result.scalars = lambda: MagicMock(all=lambda: list(followups))
+
+    leads_result = MagicMock()
+    leads_result.all = lambda: list(leads)
+
+    session = AsyncMock()
+    session.execute = AsyncMock(side_effect=[fu_result, leads_result])
+    session.add = MagicMock()
+    session.commit = AsyncMock()
+    return session
+
+
+@pytest.mark.asyncio
+async def test_dispatcher_bulk_fetches_leads_and_notifies_owner():
+    """Sprint 2.6 stability fix: dispatcher pre-fetches every
+    referenced lead in one `WHERE id IN (...)` SELECT before the
+    loop. This test pins the bulk-fetch shape — exactly two
+    `session.execute` calls (followups + leads), and `safe_notify`
+    fires once per followup using the pre-fetched lead's owner."""
+    from app.followups.dispatcher import run_followup_dispatch
+
+    fu = _make_followup(due_offset_hours=6)
+    owner_id = uuid.uuid4()
+    workspace_id = uuid.uuid4()
+    # Bulk-leads SELECT returns 4-tuples (id, assigned_to, workspace_id, company_name).
+    leads_row = (fu.lead_id, owner_id, workspace_id, "Acme Corp")
+    session = _make_session_with_leads([fu], [leads_row])
+
+    notify_calls: list[dict] = []
+
+    async def fake_safe_notify(_db, **kwargs):
+        notify_calls.append(kwargs)
+        return MagicMock()
+
+    with patch("app.followups.dispatcher.Activity") as MockActivity, \
+         patch(
+             "app.notifications.services.safe_notify",
+             new=fake_safe_notify,
+         ):
+        MockActivity.return_value = MagicMock()
+        result = await run_followup_dispatch(session)
+
+    assert result == 1
+    # Exactly two SELECTs: followups + bulk leads. No N+1 per-row
+    # SELECT inside the loop.
+    assert session.execute.await_count == 2
+    # safe_notify fired against the lead's owner with the right shape.
+    assert len(notify_calls) == 1
+    n = notify_calls[0]
+    assert n["user_id"] == owner_id
+    assert n["workspace_id"] == workspace_id
+    assert n["kind"] == "followup_due"
+    assert "Acme Corp" in n["body"]
+
+
+@pytest.mark.asyncio
+async def test_dispatcher_skips_notify_when_lead_missing_from_bulk_fetch():
+    """If the bulk-leads SELECT returns no row for a followup's
+    `lead_id` (lead deleted between followup creation and this
+    tick), dispatcher logs a warning, still stages the reminder
+    Activity (audit trail), and skips `safe_notify` rather than
+    crashing or sending a notification with NULL recipient."""
+    from app.followups.dispatcher import run_followup_dispatch
+
+    fu = _make_followup(due_offset_hours=6)
+    # Bulk-leads SELECT returns empty — lead vanished.
+    session = _make_session_with_leads([fu], [])
+
+    notify_calls: list[dict] = []
+
+    async def fake_safe_notify(_db, **kwargs):
+        notify_calls.append(kwargs)
+        return MagicMock()
+
+    with patch("app.followups.dispatcher.Activity") as MockActivity, \
+         patch(
+             "app.notifications.services.safe_notify",
+             new=fake_safe_notify,
+         ):
+        MockActivity.return_value = MagicMock()
+        result = await run_followup_dispatch(session)
+
+    # Reminder Activity still created (followup itself was due —
+    # admin sees the row in the lead's feed if the lead resurfaces).
+    assert result == 1
+    # No notification fired — there was no owner to notify.
+    assert len(notify_calls) == 0
