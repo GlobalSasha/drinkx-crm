@@ -31,7 +31,8 @@ from app.enrichment.models import EnrichmentRun
 from app.enrichment.profile import render_profile_for_prompt
 from app.enrichment.providers.base import LLMError, TaskType
 from app.enrichment.providers.factory import complete_with_fallback
-from app.enrichment.schemas import ResearchOutput
+from app.enrichment.schemas import FoundContact, ResearchOutput
+from app.contacts.models import Contact
 from app.enrichment.sources.base import SourceResult
 from app.enrichment.sources.brave import BraveSearch
 from app.enrichment.sources.hh import HHRu
@@ -65,6 +66,18 @@ SYNTHESIS_SYSTEM = """Ты — sales-аналитик DrinkX (умные коф�
 - Не выдумывай decision_maker_hints. Если в источниках нет имени и
   должности — оставляй [].
 
+ПОИСК КОНТАКТНЫХ ЛИЦ (contacts_found):
+Найди людей, которые принимают решения по закупкам кофе, готовой еды,
+HoReCa-оборудования в этой компании. Ищи должности:
+- Категорийный менеджер (кофе / готовая еда / HoReCa / food & beverage)
+- Директор по закупкам / procurement
+- Операционный директор
+- Коммерческий директор
+Источники: сайт компании, LinkedIn, HH.ru вакансии, пресс-релизы.
+Верни в поле contacts_found[] объекты с полями name, title, email, phone,
+linkedin_url, source, confidence (число 0.0–1.0). Если человек не найден
+в источниках — оставляй массив пустым, НЕ выдумывай.
+
 ПРАВИЛА ВЫВОДА:
 1. Возвращай РОВНО ОДИН JSON-объект. Без markdown, без ```code fences```,
    без преамбулы. Первый символ — `{`, последний — `}`.
@@ -90,6 +103,10 @@ SYNTHESIS_SYSTEM = """Ты — sales-аналитик DrinkX (умные коф�
   "risk_signals": [str, ...],
   "decision_maker_hints": [
     {"name": str, "title": str, "role": str, "confidence": str, "source": str}
+  ],
+  "contacts_found": [
+    {"name": str, "title": str, "email": str, "phone": str,
+     "linkedin_url": str, "source": str, "confidence": number}
   ],
   "fit_score": number,
   "score_rationale": str,
@@ -162,6 +179,80 @@ def _format_web_block(result: SourceResult | None) -> str:
     item = result.items[0]
     text = item.get("text", "")
     return text[:3000] if text else "(пустой сайт)"
+
+
+# Float confidence threshold for auto-creating a Contact from FoundContact.
+# Below this we trust the LLM's hint but won't pollute the contacts list.
+CONTACT_AUTOCREATE_MIN_CONFIDENCE = 0.5
+
+
+def _confidence_float_to_bucket(value: float) -> str:
+    """Map FoundContact.confidence (0..1) to Contact.confidence string bucket.
+    Contact.confidence is String(20) with values high/medium/low (no migration)."""
+    if value >= 0.8:
+        return "high"
+    if value >= 0.5:
+        return "medium"
+    return "low"
+
+
+def _norm(s: str | None) -> str:
+    return (s or "").strip().lower()
+
+
+async def _materialise_found_contacts(
+    db: AsyncSession,
+    lead: Lead,
+    found: list[FoundContact],
+) -> int:
+    """Create Contact rows for FoundContacts above the confidence threshold.
+
+    Skip rules (per FEATURE spec):
+      - confidence < CONTACT_AUTOCREATE_MIN_CONFIDENCE
+      - email matches an existing Contact on this lead (case-insensitive)
+      - name matches an existing Contact on this lead (case-insensitive)
+
+    Caller commits — we only stage rows on the session.
+    """
+    if not found:
+        return 0
+
+    existing = await db.execute(select(Contact).where(Contact.lead_id == lead.id))
+    existing_contacts = existing.scalars().all()
+    existing_emails = {_norm(c.email) for c in existing_contacts if c.email}
+    existing_names = {_norm(c.name) for c in existing_contacts if c.name}
+
+    created = 0
+    for fc in found:
+        if fc.confidence < CONTACT_AUTOCREATE_MIN_CONFIDENCE:
+            continue
+        name_key = _norm(fc.name)
+        email_key = _norm(fc.email)
+        if not name_key:
+            continue
+        if email_key and email_key in existing_emails:
+            continue
+        if name_key in existing_names:
+            continue
+
+        contact = Contact(
+            lead_id=lead.id,
+            name=fc.name.strip(),
+            title=fc.title,
+            email=fc.email,
+            phone=fc.phone,
+            linkedin_url=fc.linkedin_url,
+            source=(fc.source or "AI")[:40],
+            verified_status="to_verify",
+            confidence=_confidence_float_to_bucket(fc.confidence),
+        )
+        db.add(contact)
+        existing_names.add(name_key)
+        if email_key:
+            existing_emails.add(email_key)
+        created += 1
+
+    return created
 
 
 def _collect_sources_used(
@@ -371,6 +462,12 @@ async def run_enrichment(*, db: AsyncSession, run_id: UUID) -> None:
         lead.ai_data = research_output.model_dump()
         if research_output.fit_score and research_output.fit_score > 0:
             lead.fit_score = research_output.fit_score
+
+        # Auto-materialise high-confidence FoundContacts as Contact rows
+        # (verified_status='to_verify' — manager confirms or deletes in UI).
+        created = await _materialise_found_contacts(db, lead, research_output.contacts_found)
+        if created:
+            bound_log.info("enrichment.contacts_created", count=created)
 
         run.status = "succeeded"
         run.provider = completion.provider

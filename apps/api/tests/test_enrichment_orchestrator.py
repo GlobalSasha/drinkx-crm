@@ -74,6 +74,10 @@ def _stub_sqlalchemy():
 
     class _DeclarativeBase:
         metadata = MagicMock()
+        def __init__(self, **kwargs):
+            # Accept ORM-style kwargs so models can be instantiated under the stub
+            # (used by Sprint 2.4 G5 tests that construct Contact directly).
+            self.__dict__.update(kwargs)
 
     sa_orm.DeclarativeBase = _DeclarativeBase
     sa_orm.Mapped = _Mapped
@@ -114,8 +118,10 @@ from app.enrichment.orchestrator import (  # noqa: E402
     _build_queries,
     _format_brave_block,
     _format_hh_block,
+    _materialise_found_contacts,
     run_enrichment,
 )
+from app.enrichment.schemas import FoundContact  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -368,3 +374,97 @@ def test_synthesis_prompt_includes_brave_and_hh_blocks():
 def test_synthesis_prompt_empty_when_no_results():
     assert "нет" in _format_brave_block([])
     assert "нет" in _format_hh_block(_sr("hh"))
+
+
+# ---------------------------------------------------------------------------
+# Auto-create contacts from research output (Sprint 2.4 G5)
+# ---------------------------------------------------------------------------
+
+def _db_with_existing_contacts(existing: list):
+    """AsyncMock db whose execute()→scalars().all() returns `existing`,
+    and whose .add() captures every staged row in db._added."""
+    db = AsyncMock()
+
+    async def _execute(stmt, *args, **kwargs):
+        result = MagicMock()
+        scalars = MagicMock()
+        scalars.all.return_value = existing
+        result.scalars.return_value = scalars
+        return result
+
+    db.execute = _execute
+    added: list = []
+    db.add = added.append
+    db._added = added
+    return db
+
+
+def _existing_contact(*, name: str | None = None, email: str | None = None):
+    """Lightweight stand-in for an ORM Contact row in the existing-contacts list.
+    Avoids constructing a real ORM instance (no DB) — _materialise_found_contacts
+    only reads .name / .email."""
+    obj = MagicMock()
+    obj.name = name
+    obj.email = email
+    return obj
+
+
+@pytest.mark.asyncio
+async def test_contacts_created_from_research_output():
+    """Two FoundContacts (0.8 + 0.3) → only the >=0.5 one is materialised."""
+    lead = _make_lead()
+    db = _db_with_existing_contacts([])
+
+    found = [
+        FoundContact(name="Анна Иванова", title="Категорийный менеджер",
+                     source="LinkedIn", confidence=0.8),
+        FoundContact(name="Пётр Сидоров", title="Стажёр",
+                     source="HH.ru", confidence=0.3),
+    ]
+
+    created = await _materialise_found_contacts(db, lead, found)
+
+    assert created == 1
+    assert len(db._added) == 1
+    saved = db._added[0]
+    assert saved.name == "Анна Иванова"
+    assert saved.verified_status == "to_verify"
+    assert saved.confidence == "high"   # 0.8 → high bucket
+    assert saved.source == "LinkedIn"
+    assert saved.lead_id == lead.id
+
+
+@pytest.mark.asyncio
+async def test_duplicate_contact_skipped_by_email():
+    """Existing Contact with same email (case-insensitive) → skip."""
+    lead = _make_lead()
+    existing = _existing_contact(name="Some Other Name", email="Anna@ACME.com")
+    db = _db_with_existing_contacts([existing])
+
+    found = [
+        FoundContact(name="Анна Иванова", email="anna@acme.com",
+                     source="LinkedIn", confidence=0.9),
+    ]
+
+    created = await _materialise_found_contacts(db, lead, found)
+
+    assert created == 0
+    assert db._added == []
+
+
+@pytest.mark.asyncio
+async def test_duplicate_contact_skipped_by_name():
+    """Existing Contact with same name (case-insensitive) → skip."""
+    lead = _make_lead()
+    existing = _existing_contact(name="анна иванова", email=None)
+    db = _db_with_existing_contacts([existing])
+
+    found = [
+        FoundContact(name="Анна Иванова", title="Менеджер",
+                     source="LinkedIn", confidence=0.9),
+    ]
+
+    created = await _materialise_found_contacts(db, lead, found)
+
+    assert created == 0
+    assert db._added == []

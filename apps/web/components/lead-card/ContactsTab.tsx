@@ -17,6 +17,7 @@ import {
   useCreateContact,
   useUpdateContact,
   useDeleteContact,
+  useVerifyContact,
 } from "@/lib/hooks/use-contacts";
 import type {
   ContactOut,
@@ -79,6 +80,7 @@ export function ContactsTab({ lead }: Props) {
   const { data: contacts = [], isLoading } = useContacts(lead.id);
   const createContact = useCreateContact(lead.id);
   const deleteContact = useDeleteContact(lead.id);
+  const verifyContact = useVerifyContact(lead.id);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -200,6 +202,11 @@ export function ContactsTab({ lead }: Props) {
                     deleteConfirm={deleteConfirmId === contact.id}
                     onDeleteConfirm={() => confirmDelete(contact.id)}
                     onDeleteCancel={() => setDeleteConfirmId(null)}
+                    onVerify={() => verifyContact.mutate(contact.id)}
+                    isVerifying={
+                      verifyContact.isPending &&
+                      verifyContact.variables === contact.id
+                    }
                   />
                 )
               )}
@@ -246,6 +253,8 @@ function ContactCard({
   deleteConfirm,
   onDeleteConfirm,
   onDeleteCancel,
+  onVerify,
+  isVerifying,
 }: {
   contact: ContactOut;
   onEdit: () => void;
@@ -253,14 +262,42 @@ function ContactCard({
   deleteConfirm: boolean;
   onDeleteConfirm: () => void;
   onDeleteCancel: () => void;
+  onVerify: () => void;
+  isVerifying: boolean;
 }) {
+  const isUnverified = contact.verified_status === "to_verify";
+  const isAiSourced =
+    isUnverified &&
+    !!contact.source &&
+    /linkedin|hh|сайт|ai|brave|web/i.test(contact.source);
+
   return (
-    <div className="bg-canvas border border-black/5 rounded-xl p-3.5 group">
+    <div
+      className={`rounded-xl p-3.5 group ${
+        isUnverified
+          ? "bg-warning/5 border border-warning/30"
+          : "bg-canvas border border-black/5"
+      }`}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-ink truncate">{contact.name}</p>
+          <div className="flex items-center gap-1.5">
+            {isUnverified && (
+              <AlertTriangle
+                size={13}
+                className="text-warning shrink-0"
+                aria-label="Требует проверки"
+              />
+            )}
+            <p className="text-sm font-semibold text-ink truncate">{contact.name}</p>
+          </div>
           {contact.title && (
-            <p className="text-xs text-muted-2 mt-0.5">{contact.title}</p>
+            <p className="text-xs text-muted-2 mt-0.5">
+              {contact.title}
+              {isAiSourced && (
+                <span className="ml-1.5 text-muted-3">· AI (требует проверки)</span>
+              )}
+            </p>
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -360,6 +397,46 @@ function ContactCard({
 
       {contact.notes && (
         <p className="text-xs text-muted-2 mt-2 italic">{contact.notes}</p>
+      )}
+
+      {/* Inline confirm/delete actions for AI-sourced unverified contacts */}
+      {isUnverified && (
+        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-warning/20">
+          <button
+            type="button"
+            onClick={onVerify}
+            disabled={isVerifying}
+            className="text-xs font-semibold px-3 py-1.5 rounded-pill bg-success/10 text-success hover:bg-success/20 disabled:opacity-50 transition-colors"
+          >
+            {isVerifying ? "Подтверждаю…" : "Подтвердить"}
+          </button>
+          {deleteConfirm ? (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={onDeleteConfirm}
+                className="text-xs font-semibold px-3 py-1.5 rounded-pill bg-rose/10 text-rose hover:bg-rose/20 transition-colors"
+              >
+                Точно удалить
+              </button>
+              <button
+                type="button"
+                onClick={onDeleteCancel}
+                className="text-xs font-semibold px-3 py-1.5 rounded-pill text-muted hover:bg-black/5 transition-colors"
+              >
+                Отмена
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={onDelete}
+              className="text-xs font-semibold px-3 py-1.5 rounded-pill text-muted hover:bg-rose/10 hover:text-rose transition-colors"
+            >
+              Удалить
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

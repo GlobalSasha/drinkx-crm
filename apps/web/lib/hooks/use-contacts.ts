@@ -35,6 +35,19 @@ export function useUpdateContact(leadId: string, contactId: string) {
   });
 }
 
+export function useVerifyContact(leadId: string) {
+  const qc = useQueryClient();
+  return useMutation<ContactOut, ApiError, string>({
+    mutationFn: (contactId) =>
+      api.patch<ContactOut>(`/leads/${leadId}/contacts/${contactId}`, {
+        verified_status: "verified",
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["contacts", leadId] });
+    },
+  });
+}
+
 export function useDeleteContact(leadId: string) {
   const qc = useQueryClient();
   return useMutation<void, ApiError, string>({

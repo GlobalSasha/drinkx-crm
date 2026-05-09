@@ -27,6 +27,32 @@ class DecisionMakerHint(BaseModel):
     source: str = ""
 
 
+class FoundContact(BaseModel):
+    """Decision-maker discovered by Research Agent — auto-materialised as a
+    Contact row with verified_status='to_verify'. confidence is a float so the
+    orchestrator can apply a numeric threshold (>=0.5) before persisting."""
+    name: str = ""
+    title: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    linkedin_url: str | None = None
+    source: str = ""
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def _coerce_confidence(cls, v):
+        if v is None or v == "":
+            return 0.0
+        if isinstance(v, str):
+            mapping = {"high": 0.9, "medium": 0.6, "low": 0.3}
+            try:
+                return mapping.get(v.strip().lower(), float(v))
+            except (TypeError, ValueError):
+                return 0.0
+        return v
+
+
 class ResearchOutput(BaseModel):
     """Canonical AI enrichment output stored in lead.ai_data."""
     company_profile: str = Field(default="", description="2-3 sentence business summary")
@@ -39,6 +65,7 @@ class ResearchOutput(BaseModel):
     growth_signals: list[str] = Field(default_factory=list)
     risk_signals: list[str] = Field(default_factory=list)
     decision_maker_hints: list[DecisionMakerHint] = Field(default_factory=list)
+    contacts_found: list[FoundContact] = Field(default_factory=list)
     fit_score: float = Field(default=0.0, ge=0.0, le=10.0, description="AI ICP match 0–10")
     next_steps: list[str] = Field(default_factory=list)
     urgency: str = Field(default="")  # canonical: URGENCY_VALUES
