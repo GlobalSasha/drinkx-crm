@@ -96,7 +96,29 @@
 - 0 new npm deps; 0 new Python deps; `pnpm build` 12 routes (was 11)
 - ADR-007 satisfied: forms capture leads, never auto-assign / never advance stage / never trigger AI
 
-**Sprint 2.5 — DONE (pending merge)** · `docs/SPRINT_2_5_AUTOMATION_BUILDER.md` · branch `sprint/2.5-automation-builder` (range `363b371..HEAD`, 4 of 5 gates shipped — G3 AmoCRM skipped by product decision)
+**Sprint 2.6 — DONE (pending merge)** · `docs/SPRINT_2_6_OUTBOUND_EMAIL.md` · branch `sprint/2.6-outbound-email` (range `b740a76..HEAD`, 4 planned gates shipped + 2 mid-sprint stability commits — G2 multi-step chains skipped by product decision)
+- **Real outbound email + UX polish — Phase 2 seventh slice**
+- 0 new migrations — pure code on the existing schema
+- New `app/email/sender.py` — tri-state SMTP wrapper (True / False / EmailSendError) for the Automation Builder
+- New `app/automation_builder/dispatch.py` — post-commit email dispatch queue (contextvar-scoped); SMTP runs in a fresh session AFTER the parent transaction commits, so a slow / failing relay can't hold the lead-attach / form-submission / move-stage transaction
+- `_send_template_action` for `email` channel: stages Activity with `delivery_status='pending'`, queues a `PendingDispatch`, returns. `tg` / `sms` keep `delivery_status='pending'` until 2.7+ providers
+- Per-automation `db.begin_nested()` SAVEPOINT in `evaluate_trigger` — exception in one action no longer poisons the parent session
+- Whitespace-strip on `lead.email` before SMTP — Sprint 2.6 G1 stability fix #3
+- `TemplateInUse` 409 guard on `delete_template` — refuses delete when an active automation references the template via `action_config_json["template_id"]` JSON-key (not a real FK)
+- N+1 → bulk-fetch in `followups/dispatcher.py` — single `WHERE id IN (...)` SELECT before the loop replaces per-followup lead lookup
+- Pipeline header polish: +Лид → accent fill, Sprint button → outline
+- Settings sidebar «Скоро» disclosure — 3 stub sections fold under `<details>`
+- `LostModal.tsx` replaces `window.confirm` + `window.prompt` on the «Перевести в Проигран» action
+- Mobile Pipeline polish — centralized priority chip + stage badge per card
+- `CustomFieldsPanel.tsx` on LeadCard — inline editing per kind (text / number / date / select); empty values render «не заполнено»; backend echoes the updated row so cache splices without GET
+- dnd-kit reorder in Settings → Кастомные поля; `PATCH /api/custom-attributes/reorder` writes `position = index` atomically
+- New endpoints: `GET / PATCH /api/leads/{id}/attributes`, `PATCH /api/custom-attributes/reorder`
+- Cross-workspace defence on attribute upsert — `DefinitionNotFound` → 403 (workspace = security boundary)
+- 17 new mock tests across the sprint (95 → 112 baseline). 0 CRITICAL remain after stability audit; 2 of 4 HIGH fixed (the rest depend on Sentry activation, Sprint 2.7 G1)
+- 0 new npm deps; 0 new Python deps
+- ADRs: none new — Sprint 2.6 was implementation-shaped, not architecture-shaped
+
+**Sprint 2.5 — DONE** · `docs/SPRINT_2_5_AUTOMATION_BUILDER.md` · branch `sprint/2.5-automation-builder` (range `363b371..HEAD`, 4 of 5 gates shipped — G3 AmoCRM skipped by product decision) · merged to main `3aa78f3`
 - **Automation Builder + notification dedup + invite accept-flow — Phase 2 sixth slice**
 - Migration 0020 (`automations` + `automation_runs`)
 - New `app/automation_builder/` package — workspace-scoped «when X happens, run Y» rules with 3 trigger sources (stage_change / form_submission / inbox_match), condition tree evaluator (allowlisted Lead fields), `{{lead.field}}` render substitution (allowlisted RENDER_FIELDS, `[unknown:foo]` marker for non-allowlisted), 3 action handlers (send_template / create_task / move_stage)
@@ -139,47 +161,44 @@
 
 ## 🔜 NEXT
 
-### Phase 2 — Sprint 2.6 — Real outbound dispatch + UX polish (~5 gates)
+### Phase 2 — Sprint 2.7 — Sentry activation + multi-step automations (~5 gates)
 See `docs/brain/04_NEXT_SPRINT.md` for full scope.
 
-**Main driver:** flip Sprint 2.5's `send_template` from a stubbed
-Activity row (`outbound_pending=true`) to actual dispatch via the
-existing email_sender (Sprint 1.5) and stub channels for tg + sms
-until proper providers land in 2.7+.
+**Main driver:** activate Sentry (frontend + backend) so the silent-
+failure tech debt the Sprint 2.6 stability audit flagged (cron
+swallows, audit-log swallow, BackgroundTasks-strands-running)
+becomes surfaceable. This is load-bearing infra, not feature work.
 
 Tentative gate breakdown:
-- **G1 — Real outbound dispatch** for `send_template`: render template body, route by `template.channel` (email via `email_sender.py`; tg + sms remain stub-mode with structured worker log), flip `outbound_pending` flag, surface delivery status in the Activity Feed.
-- **G2 — Multi-step automation chains** («send email → wait 3 days → create task»). Likely needs migration `0021_automation_steps` + a Celery beat scheduler watching `wait_until` timestamps.
-- **G3 — Pipeline + LeadCard polish bundle** (carryovers): pipeline header tweak (accent → +Лид; Sprint → outline), LeadCard `window.confirm` → modal on Lost, mobile Pipeline fallback (<md) vertical card layout.
-- **G4 — Custom-field render on LeadCard + dnd-kit reorder** (Sprint 2.4 G3 carryovers). Values exist in `lead_custom_values` since 0018; G4 finally exposes them in the LeadCard right-rail.
-- **G5 — Sprint close** — sprint report, brain rotation, smoke checklist.
+- **G1 — Sentry activation** — `pnpm add @sentry/nextjs` (first net-new dep since Sprint 2.0), DSN env vars, error boundaries on high-traffic routes, structured fingerprints for the cron paths. Closes the carryover since Sprint 2.1 G10.
+- **G2 — Multi-step automation chains** (Sprint 2.6 G2 skip) — send → wait N days → action. Migration `0021_automation_steps` + per-step run rows + Celery beat scheduler watching `wait_until`.
+- **G3 — tg channel outbound dispatch** — Telegram Bot API client, `lead.tg_chat_id` mapping, `send_template` flips from stub to real for tg. SMS deferred to 2.8 (separate provider eval).
+- **G4 — Enrichment → Celery + WebSocket** (Phase G carryover from Sprint 1.3) — move off FastAPI BackgroundTasks; `EnrichmentRun.status` no longer strands in 'running' on failure. WebSocket `/ws/{user_id}` for real-time progress on `/leads/{id}` AI Brief tab.
+- **G5 — Sprint close** — report, brain rotation, smoke checklist.
 
-Carryovers from 2.5 to fold into 2.6 (full list also in
-`SPRINT_2_5_AUTOMATION_BUILDER.md`):
-- Real `send_template` dispatch (G1 driver)
+Carryovers from 2.6 to fold into 2.7 (full list also in
+`SPRINT_2_6_OUTBOUND_EMAIL.md`):
+- Sentry activation (G1 driver)
 - Multi-step automation chains (G2 driver)
-- Pipeline header tweak (accent → +Лид; Sprint → outline)
-- Default pipeline 6–7 stages confirm + ICP fields
-- Settings sidebar «Скоро» collapse into disclosure
-- LeadCard `window.confirm` → modal on Lost
-- Mobile Pipeline fallback (<md)
-- Custom-field render on LeadCard
-- Stage-replacement preview in PipelineEditor
-- Multi-clause condition UI in Automation Builder modal
-- dnd-kit reorder for Custom Fields position
-- AmoCRM adapter (skipped in 2.5 G3, back in long-tail)
+- Real tg / sms outbound dispatch (G3 driver)
+- Enrichment → Celery + WebSocket (G4 driver)
+- pg_dump cron install on host (operator step open since 2.4 G5)
+- inbox/processor Celery dispatch retry path
+- Daily plan / digest cron failures swallowed without Sentry (closed by G1)
+- audit.log() swallows insert failures (defense-in-depth gap; closed by G1)
 
-Other outstanding deferred work for 2.6+:
+Other outstanding deferred work for 2.7+:
+- **AmoCRM adapter** — long-tail since Sprint 2.1 G5; skipped 2.5 G3
 - **Telegram Business inbox** + **email send (gmail.send scope)** — deferred since Sprint 2.0
 - **Quote / КП builder**, **Knowledge Base CRUD UI** — deferred from 2.0 envelope
 - **`_GENERIC_DOMAINS` per-workspace setting** (Sprint 2.0 carryover)
 - **Gmail history-sync resumable / paginated job** (Sprint 2.0 2000-msg cap)
-- **Notification debounce** on form-submission fan-out (Sprint 2.2 carryover)
 - **Honeypot / timing trap on `embed.js`** (Sprint 2.2 carryover)
 - **Pipeline cloning / templates** (Sprint 2.3 deferred; «start from template» CTA in PipelineEditor)
+- **Stage-replacement preview** in PipelineEditor (Sprint 2.3 polish carryover)
 - **Workspace AI override → fallback chain wiring** (Sprint 2.4 G3 carryover; UI persists, env still wins)
-- **`pnpm add @sentry/nextjs`** + DSN env vars (Sprint 2.1 G10 carryover)
-- **Phase G (Sprint 1.3 follow-on)** — move enrichment off FastAPI BackgroundTasks onto Celery; WebSocket `/ws/{user_id}` for real-time progress
+- **Multi-clause condition UI** in Automation Builder modal (backend supports n-clause; frontend ships single row)
+- **Default pipeline 6–7 stages confirm + ICP fields** (light-touch DB seed change)
 - DST-aware cron edge handling
 - Sentry DSNs activation (Sprint 1.5 soft-launch carryover; pg_dump cron closed by Sprint 2.4 G5)
 

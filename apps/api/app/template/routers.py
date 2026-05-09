@@ -198,6 +198,21 @@ async def delete_template_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="message template not found",
         ) from exc
+    except svc.TemplateInUse as exc:
+        # Sprint 2.6 stability fix — structured 409 mirrors the Sprint
+        # 2.3 PipelineHasLeads shape so the frontend can render a
+        # «used by automation X» modal instead of a generic toast.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "template_in_use",
+                "message": (
+                    "Шаблон используется активной автоматизацией. "
+                    "Сначала отключите или удалите автоматизацию."
+                ),
+                "automation_id": str(exc.automation_id),
+            },
+        ) from exc
 
     await log_audit_event(
         db,

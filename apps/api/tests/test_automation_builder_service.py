@@ -23,6 +23,7 @@ def _stub_sqlalchemy():
         def __init__(self, *a, **kw): pass
         def __call__(self, *a, **kw): return _Callable()
         def __class_getitem__(cls, item): return cls
+        def __getitem__(self, key): return _Callable()
         def __getattr__(self, name): return _Callable()
         def __eq__(self, other): return True
         def __ne__(self, other): return True
@@ -54,6 +55,7 @@ def _stub_sqlalchemy():
 
     class _Mapped:
         def __class_getitem__(cls, item): return cls
+        def __getitem__(self, key): return _Callable()
 
     class _DeclarativeBase:
         metadata = MagicMock()
@@ -136,6 +138,24 @@ def _make_automation(**kw):
     )
     a.is_active = kw.get("is_active", True)
     return a
+
+
+class _AsyncCM:
+    """Sprint 2.6 G1 stability fix #2: `evaluate_trigger` wraps each
+    per-automation action in `db.begin_nested()`. AsyncMock doesn't
+    auto-produce an async context manager from a method call, so
+    tests that exercise the SAVEPOINT path attach `db.begin_nested =
+    MagicMock(return_value=_AsyncCM())`."""
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        # Returning False (or None) propagates the exception, matching
+        # SQLAlchemy's begin_nested behaviour when an exception
+        # bubbles out of the `with` block (savepoint rolls back, then
+        # the exception re-raises to the outer try/except).
+        return False
 
 
 # ===========================================================================
@@ -337,6 +357,7 @@ async def test_evaluate_trigger_stage_change_to_stage_filter():
         return MagicMock()
 
     db = AsyncMock()
+    db.begin_nested = MagicMock(return_value=_AsyncCM())
     lead = _make_lead()
 
     # `_create_task_action` instantiates an Activity ORM row via
@@ -443,6 +464,7 @@ async def test_evaluate_trigger_isolates_failures():
         return MagicMock()
 
     db = AsyncMock()
+    db.begin_nested = MagicMock(return_value=_AsyncCM())
     lead = _make_lead()
 
     with patch(

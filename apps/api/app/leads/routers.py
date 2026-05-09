@@ -222,36 +222,176 @@ async def move_stage(
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
     user: Annotated[User, Depends(current_user)] = ...,
 ) -> LeadOut:
+    # Sprint 2.6 G1 stability fix #1: stage_change POST_ACTIONS fan
+    # out to Automation Builder; any `send_template` actions queue
+    # email dispatch via this contextvar. SMTP runs AFTER commit
+    # below so a slow / failing relay can't hold the move-stage
+    # transaction.
+    from app.automation_builder.dispatch import (
+        collect_pending_email_dispatches,
+        flush_pending_email_dispatches,
+    )
+
+    async with collect_pending_email_dispatches() as pending_emails:
+        try:
+            lead = await services.move_lead_stage(
+                db,
+                user.workspace_id,
+                user.id,
+                lead_id,
+                payload.stage_id,
+                gate_skipped=payload.gate_skipped,
+                skip_reason=payload.skip_reason,
+                lost_reason=payload.lost_reason,
+            )
+        except LeadNotFound:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+        except StageNotFound:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stage not found")
+        except StageTransitionInvalid as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        except StageTransitionBlocked as e:
+            detail = MoveStageBlockedDetail(
+                message="Stage transition blocked by gate criteria",
+                violations=[
+                    GateViolationOut(code=v.code, message=v.message, hard=v.hard)
+                    for v in e.violations
+                ],
+            )
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=detail.model_dump(),
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        await db.commit()
+
+    await flush_pending_email_dispatches(pending_emails)
+    return lead  # type: ignore[return-value]
+
+
+# ---------------------------------------------------------------------------
+# Sprint 2.6 G4 — custom-field values rendered + edited on the LeadCard
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{lead_id}/attributes")
+async def list_lead_attributes(
+    lead_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> list[dict]:
+    """Workspace definitions merged with this lead's values. Returns
+    one row per definition, in `position` order, with `value=null`
+    when the manager hasn't filled the field yet.
+
+    Workspace-scoping: lead lookup goes through `services.get_lead`
+    which returns `LeadNotFound` for cross-workspace ids; downstream
+    `list_values_with_definitions` filters definitions by workspace
+    too, so a manager in workspace A can never see attributes from
+    workspace B even via a leaked lead UUID.
+    """
+    from app.custom_attributes import services as ca_svc
+
     try:
-        lead = await services.move_lead_stage(
-            db,
-            user.workspace_id,
-            user.id,
-            lead_id,
-            payload.stage_id,
-            gate_skipped=payload.gate_skipped,
-            skip_reason=payload.skip_reason,
-            lost_reason=payload.lost_reason,
+        await services.get_lead(
+            db, workspace_id=user.workspace_id, lead_id=lead_id
         )
     except LeadNotFound:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
-    except StageNotFound:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stage not found")
-    except StageTransitionInvalid as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except StageTransitionBlocked as e:
-        detail = MoveStageBlockedDetail(
-            message="Stage transition blocked by gate criteria",
-            violations=[
-                GateViolationOut(code=v.code, message=v.message, hard=v.hard)
-                for v in e.violations
-            ],
-        )
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=detail.model_dump(),
+            status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found"
         )
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    rows = await ca_svc.list_values_with_definitions(
+        db, workspace_id=user.workspace_id, lead_id=lead_id
+    )
+    return rows
+
+
+@router.patch("/{lead_id}/attributes")
+async def upsert_lead_attribute(
+    lead_id: UUID,
+    payload: dict,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> dict:
+    """Inline-edit upsert for one custom field on one lead. Body
+    shape: `{definition_id: uuid, value: str | null}`.
+
+    Cross-workspace defence-in-depth: BOTH the lead AND the
+    definition must belong to the caller's workspace. The lead lookup
+    happens before the upsert; the definition's workspace is checked
+    inside `upsert_value_from_string` via `repo.get_definition`. A
+    manager in workspace A handing a leaked definition_id from
+    workspace B gets a 403 — Sprint 2.6 G4 audit fix.
+    """
+    from app.custom_attributes import services as ca_svc
+
+    # Pydantic validation done manually to keep the endpoint light —
+    # body is small + only two fields. Fail fast on missing ids.
+    raw_def_id = payload.get("definition_id")
+    if not raw_def_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="definition_id is required",
+        )
+    try:
+        definition_id = UUID(str(raw_def_id))
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="definition_id must be a UUID",
+        ) from exc
+    raw_value = payload.get("value")
+
+    try:
+        await services.get_lead(
+            db, workspace_id=user.workspace_id, lead_id=lead_id
+        )
+    except LeadNotFound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found"
+        )
+
+    try:
+        await ca_svc.upsert_value_from_string(
+            db,
+            workspace_id=user.workspace_id,
+            lead_id=lead_id,
+            definition_id=definition_id,
+            raw_value=(
+                str(raw_value) if raw_value is not None else None
+            ),
+        )
+    except ca_svc.DefinitionNotFound as exc:
+        # Cross-workspace lookup OR genuinely-deleted definition. Map
+        # to 403 — the workspace-membership check in `get_definition`
+        # is the security boundary here, not a mere 404.
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Custom attribute is not in this workspace",
+        ) from exc
+    except ca_svc.InvalidValueForKind as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "invalid_value",
+                "message": str(exc),
+            },
+        ) from exc
+
     await db.commit()
-    return lead  # type: ignore[return-value]
+
+    # Echo back the merged attribute row so the caller can update its
+    # client-side cache without a follow-up GET.
+    rows = await ca_svc.list_values_with_definitions(
+        db, workspace_id=user.workspace_id, lead_id=lead_id
+    )
+    for row in rows:
+        if row["definition_id"] == definition_id:
+            return row
+    # Defensive — shouldn't happen since we just wrote the row.
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Updated attribute not found in re-read",
+    )

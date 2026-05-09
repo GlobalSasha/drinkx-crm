@@ -48,9 +48,13 @@ export function PipelineHeader({ leads, totalCount }: Props) {
 
         <div className="flex flex-wrap items-center gap-2">
           <PipelineSwitcher />
+          {/* Sprint 2.6 G3: «+Лид» promoted to primary action — accent
+              fill matches the rest of the app's primary CTAs. The
+              «Сформировать план» button below de-emphasizes to
+              outline since it's a periodic flow, not a daily one. */}
           <button
             onClick={openCreateLeadModal}
-            className="inline-flex items-center gap-1.5 bg-ink text-white rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-ink/90 active:scale-[0.98]"
+            className="inline-flex items-center gap-1.5 bg-accent text-white rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-accent/90 active:scale-[0.98]"
           >
             <Plus size={15} />
             Лид
@@ -74,7 +78,7 @@ export function PipelineHeader({ leads, totalCount }: Props) {
           />
           <button
             onClick={openSprintModal}
-            className="inline-flex items-center gap-1.5 bg-accent text-white rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-accent/90 active:scale-[0.98]"
+            className="inline-flex items-center gap-1.5 bg-transparent text-accent border border-accent/40 rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-accent/5 hover:border-accent active:scale-[0.98]"
           >
             <CalendarRange size={15} />
             <span className="hidden sm:inline">Сформировать план на неделю</span>

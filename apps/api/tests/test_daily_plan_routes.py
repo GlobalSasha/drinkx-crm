@@ -30,6 +30,7 @@ def _stub_sqlalchemy():
         def __init__(self, *a, **kw): pass
         def __call__(self, *a, **kw): return _Callable()
         def __class_getitem__(cls, item): return cls
+        def __getitem__(self, key): return _Callable()
         def __getattr__(self, name): return _Callable()
         def __eq__(self, other): return True
         def __ne__(self, other): return True
@@ -58,6 +59,7 @@ def _stub_sqlalchemy():
 
     class _Mapped:
         def __class_getitem__(cls, item): return cls
+        def __getitem__(self, key): return _Callable()
 
     class _DeclarativeBase:
         metadata = MagicMock()

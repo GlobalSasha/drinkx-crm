@@ -252,6 +252,15 @@ async def evaluate_trigger(
     failure in one automation does NOT abort the rest of the fan-out
     or the parent transaction. Failed runs append with status='failed'
     and an `error` string."""
+    # Imports kept lazy — `dispatch.py` imports back into this
+    # module's neighbours (Activity, send_email), so dragging them at
+    # module import time would create a circular hazard with
+    # `_send_template_action`'s own lazy import.
+    from app.automation_builder.dispatch import (
+        current_pending_length,
+        truncate_pending_to,
+    )
+
     if trigger not in VALID_TRIGGERS:
         log.warning("automation.evaluate.unknown_trigger", trigger=trigger)
         return []
@@ -292,11 +301,27 @@ async def evaluate_trigger(
             runs.append(run)
             continue
 
+        # Sprint 2.6 G1 stability fix #2 — wrap each per-automation
+        # action in a SAVEPOINT. A SQLAlchemy error inside one
+        # handler used to poison the parent session, leaving the
+        # caller's `session.commit()` to silently roll back. With
+        # `begin_nested()`, the exception unwinds to the savepoint
+        # and the parent session stays clean.
+        #
+        # The pending-dispatch queue is appended to inside the
+        # action; if the savepoint rolls back, the Activity row is
+        # gone but the queue entry would still be there → drainer
+        # would update a missing row. We snapshot the queue length
+        # before and truncate on rollback so the queue stays in
+        # lockstep with the savepoint outcome.
+        pre_pending_len = current_pending_length()
         try:
-            await _dispatch_action(
-                db, automation=automation, lead=lead
-            )
+            async with db.begin_nested():
+                await _dispatch_action(
+                    db, automation=automation, lead=lead
+                )
         except Exception as exc:
+            truncate_pending_to(pre_pending_len)
             run = await repo.create_run(
                 db,
                 automation_id=automation.id,
@@ -384,15 +409,42 @@ async def _dispatch_action(
 async def _send_template_action(
     db: AsyncSession, *, automation: Automation, lead: Lead
 ) -> None:
-    """Render the configured template against the lead and stage an
-    Activity row of type='comment' with the rendered body. v1 does NOT
-    actually dispatch the message — the existing email_sender stub
-    pattern (Sprint 1.5) means there's no live SMTP / tg / sms wiring
-    yet for templated outbound. The Activity row gives the manager
-    full visibility («the automation would have sent THIS») and is the
-    audit trail until 2.6+ wires real dispatch."""
+    """Render the configured template against the lead and stage the
+    Activity row that records what happened.
+
+    Sprint 2.6 G1 stability fix: this handler NEVER calls SMTP inside
+    the parent transaction. For the `email` channel it stages the
+    Activity with `delivery_status='pending'` and queues a
+    `PendingDispatch` on the contextvar set up by the call site. The
+    call site flushes the queue AFTER `session.commit()` via
+    `app.automation_builder.dispatch.flush_pending_email_dispatches`.
+
+    Resulting `payload_json.delivery_status` values (set on the
+    Activity by either this handler or the post-commit drainer):
+      - `pending`            → email queued, awaiting dispatch (set
+                               here; flipped by the drainer)
+      - `sent`               → drainer's send_email returned True
+      - `stub`               → drainer's send_email returned False
+                               (SMTP_HOST empty)
+      - `failed`             → drainer caught EmailSendError; the
+                               drainer never re-raises so the parent
+                               commit was already final by then
+      - `skipped_no_email`   → set here for empty/whitespace
+                               `lead.email` — no dispatch queued
+      - `pending` (sticky)   → tg / sms; provider lands in 2.7+,
+                               the row stays as a record of what
+                               would have been sent
+
+    Activity stays `type="comment"` across all branches — no new
+    ActivityType enum value. The frontend chip-renderer reads
+    `payload_json.delivery_status`.
+    """
     from sqlalchemy import select
 
+    from app.automation_builder.dispatch import (
+        PendingDispatch,
+        append_pending_dispatch,
+    )
     from app.template.models import MessageTemplate
 
     config = automation.action_config_json or {}
@@ -411,20 +463,96 @@ async def _send_template_action(
         raise ValueError(f"template {template_id} not found in workspace")
 
     rendered = render_template_text(template.text, lead)
+
+    # Common payload — extended below per channel + dispatch outcome.
+    payload: dict = {
+        "text": rendered[:5000],
+        "source": "automation",
+        "automation_id": str(automation.id),
+        "template_id": str(template.id),
+        "template_name": template.name,
+        "channel": template.channel,
+    }
+
+    if template.channel == "email":
+        # Strip whitespace before checking truthiness — a trailing
+        # space in the lead's email column would otherwise pass
+        # `not lead.email` and bounce in aiosmtplib's header parser.
+        # Sprint 2.6 G1 stability fix #3.
+        recipient = (lead.email or "").strip() if lead.email else ""
+
+        if not recipient:
+            # No usable recipient — record the skip but don't treat
+            # as failure (the parent run row stays 'success'). Admin
+            # sees the row in the lead's feed and knows the
+            # automation fired but bounced for lack of an address.
+            payload["delivery_status"] = "skipped_no_email"
+            payload["outbound_pending"] = False
+            log.warning(
+                "automation.send_template.skipped_no_email",
+                automation_id=str(automation.id),
+                lead_id=str(lead.id),
+            )
+            db.add(
+                Activity(
+                    lead_id=lead.id,
+                    user_id=None,
+                    type="comment",
+                    payload_json=payload,
+                )
+            )
+            return
+
+        # Subject: MessageTemplate has no `subject` column in v1 —
+        # admins type a single name. Use it as the email subject;
+        # the template body is the rendered plain-text content.
+        subject = template.name
+
+        # Stage the Activity with a pending status FIRST. `await
+        # db.flush()` claims an `id` we can hand to the post-commit
+        # drainer. No SMTP call here — the drainer does that after
+        # the parent transaction commits.
+        payload["delivery_status"] = "pending"
+        payload["outbound_pending"] = True
+        activity = Activity(
+            lead_id=lead.id,
+            user_id=None,
+            type="comment",
+            payload_json=payload,
+        )
+        db.add(activity)
+        await db.flush()
+
+        # Queue post-commit dispatch. The contextvar list is owned by
+        # the call site's `collect_pending_email_dispatches()` block.
+        # If no collector is in scope (defensive — should not happen
+        # with the 3 wired call sites in this sprint), the helper
+        # logs a warning; the Activity stays pending and a future
+        # cleanup job (Sprint 2.7+) can pick it up.
+        append_pending_dispatch(
+            PendingDispatch(
+                activity_id=activity.id,
+                to=recipient,
+                subject=subject,
+                body=rendered,
+                automation_id=automation.id,
+                template_id=template.id,
+            )
+        )
+        return
+
+    # Non-email channels (tg / sms) — Sprint 2.5 stub stays. Sprint
+    # 2.7+ will pick providers; until then the Activity row records
+    # what would have been sent. `outbound_pending=True` flags
+    # «not yet dispatched» so a future migration can reconcile.
+    payload["outbound_pending"] = True
+    payload["delivery_status"] = "pending"
     db.add(
         Activity(
             lead_id=lead.id,
             user_id=None,
             type="comment",
-            payload_json={
-                "text": rendered[:5000],
-                "source": "automation",
-                "automation_id": str(automation.id),
-                "template_id": str(template.id),
-                "template_name": template.name,
-                "channel": template.channel,
-                "outbound_pending": True,  # 2.5 G1: stub, no real send
-            },
+            payload_json=payload,
         )
     )
 
