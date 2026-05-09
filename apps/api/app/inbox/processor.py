@@ -136,10 +136,16 @@ async def process_message(
             )
             session.add(activity)
 
-            # Sprint 2.5 G1: fan out to the Automation Builder before
-            # commit so any action handlers (send_template Activity,
-            # create_task, etc.) commit atomically with the email
-            # attachment. Need the matched Lead — load it now.
+            # Sprint 2.5 G1: fan out to the Automation Builder. The
+            # action handlers stage Activity rows (commits atomically
+            # with the email attach below) AND queue any email
+            # dispatches into a contextvar list — Sprint 2.6 G1
+            # stability fix moved SMTP outside this transaction so a
+            # slow / failing SMTP can't hold the DB connection.
+            from app.automation_builder.dispatch import (
+                collect_pending_email_dispatches,
+                flush_pending_email_dispatches,
+            )
             from app.automation_builder.services import safe_evaluate_trigger
             from app.leads.models import Lead
 
@@ -147,25 +153,32 @@ async def process_message(
                 select(Lead).where(Lead.id == match.lead_id)
             )
             matched_lead = lead_res.scalar_one_or_none()
-            if matched_lead is not None:
-                await safe_evaluate_trigger(
-                    session,
-                    workspace_id=workspace_id,
-                    trigger="inbox_match",
-                    lead=matched_lead,
-                    payload={
-                        "match_type": match.match_type,
-                        "direction": direction,
-                    },
+
+            async with collect_pending_email_dispatches() as pending:
+                if matched_lead is not None:
+                    await safe_evaluate_trigger(
+                        session,
+                        workspace_id=workspace_id,
+                        trigger="inbox_match",
+                        lead=matched_lead,
+                        payload={
+                            "match_type": match.match_type,
+                            "direction": direction,
+                        },
+                    )
+
+                await session.commit()
+                bound_log.info(
+                    "inbox.process_message.attached_to_lead",
+                    lead_id=str(match.lead_id),
+                    match_type=match.match_type,
+                    confidence=match.confidence,
                 )
 
-            await session.commit()
-            bound_log.info(
-                "inbox.process_message.attached_to_lead",
-                lead_id=str(match.lead_id),
-                match_type=match.match_type,
-                confidence=match.confidence,
-            )
+            # Drain queued email dispatches AFTER commit. Opens a new
+            # session internally; never raises (a dispatch failure
+            # only updates the matching Activity to status='failed').
+            await flush_pending_email_dispatches(pending)
             return True
 
         # Below-threshold or no match → park for human review.

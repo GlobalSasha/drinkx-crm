@@ -138,6 +138,24 @@ def _make_automation(**kw):
     return a
 
 
+class _AsyncCM:
+    """Sprint 2.6 G1 stability fix #2: `evaluate_trigger` wraps each
+    per-automation action in `db.begin_nested()`. AsyncMock doesn't
+    auto-produce an async context manager from a method call, so
+    tests that exercise the SAVEPOINT path attach `db.begin_nested =
+    MagicMock(return_value=_AsyncCM())`."""
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        # Returning False (or None) propagates the exception, matching
+        # SQLAlchemy's begin_nested behaviour when an exception
+        # bubbles out of the `with` block (savepoint rolls back, then
+        # the exception re-raises to the outer try/except).
+        return False
+
+
 # ===========================================================================
 # 1. create rejects unknown trigger
 # ===========================================================================
@@ -337,6 +355,7 @@ async def test_evaluate_trigger_stage_change_to_stage_filter():
         return MagicMock()
 
     db = AsyncMock()
+    db.begin_nested = MagicMock(return_value=_AsyncCM())
     lead = _make_lead()
 
     # `_create_task_action` instantiates an Activity ORM row via
@@ -443,6 +462,7 @@ async def test_evaluate_trigger_isolates_failures():
         return MagicMock()
 
     db = AsyncMock()
+    db.begin_nested = MagicMock(return_value=_AsyncCM())
     lead = _make_lead()
 
     with patch(

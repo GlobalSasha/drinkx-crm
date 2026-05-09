@@ -174,38 +174,54 @@ async def submit_form(
     src_domain = _source_domain(request)
     utm = _extract_utm(payload)
 
-    # Lead creation
-    try:
-        lead = await create_lead_from_submission(
-            db,
-            form=form,
-            payload=payload,
-            source_domain=src_domain,
-            utm=utm or None,
-        )
-    except Exception as exc:  # noqa: BLE001 — surface as 500 with safe detail
-        log.exception("forms.lead_creation_failed", slug=slug)
-        await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Не удалось создать лид. Попробуйте позже.",
-        ) from exc
-
-    # Submission record + counter increment
-    submission = FormSubmission(
-        web_form_id=form.id,
-        lead_id=lead.id,
-        raw_payload=payload,
-        utm_json=utm or None,
-        source_domain=src_domain,
-        ip=ip[:45] if ip else None,
+    # Sprint 2.6 G1 stability fix #1: any `send_template` automations
+    # fan out from `create_lead_from_submission` queue email dispatch
+    # via this contextvar — actual SMTP runs AFTER commit so a slow /
+    # failing relay can't hold the public-form transaction.
+    from app.automation_builder.dispatch import (
+        collect_pending_email_dispatches,
+        flush_pending_email_dispatches,
     )
-    db.add(submission)
-    await repo.increment_submissions_count(db, form=form)
 
-    await db.commit()
-    await db.refresh(form)
-    await db.refresh(lead)
+    async with collect_pending_email_dispatches() as pending_emails:
+        # Lead creation
+        try:
+            lead = await create_lead_from_submission(
+                db,
+                form=form,
+                payload=payload,
+                source_domain=src_domain,
+                utm=utm or None,
+            )
+        except Exception as exc:  # noqa: BLE001 — surface as 500 with safe detail
+            log.exception("forms.lead_creation_failed", slug=slug)
+            await db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Не удалось создать лид. Попробуйте позже.",
+            ) from exc
+
+        # Submission record + counter increment
+        submission = FormSubmission(
+            web_form_id=form.id,
+            lead_id=lead.id,
+            raw_payload=payload,
+            utm_json=utm or None,
+            source_domain=src_domain,
+            ip=ip[:45] if ip else None,
+        )
+        db.add(submission)
+        await repo.increment_submissions_count(db, form=form)
+
+        await db.commit()
+        await db.refresh(form)
+        await db.refresh(lead)
+
+    # Drain post-commit. Out of the contextvar scope so any nested
+    # _send_template_action call inside `_notify_workspace_admins` (in
+    # theory not happening, but defensive) doesn't accidentally pick
+    # up THIS list as a parent.
+    await flush_pending_email_dispatches(pending_emails)
 
     # Notify admins — best-effort, runs in a fresh sub-routine so a
     # commit failure here doesn't undo the lead/submission writes.

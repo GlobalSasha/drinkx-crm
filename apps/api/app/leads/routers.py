@@ -222,36 +222,49 @@ async def move_stage(
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
     user: Annotated[User, Depends(current_user)] = ...,
 ) -> LeadOut:
-    try:
-        lead = await services.move_lead_stage(
-            db,
-            user.workspace_id,
-            user.id,
-            lead_id,
-            payload.stage_id,
-            gate_skipped=payload.gate_skipped,
-            skip_reason=payload.skip_reason,
-            lost_reason=payload.lost_reason,
-        )
-    except LeadNotFound:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
-    except StageNotFound:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stage not found")
-    except StageTransitionInvalid as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except StageTransitionBlocked as e:
-        detail = MoveStageBlockedDetail(
-            message="Stage transition blocked by gate criteria",
-            violations=[
-                GateViolationOut(code=v.code, message=v.message, hard=v.hard)
-                for v in e.violations
-            ],
-        )
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=detail.model_dump(),
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    await db.commit()
+    # Sprint 2.6 G1 stability fix #1: stage_change POST_ACTIONS fan
+    # out to Automation Builder; any `send_template` actions queue
+    # email dispatch via this contextvar. SMTP runs AFTER commit
+    # below so a slow / failing relay can't hold the move-stage
+    # transaction.
+    from app.automation_builder.dispatch import (
+        collect_pending_email_dispatches,
+        flush_pending_email_dispatches,
+    )
+
+    async with collect_pending_email_dispatches() as pending_emails:
+        try:
+            lead = await services.move_lead_stage(
+                db,
+                user.workspace_id,
+                user.id,
+                lead_id,
+                payload.stage_id,
+                gate_skipped=payload.gate_skipped,
+                skip_reason=payload.skip_reason,
+                lost_reason=payload.lost_reason,
+            )
+        except LeadNotFound:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+        except StageNotFound:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stage not found")
+        except StageTransitionInvalid as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        except StageTransitionBlocked as e:
+            detail = MoveStageBlockedDetail(
+                message="Stage transition blocked by gate criteria",
+                violations=[
+                    GateViolationOut(code=v.code, message=v.message, hard=v.hard)
+                    for v in e.violations
+                ],
+            )
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=detail.model_dump(),
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        await db.commit()
+
+    await flush_pending_email_dispatches(pending_emails)
     return lead  # type: ignore[return-value]

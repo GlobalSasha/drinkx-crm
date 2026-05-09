@@ -191,6 +191,7 @@ async def test_send_template_action_skips_when_lead_has_no_email():
     fan-out failure."""
     db = AsyncMock()
     db.add = MagicMock()
+    db.flush = AsyncMock()
     template = _make_template(channel="email")
     lead = _make_lead(email=None)
     automation = _make_automation(template_id=template.id)
@@ -225,19 +226,21 @@ async def test_send_template_action_skips_when_lead_has_no_email():
 
 
 # ===========================================================================
-# 3. _send_template_action — email send succeeds → delivery_status='sent'
+# 2b. Sprint 2.6 G1 stability fix #3 — whitespace-only email also skips
 # ===========================================================================
 
 @pytest.mark.asyncio
-async def test_send_template_action_email_sent_records_sent_status():
-    """Email channel + lead.email present + SMTP returns True → the
-    Activity row carries `delivery_status='sent'` and template body
-    is the rendered substitution result. Confirms the renderer ran
-    (`{{lead.company_name}}` → «Acme»)."""
+async def test_send_template_action_skips_whitespace_only_email():
+    """Whitespace-only `lead.email` (e.g. `"   "`) used to bypass the
+    `not lead.email` truthy-check and reach `aiosmtplib.send` where
+    header parsing would raise. Sprint 2.6 G1 stability fix #3
+    strips before checking; whitespace-only renders the same
+    `skipped_no_email` Activity as None."""
     db = AsyncMock()
     db.add = MagicMock()
+    db.flush = AsyncMock()
     template = _make_template(channel="email")
-    lead = _make_lead(email="ceo@acme.com")
+    lead = _make_lead(email="   ")
     automation = _make_automation(template_id=template.id)
     _patch_template_load(template, db)
 
@@ -251,26 +254,84 @@ async def test_send_template_action_email_sent_records_sent_status():
 
     async def fake_send_email(**kw):
         send_calls.append(kw)
-        return True  # SMTP_HOST set + send succeeded
+        return True
 
-    # `send_email` is lazy-imported inside `_send_template_action`, so
-    # patch the source module — the name doesn't bind on
-    # `app.automation_builder.services` at module import time.
     with patch.object(ab_svc, "Activity", new=fake_activity), \
          patch("app.email.sender.send_email", new=fake_send_email):
         await ab_svc._send_template_action(
             db, automation=automation, lead=lead
         )
 
-    # send_email called once with the right shape
-    assert len(send_calls) == 1
-    assert send_calls[0]["to"] == "ceo@acme.com"
-    assert send_calls[0]["subject"] == "Welcome"
-    assert "Acme" in send_calls[0]["body"]  # template substitution
-    # Activity row records the success
+    assert len(send_calls) == 0
     payload = _captured_payload(activity_calls)
-    assert payload.get("delivery_status") == "sent"
+    assert payload.get("delivery_status") == "skipped_no_email"
     assert payload.get("outbound_pending") is False
+
+
+# ===========================================================================
+# 3. _send_template_action — email path queues dispatch, no SMTP inline
+# ===========================================================================
+
+@pytest.mark.asyncio
+async def test_send_template_action_email_queues_pending_dispatch():
+    """Sprint 2.6 G1 stability fix: `_send_template_action` for the
+    `email` channel stages an Activity with `delivery_status='pending'`
+    and queues a `PendingDispatch` on the contextvar. SMTP is NOT
+    called inside the parent transaction — the post-commit drainer
+    handles delivery.
+
+    Confirms: (a) send_email is NOT invoked inside the action; (b)
+    Activity payload is `pending` + `outbound_pending=True`; (c) the
+    rendered template body went into the queued dispatch (so
+    {{lead.company_name}} substitution ran); (d) the recipient is the
+    stripped lead.email."""
+    from app.automation_builder.dispatch import (
+        collect_pending_email_dispatches,
+    )
+
+    db = AsyncMock()
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    template = _make_template(channel="email")
+    lead = _make_lead(email="  ceo@acme.com  ")  # whitespace stripped
+    automation = _make_automation(template_id=template.id)
+    _patch_template_load(template, db)
+
+    activity_calls: list[dict] = []
+    activity_id = uuid.uuid4()
+
+    def fake_activity(**kw):
+        activity_calls.append(kw)
+        m = MagicMock()
+        m.id = activity_id
+        return m
+
+    send_calls: list[dict] = []
+
+    async def fake_send_email(**kw):
+        send_calls.append(kw)
+        return True
+
+    with patch.object(ab_svc, "Activity", new=fake_activity), \
+         patch("app.email.sender.send_email", new=fake_send_email):
+        async with collect_pending_email_dispatches() as pending:
+            await ab_svc._send_template_action(
+                db, automation=automation, lead=lead
+            )
+
+    # send_email NOT invoked inside the action — deferred to drainer
+    assert len(send_calls) == 0
+    # Exactly one PendingDispatch queued, recipient stripped
+    assert len(pending) == 1
+    dispatch = pending[0]
+    assert dispatch.to == "ceo@acme.com"  # whitespace stripped
+    assert dispatch.subject == "Welcome"
+    assert "Acme" in dispatch.body  # rendered substitution
+    assert dispatch.activity_id == activity_id
+    # Activity row records the pending state
+    payload = _captured_payload(activity_calls)
+    assert payload.get("delivery_status") == "pending"
+    assert payload.get("outbound_pending") is True
     assert payload.get("channel") == "email"
 
 
