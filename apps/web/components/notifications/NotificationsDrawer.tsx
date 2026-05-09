@@ -25,7 +25,7 @@ const KIND_STYLE: Record<string, string> = {
   lead_transferred: "bg-accent/10 text-accent",
   enrichment_done: "bg-success/10 text-success",
   enrichment_failed: "bg-rose/10 text-rose",
-  daily_plan_ready: "bg-warning/10 text-warning",
+  daily_plan_ready: "bg-accent/10 text-accent",
   followup_due: "bg-warning/10 text-warning",
   mention: "bg-accent/10 text-accent",
   system: "bg-black/5 text-muted",

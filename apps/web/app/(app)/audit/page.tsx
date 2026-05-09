@@ -12,10 +12,10 @@ const PAGE_SIZE = 50;
 
 const ACTION_FILTERS: { value: string | null; label: string }[] = [
   { value: null, label: "Все" },
-  { value: "lead.create", label: "lead.create" },
-  { value: "lead.transfer", label: "lead.transfer" },
-  { value: "lead.move_stage", label: "lead.move_stage" },
-  { value: "enrichment.trigger", label: "enrichment.trigger" },
+  { value: "lead.create", label: "Создан лид" },
+  { value: "lead.transfer", label: "Передан лид" },
+  { value: "lead.move_stage", label: "Смена стадии" },
+  { value: "enrichment.trigger", label: "Запрошен AI Brief" },
 ];
 
 function shortId(id: string | null): string {

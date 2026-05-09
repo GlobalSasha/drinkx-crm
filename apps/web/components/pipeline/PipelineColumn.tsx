@@ -59,7 +59,7 @@ export function PipelineColumn({ stage, leads, allVisibleLeads }: Props) {
           ))}
         </SortableContext>
 
-        {leads.length === 0 && (
+        {leads.length === 0 && isOver && (
           <div className="flex-1 flex items-center justify-center border border-dashed border-black/10 rounded-lg min-h-[60px]">
             <p className="text-[10px] text-muted-3 text-center px-2">
               Перетащите карточку сюда
