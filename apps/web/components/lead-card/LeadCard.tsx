@@ -22,6 +22,7 @@ import { PilotTab } from "./PilotTab";
 import { AIBriefTab } from "./AIBriefTab";
 import { FollowupsRail } from "./FollowupsRail";
 import { GateModal } from "./GateModal";
+import { LostModal } from "./LostModal";
 import { TransferModal } from "./TransferModal";
 import { priorityChip } from "@/lib/ui/priority";
 
@@ -78,6 +79,7 @@ export function LeadCard({ leadId }: Props) {
   const [nameValue, setNameValue] = useState("");
   const [stageDropdownOpen, setStageDropdownOpen] = useState(false);
   const [gateTarget, setGateTarget] = useState<Stage | null>(null);
+  const [lostStage, setLostStage] = useState<Stage | null>(null);
   const [transferOpen, setTransferOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -143,15 +145,12 @@ export function LeadCard({ leadId }: Props) {
   }
 
   function handleLost() {
-    const lostStage = stages.find((s) => s.is_lost);
-    if (!lostStage || !lead) return;
-    if (!window.confirm("Перевести в Проиграно?")) return;
-    const reason = prompt("Причина закрытия:");
-    if (reason === null) return;
-    moveStage.mutate({
-      leadId,
-      body: { stage_id: lostStage.id, lost_reason: reason || null },
-    });
+    // Sprint 2.6 G3: open the styled `LostModal` instead of the
+    // legacy `window.confirm` + `window.prompt` pair. The modal owns
+    // the mutation; success closes it via `onSuccess`.
+    const lost = stages.find((s) => s.is_lost);
+    if (!lost || !lead) return;
+    setLostStage(lost);
   }
 
   if (isLoading) {
@@ -464,6 +463,18 @@ export function LeadCard({ leadId }: Props) {
           currentAssignedTo={lead.assigned_to ?? null}
           onClose={() => setTransferOpen(false)}
           onSuccess={() => showToast("Лид передан")}
+        />
+      )}
+
+      {/* Sprint 2.6 G3: Lost-confirmation modal — replaces the prior
+          window.confirm + window.prompt pair. */}
+      {lostStage && (
+        <LostModal
+          leadId={lead.id}
+          lostStage={lostStage}
+          companyName={lead.company_name}
+          onClose={() => setLostStage(null)}
+          onSuccess={() => showToast("Лид помечен Проигран")}
         />
       )}
 

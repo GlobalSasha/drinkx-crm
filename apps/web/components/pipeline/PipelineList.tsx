@@ -3,13 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import type { LeadOut, Stage } from "@/lib/types";
-
-const PRIORITY_STYLES: Record<string, string> = {
-  A: "bg-accent/10 text-accent",
-  B: "bg-success/10 text-success",
-  C: "bg-warning/10 text-warning",
-  D: "bg-black/5 text-muted",
-};
+import { priorityChip } from "@/lib/ui/priority";
 
 interface Props {
   stages: Stage[];
@@ -21,6 +15,12 @@ interface Props {
  * is a read-only flat list grouped by stage. PipelineHeader still
  * renders above (search bar + "+ Лид" stay visible) — this component
  * only owns the body.
+ *
+ * Sprint 2.6 G3: each card now also surfaces the stage label inline
+ * (in addition to the section heading) so that fast scrolling +
+ * subsequent linking back to the card has clear context. Priority
+ * chip uses the centralized `lib/ui/priority` palette to match the
+ * rest of the codebase.
  */
 export function PipelineList({ stages, leads }: Props) {
   const grouped = useMemo(() => {
@@ -72,17 +72,30 @@ export function PipelineList({ stages, leads }: Props) {
                       <p className="text-sm font-semibold text-ink truncate">
                         {lead.company_name}
                       </p>
-                      {segCity && (
-                        <p className="font-mono text-[10px] text-muted-2 mt-0.5 truncate lowercase">
-                          {segCity}
-                        </p>
-                      )}
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        {/* Stage badge — visible on the card itself
+                            so fast-scroll context isn't lost when
+                            section headings scroll out of view. */}
+                        <span
+                          className="inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-wide text-muted-2 truncate"
+                          style={{ maxWidth: "60%" }}
+                        >
+                          <span
+                            className="w-1.5 h-1.5 rounded-full shrink-0"
+                            style={{ backgroundColor: stage.color }}
+                          />
+                          {stage.name}
+                        </span>
+                        {segCity && (
+                          <span className="font-mono text-[10px] text-muted-3 truncate lowercase">
+                            · {segCity}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     {lead.priority && (
                       <span
-                        className={`shrink-0 font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
-                          PRIORITY_STYLES[lead.priority] ?? "bg-black/5 text-muted"
-                        }`}
+                        className={`shrink-0 font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-md ${priorityChip(lead.priority)}`}
                       >
                         {lead.priority}
                       </span>
