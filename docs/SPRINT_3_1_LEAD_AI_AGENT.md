@@ -21,8 +21,8 @@
 
 - `docs/brain/00_CURRENT_STATE.md` — состояние после Sprint 2.7
 - `docs/brain/01_ARCHITECTURE.md` §5 — AI Modules
-- `docs/skills/lead-ai-agent-skill.md` — поведенческая спецификация агента
-- `docs/knowledge/agent/product-foundation.md` — фундаментный продуктовый контекст
+- `apps/api/knowledge/agent/lead-ai-agent-skill.md` — поведенческая спецификация агента
+- `apps/api/knowledge/agent/product-foundation.md` — фундаментный продуктовый контекст
 - `app/enrichment/` — паттерн LLMProvider (ADR-018), переиспользовать
 - `app/knowledge/` — паттерн загрузки KB-файлов, переиспользовать
 
@@ -32,13 +32,16 @@
 
 ### Phase A — Knowledge files в репо (~15 мин)
 
-Скопировать в репо:
-- `docs/skills/lead-ai-agent-skill.md` ← из артефакта
-- `docs/knowledge/agent/product-foundation.md` ← из артефакта
+Артефакты лежат в `apps/api/knowledge/agent/` так, чтобы Docker-образ
+API (build context = `apps/api/`) автоматически забирал их в
+контейнер на `/app/knowledge/agent/...`. Менять Dockerfile или
+build context не нужно — папка `apps/api/knowledge/` уже копируется
+существующей строкой `COPY knowledge ./knowledge`.
+
+- `apps/api/knowledge/agent/lead-ai-agent-skill.md` ← из артефакта
+- `apps/api/knowledge/agent/product-foundation.md` ← из артефакта
 
 Эти файлы читаются из файловой системы при сборке системного промпта. Не в БД, не в Redis.
-
-> **NOTE:** Артефакты ещё не предоставлены — запросить у пользователя перед стартом Phase A.
 
 ---
 
