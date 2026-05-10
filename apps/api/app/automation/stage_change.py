@@ -178,10 +178,40 @@ async def fan_out_automation_builder(
     )
 
 
+async def trigger_lead_agent_refresh(
+    ctx: TransitionContext, db: AsyncSession
+) -> None:
+    """Sprint 3.1 Phase E — kick the Lead AI Agent to recompute its
+    background-mode banner suggestion right after a stage change.
+
+    Fire-and-forget: the Celery task does its own session + LLM work
+    in the worker process. We never block the parent stage commit on
+    a broker hiccup — any exception while enqueueing is swallowed
+    with a structlog warning (the agent simply doesn't refresh, the
+    previous suggestion stays on the banner until the next trigger).
+
+    No `safe_*` wrapper because `apply_async` is a Redis enqueue,
+    not an LLM round-trip; the exception surface is small (broker
+    down, args type error) and we want it visible without rolling
+    back the move.
+    """
+    try:
+        from app.scheduled.jobs import lead_agent_refresh_suggestion
+
+        lead_agent_refresh_suggestion.apply_async(args=[str(ctx.lead.id)])
+    except Exception as exc:  # noqa: BLE001 — broker / serialisation
+        log.warning(
+            "stage_change.lead_agent_refresh_enqueue_failed lead_id=%s error=%s",
+            ctx.lead.id,
+            str(exc)[:200],
+        )
+
+
 POST_ACTIONS: list[PostAction] = [
     set_won_lost_timestamps,
     log_stage_change_activity,
     fan_out_automation_builder,
+    trigger_lead_agent_refresh,
 ]
 
 

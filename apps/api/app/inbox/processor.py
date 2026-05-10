@@ -179,6 +179,30 @@ async def process_message(
             # session internally; never raises (a dispatch failure
             # only updates the matching Activity to status='failed').
             await flush_pending_email_dispatches(pending)
+
+            # Sprint 3.1 Phase E — kick the Lead AI Agent to recompute
+            # its banner suggestion 15 min after a NEW inbound email
+            # lands on the lead. The 15-min delay is the spec's
+            # «менеджер может ответить сам» window — if the manager
+            # already replied by the time the worker fires, the
+            # refresh just produces a fresh suggestion that reflects
+            # the updated activity timeline. Outbound messages don't
+            # trigger — those are the manager's own actions.
+            if direction == "inbound":
+                try:
+                    from app.scheduled.jobs import lead_agent_refresh_suggestion
+
+                    lead_agent_refresh_suggestion.apply_async(
+                        args=[str(match.lead_id)],
+                        countdown=900,
+                    )
+                except Exception as exc:  # noqa: BLE001 — broker hiccup
+                    bound_log.warning(
+                        "inbox.process_message.lead_agent_refresh_enqueue_failed",
+                        lead_id=str(match.lead_id),
+                        error=str(exc)[:200],
+                    )
+
             return True
 
         # Below-threshold or no match → park for human review.
