@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { PipelineHeader } from "@/components/pipeline/PipelineHeader";
@@ -13,6 +13,17 @@ import { useMe } from "@/lib/hooks/use-me";
 import { usePipelineStore } from "@/lib/store/pipeline-store";
 
 export default function PipelinePage() {
+  // `useSearchParams` (deep-link `?stage=…` / `?filter=…` reader)
+  // requires a Suspense boundary to keep the page out of the static
+  // rendering bail-out path during `next build`.
+  return (
+    <Suspense fallback={null}>
+      <PipelinePageInner />
+    </Suspense>
+  );
+}
+
+function PipelinePageInner() {
   const { filters, selectedPipelineId } = usePipelineStore();
   const searchParams = useSearchParams();
   const stageParam = searchParams.get("stage");

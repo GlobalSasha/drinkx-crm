@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -813,11 +813,14 @@ function NotifWidget() {
           // `/notifications` route yet — system rows fall back to
           // `/today` so the link doesn't 404. Replace this once the
           // notifications drawer is liftable from outside AppShell.
-          const href = n.lead_id ? `/leads/${n.lead_id}` : "/today";
+          // The ternary is inlined into `href` so Next.js typed routes
+          // can infer the union of valid routes at build time —
+          // hoisting it into a `const` widens the type to `string` and
+          // breaks `next build`.
           return (
             <Link
               key={n.id}
-              href={href}
+              href={n.lead_id ? `/leads/${n.lead_id}` : "/today"}
               onClick={() => {
                 if (isUnread) markRead.mutate(n.id);
               }}
@@ -915,6 +918,17 @@ function pluralRu(n: number, forms: [string, string, string]): string {
 // ─── Page ──────────────────────────────────────────────────
 
 export default function TodayPage() {
+  // `useSearchParams` (deep-link `?tab=tasks` reader) bails the page
+  // out of static rendering unless it sits under a Suspense boundary —
+  // wrap the body so `next build` can prerender the shell.
+  return (
+    <Suspense fallback={null}>
+      <TodayPageInner />
+    </Suspense>
+  );
+}
+
+function TodayPageInner() {
   const [user, setUser] = useState<User | null>(null);
   const [order, setOrder] = useState<WidgetId[]>(DEFAULT_ORDER);
   const [hidden, setHidden] = useState<Set<WidgetId>>(new Set());
