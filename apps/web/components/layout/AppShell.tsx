@@ -1,7 +1,13 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { clsx } from "clsx";
 import {
   CalendarDays,
@@ -27,29 +33,29 @@ import { useMe } from "@/lib/hooks/use-me";
 import { C } from "@/lib/design-system";
 
 interface NavItem {
+  id: string;
   label: string;
-  href: string;
   icon: React.ReactNode;
-  disabled?: boolean;
+  href?: string;
+  badge?: number;
+  ariaLabel?: string;
+  onClick?: () => void;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { label: "Сегодня",   href: "/today",      icon: <CalendarDays size={18} /> },
-  { label: "Воронка",   href: "/pipeline",   icon: <Kanban size={18} /> },
-  { label: "База лидов", href: "/leads-pool", icon: <Target size={18} /> },
+interface DisabledNavItem {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+}
+
+const DISABLED_ITEMS: DisabledNavItem[] = [
+  { id: "knowledge", label: "База знаний", icon: <BookOpen size={18} /> },
+  { id: "team",      label: "Команда",     icon: <Users size={18} /> },
 ];
 
-const DISABLED_ITEMS: NavItem[] = [
-  { label: "База знаний", href: "#", icon: <BookOpen size={18} />, disabled: true },
-  { label: "Команда",   href: "#", icon: <Users size={18} />,    disabled: true },
-];
-
-// Shared classes for sidebar nav rows. Keeping the active/inactive
-// strings literal (no template interpolation) lets Tailwind's content
-// scanner pick them up reliably.
-const NAV_BASE = `flex items-center gap-3 px-3 py-2 rounded-full font-medium transition-all duration-200 ${C.bodySm}`;
-const NAV_ACTIVE = "bg-brand-soft text-brand-accent-text";
-const NAV_INACTIVE = "text-brand-muted";
+// Shared row geometry. The pill animates over these — keep paddings and
+// gaps consistent across all rows so the pill height stays stable.
+const NAV_ROW = `relative z-10 flex items-center gap-3 px-3 py-2 rounded-full font-medium transition-colors duration-200 ${C.bodySm}`;
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -64,6 +70,97 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { data: me } = useMe();
   const isAdmin = me?.role === "admin";
   const isAdminOrHead = me?.role === "admin" || me?.role === "head";
+
+  // ─── Sliding-pill state ───────────────────────────────────
+  // The pill is a single absolutely-positioned element inside <nav>.
+  // It translates to whichever item is currently "highlighted":
+  // hovered if the cursor is over an item, otherwise the active route.
+  const navRef = useRef<HTMLElement | null>(null);
+  const itemRefs = useRef<Record<string, HTMLElement | null>>({});
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [pill, setPill] = useState<{
+    top: number;
+    height: number;
+    visible: boolean;
+  }>({ top: 0, height: 0, visible: false });
+
+  // Items list. Order matches what the sidebar renders top-to-bottom;
+  // gating by role happens at build time so the active-route lookup
+  // can't accidentally match a hidden row.
+  const items: NavItem[] = useMemo(() => {
+    const base: NavItem[] = [
+      { id: "today",      label: "Сегодня",   href: "/today",      icon: <CalendarDays size={18} /> },
+      { id: "pipeline",   label: "Воронка",   href: "/pipeline",   icon: <Kanban size={18} /> },
+      { id: "leads-pool", label: "База лидов", href: "/leads-pool", icon: <Target size={18} /> },
+      {
+        id: "inbox",
+        label: "Входящие",
+        href: "/inbox",
+        icon: <Inbox size={18} />,
+        badge: inboxPending,
+        ariaLabel: `Входящие${inboxPending > 0 ? ` (${inboxPending} ожидают)` : ""}`,
+      },
+    ];
+    if (isAdminOrHead) {
+      base.push({ id: "forms",       label: "Формы",         href: "/forms",       icon: <ClipboardList size={18} /> });
+      base.push({ id: "automations", label: "Автоматизации", href: "/automations", icon: <Workflow size={18} /> });
+    }
+    if (isAdmin) {
+      base.push({ id: "audit", label: "Журнал", href: "/audit", icon: <History size={18} /> });
+    }
+    base.push({
+      id: "notifications",
+      label: "Уведомления",
+      icon: <Bell size={18} />,
+      badge: unreadCount,
+      ariaLabel: `Уведомления${unreadCount > 0 ? ` (${unreadCount} непрочитанных)` : ""}`,
+      onClick: () => setNotifOpen(true),
+    });
+    base.push({ id: "settings", label: "Настройки", href: "/settings", icon: <Settings size={18} /> });
+    return base;
+  }, [isAdmin, isAdminOrHead, inboxPending, unreadCount]);
+
+  // The active item is whichever route currently matches. Notifications
+  // (no href) can never be "active" — only highlighted on hover.
+  const activeId = useMemo(() => {
+    const match = items.find(
+      (it) =>
+        it.href && (pathname === it.href || pathname.startsWith(it.href + "/")),
+    );
+    return match?.id ?? null;
+  }, [items, pathname]);
+
+  const highlightedId = hoveredId ?? activeId;
+
+  // Move the pill to the highlighted item. useLayoutEffect runs before
+  // paint, so the user never sees the pill at top:0 between mount and
+  // the first measurement.
+  useLayoutEffect(() => {
+    function measure() {
+      if (!highlightedId) {
+        setPill((p) => ({ ...p, visible: false }));
+        return;
+      }
+      const el = itemRefs.current[highlightedId];
+      const nav = navRef.current;
+      if (!el || !nav) {
+        setPill((p) => ({ ...p, visible: false }));
+        return;
+      }
+      const elRect = el.getBoundingClientRect();
+      const navRect = nav.getBoundingClientRect();
+      setPill({
+        top: elRect.top - navRect.top + nav.scrollTop,
+        height: elRect.height,
+        visible: true,
+      });
+    }
+    measure();
+    // Re-measure when the viewport resizes — Tailwind's `clamp()`-based
+    // typography slightly changes row height across breakpoints.
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [highlightedId, items, mobileNavOpen]);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -93,6 +190,64 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     "…";
   const displayEmail = user?.email ?? "";
   const avatarLetter = displayName[0]?.toUpperCase() ?? "?";
+
+  function renderItem(item: NavItem) {
+    const isHighlighted = highlightedId === item.id;
+    const className = clsx(
+      NAV_ROW,
+      isHighlighted ? "text-brand-accent-text" : "text-brand-muted",
+    );
+    const onMouseEnter = () => setHoveredId(item.id);
+    const onMouseLeave = () => setHoveredId(null);
+    const setRef = (el: HTMLElement | null) => {
+      itemRefs.current[item.id] = el;
+    };
+    const inner = (
+      <>
+        <span className="relative">
+          {item.icon}
+          {item.badge != null && item.badge > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-brand-accent text-white text-[9px] font-mono font-bold rounded-full px-1 flex items-center justify-center tabular-nums">
+              {item.badge > 99 ? "99+" : item.badge}
+            </span>
+          )}
+        </span>
+        {item.label}
+      </>
+    );
+
+    if (item.href) {
+      return (
+        <Link
+          key={item.id}
+          ref={setRef}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          href={item.href as any}
+          className={className}
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
+          aria-label={item.ariaLabel}
+        >
+          {inner}
+        </Link>
+      );
+    }
+
+    return (
+      <button
+        key={item.id}
+        ref={setRef}
+        type="button"
+        onClick={item.onClick}
+        className={`${className} w-full text-left`}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        aria-label={item.ariaLabel}
+      >
+        {inner}
+      </button>
+    );
+  }
 
   // gridTemplateColumns uses minmax(0, 1fr) so the content cell can't
   // grow past the available viewport width — without that clamp, default
@@ -159,139 +314,45 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-4 flex flex-col gap-1 overflow-y-auto">
-          {NAV_ITEMS.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-            return (
-              <Link
-                key={item.href}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                href={item.href as any}
-                className={clsx(NAV_BASE, isActive ? NAV_ACTIVE : NAV_INACTIVE)}
-              >
-                {item.icon}
-                {item.label}
-              </Link>
-            );
-          })}
+        {/* Nav with sliding pill.
+            The pill lives inside <nav> as a single absolute element so
+            its translateY can be measured against nav's scroll origin.
+            Cursor leaving the whole nav also clears `hoveredId` —
+            otherwise leaving an item via the gap between rows could
+            briefly leave hover state set without a fresh enter event. */}
+        <nav
+          ref={navRef}
+          className="relative flex-1 px-3 py-4 flex flex-col gap-1 overflow-y-auto"
+          onMouseLeave={() => setHoveredId(null)}
+        >
+          {/* Sliding highlight pill.
+              left/right anchors at 12px match nav's px-3 so the pill
+              spans the row exactly. Only the transform is animated;
+              opacity fade hides the pill when nothing is highlighted
+              (e.g., a route not present in the items list). */}
+          <div
+            aria-hidden
+            className="absolute left-3 right-3 top-0 bg-brand-soft rounded-full pointer-events-none"
+            style={{
+              transform: `translateY(${pill.top}px)`,
+              height: pill.height,
+              opacity: pill.visible ? 1 : 0,
+              transition:
+                "transform 200ms cubic-bezier(0.32, 0.72, 0, 1), opacity 150ms ease-out",
+            }}
+          />
 
-          {/* Inbox — sidebar nav with pending-count badge (Sprint 2.0) */}
-          {(() => {
-            const href = "/inbox";
-            const isActive = pathname === href || pathname.startsWith(href + "/");
-            return (
-              <Link
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                href={href as any}
-                className={clsx(NAV_BASE, "relative", isActive ? NAV_ACTIVE : NAV_INACTIVE)}
-                aria-label={`Входящие${inboxPending > 0 ? ` (${inboxPending} ожидают)` : ""}`}
-              >
-                <span className="relative">
-                  <Inbox size={18} />
-                  {inboxPending > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-brand-accent text-white text-[9px] font-mono font-bold rounded-full px-1 flex items-center justify-center tabular-nums">
-                      {inboxPending > 99 ? "99+" : inboxPending}
-                    </span>
-                  )}
-                </span>
-                Входящие
-              </Link>
-            );
-          })()}
-
-          {/* Admin/head-only: WebForms (Sprint 2.2) */}
-          {isAdminOrHead && (() => {
-            const href = "/forms";
-            const isActive = pathname === href || pathname.startsWith(href + "/");
-            return (
-              <Link
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                href={href as any}
-                className={clsx(NAV_BASE, isActive ? NAV_ACTIVE : NAV_INACTIVE)}
-              >
-                <ClipboardList size={18} />
-                Формы
-              </Link>
-            );
-          })()}
-
-          {/* Admin/head-only: Automations (Sprint 2.5 G1) */}
-          {isAdminOrHead && (() => {
-            const href = "/automations";
-            const isActive = pathname === href || pathname.startsWith(href + "/");
-            return (
-              <Link
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                href={href as any}
-                className={clsx(NAV_BASE, isActive ? NAV_ACTIVE : NAV_INACTIVE)}
-              >
-                <Workflow size={18} />
-                Автоматизации
-              </Link>
-            );
-          })()}
-
-          {/* Admin-only: audit journal */}
-          {isAdmin && (() => {
-            const href = "/audit";
-            const isActive = pathname === href || pathname.startsWith(href + "/");
-            return (
-              <Link
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                href={href as any}
-                className={clsx(NAV_BASE, isActive ? NAV_ACTIVE : NAV_INACTIVE)}
-              >
-                <History size={18} />
-                Журнал
-              </Link>
-            );
-          })()}
-
-          {/* Notifications bell — opens drawer */}
-          <button
-            onClick={() => setNotifOpen(true)}
-            className={clsx(NAV_BASE, "w-full text-left relative", NAV_INACTIVE)}
-            aria-label={`Уведомления${unreadCount > 0 ? ` (${unreadCount} непрочитанных)` : ""}`}
-          >
-            <span className="relative">
-              <Bell size={18} />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-brand-accent text-white text-[9px] font-mono font-bold rounded-full px-1 flex items-center justify-center tabular-nums">
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </span>
-              )}
-            </span>
-            Уведомления
-          </button>
-
-          {/* Settings — Sprint 2.3 G3. All roles see it; mutating
-              actions inside (create/edit/delete pipelines) are gated
-              to admin/head at the section level via useMe(). */}
-          {(() => {
-            const href = "/settings";
-            const isActive = pathname === href || pathname.startsWith(href + "/");
-            return (
-              <Link
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                href={href as any}
-                className={clsx(NAV_BASE, isActive ? NAV_ACTIVE : NAV_INACTIVE)}
-              >
-                <Settings size={18} />
-                Настройки
-              </Link>
-            );
-          })()}
+          {items.map(renderItem)}
 
           {/* Divider */}
           <div className="my-2 border-t border-brand-border" />
 
-          {/* Phase 2 items — disabled */}
+          {/* Phase 2 items — disabled, not part of the highlight system */}
           {DISABLED_ITEMS.map((item) => (
             <div
-              key={item.label}
+              key={item.id}
               title="Sprint 1.5+"
-              className={`${NAV_BASE} text-brand-muted/50 cursor-not-allowed select-none`}
+              className={`${NAV_ROW} text-brand-muted/50 cursor-not-allowed select-none`}
             >
               {item.icon}
               {item.label}
