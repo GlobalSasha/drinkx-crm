@@ -90,16 +90,47 @@ CLAUDE.md      # this file
 | Google OAuth | Sign-in | env: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
 | Sentry | Errors | env: `SENTRY_DSN` |
 
-Local dev uses `.env.local` files. Production uses Railway / Vercel env vars.
-NEVER commit real keys.
+Local dev uses `.env.local` files. Production env vars live on the bare-metal
+server in `/opt/drinkx-crm/.env` and on GitHub Actions secrets — see
+`infra/production/`. NEVER commit real keys.
 
 ## Deployment
 
-- Frontend: Vercel (auto-deploy from `main`)
-- Backend: Railway (one service for FastAPI, one for Celery worker, one for Celery
-  beat)
-- DB: Supabase (managed)
-- Redis: Upstash
+Production runs on a bare-metal server (`crm.drinkx.tech` / `77.105.168.227`),
+NOT Vercel/Railway. Earlier docs reflected the original plan — this section
+is the canonical truth.
+
+- **Trigger**: every push to `main` fires `.github/workflows/deploy.yml` (job
+  «Deploy to crm.drinkx.tech»). The workflow SSHes into the server and runs
+  `infra/production/deploy.sh` — which `git pull`s, `docker compose build`s
+  the `web`, `api`, `worker`, and `beat` services, then health-checks `/health`.
+- **Frontend (`apps/web`)**: Next.js 15 inside the `web` container; built via
+  `pnpm build` during `docker compose build`.
+- **Backend (`apps/api`)**: FastAPI in `api`; Celery worker in `worker`;
+  Celery beat in `beat`. All three share the same image.
+- **DB**: Supabase (managed Postgres).
+- **Redis**: Upstash (Celery broker + result backend).
+- **Logs / errors**: `docker compose logs <service>` on the server; Sentry
+  captures runtime errors (`SENTRY_DSN`).
+
+If a deploy fails, check `gh run list --workflow "Deploy to crm.drinkx.tech"`
+and pull the failed step's logs via `gh run view <id> --log-failed`.
+
+## Pre-PR checklist
+
+`tsc --noEmit` is **not enough** for `apps/web` — Next.js 15 build-time checks
+(typed routes, Suspense boundaries around `useSearchParams`, RSC import
+constraints) only fire during `next build`. Three deploys in May 2026 were
+killed by errors that `tsc` happily passed. Before opening a frontend PR:
+
+1. `npm run typecheck` (catches the obvious TS errors)
+2. `npm run lint`
+3. `pnpm build` from `apps/web` — **mandatory** when the PR adds/edits any
+   `<Link href={...}>` with a non-literal href, calls `useSearchParams`,
+   `useRouter`, or otherwise touches App-Router routing semantics.
+
+For backend changes: `python -m py_compile` on touched modules + `pytest`
+(at minimum collection: `pytest --collect-only`).
 
 ## When you finish a unit of work
 
