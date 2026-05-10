@@ -34,8 +34,8 @@ interface PriorityVariant {
 export const priorityConfig: Record<Priority, PriorityVariant> = {
   A: {
     chip: "bg-brand-soft text-brand-accent",
-    chipBordered: "bg-brand-soft text-brand-accent border-accent/30",
-    solid: "bg-accent text-white",
+    chipBordered: "bg-brand-soft text-brand-accent border-brand-accent/30",
+    solid: "bg-brand-accent text-white",
   },
   B: {
     chip: "bg-success/10 text-success",
