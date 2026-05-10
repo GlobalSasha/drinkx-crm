@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   ListChecks,
   AlarmClock,
@@ -19,6 +20,7 @@ import {
   Calendar,
   CheckCircle2,
   ArrowUpRight,
+  Check,
 } from "lucide-react";
 import {
   DndContext,
@@ -35,9 +37,11 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { C } from "@/lib/design-system";
+import { api } from "@/lib/api-client";
 import { useTodayPlan } from "@/lib/hooks/use-daily-plan";
 import { useFollowupsPending } from "@/lib/hooks/use-followups";
 import { useLeads } from "@/lib/hooks/use-leads";
@@ -102,12 +106,41 @@ const WIDGET_SPAN: Record<WidgetId, string> = {
 // one network request.
 const TODAY_LEADS_FILTER = { page_size: 200 } as const;
 
-const TIME_BLOCK_LABEL: Record<TimeBlock, string> = {
-  morning:   "Утро",
-  midday:    "День",
-  afternoon: "После",
-  evening:   "Вечер",
+// DailyPlanItem only exposes a coarse `time_block`. To render a clock-time
+// in the task list we map each block to a representative hour and combine
+// it with the plan's `plan_date` to synthesise an ISO datetime.
+const TIME_BLOCK_HOUR: Record<TimeBlock, number> = {
+  morning:   9,
+  midday:    12,
+  afternoon: 15,
+  evening:   18,
 };
+
+function buildPlanItemDueAt(
+  planDate: string | undefined,
+  timeBlock: TimeBlock | null,
+): string | null {
+  if (!planDate || !timeBlock) return null;
+  const d = new Date(`${planDate}T00:00:00`);
+  d.setHours(TIME_BLOCK_HOUR[timeBlock], 0, 0, 0);
+  return d.toISOString();
+}
+
+function formatTaskTime(due_at: string | null): string {
+  if (!due_at) return "—";
+  const d = new Date(due_at);
+  const today = new Date();
+  const isToday = d.toDateString() === today.toDateString();
+  const isTomorrow =
+    d.toDateString() === new Date(today.getTime() + 86400000).toDateString();
+
+  const time = d.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" });
+  if (isToday) return time;
+  if (isTomorrow) return `завтра ${time}`;
+  return (
+    d.toLocaleDateString("ru", { day: "numeric", month: "short" }) + " " + time
+  );
+}
 
 const TASK_KIND_ICON: Record<TaskKind, React.ReactNode> = {
   call:      <Phone size={13} />,
@@ -385,21 +418,91 @@ function FocusWidget() {
 
 // ─── Task-list widget ──────────────────────────────────────
 
+const TASKS_PER_PAGE = 4;
+
 function TaskListWidget() {
   const { data, isLoading, isError } = useTodayPlan();
+  const { data: leadsData } = useLeads(TODAY_LEADS_FILTER);
+  const qc = useQueryClient();
+  const planDate = data?.plan_date;
+
   const items = useMemo(() => {
     const all = data?.items ?? [];
-    return [...all]
-      .sort((a, b) => a.position - b.position)
-      .slice(0, 5);
+    return [...all].sort((a, b) => a.position - b.position);
   }, [data]);
+
+  // Default target lead for the inline quick-add — same ranking as the
+  // FocusWidget so what the user sees in Focus is what gets the new task.
+  const focusLead = useMemo(() => {
+    const leads = (leadsData?.items ?? []).filter(
+      (l) => l.assignment_status === "assigned",
+    );
+    if (leads.length === 0) return null;
+    return [...leads].sort(
+      (a, b) => leadFocusSortKey(b) - leadFocusSortKey(a),
+    )[0];
+  }, [leadsData]);
+
+  const [taskPage, setTaskPage] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(items.length / TASKS_PER_PAGE));
+  // Clamp the page when items shrink (e.g. after refetch) so we don't
+  // render an empty slice.
+  const safePage = Math.min(taskPage, totalPages - 1);
+  const visibleTasks = items.slice(
+    safePage * TASKS_PER_PAGE,
+    (safePage + 1) * TASKS_PER_PAGE,
+  );
+
+  const [addingTask, setAddingTask] = useState(false);
+  const [newTaskText, setNewTaskText] = useState("");
+
+  const addTask = useMutation({
+    mutationFn: ({ leadId, name }: { leadId: string; name: string }) =>
+      api.post(`/leads/${leadId}/activities`, {
+        type: "task",
+        payload_json: { name },
+        task_due_at: new Date().toISOString(),
+      }),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["daily-plan", "today"] });
+      qc.invalidateQueries({ queryKey: ["activities", vars.leadId] });
+      setNewTaskText("");
+      setAddingTask(false);
+    },
+  });
+
+  function handleAddTask() {
+    const name = newTaskText.trim();
+    if (!name || !focusLead || addTask.isPending) return;
+    addTask.mutate({ leadId: focusLead.id, name });
+  }
+
   return (
     <div className="bg-white border border-brand-border rounded-[2rem] p-5 h-full flex flex-col">
-      <WidgetHeader
-        title="Список задач"
-        subtitle="Расставлено по таймблокам Чаком"
-        icon={<ListChecks size={16} className="text-brand-muted" />}
-      />
+      {/* Inline header — replaces the shared WidgetHeader so the
+          up-right arrow can be a Link instead of a static icon. */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <ListChecks size={16} className="text-brand-muted" />
+            <h3 className={`${C.bodySm} font-bold ${C.color.text}`}>
+              Список задач
+            </h3>
+          </div>
+          <p className={`${C.bodyXs} ${C.color.mutedLight} mt-0.5`}>
+            Расставлено по таймблокам Чаком
+          </p>
+        </div>
+        <Link
+          href="/today?tab=tasks"
+          title="Все задачи"
+          aria-label="Открыть все задачи"
+          className={`${C.color.mutedLight} mt-0.5 shrink-0`}
+        >
+          <ArrowUpRight size={14} />
+        </Link>
+      </div>
+
       <div className="flex flex-col gap-1.5 mt-4 flex-1">
         {isLoading && (
           <>
@@ -417,32 +520,35 @@ function TaskListWidget() {
             На сегодня задач нет
           </p>
         )}
-        {!isLoading && !isError && items.map((t) => {
-          const blockLabel = t.time_block
-            ? TIME_BLOCK_LABEL[t.time_block]
-            : "—";
+        {!isLoading && !isError && visibleTasks.map((t) => {
+          const taskTitle = t.hint_one_liner || "Задача";
+          const due = buildPlanItemDueAt(planDate, t.time_block);
           return (
             <div
               key={t.id}
               className="flex items-center gap-3 px-3 py-2 rounded-2xl bg-brand-bg"
             >
               <span
-                className={`${C.bodyXs} font-mono font-semibold uppercase tracking-wider ${C.color.mutedLight} w-12 shrink-0`}
+                className={`${C.bodyXs} ${C.color.mutedLight} uppercase tracking-wide tabular-nums w-16 shrink-0`}
               >
-                {blockLabel}
+                {formatTaskTime(due)}
               </span>
               <span className="text-brand-muted shrink-0">
                 {TASK_KIND_ICON[t.task_kind]}
               </span>
               <div className="min-w-0 flex-1">
                 <p
-                  className={`${C.bodySm} font-semibold ${C.color.text} truncate ${
+                  className={`${C.bodySm} font-medium ${C.color.text} truncate max-w-[280px] ${
                     t.done ? "line-through opacity-60" : ""
                   }`}
+                  title={taskTitle}
                 >
-                  {t.hint_one_liner || "Задача"}
+                  {taskTitle}
                 </p>
-                <p className={`${C.bodyXs} ${C.color.mutedLight} truncate`}>
+                <p
+                  className={`${C.bodyXs} ${C.color.mutedLight} truncate max-w-[280px]`}
+                  title={t.lead_company_name ?? undefined}
+                >
                   {t.lead_company_name ?? "—"}
                 </p>
               </div>
@@ -453,7 +559,81 @@ function TaskListWidget() {
             </div>
           );
         })}
+
+        {/* Quick add: trigger button or inline form. Hidden while
+            initial data is loading or errored so we don't render
+            controls without context. */}
+        {!isLoading && !isError && (
+          addingTask ? (
+            <div className="mt-2 flex gap-2 items-center">
+              <input
+                autoFocus
+                value={newTaskText}
+                onChange={(e) => setNewTaskText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newTaskText.trim()) handleAddTask();
+                  if (e.key === "Escape") {
+                    setAddingTask(false);
+                    setNewTaskText("");
+                  }
+                }}
+                placeholder={
+                  focusLead
+                    ? `Задача для ${focusLead.company_name}…`
+                    : "Название задачи…"
+                }
+                disabled={addTask.isPending}
+                className={`flex-1 ${C.form.field} py-2 text-sm`}
+              />
+              <button
+                onClick={handleAddTask}
+                disabled={
+                  !newTaskText.trim() || !focusLead || addTask.isPending
+                }
+                aria-label="Сохранить задачу"
+                className={`${C.button.primary} ${C.btn} px-3 py-2 disabled:opacity-40`}
+              >
+                <Check size={14} />
+              </button>
+              <button
+                onClick={() => {
+                  setAddingTask(false);
+                  setNewTaskText("");
+                }}
+                aria-label="Отменить"
+                className={`${C.button.ghost} ${C.btn} px-3 py-2`}
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setAddingTask(true)}
+              disabled={!focusLead}
+              title={focusLead ? undefined : "Нет лида для привязки"}
+              className={`w-full mt-2 py-2 rounded-xl border border-dashed border-brand-border text-brand-muted ${C.bodySm} flex items-center justify-center gap-1 disabled:opacity-40`}
+            >
+              <Plus size={12} aria-hidden /> добавить задачу
+            </button>
+          )
+        )}
       </div>
+
+      {/* Pagination dots — only when there's more than one page. */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-1.5 mt-3 pt-3 border-t border-brand-border">
+          {Array.from({ length: totalPages }).map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setTaskPage(i)}
+              aria-label={`Страница ${i + 1}`}
+              className={`h-1.5 rounded-full transition-all ${
+                i === safePage ? "bg-brand-accent w-4" : "bg-brand-border w-1.5"
+              }`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
