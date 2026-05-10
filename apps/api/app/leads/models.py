@@ -7,7 +7,7 @@ from enum import Enum
 
 import sqlalchemy as sa
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, Numeric, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.common.models import Base, TimestampedMixin, UUIDPrimaryKeyMixin
@@ -96,6 +96,17 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     lost_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     lost_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
     ai_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    # Lead AI Agent memory (Sprint 3.1 Phase B). Opaque JSONB at the DB
+    # level — schema is enforced by `AgentState` Pydantic model in
+    # Phase C (`app/lead_agent/schemas.py`). Defaults to `{}` so a fresh
+    # row can be passed straight into the runner without a None check.
+    agent_state: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+        server_default=sa.text("'{}'::jsonb"),
+        default=dict,
+    )
 
     contacts: Mapped[list["Contact"]] = relationship(  # type: ignore[name-defined]
         back_populates="lead", cascade="all, delete-orphan"
