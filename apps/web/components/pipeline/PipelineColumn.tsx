@@ -15,7 +15,10 @@ export function PipelineColumn({ stage, leads, allVisibleLeads }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
 
   return (
-    <div className="font-sans flex flex-col shrink-0 w-[260px] bg-brand-bg border border-brand-border rounded-[2rem] p-3">
+    <div
+      id={`stage-col-${stage.id}`}
+      className="font-sans flex flex-col shrink-0 w-[260px] bg-brand-bg border border-brand-border rounded-[2rem] p-3"
+    >
       {/* Column header */}
       <div className="px-2 pb-3">
         {/* Color stripe — keeps stage's individual hue as a thin signal */}

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ListChecks,
   AlarmClock,
@@ -808,9 +809,11 @@ function NotifWidget() {
         {!isLoading && !isError && items.map((n) => {
           const isUnread = n.read_at == null;
           const dotColor = isUnread ? "bg-brand-accent" : "bg-brand-muted";
-          // Lead-bound notifications open the lead; everything else
-          // (system, daily-plan-ready, etc.) goes to the full feed.
-          const href = n.lead_id ? `/leads/${n.lead_id}` : "/notifications";
+          // Lead-bound notifications open the lead. There's no
+          // `/notifications` route yet — system rows fall back to
+          // `/today` so the link doesn't 404. Replace this once the
+          // notifications drawer is liftable from outside AppShell.
+          const href = n.lead_id ? `/leads/${n.lead_id}` : "/today";
           return (
             <Link
               key={n.id}
@@ -868,7 +871,12 @@ function SortableWidget({
     opacity: isDragging ? 0.4 : 1,
   };
   return (
-    <div ref={setNodeRef} style={style} className={`relative ${spanClassName}`}>
+    <div
+      id={id}
+      ref={setNodeRef}
+      style={style}
+      className={`relative ${spanClassName}`}
+    >
       {editing && (
         <>
           <button
@@ -938,6 +946,17 @@ export default function TodayPage() {
   // can include the live task count without re-fetching.
   const { data: plan } = useTodayPlan();
   const todayTotal = plan?.items?.length ?? 0;
+
+  // Deep-link support: `/today?tab=tasks` scrolls the task-list widget
+  // into view. The hash is read once on mount; subsequent client-side
+  // nav back to `/today` (no query) doesn't re-trigger the scroll.
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  useEffect(() => {
+    if (tabParam !== "tasks") return;
+    const el = document.getElementById("w-tasklist");
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [tabParam]);
 
   // Load saved layout from localStorage. Runs whenever userId changes
   // (e.g. after auth resolves).

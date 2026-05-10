@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   ChevronDown,
@@ -76,7 +77,15 @@ export function LeadCard({ leadId }: Props) {
   const updateLead = useUpdateLead(leadId);
   const moveStage = useMoveStage();
 
-  const [activeTab, setActiveTab] = useState<TabKey>("deal");
+  // `?tab=activity` (and friends) seeds the initial tab when arriving
+  // from a deep-link. Only honored once on mount — explicit clicks
+  // afterwards drive the state, not the URL.
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const initialTab: TabKey = TABS.some((t) => t.key === tabParam)
+    ? (tabParam as TabKey)
+    : "deal";
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
   const [stageDropdownOpen, setStageDropdownOpen] = useState(false);
