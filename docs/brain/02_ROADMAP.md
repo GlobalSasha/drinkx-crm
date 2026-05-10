@@ -159,7 +159,7 @@
 - 0 new npm deps; 0 new Python deps; `pnpm build` 13 routes (was 12; `/settings` at 7.61 kB)
 - `pipelines.is_default` boolean kept as redundant signal for diff_engine + back-compat — drop is a 2.4+ housekeeping pass
 
-**Sprint 2.7 — DONE (pending merge → main)** · `docs/SPRINT_2_7_SENTRY_MULTISTEP.md` · branch `sprint/2.7-sentry-multistep` · PR [drinkx-crm#12](https://github.com/GlobalSasha/crm/pull/12) · 3 commits (`65c5bef..03bf762`)
+**Sprint 2.7 — DONE (merged + deployed)** · `docs/SPRINT_2_7_SENTRY_MULTISTEP.md` · branch `sprint/2.7-sentry-multistep` · PR [#12](https://github.com/GlobalSasha/drinkx-crm/pull/12) merged as `d312410` · sprint close PR [#17](https://github.com/GlobalSasha/drinkx-crm/pull/17) merged as `cf91253`
 - **Sentry activation + multi-step automation chains — Phase 2 final slice**
 - 3 of 5 planned gates shipped; G3 + G4 deferred to long-tail by product decision (see DEFERRED section below)
 - **G1 — Sentry activation** (`1c4283d`): new `app/common/sentry_capture.py` (single chokepoint, lazy import, soft no-op when SDK missing) + new `app/observability.py` (init_sentry_if_dsn extracted from main.py:lifespan for testability); 4 cron-class swallow sites wrap `capture()` alongside structlog (audit.log, automation_builder.safe_evaluate_trigger, daily_plan_runner, digest_runner); enrichment `_bg_run` failure path catches + flips `EnrichmentRun.status='failed'` via new `_mark_run_failed` + reports — closes the Sprint 2.6 audit finding «BackgroundTasks strands rows in 'running' on failure». Frontend: new `lib/sentry-capture.ts` runtime helper; `app/global-error.tsx` + `app/(app)/error.tsx` boundaries; `window.onerror` + `unhandledrejection` listeners in providers.tsx. 8 mock tests.
@@ -172,23 +172,48 @@
 - ADRs reaffirmed: ADR-009 (package-per-domain), ADR-018 (LLM provider abstraction), ADR-019 (email lead-scoping). No new ADRs.
 - Operator follow-on (3 items, none blocking): `pnpm add @sentry/nextjs` in apps/web; set `SENTRY_DSN` + `NEXT_PUBLIC_SENTRY_DSN` in production .env; configure Sentry-side rate limits before noisy crons burn the 5k/month free tier.
 
+### Phase 3 — Lead AI Agent + UI overhaul
+
+**Sprint 3.1 — DONE (merged + deployed)** · `docs/SPRINT_3_1_LEAD_AI_AGENT.md` · branch `sprint/3.1-lead-ai-agent` · PRs [#18](https://github.com/GlobalSasha/drinkx-crm/pull/18) (Phase A+B+C) + [#19](https://github.com/GlobalSasha/drinkx-crm/pull/19) (Dockerfile docs/) + [#20](https://github.com/GlobalSasha/drinkx-crm/pull/20) (knowledge file move) + [#22](https://github.com/GlobalSasha/drinkx-crm/pull/22) (Phase D + E)
+- **Lead AI Agent «Чак» — single agent inside the lead card, two modes on a shared system prompt**
+- Migration `0022_lead_agent_state` — `leads.agent_state JSONB NOT NULL DEFAULT '{}'` (ADR-022 — opaque JSONB on the lead row, no separate table)
+- **Phase A — knowledge files** — `apps/api/knowledge/agent/product-foundation.md` (7259 chars, DrinkX positioning + S100–S400 + segments + objections + USP-by-situation + voice/tone) + `apps/api/knowledge/agent/lead-ai-agent-skill.md` (14044 chars, dual-mode behaviour, `agent_state` schema, SPIN-by-stage methodology, banner / chat output formats, refusal rules). Co-located with the API package per ADR-026 so Docker `COPY knowledge ./knowledge` ships them to `/app/knowledge/agent/...`
+- **Phase C — backend `app/lead_agent/`** package — `schemas.py` (AgentSuggestion + ChatMessage + ChatRequest/Response + SuggestionResponse), `context.py` (lru_cache loaders + `_find_knowledge_root` walker + `build_lead_context` RU prompt block), `prompts.py` (`SUGGESTION_SYSTEM` for Flash/`prefilter` + `CHAT_SYSTEM` for Pro/`sales_coach`, foundation injected at 3000-char cap), `runner.py` (`get_suggestion` + `chat` with graceful soft-fail on LLM/parse errors), `tasks.py` (`refresh_suggestion_async` + `scan_silence_async` async cores), `routers.py` (3 endpoints under `/api/leads/{id}/agent`); registered in `main.py` + `scheduled/jobs.py` + Celery beat entry `lead-agent-scan-silence` `crontab(minute=0, hour="*/6")`
+- 3 REST endpoints — `GET /api/leads/{id}/agent/suggestion` (cached read, no LLM), `POST /api/leads/{id}/agent/suggestion/refresh` (202 + Celery), `POST /api/leads/{id}/agent/chat` (sync Sales Coach turn, Pro model)
+- **Phase D — frontend** — `apps/web/lib/hooks/use-lead-agent.ts` (useAgentSuggestion + useRefreshSuggestion + useAgentChat), `AgentBanner.tsx` (between LeadCard header and tab strip, ✕ dismisses session-locally, refresh icon kicks Celery, action button opens drawer with seed question), `SalesCoachDrawer.tsx` (slide-in right on desktop / full-screen on mobile, ephemeral history per session, 4 quick chips, optimistic user-turn render), LeadCard wires both + a floating «🤖 AI Coach» FAB at `bottom-6 right-6`
+- **Phase E — automation hooks** — `app/automation/stage_change.py` post-actions and `app/inbox/processor.py` after-attach call `lead_agent_refresh_suggestion.delay(lead_id)` (inbox path uses `countdown=900` per spec so the manager has 15 min to react before the agent fires)
+- Dockerfile delta (PR #19): build context flipped to repo root + new `COPY docs ./docs` slot; PR #20 then moved the agent knowledge into `apps/api/knowledge/agent/` so the long-term path doesn't depend on `docs/` shipping into the image — leaves the `COPY docs ./docs` line as cosmetic carryover (tracked in `04_NEXT_SPRINT.md` tech debt)
+- ADRs: ADR-022 (agent_state JSONB on lead), ADR-023 (Чак naming, no «AI/ИИ» in user-facing text), ADR-026 (knowledge files co-located with API)
+- 0 new npm deps; 0 new Python deps; agent rides the existing ADR-018 LLM provider chain (MiMo Flash/Pro → Anthropic → Gemini → DeepSeek)
+- **Operator follow-on (none blocking):** Phase D banner relies on the cached suggestion — first-time `scan_silence` will populate banners ~6h after deploy (or sooner if a stage-change / inbound triggers it directly). To bootstrap immediately, run `celery -A app.scheduled.celery_app call app.scheduled.jobs.lead_agent_scan_silence` once on the worker host.
+
+**UI / Design System overhaul — DONE (merged + deployed)** · no single sprint number; commit range `5a2701c..0f32f36` across 13 PRs (May 2026)
+- **Brand palette switch — `#FF4E00` orange replaces `#1F4D3F` legacy green** (ADR-024)
+- New design tokens module `apps/web/lib/design-system.ts` — `C` object: `C.color.{text,muted,mutedLight,accent}`, `C.button.{primary,ghost,pill,nav}`, `C.form.{label,field}`, `C.bodyXs/Sm`, `C.btn/btnLg`, `C.metricSm`, `C.caption`. New components compose from `C.*`; legacy tokens kept in Tailwind config for back-compat
+- `apps/web/tailwind.config.ts` — new `colors.brand.{accent, accent-text, accent-soft, primary, muted, muted-strong, muted-light, border, panel, bg, soft, canvas}` palette; `apps/web/app/globals.css` mirrors as CSS variables for non-Tailwind contexts
+- 42-file sweep: `bg-accent → bg-brand-accent`, `text-accent → text-brand-accent`, etc.; `apps/web/lib/ui/priority.ts` priority chip A/B/C/D mapped to brand-accent ramp
+- AppShell: animated sliding pill on sidebar nav, `bg-brand-soft` active state
+- Prototype carryovers (in `crm-prototype` repo, not this repo): brief-drawer → centered modal, manager-profile screen, onboarding profile fields
+- **Today screen rewrite (PRs #6–#11)** — 9-widget dashboard with `@dnd-kit/sortable` drag-and-drop persisted per user in localStorage, time-of-day greeting (🌅☀️🌆🌙) + first name. Widgets: `w-tasks` / `w-followup` / `w-rotting` / `w-pipeline` / `w-focus` / `w-tasklist` / `w-chak` / `w-funnel` / `w-notif` — all wired to real API hooks (mock only for `w-chak` until Sprint 3.1 backend lands). Skeleton loading + em-dash fallback. TaskListWidget v2: real `due_at` time, truncate + tooltip, pagination 4/page, inline quick-add. All elements clickable + deep-link query params (`?tab=tasks`, `?stage={id}`, `?filter=…`). New endpoint `GET /me/followups-pending` (PR #7) returns `{pending_count, overdue_count}` for the counter widget.
+- **Lead Card overhaul** — Activity-first default tab (ADR-025); «Следующий шаг» moved from Deal tab into Activity (saving persists `lead.next_step` AND mirrors as a `task` activity in the feed); A/B/C/D priority tooltips with tier descriptions; «SCORE» → «ОЦЕНКА ЛИДА»; «FOLLOW-UPS» → «ЭТАПЫ РАБОТЫ»; priority+score panel capped at `max-w-lg`; new «Вернуть в базу» button (POST `/leads/{id}/unclaim`) gated by `lead.assigned_to === me.id` → `router.push('/pipeline')`; `BriefDrawer.tsx` removed (289 lines), pipeline-store cleaned of `selectedLead`/`visibleLeads`/`openDrawer`
+- **Pipeline overhaul** — direct nav from cards (`router.push(/leads/{id})` instead of drawer), drawer code path deleted; deep-link `?stage={id}` scrolls the matching column into view via `id="stage-col-{id}"` on `PipelineColumn`; `?filter=rotting` / `?filter=followup_overdue` are read but not yet applied (waiting on `quickFilter` field in pipeline store — `04_NEXT_SPRINT.md` priority 3)
+- **17-file Russian-language sweep** — Pipeline → Воронка, Inbox → Входящие, Settings → Настройки, etc. Kept on English (justified): `Slug`, `Fit`, `Follow-up`, `Gmail`/`Telegram`/`LinkedIn`, `AI`, `HoReCa`/`QSR`
+- **Infra**: ESLint 9 flat config via FlatCompat (PR #5) — 14 pre-existing warnings, 0 errors. CLAUDE.md doc updates (PR #16) reflect bare-metal deploy (not Vercel/Railway) + Pre-PR checklist requiring `pnpm build` on PRs that touch `<Link href={non-literal}>` or `useSearchParams` (typed-routes + Suspense rules only fire under `next build`, not `tsc --noEmit` — burned 3 deploys before the rule was written down; see PR [#15](https://github.com/GlobalSasha/drinkx-crm/pull/15)). Production deploy bake-out: PRs #15, #19, #20 between them resolved typed-route bug, Dockerfile context, knowledge-file location.
+
 ## 🔜 NEXT
 
-### Phase 3 — Sprint 3.1 — Lead AI Agent (~5 phases)
-See `docs/SPRINT_3_1_LEAD_AI_AGENT.md` for full spec.
+### Sprint «Infrastructure & Polish» — READY TO START
+See `docs/brain/04_NEXT_SPRINT.md` for the full plan.
 
-**Main driver:** unified AI agent inside the lead card. Background
-mode is a Celery task watching for paused conversations + sales-
-methodology gaps and surfacing a banner-recommendation. Foreground
-mode is a chat drawer with full lead context (Sales Coach), opened
-on demand.
+After Sprint 3.1 closed the Lead AI Agent loop, the next priority
+is hardening the deploy + bringing the three remaining screens
+(`/inbox`, `/settings`, `/automations`) onto the brand palette.
 
-Tentative phase breakdown:
-- **Phase A — Knowledge files** — copy `docs/skills/lead-ai-agent-skill.md` + `docs/knowledge/agent/product-foundation.md` into the repo. Files are read from disk into a process-cached system prompt, not stored in DB or Redis. Artifacts have to come from the user before Phase A starts.
-- **Phase B — Migration** — add `leads.agent_state JSONB NOT NULL DEFAULT '{}'` (actual index will be **0022 or higher**, NOT 0013 as the original spec said — 0013 is taken by `default_pipeline`, and 0021 by Sprint 2.7's automation_steps).
-- **Phase C — Backend `app/lead_agent/`** — context.py (assembles full per-lead context), prompts.py (builds system prompt from knowledge files + skill), runner.py (LLM via existing `get_llm_provider()` fallback chain — Flash for background, Pro for chat), tasks.py (Celery `lead_agent.background_check` + `scan_silence`), routers.py (3 endpoints: GET suggestion / POST chat / PATCH action).
-- **Phase D — Frontend** — AgentBanner.tsx between LeadCard header and tabs (renders when `suggestion.silent === false`); SalesCoachDrawer.tsx with FAB toggle, quick chips, in-memory chat history.
-- **Phase E — Existing-code hooks** — `app/automation/stage_change.py` fires `lead_agent_background_check.apply_async(args=[lead_id])`; `app/inbox/` fires it with `countdown=900` after a new inbound.
+Priority order:
+1. **CI + Branch Protection (HIGH)** — `apps/web/.github/workflows/web.yml` (pnpm install → tsc → eslint → `pnpm build`), `apps/api/.github/workflows/api.yml` (uv sync → pytest), branch protection on `main`. The May 2026 deploy bake-out (PRs #15, #19, #20) made it clear that `tsc --noEmit` doesn't cover Next.js typed routes / Suspense rules — `pnpm build` has to run on every PR.
+2. **Design System carryover screens (MEDIUM)** — `/inbox`, `/settings` + sub-sections, `/automations` still on legacy `bg-canvas / text-accent green` tokens. Sweep to `C.*` + `bg-brand-*`.
+3. **Pipeline quick-filters (MEDIUM)** — `?filter=rotting` and `?filter=followup_overdue` are read in `pipeline/page.tsx` but not applied (no matching action in `pipelineStore`). Add `quickFilter` field + `setQuickFilter` action; the existing `useEffect` already depends on `filterParam` — only the body changes.
+4. **Sentry activation (LOW)** — Sprint 2.7 G1 wired the chokepoint; operator just needs `pnpm add @sentry/nextjs` + DSNs in production env, plus a Sentry-side rate-limit on noisy crons.
 
 ### Phase 2 — Sprint 2.8 (long-tail)
 Tentative parking lot for the items 2.7 deferred:
@@ -209,6 +234,7 @@ Tentative parking lot for the items 2.7 deferred:
 - DST-aware cron edge handling
 - pg_dump cron install on host (operator step open since 2.4 G5)
 - inbox/processor Celery dispatch retry path
+- **`AgentSuggestion.manager_action` extension** — Sprint 3.1 simplified the schema by dropping `manager_action`; PATCH «accept / ignore» endpoint isn't built. When recommendation-quality metrics matter, extend `AgentSuggestion` schema + add `PATCH /api/leads/{id}/agent/suggestion/action`.
 
 ## 📅 LATER
 

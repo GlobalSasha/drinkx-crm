@@ -1,176 +1,79 @@
-# Next Sprint: Phase 3 Sprint 3.1 — Lead AI Agent
+# Next Sprint: Infrastructure & Polish
 
-Status: **READY TO PLAN** (after Sprint 2.7 PR #12 merge / deploy / smoke)
-Branch: `sprint/3.1-lead-ai-agent` (create from main once 2.7 lands)
-Authoritative spec: [`docs/SPRINT_3_1_LEAD_AI_AGENT.md`](../SPRINT_3_1_LEAD_AI_AGENT.md)
+Status: **READY TO START**
 
-## Goal
+Sprint 3.1 (Lead AI Agent «Чак») закрыт. Перед следующим продуктовым
+спринтом — стабилизация инфраструктуры и доводка экранов, которые
+не успели в волну UI-обновлений.
 
-Unified AI agent inside the lead card. Two modes on a single
-system prompt:
+## Приоритет 1 — CI + Branch Protection (HIGH)
 
-- **Background** — Celery task watches for paused conversations + sales-
-  methodology gaps (SPIN phase missing, no economic buyer, gate
-  blockers, rotting deal). Surfaces a banner-recommendation between
-  the LeadCard header and the tabs when it has something to say,
-  silent otherwise.
-- **Foreground** — Sales Coach chat drawer. FAB-button opens a chat
-  with full lead context (stage, AI Brief, contacts, last 20
-  activities, KB excerpts by segment). Manager asks «что делать
-  дальше», gets a contextual reply.
+Сейчас любой пуш идёт напрямую в main без проверок. Это уже
+кусается: за май 2026 три деплоя подряд падали на typed-route /
+Suspense ошибках, которые `tsc --noEmit` пропускает, а ловит только
+`next build` (см. PR [#15](https://github.com/GlobalSasha/drinkx-crm/pull/15)).
 
-Both modes share `app/lead_agent/prompts.py` which assembles the
-system prompt from `docs/knowledge/agent/product-foundation.md`
-(always-on) + relevant sections of `docs/skills/lead-ai-agent-skill.md`
-+ a serialised `LeadAgentContext`.
+- `apps/web/.github/workflows/web.yml` — `pnpm install` → `tsc --noEmit` → `eslint .` → `pnpm build`
+- `apps/api/.github/workflows/api.yml` — `uv sync` → `pytest --collect-only` → `pytest -q -m "not slow"` → `mypy app/`
+- Branch protection на `main`: require PR + 1 passing check; запретить force-push.
 
-## Read before starting
+## Приоритет 2 — Design System на оставшиеся экраны (MEDIUM)
 
-- `docs/SPRINT_3_1_LEAD_AI_AGENT.md` — full sprint spec, top to bottom
-- `docs/brain/00_CURRENT_STATE.md` — state after Sprint 2.7 merge
-- `docs/brain/01_ARCHITECTURE.md` §5 — AI Modules
-- `app/enrichment/` — LLMProvider Protocol pattern (ADR-018) — re-use, do not duplicate
-- `app/knowledge/` — KB-file loader pattern (lru_cache, segment matcher) — re-use
-- `app/automation/stage_change.py` — Phase E hook site
-- `app/inbox/processor.py` — second Phase E hook site (with countdown=900 to give the manager 15 min before the agent fires)
+UI-волна (Sprint 3.0 в roadmap) обновила большинство экранов под
+`C.*` токены и brand-accent палитру, но три остались на старых
+токенах `bg-canvas / text-accent`-зелёный:
 
-## ⚠️ Phase A is blocked on the user
+- `/inbox` — `apps/web/app/(app)/inbox/page.tsx`
+- `/settings` — `apps/web/app/(app)/settings/page.tsx` + sub-sections (`PipelinesSection`, `TeamSection`, `ChannelsSection`, `AISection`, `CustomFieldsSection`, `TemplatesSection`)
+- `/automations` — `apps/web/app/(app)/automations/page.tsx`
 
-The spec references two files that don't exist in the repo yet:
+Подход: пройтись `bg-accent → bg-brand-accent`, `text-accent → text-brand-accent-text`, при необходимости заменить «свободный» Tailwind на `${C.button.primary}` / `${C.color.text}` / `${C.bodySm}`. Сверять с `apps/web/lib/design-system.ts`.
 
-- `docs/skills/lead-ai-agent-skill.md` — the agent's behavioural skill (system prompt structure, when to fire what, output format)
-- `docs/knowledge/agent/product-foundation.md` — DrinkX product context the agent always reads first
+## Приоритет 3 — Pipeline quick-filters (MEDIUM)
 
-**Phase A copies these from artifacts the user will provide.** The
-next session for Sprint 3.1 should ask for them up front and
-cite this section. Without them, Phase C can't build a meaningful
-system prompt and Phase A can't even start.
+`?filter=rotting` и `?filter=followup_overdue` сейчас читаются в
+`pipeline/page.tsx`, но не применяются — в `usePipelineStore` нет
+полей и экшенов под эти быстрые фильтры (отмечено в PR
+[#11](https://github.com/GlobalSasha/drinkx-crm/pull/11)). Эффект уже
+подписан на `filterParam` через зависимости `useEffect` — нужно
+дописать только тело применения.
 
-## Migration index correction
+- Добавить в `apps/web/lib/store/pipeline-store.ts`: `quickFilter: 'rotting' | 'followup_overdue' | null` + `setQuickFilter`.
+- Pipeline page: применять `quickFilter` к видимым картам (клиентская фильтрация поверх загруженных) или прокидывать в `useLeads` filter (требует `is_rotting` / `followup_status` фильтров на бэке — проверить, что доступно).
+- Когда применение готово — UI-чип в `PipelineHeader` для ручного включения / сброса.
 
-The spec says **migration 0013** for the new `leads.agent_state`
-column. That index has been taken since Sprint 2.3 G1
-(`0013_default_pipeline`). Sprint 2.7 G2 added `0021_automation_steps`.
-**The actual next free index is 0022.** Update the migration file
-header accordingly when Phase B runs.
+## Приоритет 4 — Sentry activation (LOW, откладывалось с Sprint 2.7 G1)
 
-## Scope
+Лазенка уже стоит — capture chokepoint и error boundaries добавлены
+в Sprint 2.7 G1, но без DSN они no-op'ят:
 
-(Tracked in `docs/SPRINT_3_1_LEAD_AI_AGENT.md`. Phase summary below.)
+- Backend: `SENTRY_DSN` env var → `init_sentry_if_dsn(settings)` уже подхватывает.
+- Frontend: `cd /opt/drinkx-crm/apps/web && pnpm add @sentry/nextjs` + `NEXT_PUBLIC_SENTRY_DSN` env var → `apps/web/lib/sentry.ts` слетит с warn-once на live.
+- Накрыть: cron-swallows в `daily_plan_runner` / `digest_runner` / `automation_builder.safe_evaluate_trigger` (уже обёрнуты `capture()` через `app/common/sentry_capture.py`); `audit.log` swallow; новые свапы `lead_agent.{refresh_suggestion_async,scan_silence_async}` (Sprint 3.1 — добавить аналогичные обёртки).
+- Перед активацией — настроить Sentry-side rate-limit, иначе шумные cron'ы выжгут 5k/мес free-tier за неделю.
 
-### Phase A — Knowledge files in repo (~15 min)
-Copy artifacts into the repo:
-- `docs/skills/lead-ai-agent-skill.md`
-- `docs/knowledge/agent/product-foundation.md`
+## Tech debt (не блокирует, но накопилось)
 
-Both files are read from disk into a process-cached system prompt
-(`_FOUNDATION_CACHE` + `_SKILL_CACHE`), not stored in DB or Redis.
+- **`COPY docs ./docs` в `apps/api/Dockerfile`** — мусор после переезда knowledge-файлов в `apps/api/knowledge/agent/` (Sprint 3.1 PR #20). Сейчас копирует только спеки (`PRD-v2.0.md`, `brain/`, ADR'ы) в контейнер — безвредно, но лишний слой. Убрать одним маленьким PR.
+- **`?filter=rotting` / `?filter=followup_overdue` deep-link** — ждёт п.3.
+- **Маршруты `/notifications`, `/team`, `/knowledge`** — упоминаются в `CLAUDE.md` IA, но страниц нет: переход даёт 404. Уведомления открываются только через bell-drawer в AppShell. Решить: либо завести страницы, либо снять упоминания из `CLAUDE.md`.
+- **`pg_dump` cron на хосте** — `scripts/pg_dump_backup.sh` + `docs/crontab.example` лежат в репо с Sprint 2.4 G5; оператор ещё не повесил на хосте. Открытый риск с момента launch checklist'а Sprint 1.5.
+- **`AgentSuggestion` не несёт `manager_action`** — PATCH-эндпоинт «отметить совет принятым / проигнорированным» из спеки Sprint 3.1 не реализован. Текущее поведение: ✕ в баннере прячет его на сессию, следующий refresh пишет свежий — без аудита того, что менеджер сделал. Расширить схему + добавить PATCH когда станет нужно для метрик качества.
+- **Phase E `inbox/processor.py` countdown=900** — спека просила 15-минутную задержку перед агентом, проверить что parallel-агент в PR [#22](https://github.com/GlobalSasha/drinkx-crm/pull/22) реализовал именно так. Если nope — добавить `countdown=900` в `apply_async`.
+- **Stage-replacement preview в PipelineEditor** — карри с Sprint 2.3, при удалении/переименовании стадий лиды улетают в `stage_id=NULL`, UI не предупреждает. Sprint 2.4 polish carryover.
+- **Multi-clause condition UI** в Automation Builder — бэк поддерживает n-clause, фронт пока на одной строке.
 
-### Phase B — Migration 0022 (~30 min)
-ALTER TABLE leads ADD COLUMN agent_state JSONB NOT NULL DEFAULT '{}'.
-Pydantic shape:
+## Следующий free migration index
 
-```python
-class AgentState(BaseModel):
-    spin_phase: str | None = None          # "Situation" | "Problem" | "Implication" | "Need-payoff"
-    spin_notes: str | None = None
-    missing_contacts: list[str] = []       # ["economic_buyer", "champion"]
-    gate_blockers: list[str] = []
-    suggestions_log: list[SuggestionLog] = []
-    silence_alert_sent_at: datetime | None = None
-    last_analyzed_activity_id: str | None = None
-    coach_session_count: int = 0
-```
+`0023` — последняя занятая `0022_lead_agent_state` (Sprint 3.1 Phase B).
 
-### Phase C — Backend `app/lead_agent/` (~2–3 days)
-Package-per-domain (ADR-009). Modules:
-- `schemas.py` — AgentState, AgentSuggestion, ChatMessage, ChatRequest
-- `context.py` — LeadAgentContext: assembles full context for one lead via existing repos (no new DB queries)
-- `prompts.py` — builds system prompt from knowledge files (cached)
-- `runner.py` — calls LLM via `get_llm_provider()` fallback chain (Flash for background, Pro for chat)
-- `tasks.py` — Celery `lead_agent.background_check(lead_id)` + `scan_silence` (every 6h)
-- `routers.py` — 3 endpoints: GET `/leads/{id}/agent-suggestion`, POST `/leads/{id}/agent-chat`, PATCH `/leads/{id}/agent-suggestion/{suggestion_id}/action`
+## После завершения
 
-Rate limit: Redis key `agent_notif:{lead_id}` with TTL 24h prevents
-the same lead from generating multiple banner-recommendations per
-day.
-
-### Phase D — Frontend (~1 day)
-- `apps/web/components/lead/AgentBanner.tsx` — between header and tabs; shows when `suggestion.silent === false`; ✕ marks `manager_action='ignored'`; action buttons dispatch by `intent`
-- `apps/web/components/lead/SalesCoachDrawer.tsx` — FAB toggle, quick chips («Что делать дальше», «Напиши follow-up», «Разбери возражение», «Проверь готовность к переходу»), in-memory chat history (no DB persist in v1)
-
-### Phase E — Existing-code hooks (~2–3 hours)
-Two minimal hooks:
-1. `app/automation/stage_change.py` — at end of successful transition: `lead_agent_background_check.apply_async(args=[str(lead.id)])`
-2. `app/inbox/processor.py` — after new inbound email attached: `lead_agent_background_check.apply_async(args=[str(lead.id)], countdown=900)` (15 min delay so the manager has a chance to react before the agent fires)
-
-## NOT in this sprint
-
-- Streaming chat responses (Phase 3.2)
-- Persist chat history in DB
-- Manager rating of recommendations (thumbs up/down)
-- SPIN-analysis of inbound emails via LLM (pattern-match only for v1)
-- Telegram-notification of recommendations
-
-## Risks
-
-| Risk | Probability | Mitigation |
-|---|---|---|
-| LLM returns invalid JSON | Medium | Fallback to `silent=True`, never crash the parent flow |
-| Celery task storm with 200+ active leads | Low | Redis rate-limit key + 24h TTL skip |
-| Large context → expensive LLM call | Medium | Cap activities at 20, KB excerpts at 3 segment-matched blocks |
-| stage_changed hook blocks transition | Low | Use `.apply_async()` (fire-and-forget), never sync |
-| Migration index conflict (spec says 0013) | Resolved | Use 0022 instead — see «Migration index correction» above |
-| Phase A artifacts not provided | High | Ask user up front; don't start coding without the skill + foundation files |
-
-## Stop conditions — post-deploy smoke checklist
-
-Update `docs/SMOKE_CHECKLIST_3_1.md` with:
-- [ ] Open a lead card with last activity > 3 days ago
-- [ ] Manually trigger: `celery call lead_agent.background_check --args='["<lead_id>"]'`
-- [ ] Reload card → banner appears with title + body + 1–2 action buttons
-- [ ] Click action → `intent` dispatches correctly (composer / coach / gate)
-- [ ] Open Sales Coach → ask «что делать дальше» → response cites stage + AI Brief + recent activities
-- [ ] Close Sales Coach → `coach_session_count` incremented in `lead.agent_state`
-- [ ] Existing 9 prior 2.7 + 8 prior 2.6 + 7 prior 2.5 + 9 prior 2.4 smoke checks still pass
-
-## Done definition
-
-- Migration 0022 (`leads.agent_state`) applies cleanly via `alembic upgrade head` on staging
-- Background `lead_agent.background_check` Celery task fires for new inbound emails (15 min delay) and stage transitions (immediate); rate-limit key prevents duplicate banners within 24h
-- LeadCard banner renders + dismisses + action buttons fire
-- Sales Coach drawer end-to-end: open → first-message greeting → manager turn → contextual reply citing AI Brief + stage
-- ≥10 mock tests for prompt assembly, runner JSON parsing, scan_silence query shape, banner state transitions
-- `pnpm typecheck` + `pnpm build` clean
-- Sprint report written, brain memory rotated
-
----
-
-**Out-of-scope but parked here for awareness — fold into 3.2+:**
-
-(Inherited from Sprint 2.7 G3 + G4 deferral, now Sprint 2.8+ territory; reproduced here so the Sprint 3.1 session knows what's in the long-tail.)
-
-- tg channel outbound dispatch — Telegram Bot API client + `lead.tg_chat_id` migration + LeadCard input + `send_telegram` tri-state contract
-- Enrichment → Celery + WebSocket — `_bg_run` migration to `app.scheduled.jobs.enrichment_run`; `/ws/{user_id}` WebSocket; real-time progress on `/leads/{id}` AI Brief tab
-- SMS provider evaluation
-- Multi-tenancy (Phase 3.X+)
-- Workspace-level webhook trigger / action
-- AI-generated message bodies in templates
-- AmoCRM adapter
-- Telegram Business inbox + `gmail.send` scope
-- Quote / КП builder
-- Knowledge Base CRUD UI
-- `_GENERIC_DOMAINS` per-workspace setting
-- Gmail history-sync resumable / paginated job
-- Honeypot / timing trap on `embed.js`
-- Per-stage gate-criteria editor
-- Pipeline cloning / templates marketplace
-- Cross-pipeline reporting
-- DST-aware cron edge handling
-- Stage-replacement preview in PipelineEditor
-- Workspace AI override → fallback chain wiring
-- Multi-clause condition UI in the Automation Builder modal
-- Default pipeline 6–7 stages confirm
-- Custom-field boolean kind + autosave retry + keyboard nav
-- Auto-discover `lead.tg_chat_id` from Gmail inbox
-- Multi-step automation polish: dnd-kit reorder, pause-mid-chain UI, per-step retry on failure
+`docs/SMOKE_CHECKLIST_3_2.md` (или какой будет следующий) должен
+включить:
+- [ ] CI workflow на тестовом PR — все 3 шага зелёные
+- [ ] Force-push в main отвергается с понятной ошибкой
+- [ ] `/inbox`, `/settings`, `/automations` — кнопки primary видно как brand-accent (orange), не зелёный
+- [ ] `?filter=rotting` на `/pipeline` оставляет только rotting карточки; `?filter=followup_overdue` — только просроченные follow-up
+- [ ] Sentry получает test event с прода (backend `SENTRY_DSN` set + frontend Next.js plugin installed)
+- [ ] Уже работающие E2E smoke (Sprint 2.4 / 2.5 / 2.6 / 2.7 / 3.1 чек-листы) не сломались

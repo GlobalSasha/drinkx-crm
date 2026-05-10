@@ -22,6 +22,12 @@
 | ADR-018 | MiMo (Xiaomi) is primary LLM; chain MiMo → Anthropic → Gemini → DeepSeek | ✅ |
 | ADR-019 | Email ownership model — lead-scoped, not manager-scoped | ✅ |
 | ADR-020 | Widen `alembic_version.version_num` to VARCHAR(255) before each migration | ✅ |
+| ADR-021 | Single-workspace model — bootstrap joins existing | ✅ |
+| ADR-022 | `agent_state` lives on the lead row (JSONB), not in a separate table | ✅ |
+| ADR-023 | Lead Agent is named «Чак» — never «AI» / «ИИ» / «языковая модель» in user-facing text | ✅ |
+| ADR-024 | Brand-accent is `#FF4E00` (DrinkX orange), not `#1F4D3F` (legacy green) | ✅ |
+| ADR-025 | Activity-first lead card — default tab is `activity`, not `deal` | ✅ |
+| ADR-026 | Lead-agent knowledge files co-located with the API package | ✅ |
 
 ---
 
@@ -364,3 +370,185 @@ What this does NOT do:
   manager; only the first-ever user is admin. The admin can
   promote others manually via `/settings → Команда` once that lands
   in Sprint 2.4 G1.
+
+## ADR-022 `agent_state` lives on the lead row (JSONB), not a separate table
+
+Date: 2026-05-10
+Status: ✅
+Sprint: 3.1 Phase B (migration `0022_lead_agent_state`)
+
+Lead Agent state — current banner suggestion, last-analyzed activity
+id, coach session counter, future SPIN-phase / silence-alert
+timestamps — is stored on `leads.agent_state JSONB NOT NULL DEFAULT
+'{}'`. No separate `lead_agent_states` table.
+
+**Why JSONB on the lead, not a sibling table:**
+- One-to-one with `leads`. A separate table would be a 1:1 join on
+  every lead-card load, added without paying for a many-to-one
+  relationship anywhere.
+- Suggestion is a single current value, not a history. The
+  «suggestions log» from the Sprint 3.1 spec is intentionally
+  capped at the latest one in v1; longer history (for accept/ignore
+  rate metrics) is a Sprint 3.2+ concern and can move to a
+  `lead_agent_events` log table when that need is real.
+- Coach chat history lives **on the client** (in-component state in
+  `SalesCoachDrawer.tsx`), explicitly ephemeral. Persisting it would
+  trigger a privacy decision the team hasn't made.
+
+**Schema is opaque at the DB level.** The Pydantic shape (`AgentState`
+in `app/lead_agent/schemas.py`) can evolve without a migration as
+long as field additions are non-required and removals are tolerant
+of legacy keys. Existing rows backfilled to `{}` via `server_default`.
+
+**Trade-off:** can't index on `agent_state` keys without a
+GIN/expression index later. Acceptable in v1 — every read is
+single-lead anyway, indexed by `leads.id` PK.
+
+## ADR-023 Lead Agent is named «Чак», never «AI» in user-facing text
+
+Date: 2026-05-10
+Status: ✅
+Sprint: 3.1 (knowledge files + UI strings)
+
+Across UI labels, system prompts, banner copy, drawer header, and
+documentation visible to managers, the agent is called **Чак** — not
+«AI», «ИИ», «языковая модель», «алгоритм», «бот», «ассистент»
+(generic), or any other technical synonym.
+
+**Why a name, not a category:**
+- B2B managers run high-stakes conversations. A consistent named
+  collaborator («Чак говорит, что у клиента нет Economic Buyer»)
+  reads as a peer suggestion; «AI говорит» reads as a
+  recommendation from a black box that the manager will instinctively
+  discount.
+- Russian UX writing benefits from a single short subject. «Чак»
+  keeps banners and chat replies under the line-budget that «AI-
+  ассистент» eats up.
+- Pre-empts the «AI-disclaimer» reflex (every reply prefixed with
+  «Как языковая модель…») — the system prompt explicitly forbids it.
+
+**Where this binds:**
+- `apps/api/knowledge/agent/lead-ai-agent-skill.md` — system prompt
+  enforces tone + first-person framing.
+- `apps/api/app/lead_agent/prompts.py` — both `SUGGESTION_SYSTEM` and
+  `CHAT_SYSTEM` open with «Ты — Чак, персональный ассистент менеджера
+  по продажам DrinkX.»
+- `apps/web/components/lead-card/AgentBanner.tsx` — caption reads
+  «рекомендация чака».
+- `apps/web/components/lead-card/SalesCoachDrawer.tsx` — header «Чак ·
+  Sales Coach».
+- LeadCard FAB — «🤖 AI Coach» (the only public surface that still
+  carries «AI» — kept as the entry-point label so users coming from
+  CRM jargon can find the feature; once they open the drawer, they
+  meet Чак). Open question whether to rename the button to «Чак»;
+  parked.
+
+Internal code uses `lead_agent` package name and `AgentSuggestion` /
+`AgentChat*` schema names — internal identifiers stay technical.
+
+## ADR-024 Brand-accent is `#FF4E00`, not `#1F4D3F`
+
+Date: 2026-05-10
+Status: ✅
+Sprint: «UI/Design System overhaul» (May 2026, PRs #4 + carryovers)
+
+DrinkX brand color is **`#FF4E00`** (orange). The CRM's pre-Sprint-3.0
+codebase used `#1F4D3F` (dark green) as the accent — a placeholder
+from early prototyping that drifted into production. The Sprint 3.0
+UI overhaul (PR [#4](https://github.com/GlobalSasha/drinkx-crm/pull/4)
++ subsequent fix-ups in PRs #5–#10) replaces it with the brand
+palette.
+
+**Token plumbing:**
+- `apps/web/tailwind.config.ts` — `colors.brand.{accent, accent-text, accent-soft, primary, muted, muted-strong, muted-light, border, panel, bg, soft, canvas}` defined as the source of truth.
+- `apps/web/app/globals.css` — CSS variables `--brand-accent`, `--brand-soft`, etc. mirror the Tailwind values for non-Tailwind contexts (Tabler icons, third-party widgets).
+- `apps/web/lib/design-system.ts` — `C.color`, `C.button`, `C.form`, `C.bodyXs/Sm`, `C.btn/btnLg`, `C.metricSm`, `C.caption`. New components compose from `C.*` instead of hand-rolling utility strings.
+- `apps/web/lib/ui/priority.ts` — A/B/C/D priority chips re-mapped to the brand-accent ramp (Sprint 2.4 G5 carryover).
+
+**Migration policy:**
+- Old tokens (`bg-canvas`, `text-ink`, `text-accent` green, `bg-accent` green) **kept** in Tailwind config for back-compat — touching every component at once was infeasible.
+- New components / new screens **must** compose from `C.*` and `bg-brand-*` / `text-brand-*` only.
+- Existing screens migrated opportunistically: every Today / LeadCard / Pipeline change lands under the new palette. Three screens are still on legacy tokens at the time of this ADR — see `docs/brain/04_NEXT_SPRINT.md` priority 2.
+
+**Why a hard switch and not a per-screen feature flag:**
+The accent leaks across components — a Pipeline header on the brand
+palette next to a Settings page on the legacy palette is jarring and
+makes the old screens feel broken. One-shot switch + opportunistic
+migration > coexistence.
+
+## ADR-025 Activity-first lead card — default tab is `activity`
+
+Date: 2026-05-10
+Status: ✅
+Sprint: 3.0 UI overhaul (PR [#14](https://github.com/GlobalSasha/drinkx-crm/pull/14))
+
+When a manager opens `/leads/[id]`, the default tab is **«Активность»**
+(`activeTab='activity'`), not «Сделка» (`'deal'`). Deep-link
+`?tab=deal` overrides the default and continues to work.
+
+**Why:**
+- A manager comes to a lead card to **do** — write the next message,
+  log a call, see the last reply, set the next step — not to read
+  the deal parameters again. The activity feed is the working
+  surface; the deal tab is reference data.
+- The «Следующий шаг» commitment also moved into the Activity tab
+  (PR #14): saving it persists `lead.next_step` AND mirrors the same
+  text as a `task` activity in the feed. The two operations are now
+  one action on one screen.
+- A/B/C/D priority, score, blocker, and deal type — the things on
+  the «Сделка» tab — change weekly at most. Stale-anchored content
+  doesn't belong on the landing tab.
+
+**Implementation:**
+- `apps/web/components/lead-card/LeadCard.tsx` — `initialTab` falls
+  back to `'activity'` if `?tab=` is missing or invalid.
+- `ActivityTab` accepts the full `lead: LeadOut` (was just `leadId`)
+  so it can seed the «Следующий шаг» inputs from the current row.
+- `DealTab` no longer renders the «СЛЕДУЮЩИЙ ШАГ / СРОК» grid — the
+  state and handlers were dropped, sync effect cleaned up.
+
+## ADR-026 Lead-agent knowledge files co-located with the API package
+
+Date: 2026-05-10
+Status: ✅
+Sprint: 3.1 (PR [#20](https://github.com/GlobalSasha/drinkx-crm/pull/20))
+
+Lead Agent reads two knowledge files at runtime — **product
+foundation** (DrinkX product context) and **skill** (behavioural
+spec, SPIN methodology, output formats). Both live at:
+
+```
+apps/api/knowledge/agent/product-foundation.md
+apps/api/knowledge/agent/lead-ai-agent-skill.md
+```
+
+The earlier placement at repo `docs/skills/` and `docs/knowledge/agent/`
+was outside the API Docker build context (`apps/api/`), so on
+production the runner fell into its soft-fail branch and prompts
+shipped without the foundation block — degraded but functional.
+
+**Why co-locate, not change the build context:**
+- `apps/api/Dockerfile` already had `COPY knowledge ./knowledge` (the
+  enrichment KB has lived there since Sprint 1.3). Adding the agent
+  knowledge under the same root reaches the container at
+  `/app/knowledge/agent/...` with **zero** Dockerfile or `docker-compose.yml`
+  change.
+- Keeping the build context at `apps/api/` keeps the API image
+  surgical: it doesn't drag the whole monorepo (web sources, infra
+  docker files, ADRs) into the api/worker/beat layers.
+
+**Reader contract:**
+- `app/lead_agent/context.py` walks ancestors of `__file__` looking
+  for the first directory that contains
+  `knowledge/agent/product-foundation.md`. In dev that's `apps/api/`;
+  in prod that's `/app`. The walker is wrapped in `lru_cache(maxsize=1)`
+  so each worker process resolves once at boot.
+- `_read_relative()` returns `""` when the file isn't reachable
+  (renamed deploy layout, tests running from a stripped-down context),
+  with a one-time `lead_agent.knowledge.root_missing` warning. The
+  runner falls back to a foundation-less prompt and labels the agent
+  output as still functional but degraded.
+
+**Trade-off:** the spec doc `docs/SPRINT_3_1_LEAD_AI_AGENT.md`
+historically said «`docs/...` paths». PR #20 updated the spec to
+match — the canonical path is the runtime location.

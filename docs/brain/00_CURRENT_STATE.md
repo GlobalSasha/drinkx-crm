@@ -1,6 +1,14 @@
 # DrinkX CRM — Current State
 
-Last updated: 2026-05-10 (Sprint 2.7 DONE on branch `sprint/2.7-sentry-multistep`, PR [#12](https://github.com/GlobalSasha/crm/pull/12); G3 + G4 deferred to long-tail. Sprint 2.6 already merged into main.)
+Last updated: **2026-05-10 (Sprint 3.1 DONE — Lead AI Agent «Чак» live in production + UI/Design System overhaul shipped)**
+
+Snapshot: main is at commit `0f32f36` (PR [#20](https://github.com/GlobalSasha/drinkx-crm/pull/20)
+merged). Last successful deploy `Deploy to crm.drinkx.tech` ran at
+20:09 UTC on the same SHA — production responding, no soft-fail
+warnings in worker logs. Sprint 2.7 (Sentry + multistep automations)
+landed earlier in the same session via PRs [#12](https://github.com/GlobalSasha/drinkx-crm/pull/12)
++ [#17](https://github.com/GlobalSasha/drinkx-crm/pull/17) (sprint
+close).
 
 ## Phase 0 — COMPLETED ✅ (lives in `crm-prototype` repo)
 
@@ -30,13 +38,16 @@ Repo: https://github.com/GlobalSasha/drinkx-crm
 drinkx-api-1       FastAPI + Alembic, port 8000 (127.0.0.1)
 drinkx-web-1       Next.js 15 + standalone, port 3000 (127.0.0.1)
 drinkx-worker-1    Celery worker — concurrency=2
-drinkx-beat-1      Celery beat — 4 cron entries (unchanged in Sprint 2.1):
-                     :00 hourly  → daily_plan_generator
-                     :*/15       → followup_reminder_dispatcher
-                     :30 hourly  → daily_email_digest (Sprint 1.5)
-                     :*/5        → gmail_incremental_sync (Sprint 2.0)
-                   + Manual-trigger tasks (Sprint 2.1):
-                     bulk_import_run, run_bulk_update, run_export
+drinkx-beat-1      Celery beat — 6 cron entries (Sprint 2.7 G2 + Sprint 3.1 added 2):
+                     :00 hourly       → daily_plan_generator
+                     :*/15            → followup_reminder_dispatcher
+                     :30 hourly       → daily_email_digest (Sprint 1.5)
+                     :*/5             → gmail_incremental_sync (Sprint 2.0)
+                     :*/5             → automation_step_scheduler (Sprint 2.7 G2 — multistep chain step N+)
+                     :00 every 6h     → lead_agent_scan_silence (Sprint 3.1 — refresh banners on quiet leads)
+                   + Manual-trigger tasks:
+                     bulk_import_run, run_bulk_update, run_export (Sprint 2.1)
+                     lead_agent_refresh_suggestion (Sprint 3.1 — also fired by stage_change + inbox hooks)
 drinkx-postgres-1  Postgres 16
 drinkx-redis-1     Redis 7
 ```
@@ -464,7 +475,7 @@ Test baseline (mock-only): **112 passing** (108 → +4 G4 = 112; full sprint tra
 
 Stability audit summary: 0 CRITICAL remain, 2 of 4 HIGH fixed (template delete 409 + followups N+1). The remaining 2 HIGH (cron swallow, BackgroundTasks-strands-running) both depend on Sentry activation in Sprint 2.7 G1.
 
-### ✅ Sprint 2.7 — Sentry activation + multi-step automations (DONE — branch `sprint/2.7-sentry-multistep`, PR [#12](https://github.com/GlobalSasha/crm/pull/12), pending merge)
+### ✅ Sprint 2.7 — Sentry activation + multi-step automations (DONE — merged + deployed, PR [#12](https://github.com/GlobalSasha/drinkx-crm/pull/12) `d312410` + sprint close PR [#17](https://github.com/GlobalSasha/drinkx-crm/pull/17) `cf91253`)
 **3 of 5 planned gates shipped (G1 + G2 + G5); G3 + G4 deferred to long-tail by product decision.**
 
 Commit range: 3 commits on the branch (`65c5bef..HEAD`).
@@ -503,9 +514,99 @@ Operator follow-on (3 items, none blocking the merge):
 2. Set `SENTRY_DSN` (backend) + `NEXT_PUBLIC_SENTRY_DSN` (frontend) in `/opt/drinkx-crm/infra/production/.env`; redeploy via `deploy.sh`
 3. Configure Sentry-side rate limits before noisy crons burn the 5k/month free tier
 
-### ⏸ NOT YET BUILT (after Sprint 2.7)
-- **Sprint 3.1 — Lead AI Agent** — see `docs/SPRINT_3_1_LEAD_AI_AGENT.md`. Background mode (Celery task watching for paused conversations + sales-methodology gaps → banner-recommendation) + Foreground mode (Sales Coach chat drawer with full lead context). Phase A blocks on user providing the artifact files (`lead-ai-agent-skill.md` + `product-foundation.md`).
-- **Sprint 2.8 long-tail** — Sprint 2.7 G3 + G4 carryovers (tg outbound, Enrichment Celery+WS); multi-clause condition UI; AmoCRM adapter; Telegram Business inbox + email send (gmail.send scope); Quote/КП builder; Knowledge Base CRUD UI; multi-step automation polish (dnd-kit reorder, pause-mid-chain UI, per-step retry).
+### ✅ Sprint 3.1 — Lead AI Agent «Чак» (DONE — merged + deployed)
+
+PRs that landed Sprint 3.1:
+- [#18](https://github.com/GlobalSasha/drinkx-crm/pull/18) `369505a` — Phase A (knowledge-file placeholders) + Phase B (migration `0022_lead_agent_state`) + Phase C (`app/lead_agent/` package + 3 REST endpoints + Celery wrappers in `scheduled/jobs.py`)
+- [#19](https://github.com/GlobalSasha/drinkx-crm/pull/19) `89f3b24` — flip Docker build context for the API to repo root + `COPY docs ./docs` (alternative-approach PR; partly superseded by #20 below — see «Open issues» note 5)
+- [#20](https://github.com/GlobalSasha/drinkx-crm/pull/20) `0f32f36` — co-locate knowledge files at `apps/api/knowledge/agent/` so the existing `COPY knowledge ./knowledge` Dockerfile line ships them at `/app/knowledge/agent/...` (ADR-026)
+- [#22](https://github.com/GlobalSasha/drinkx-crm/pull/22) `e6a699e` — Phase D (frontend AgentBanner + SalesCoachDrawer + LeadCard wire-up) + Phase E (`stage_change.py` + `inbox/processor.py` hooks → `lead_agent_refresh_suggestion.delay()`)
+
+**Phase A — knowledge files** (live in production at `/app/knowledge/agent/`):
+- `apps/api/knowledge/agent/product-foundation.md` — 7259 chars: DrinkX positioning ("not a coffee machine — managed network platform"), S100→S400 lineup with S400 price 1 629 000 ₽, X-EXTRACT / AeroMilk / DrinkX Cloud / X-FLAVOR explainers, six-segment pain → argument map (Retail / АЗС / Hotels / QSR / Office), top-objections playbook, USP-by-situation matrix, voice/tone dictionary, hard «do-not» list (no model prices except S400, no X-GAS as shipping, no competitor name-and-shame, no fact-fabrication).
+- `apps/api/knowledge/agent/lead-ai-agent-skill.md` — 14044 chars: dual-mode behaviour (background monitor + foreground sales coach), `agent_state` JSON schema, SPIN-by-stage methodology (Situation/Problem at stages 1-2, P+I at stage 3, I+N at 4, multi-stakeholder discovery at 5, pilot management at 6-8, expansion at 9-11), banner output format, chat output format, refusal rules, integration contract.
+
+**Phase B — migration `0022_lead_agent_state`:**
+- `ALTER TABLE leads ADD COLUMN agent_state JSONB NOT NULL DEFAULT '{}'::jsonb`. Existing rows backfill to empty dict; the runner can read the column without None checks. Schema is owned by `app/lead_agent/schemas.AgentSuggestion` Pydantic model (opaque JSONB at the DB layer per ADR-022).
+
+**Phase C — backend `apps/api/app/lead_agent/`:**
+- `schemas.py` — `AgentSuggestion` (`text`, `action_label`, `confidence`), `ChatMessage`, `ChatRequest`/`ChatResponse`, `SuggestionResponse`. Pydantic v2, all fields default-permissive per `ConfigDict(extra="ignore")` for forward-compat.
+- `context.py` — `_find_knowledge_root` walks `__file__.parents` looking for `knowledge/agent/product-foundation.md`; both readers `lru_cache(maxsize=1)`; soft-fail (`""` + one-shot warning) when files unreachable. `build_lead_context(lead, *, stage_name)` renders a compact RU prompt block from the loaded `Lead` ORM object (company/segment/city/stage/priority/score/fit/deal_type/next_step/blocker/AI brief profile).
+- `prompts.py` — `SUGGESTION_SYSTEM` (Flash via `TaskType.prefilter`) + `CHAT_SYSTEM` (Pro via `TaskType.sales_coach`); foundation injected at 3000-char cap (`FOUNDATION_INJECT_CHARS`). Both prompts open with «Ты — Чак, …» (ADR-023).
+- `runner.py` — `get_suggestion(lead, *, stage_name)` returns `AgentSuggestion | None` (None on LLM down / parse error / validation failure — never crashes the caller). `chat(lead, message, history, *, stage_name)` returns `ChatResponse` with appended turn; on `LLMError` substitutes a polite RU fallback string instead of raising. Confidence rule: if `< 0.4` and the model attached an `action_label`, the runner drops the label so the UI doesn't prompt the manager to commit on shaky ground.
+- `tasks.py` — async cores `refresh_suggestion_async(lead_id)` (resolves stage name via `Stage.name` lookup → calls runner → writes to `lead.agent_state['suggestion']` with commit) and `scan_silence_async()` (sweep `assignment_status='assigned' AND archived_at IS NULL AND won_at IS NULL AND lost_at IS NULL` where `last_activity_at < now - 3d`, dispatches one `lead_agent_refresh_suggestion` per match). Per-task NullPool engine via `_build_factory()` shim around the existing `_build_task_engine_and_factory` (ADR-019 carryover for asyncio loop bind).
+- `routers.py` — 3 endpoints under `/api/leads/{lead_id}/agent`: `GET /suggestion` (cheap read of cached row, no LLM), `POST /suggestion/refresh` (202 + queues Celery), `POST /chat` (synchronous Sales Coach turn). Workspace isolation via `app.leads.repositories.get_by_id`.
+- Sync wrappers in `app/scheduled/jobs.py` (`lead_agent_refresh_suggestion(lead_id)` + `lead_agent_scan_silence()`) follow the project convention — Celery `@task` lives in the central registry, async core stays domain-local.
+
+**Phase D — frontend (`apps/web/`):**
+- `lib/hooks/use-lead-agent.ts` — `useAgentSuggestion(leadId)` (cached read), `useRefreshSuggestion(leadId)` (POST + 4-second-delayed invalidate of the suggestion query so the worker has time to land), `useAgentChat(leadId)` (one-shot mutation).
+- `components/lead-card/AgentBanner.tsx` — between the LeadCard sticky header and the rail/tab grid; hides when no suggestion or when dismissed locally; refresh icon + ✕; action button gated by `confidence >= 0.4` calls `onAction()` upward to open the drawer with a seed message.
+- `components/lead-card/SalesCoachDrawer.tsx` — right-side slide-in on desktop, full-screen on mobile; in-component (ephemeral) message history; local greeting + 4 quick chips («Что делать дальше», «Напиши follow-up», «Разбери возражение», «Готов ли к переходу»); optional `seedMessage` fires once on open via `useRef` guard; auto-scroll on new turns.
+- `components/lead-card/LeadCard.tsx` — `<AgentBanner>` mounted at the top of `<main>`; floating «🤖 AI Coach» button at `fixed bottom-6 right-6 z-30` (suppressed while drawer is open); `<SalesCoachDrawer>` mounted always (short-circuits when `open=false`).
+
+**Phase E — automation hooks:**
+- `app/automation/stage_change.py` post-actions block fires `lead_agent_refresh_suggestion.delay(str(lead.id))` after a successful stage transition — agent re-evaluates the lead with the new stage in context.
+- `app/inbox/processor.py` after the inbound email is attached fires `lead_agent_refresh_suggestion.apply_async(args=[str(lead.id)], countdown=900)` — 15-minute pause per spec so the manager has a chance to react before the agent surfaces a banner.
+
+**REST surface (deployed, returning 200 from prod):**
+- `GET  /api/leads/{lead_id}/agent/suggestion` → `{suggestion: AgentSuggestion | null}`
+- `POST /api/leads/{lead_id}/agent/suggestion/refresh` → 202 `{status: "queued", lead_id}`
+- `POST /api/leads/{lead_id}/agent/chat` → `{reply: string, updated_history: ChatMessage[]}`
+
+Test baseline: existing 388-test pytest collection + new lead_agent module collected without import errors (no new mock tests in this sprint — manual smoke + soft-fail contract relied on in PR descriptions).
+
+ADRs: **ADR-022** (agent_state JSONB on lead, no separate table), **ADR-023** («Чак» naming, no «AI/ИИ» in user-facing text), **ADR-026** (knowledge files co-located with API package).
+
+### ✅ UI / Design System overhaul — DONE (merged + deployed)
+
+13-PR sweep across May 2026, no single sprint number. Took the
+codebase from a half-themed «zero design system» state to a
+cohesive brand palette + design tokens + redesigned `/today` and
+LeadCard.
+
+**Brand palette switch (ADR-024):**
+- `apps/web/lib/design-system.ts` — `C` token object: `C.color.{text, muted, mutedLight, accent}`, `C.button.{primary, ghost, pill, nav}`, `C.form.{label, field}`, `C.bodyXs/Sm`, `C.btn/btnLg`, `C.metricSm`, `C.caption`. New components compose from `C.*` instead of hand-rolled utility strings.
+- `apps/web/tailwind.config.ts` — `colors.brand.{accent, accent-text, accent-soft, primary, muted, muted-strong, muted-light, border, panel, bg, soft, canvas}` palette source-of-truth. Brand-accent is `#FF4E00` (orange).
+- `apps/web/app/globals.css` — CSS variables `--brand-accent`, `--brand-soft`, etc. for non-Tailwind contexts.
+- 42-file sweep replaced `bg-accent / text-accent` (legacy green) with `bg-brand-accent / text-brand-accent`.
+- `apps/web/lib/ui/priority.ts` — A/B/C/D priority chips re-mapped to brand-accent ramp.
+- AppShell — sliding-pill nav animation, `bg-brand-soft` active state.
+
+**Today screen rewrite (PRs #6–#11):**
+- 9-widget dashboard with `@dnd-kit/sortable` drag-and-drop persisted per user via `localStorage[today_widgets_${userId}]`.
+- Time-of-day greeting with emoji (🌅 morning / ☀️ midday / 🌆 evening / 🌙 night) + first-name resolution from Supabase user metadata.
+- Widgets: `w-tasks` (counter), `w-followup` (counter), `w-rotting` (counter), `w-pipeline` (counter), `w-focus` (top-4 leads by `score + priority_rank`), `w-tasklist` (daily-plan items, paginated 4/page, inline quick-add), `w-chak` (Чак insights — mock until Sprint 3.1 ships richer data into agent_state), `w-funnel` (stage-distribution bar), `w-notif` (full-width strip).
+- All wired to real API hooks: `useTodayPlan`, `useFollowupsPending` (new — see new endpoint below), `useLeads`, `usePipelines`, `useNotificationsList`. Skeleton loading + em-dash fallback on errors.
+- TaskListWidget v2: real time string from `due_at`, truncate + `title=` tooltip on company name, dot pagination, inline quick-add task creation.
+- Click-through everywhere: counter cards link to filtered `/pipeline` views (`?filter=rotting`, `?filter=followup_overdue`), focus rows go to `/leads/{id}`, funnel rows to `/pipeline?stage={id}`. Notifications row marks-as-read via `useMarkRead`.
+- New endpoint `GET /me/followups-pending` (Sprint 3.0 PR [#7](https://github.com/GlobalSasha/drinkx-crm/pull/7)) → `{pending_count, overdue_count}` for the counter widget.
+
+**Lead Card overhaul:**
+- Default tab `activity`, not `deal` (ADR-025). Deep-link `?tab=*` overrides.
+- «Следующий шаг» moved from Deal tab into Activity tab — saving persists `lead.next_step` AND mirrors as a `task` activity. Two operations, one screen.
+- A/B/C/D priority buttons get `title=` tooltips with tier descriptions.
+- «SCORE» label → «ОЦЕНКА ЛИДА». «FOLLOW-UPS» rail header → «ЭТАПЫ РАБОТЫ».
+- Priority+score panel capped at `max-w-lg`.
+- New «Вернуть в базу» button (POST `/leads/{id}/unclaim` — new endpoint added in PR #13). Visible only when `lead.assigned_to === me.id`. On success → `router.push('/pipeline')`.
+
+**Pipeline overhaul (PR #13):**
+- Direct nav from cards (`router.push(/leads/${id})` instead of opening BriefDrawer).
+- `BriefDrawer.tsx` deleted (289 lines); `pipeline-store.ts` cleaned of `selectedLead`, `visibleLeads`, `openDrawer`, `closeDrawer`, `navigateDrawer`, `LeadOut` type-only import.
+- Deep-link `?stage={id}` scrolls the matching column horizontally into view via `id="stage-col-{id}"` on `PipelineColumn`.
+- `?filter=rotting` / `?filter=followup_overdue` are **read** but not yet **applied** — see «Open issues» note 1.
+
+**Russian-language sweep (17 files):**
+- Pipeline → Воронка, Inbox → Входящие, Settings → Настройки, etc.
+- Kept on English with justification: `Slug`, `Fit`, `Follow-up`, `Gmail`/`Telegram`/`LinkedIn`, `AI`, `HoReCa`/`QSR` (industry shorthand).
+
+**Infra:**
+- ESLint 9 flat config via FlatCompat (PR [#5](https://github.com/GlobalSasha/drinkx-crm/pull/5)) — 14 pre-existing warnings, 0 errors.
+- Prototype carryovers (in `crm-prototype` repo, not this repo): brief-drawer → centered modal; manager-profile screen + onboarding profile fields.
+- CLAUDE.md doc updates (PR [#16](https://github.com/GlobalSasha/drinkx-crm/pull/16)) — bare-metal deploy story (not Vercel/Railway), Pre-PR checklist requiring `pnpm build` (typed-route + Suspense rules only fire under `next build`, not `tsc --noEmit`). Three deploys in May 2026 were killed by errors `tsc` passed before this rule was written down — see PR [#15](https://github.com/GlobalSasha/drinkx-crm/pull/15) hotfix.
+
+### ⏸ NOT YET BUILT (after Sprint 3.1)
+- **Infrastructure & Polish (next sprint)** — see `docs/brain/04_NEXT_SPRINT.md`. CI workflows + branch protection on `main`; remaining design-system carryover screens (`/inbox`, `/settings`, `/automations`); pipeline quick-filters wiring (`?filter=rotting` / `?filter=followup_overdue` → `pipelineStore.setQuickFilter`); Sentry activation (DSN env vars + `pnpm add @sentry/nextjs`).
+- **Sprint 2.8 long-tail** — Sprint 2.7 G3 + G4 carryovers (tg outbound, Enrichment Celery+WS); multi-clause condition UI; AmoCRM adapter; Telegram Business inbox + email send (gmail.send scope); Quote/КП builder; Knowledge Base CRUD UI; multi-step automation polish (dnd-kit reorder, pause-mid-chain UI, per-step retry); `AgentSuggestion.manager_action` extension when recommendation-quality metrics matter.
 - **Phase 3** — Multi-tenancy (invite-flow + per-tenant routing for second client), MCP server, OCR визиток, pgvector
 
 ---
@@ -572,26 +673,38 @@ User-provided keys in `/opt/drinkx-crm/infra/production/.env`:
     to `stage_id=NULL` (FK SET NULL). The UI does NOT surface «N
     лидов потеряют стадию» before save. Sprint 2.4 polish.
 
+### Post-Sprint-3.1 / UI overhaul tech debt (folded into next sprint)
+
+13. **No CI on PR.** Three May 2026 deploys (after PR #14, #13, #11 merges) failed in the `Deploy to crm.drinkx.tech` Action because `tsc --noEmit` doesn't catch Next.js typed-route widening or `useSearchParams` Suspense rule violations — only `next build` does. Fixed reactively in PR [#15](https://github.com/GlobalSasha/drinkx-crm/pull/15) + documented in CLAUDE.md, but CI on PR is the right long-term solution. **No branch protection on `main`** either — anyone can force-push.
+14. **Pipeline quick-filters are no-op'd.** `?filter=rotting` and `?filter=followup_overdue` are read in `pipeline/page.tsx` but the `useEffect` body doesn't apply them — `usePipelineStore` has no matching action / state field. Added in Sprint 3.0 click-through wave (PR #11) on the assumption the wiring would land soon. Tracked in `04_NEXT_SPRINT.md` priority 3.
+15. **Three screens still on legacy design tokens.** `/inbox`, `/settings` (+ all sub-sections), and `/automations` use the old `bg-canvas / text-accent`-green palette. New screens (`/today`, `/leads/[id]`, `/pipeline`) are on `C.*` + `bg-brand-*`. Visual mismatch is jarring on session-wide nav. `04_NEXT_SPRINT.md` priority 2.
+16. **`COPY docs ./docs` in `apps/api/Dockerfile` is now cosmetic.** PR [#19](https://github.com/GlobalSasha/drinkx-crm/pull/19) added it to ship the agent knowledge into the container; PR [#20](https://github.com/GlobalSasha/drinkx-crm/pull/20) then moved knowledge into `apps/api/knowledge/agent/`, leaving the COPY line copying only spec docs (`PRD-v2.0.md`, `brain/`, `SPRINT_*.md`) into `/app/docs/`. Harmless but lint-flag-worthy. Tracked in `04_NEXT_SPRINT.md` tech debt.
+17. **Routes `/notifications`, `/team`, `/knowledge` referenced in `CLAUDE.md` IA but pages don't exist.** Hitting them → 404. Notifications have a bell-drawer in AppShell so the feature isn't lost; `/team` is implicit (Settings → Команда); `/knowledge` is just unbuilt. Decide between «build» and «delete from IA».
+18. **`AgentSuggestion.manager_action` field not implemented.** Sprint 3.1 spec called for `PATCH /api/leads/{id}/agent/suggestion/{id}/action` to log accept/ignore. Phase D simplified — ✕ on the banner only hides locally for the session, no server-side trace. When recommendation-quality metrics matter, extend the schema.
+19. **`pg_dump` cron still not on host.** `scripts/pg_dump_backup.sh` and `docs/crontab.example` shipped in Sprint 2.4 G5; operator hasn't installed. Soft-launch checklist carryover since Sprint 1.5.
+
 Resolved this sprint:
 - ~~Stuck `DailyPlan` row from the asyncpg loop bug~~ — flipped to `failed` mid-sprint via the production debugging session; `regenerate_for_user` end-to-end confirmed working (24 items, 27s).
 
 ---
 
 ## Next
-**Sprint 3.1 — Lead AI Agent** is the next product-shaped slice.
-Spec lives in `docs/SPRINT_3_1_LEAD_AI_AGENT.md` (saved during
-Sprint 2.7 G5 close). Branch `sprint/3.1-lead-ai-agent` to be cut
-from main after Sprint 2.7 PR #12 lands.
 
-**Phase A is blocked on the user** — the spec references two
-artifact files (`docs/skills/lead-ai-agent-skill.md` and
-`docs/knowledge/agent/product-foundation.md`) that haven't been
-provided yet. The next Claude session for Sprint 3.1 should
-ask for them before starting Phase A.
+**«Infrastructure & Polish» sprint** — see `docs/brain/04_NEXT_SPRINT.md`.
 
-Carryovers from 2.7 deferred to Sprint 2.8+:
-- tg channel outbound dispatch (G3 carryover — Telegram Bot API + `lead.tg_chat_id` migration)
-- Enrichment → Celery + WebSocket (G4 carryover — when manager-facing real-time progress becomes a priority)
-- Multi-step automation polish: dnd-kit reorder in builder, pause-mid-chain UI, per-step retry on failure
+After Sprint 3.1 closed the Lead Agent loop, the next priority isn't
+a new feature — it's hardening the deploy pipeline and finishing the
+brand-palette migration on the three screens that didn't make it into
+the May 2026 UI sweep (`/inbox`, `/settings`, `/automations`).
 
-Active migrations on `sprint/2.7-sentry-multistep`: `0001..0021` (added 0021_automation_steps in G2). Next free index for Sprint 3.1: `0022`.
+Priority order:
+1. CI on PR (`pnpm build` + `tsc` + `eslint` for web, `pytest` + `mypy` for api) + branch protection on `main`. May 2026 burned three deploys to typed-route / Suspense bugs that `tsc --noEmit` misses; CI has to run the real `next build`.
+2. Design-system carryover screens — sweep `bg-canvas / text-accent green` → `C.*` + `bg-brand-*` palette.
+3. Pipeline quick-filters — wire `?filter=rotting` / `?filter=followup_overdue` query params (currently read but no-op'd).
+4. Sentry DSN activation (operator step — chokepoint already exists since Sprint 2.7 G1).
+
+Active migrations on main: `0001..0022` (last is `0022_lead_agent_state` from Sprint 3.1). **Next free index: `0023`.**
+
+Beat schedule on main: 6 cron entries (was 4 at end of Sprint 2.6) — Sprint 2.7 added `automation_step_scheduler` (every 5m), Sprint 3.1 added `lead_agent_scan_silence` (every 6h).
+
+Production state at session close: `crm.drinkx.tech` healthy, last successful deploy was the PR #20 merge at `0f32f36` (4m9s, 20:09 UTC). All 6 containers up, agent banner returning 200 from prod for sample lead UUIDs. Soft-fail warning `lead_agent.knowledge.root_missing` not present in worker logs — knowledge files are reachable at `/app/knowledge/agent/*` per ADR-026.
