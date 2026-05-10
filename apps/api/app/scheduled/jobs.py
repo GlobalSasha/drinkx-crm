@@ -116,6 +116,18 @@ def automation_step_scheduler() -> dict:
     return asyncio.run(_run("automation_step_scheduler", _core))
 
 
+@celery_app.task(name="app.scheduled.jobs.lead_agent_refresh_suggestion")
+def lead_agent_refresh_suggestion(lead_id: str) -> dict:
+    """Sprint 3.1 Phase C — recompute the lead-agent suggestion for one
+    lead. Triggered manually from `POST /leads/{id}/agent/suggestion/refresh`
+    (3.1+ may also fire it from automation hooks). The async core lives
+    in `app.lead_agent.tasks` to keep domain code self-contained; this
+    wrapper is the standard sync entry-point Celery requires."""
+    from app.lead_agent.tasks import refresh_suggestion_async
+
+    return asyncio.run(refresh_suggestion_async(UUID(lead_id)))
+
+
 def _build_task_engine_and_factory():
     """Each Celery task needs its own engine because asyncio.run() creates a
     fresh event loop per invocation, while asyncpg connections are bound to
