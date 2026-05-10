@@ -1,19 +1,18 @@
 "use client";
+import { useRouter } from "next/navigation";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { AlertTriangle, Clock } from "lucide-react";
 import type { LeadOut } from "@/lib/types";
-import { usePipelineStore } from "@/lib/store/pipeline-store";
 import { priorityChip } from "@/lib/ui/priority";
 import { C } from "@/lib/design-system";
 
 interface Props {
   lead: LeadOut;
-  visibleLeads: LeadOut[];
 }
 
-export function PipelineLeadCard({ lead, visibleLeads }: Props) {
-  const { openDrawer } = usePipelineStore();
+export function PipelineLeadCard({ lead }: Props) {
+  const router = useRouter();
 
   const {
     attributes,
@@ -45,7 +44,7 @@ export function PipelineLeadCard({ lead, visibleLeads }: Props) {
       style={style}
       {...attributes}
       {...listeners}
-      onClick={() => openDrawer(lead, visibleLeads)}
+      onClick={() => router.push(`/leads/${lead.id}`)}
       className="font-sans bg-white border border-brand-border rounded-2xl p-3 cursor-pointer select-none transition-opacity duration-200"
     >
       {/* Company name */}

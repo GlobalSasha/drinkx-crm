@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ChevronDown,
@@ -12,7 +12,8 @@ import {
 } from "lucide-react";
 import { useLead, useUpdateLead } from "@/lib/hooks/use-lead";
 import { usePipelines, DEFAULT_STAGES } from "@/lib/hooks/use-pipelines";
-import { useMoveStage } from "@/lib/hooks/use-leads";
+import { useMoveStage, useUnclaimLead } from "@/lib/hooks/use-leads";
+import { useMe } from "@/lib/hooks/use-me";
 import type { Stage } from "@/lib/types";
 import { dealTypeLabel, priorityLabel } from "@/lib/i18n";
 import { DealTab } from "./DealTab";
@@ -76,6 +77,9 @@ export function LeadCard({ leadId }: Props) {
   const pipelinesQuery = usePipelines();
   const updateLead = useUpdateLead(leadId);
   const moveStage = useMoveStage();
+  const unclaim = useUnclaimLead();
+  const me = useMe().data;
+  const router = useRouter();
 
   // `?tab=activity` (and friends) seeds the initial tab when arriving
   // from a deep-link. Only honored once on mount — explicit clicks
@@ -162,6 +166,13 @@ export function LeadCard({ leadId }: Props) {
     const lost = stages.find((s) => s.is_lost);
     if (!lost || !lead) return;
     setLostStage(lost);
+  }
+
+  function handleReturnToPool() {
+    if (!lead || unclaim.isPending) return;
+    unclaim.mutate(leadId, {
+      onSuccess: () => router.push("/pipeline"),
+    });
   }
 
   if (isLoading) {
@@ -302,6 +313,19 @@ export function LeadCard({ leadId }: Props) {
 
             {/* Right actions — wraps onto a second line on narrow viewports */}
             <div className="flex flex-wrap items-center gap-2 mt-1 w-full sm:w-auto sm:shrink-0">
+              {/* Return to pool — only visible when the current user
+                  owns the lead. Backend rejects with 403 otherwise, but
+                  hiding the button avoids surfacing that error. */}
+              {lead.assigned_to === me?.id && (
+                <button
+                  onClick={handleReturnToPool}
+                  disabled={unclaim.isPending}
+                  className={`px-4 py-1.5 ${C.btnLg} font-semibold ${C.button.ghost} disabled:opacity-40 disabled:cursor-not-allowed transition-opacity`}
+                >
+                  Вернуть в базу
+                </button>
+              )}
+
               {/* Transfer */}
               <button
                 onClick={() => setTransferOpen(true)}

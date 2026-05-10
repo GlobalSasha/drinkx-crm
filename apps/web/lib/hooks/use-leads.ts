@@ -232,3 +232,19 @@ export function useClaimLead() {
     },
   });
 }
+
+/**
+ * POST /leads/{id}/unclaim — release the lead back to the workspace pool.
+ * Backend rejects with 403 unless the current user is the owner.
+ */
+export function useUnclaimLead() {
+  const qc = useQueryClient();
+  return useMutation<LeadOut, ApiError, string>({
+    mutationFn: (leadId) => api.post<LeadOut>(`/leads/${leadId}/unclaim`),
+    onSuccess: (_data, leadId) => {
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      qc.invalidateQueries({ queryKey: ["leads-pool"] });
+      qc.invalidateQueries({ queryKey: ["lead", leadId] });
+    },
+  });
+}

@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import type { LeadOut } from "@/lib/types";
 
 interface PipelineFilters {
   segment: string | null;
@@ -77,13 +76,6 @@ interface PipelineStore {
   importWizardOpen: boolean;
   openImportWizard: () => void;
   closeImportWizard: () => void;
-
-  // Brief drawer
-  selectedLead: LeadOut | null;
-  visibleLeads: LeadOut[]; // current ordered leads for arrow key nav
-  openDrawer: (lead: LeadOut, visibleLeads: LeadOut[]) => void;
-  closeDrawer: () => void;
-  navigateDrawer: (dir: -1 | 1) => void;
 }
 
 export const usePipelineStore = create<PipelineStore>((set, get) => ({
@@ -135,16 +127,4 @@ export const usePipelineStore = create<PipelineStore>((set, get) => ({
   importWizardOpen: false,
   openImportWizard: () => set({ importWizardOpen: true }),
   closeImportWizard: () => set({ importWizardOpen: false }),
-
-  selectedLead: null,
-  visibleLeads: [],
-  openDrawer: (lead, visibleLeads) => set({ selectedLead: lead, visibleLeads }),
-  closeDrawer: () => set({ selectedLead: null }),
-  navigateDrawer: (dir) => {
-    const { selectedLead, visibleLeads } = get();
-    if (!selectedLead) return;
-    const idx = visibleLeads.findIndex((l) => l.id === selectedLead.id);
-    const next = visibleLeads[idx + dir];
-    if (next) set({ selectedLead: next });
-  },
 }));

@@ -182,6 +182,26 @@ async def claim_lead(
     return lead  # type: ignore[return-value]
 
 
+@router.post("/{lead_id}/unclaim", response_model=LeadOut)
+async def unclaim_lead(
+    lead_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> LeadOut:
+    """Return a lead the current user owns back to the workspace pool."""
+    try:
+        lead = await services.unclaim_lead(db, user.workspace_id, user.id, lead_id)
+    except LeadNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+    except LeadNotOwnedByUser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Можно вернуть в базу только свой лид",
+        )
+    await db.commit()
+    return lead  # type: ignore[return-value]
+
+
 @router.post("/{lead_id}/transfer", response_model=LeadOut)
 async def transfer_lead(
     lead_id: UUID,

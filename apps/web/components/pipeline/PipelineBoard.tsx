@@ -115,15 +115,12 @@ export function PipelineBoard({ stages, leads }: Props) {
               key={stage.id}
               stage={stage}
               leads={leadsPerStage[stage.id] ?? []}
-              allVisibleLeads={leads}
             />
           ))}
         </div>
 
         <DragOverlay>
-          {activeLead ? (
-            <PipelineLeadCard lead={activeLead} visibleLeads={leads} />
-          ) : null}
+          {activeLead ? <PipelineLeadCard lead={activeLead} /> : null}
         </DragOverlay>
       </DndContext>
 

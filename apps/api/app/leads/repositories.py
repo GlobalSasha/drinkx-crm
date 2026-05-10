@@ -166,6 +166,35 @@ async def claim_lead(
     return result.scalar_one_or_none()
 
 
+async def unclaim_lead(
+    db: AsyncSession,
+    lead_id: uuid.UUID,
+    workspace_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> Lead | None:
+    """Atomic UPDATE that returns a lead to the pool. Returns None if the
+    lead isn't assigned to `user_id` (so callers can surface a 403/404).
+    """
+    stmt = (
+        update(Lead)
+        .where(
+            Lead.id == lead_id,
+            Lead.workspace_id == workspace_id,
+            Lead.assigned_to == user_id,
+            Lead.assignment_status == "assigned",
+        )
+        .values(
+            assigned_to=None,
+            assigned_at=None,
+            assignment_status="pool",
+        )
+        .returning(Lead)
+    )
+    result = await db.execute(stmt)
+    await db.flush()
+    return result.scalar_one_or_none()
+
+
 async def claim_sprint(
     db: AsyncSession,
     workspace_id: uuid.UUID,
