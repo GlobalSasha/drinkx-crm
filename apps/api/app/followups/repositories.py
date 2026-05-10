@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.followups.models import Followup
+from app.leads.models import Lead
 
 
 async def list_for_lead(db: AsyncSession, lead_id: uuid.UUID) -> list[Followup]:
@@ -65,3 +67,41 @@ async def bulk_seed_for_lead(
     for fu in created:
         await db.refresh(fu)
     return created
+
+
+async def count_pending_for_user(
+    db: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    workspace_id: uuid.UUID,
+    now: datetime,
+) -> tuple[int, int]:
+    """Single-query counter for the Today follow-up widget.
+
+    Returns (pending_count, overdue_count). One round-trip via the
+    PostgreSQL `COUNT(*) FILTER (WHERE …)` aggregate.
+    """
+    cutoff_24h = now + timedelta(hours=24)
+    pending_pred = and_(
+        Followup.due_at.is_not(None),
+        Followup.due_at <= cutoff_24h,
+    )
+    overdue_pred = and_(
+        Followup.due_at.is_not(None),
+        Followup.due_at < now,
+    )
+    stmt = (
+        select(
+            func.count().filter(pending_pred).label("pending"),
+            func.count().filter(overdue_pred).label("overdue"),
+        )
+        .select_from(Followup)
+        .join(Lead, Lead.id == Followup.lead_id)
+        .where(
+            Lead.assigned_to == user_id,
+            Lead.workspace_id == workspace_id,
+            Followup.status.in_(("pending", "active")),
+        )
+    )
+    row = (await db.execute(stmt)).one()
+    return int(row.pending), int(row.overdue)

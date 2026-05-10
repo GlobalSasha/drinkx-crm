@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.followups import repositories as repo
 from app.followups.models import Followup, FollowupStatus, ReminderKind
+from app.followups.schemas import FollowupsPendingOut
 from app.leads import repositories as leads_repo
 from app.leads.services import LeadNotFound
 
@@ -105,3 +106,19 @@ async def complete_followup(
 
 async def seed_for_lead(db: AsyncSession, lead_id: uuid.UUID) -> None:
     await repo.bulk_seed_for_lead(db, lead_id, DEFAULT_FOLLOWUPS)
+
+
+async def get_pending_counts_for_user(
+    db: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    workspace_id: uuid.UUID,
+) -> FollowupsPendingOut:
+    """Aggregate counters for the Today follow-up widget — see repo."""
+    pending, overdue = await repo.count_pending_for_user(
+        db,
+        user_id=user_id,
+        workspace_id=workspace_id,
+        now=datetime.now(timezone.utc),
+    )
+    return FollowupsPendingOut(pending_count=pending, overdue_count=overdue)

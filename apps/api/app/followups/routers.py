@@ -1,4 +1,6 @@
-"""Followups REST endpoints — nested under /leads/{lead_id}/followups."""
+"""Followups REST endpoints — nested under /leads/{lead_id}/followups,
+plus a small /me/* router for cross-lead aggregates used by the Today
+screen widgets."""
 from __future__ import annotations
 
 from typing import Annotated
@@ -11,10 +13,31 @@ from app.auth.dependencies import current_user
 from app.auth.models import User
 from app.db import get_db
 from app.followups import services
-from app.followups.schemas import FollowupCreate, FollowupOut, FollowupUpdate
+from app.followups.schemas import (
+    FollowupCreate,
+    FollowupOut,
+    FollowupsPendingOut,
+    FollowupUpdate,
+)
 from app.leads.services import LeadNotFound
 
 router = APIRouter(prefix="/leads/{lead_id}/followups", tags=["followups"])
+
+# Separate router for /me/* paths — they don't share the lead-scoped
+# prefix, so they can't sit on `router` above. Both get registered in
+# app/main.py.
+me_router = APIRouter(tags=["followups"])
+
+
+@me_router.get("/me/followups-pending", response_model=FollowupsPendingOut)
+async def get_my_followups_pending(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(current_user)],
+) -> FollowupsPendingOut:
+    """Counters for the Today follow-up widget. See FollowupsPendingOut."""
+    return await services.get_pending_counts_for_user(
+        db, user_id=user.id, workspace_id=user.workspace_id
+    )
 
 
 @router.get("", response_model=list[FollowupOut])

@@ -4,13 +4,27 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api-client";
-import type { FollowupOut, FollowupCreate, FollowupUpdate } from "@/lib/types";
+import type {
+  FollowupOut,
+  FollowupCreate,
+  FollowupUpdate,
+  FollowupsPendingOut,
+} from "@/lib/types";
 
 export function useFollowups(leadId: string) {
   return useQuery<FollowupOut[]>({
     queryKey: ["followups", leadId],
     queryFn: () => api.get<FollowupOut[]>(`/leads/${leadId}/followups`),
     enabled: !!leadId,
+  });
+}
+
+/** Counters for the Today follow-up widget. */
+export function useFollowupsPending() {
+  return useQuery<FollowupsPendingOut>({
+    queryKey: ["followups", "pending", "me"],
+    queryFn: () => api.get<FollowupsPendingOut>("/me/followups-pending"),
+    staleTime: 60_000,
   });
 }
 
