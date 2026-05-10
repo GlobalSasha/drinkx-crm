@@ -133,6 +133,83 @@ def select_lead_for_agent(lead_id: UUID):
 
 
 async def scan_silence_async() -> dict:
+    """Async core for the `lead_agent_scan_silence` beat task — Sprint 3.1.
+
+    Every 6 hours sweep active (assigned, non-archived, non-terminal)
+    leads whose `last_activity_at` is older than `SCAN_SILENCE_DAYS`
+    and dispatch `lead_agent_refresh_suggestion` for each — one
+    Celery message per lead, processed in the worker pool. Beat
+    itself stays light: a single SELECT, then `apply_async` per row.
+
+    Idempotent: refresh is safe to call repeatedly; the runner
+    overwrites `agent_state['suggestion']` on success and leaves it
+    untouched on failure. We don't hold a Redis dedupe key here —
+    the daily 4×6h cadence is far below any per-lead rate limit
+    we'd want.
+    """
+    from app.leads.models import Lead
+
+    engine, factory = _build_factory()
+    cutoff = datetime.now(tz=timezone.utc) - timedelta(days=SCAN_SILENCE_DAYS)
+    queued = 0
+    skipped_no_activity_ts = 0
+
+    try:
+        async with factory() as session:
+            res = await session.execute(
+                select(Lead.id, Lead.last_activity_at).where(
+                    Lead.assignment_status == "assigned",
+                    Lead.archived_at.is_(None),
+                    Lead.won_at.is_(None),
+                    Lead.lost_at.is_(None),
+                )
+            )
+            rows = list(res.all())
+
+            # Lazy import — Celery may not be importable on a bare
+            # test box, but we still want this function to load and
+            # be unit-testable without dragging the broker URL in.
+            from app.scheduled.jobs import lead_agent_refresh_suggestion
+
+            for lead_id, last_at in rows:
+                if last_at is None:
+                    # No activity timestamp at all — skip rather than
+                    # generate a suggestion for a stale row that may
+                    # have been imported in bulk and never touched.
+                    skipped_no_activity_ts += 1
+                    continue
+                if last_at >= cutoff:
+                    continue
+                lead_agent_refresh_suggestion.apply_async(args=[str(lead_id)])
+                queued += 1
+
+        log.info(
+            "lead_agent.scan_silence.done",
+            cutoff=cutoff.isoformat(),
+            scanned=len(rows),
+            queued=queued,
+            skipped_no_activity_ts=skipped_no_activity_ts,
+        )
+        return {
+            "job": "lead_agent_scan_silence",
+            "scanned": len(rows),
+            "queued": queued,
+            "skipped_no_activity_ts": skipped_no_activity_ts,
+        }
+    finally:
+        await engine.dispose()
+
+
+def _build_factory():
+    """Tiny shim around `app.scheduled.jobs._build_task_engine_and_factory`.
+    Wrapped here so `tasks.py` doesn't have to repeat the lazy-import
+    incantation in two places (refresh + scan_silence)."""
+    from app.scheduled.jobs import _build_task_engine_and_factory
+
+    return _build_task_engine_and_factory()
+
+
+async def scan_silence_async() -> dict:
     """Async core for the `lead_agent_scan_silence` Celery beat task.
 
     Finds active leads (`assignment_status='assigned'`) whose

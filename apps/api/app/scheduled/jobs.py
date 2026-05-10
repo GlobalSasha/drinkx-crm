@@ -128,6 +128,17 @@ def lead_agent_refresh_suggestion(lead_id: str) -> dict:
     return asyncio.run(refresh_suggestion_async(UUID(lead_id)))
 
 
+@celery_app.task(name="app.scheduled.jobs.lead_agent_scan_silence")
+def lead_agent_scan_silence() -> dict:
+    """Sprint 3.1 Phase C — beat task. Every 6 hours scan active leads
+    where `last_activity_at` is older than the silence threshold and
+    queue `lead_agent_refresh_suggestion` for each one so the actual
+    LLM work runs in the worker pool (not the beat process)."""
+    from app.lead_agent.tasks import scan_silence_async
+
+    return asyncio.run(scan_silence_async())
+
+
 def _build_task_engine_and_factory():
     """Each Celery task needs its own engine because asyncio.run() creates a
     fresh event loop per invocation, while asyncpg connections are bound to
