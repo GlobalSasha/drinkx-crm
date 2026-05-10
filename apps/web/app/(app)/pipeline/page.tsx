@@ -1,4 +1,6 @@
 "use client";
+import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { PipelineHeader } from "@/components/pipeline/PipelineHeader";
 import { PipelineBoard } from "@/components/pipeline/PipelineBoard";
@@ -13,6 +15,13 @@ import { usePipelineStore } from "@/lib/store/pipeline-store";
 
 export default function PipelinePage() {
   const { filters, selectedPipelineId } = usePipelineStore();
+  const searchParams = useSearchParams();
+  const stageParam = searchParams.get("stage");
+  // `filter` is read for forward compatibility (link sources expect
+  // values like `rotting` / `followup_overdue`) but currently has no
+  // matching action in usePipelineStore — applying it would require
+  // adding new store fields, which is out of scope for this change.
+  const filterParam = searchParams.get("filter");
   const meQuery = useMe();
   const pipelinesQuery = usePipelines();
 
@@ -49,6 +58,24 @@ export default function PipelinePage() {
     meQuery.isLoading || pipelinesQuery.isLoading || leadsQuery.isLoading;
   const isError =
     meQuery.isError || pipelinesQuery.isError || leadsQuery.isError;
+
+  // Deep-link support for `/pipeline?stage={id}`. The columns mount
+  // their own `id="stage-col-{id}"` so we look it up after the data
+  // resolves and bring it into view.
+  useEffect(() => {
+    if (isLoading || isError || !stageParam) return;
+    const el = document.getElementById(`stage-col-${stageParam}`);
+    el?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+      inline: "start",
+    });
+    // `filterParam` has no matching action in usePipelineStore yet —
+    // intentionally a no-op so the param can be read once the store
+    // gains a quick-filter field. Referencing it keeps the dep array
+    // honest if that wiring lands without touching this effect.
+    void filterParam;
+  }, [isLoading, isError, stageParam, filterParam]);
 
   return (
     <div className="flex flex-col h-screen bg-canvas overflow-hidden">
