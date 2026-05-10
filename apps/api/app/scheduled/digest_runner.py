@@ -70,4 +70,11 @@ async def run_daily_digest_for_all_users(session: AsyncSession) -> int:
                 user_id=str(u.id),
                 error=str(exc)[:300],
             )
+            from app.common.sentry_capture import capture
+            capture(
+                exc,
+                fingerprint=["digest-cron", "user-failed"],
+                tags={"site": "digest_runner", "cron": "daily_email_digest"},
+                extra={"user_id": str(u.id)},
+            )
     return sent_count

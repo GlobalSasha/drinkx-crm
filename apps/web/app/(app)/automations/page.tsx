@@ -11,7 +11,11 @@
 import { useState } from "react";
 import {
   AlertCircle,
+  ArrowDown,
+  ArrowUp,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Clock,
   Loader2,
   MinusCircle,
@@ -26,6 +30,7 @@ import {
 import { ApiError } from "@/lib/api-client";
 import {
   useAutomationRuns,
+  useAutomationStepRuns,
   useAutomations,
   useCreateAutomation,
   useDeleteAutomation,
@@ -38,6 +43,9 @@ import type {
   AutomationOut,
   AutomationRunOut,
   AutomationRunStatus,
+  AutomationStep,
+  AutomationStepRunStatus,
+  AutomationStepType,
   AutomationTrigger,
 } from "@/lib/types";
 
@@ -56,6 +64,21 @@ const ACTION_LABELS: Record<AutomationAction, string> = {
 
 const RUN_STATUS_LABELS: Record<AutomationRunStatus, string> = {
   queued: "В очереди",
+  success: "Успешно",
+  skipped: "Пропущено",
+  failed: "Ошибка",
+};
+
+// Sprint 2.7 G2 — multi-step chain step labels.
+const STEP_TYPE_LABELS: Record<AutomationStepType, string> = {
+  delay_hours: "Пауза",
+  send_template: "Отправить шаблон",
+  create_task: "Создать задачу",
+  move_stage: "Перевести стадию",
+};
+
+const STEP_RUN_STATUS_LABELS: Record<AutomationStepRunStatus, string> = {
+  pending: "Ожидает",
   success: "Успешно",
   skipped: "Пропущено",
   failed: "Ошибка",
@@ -310,8 +333,61 @@ function AutomationEditor({
       : "",
   );
 
+  // Sprint 2.7 G2 — multi-step chain. Steps after the primary action
+  // are stored on `automation.steps_json` from index 1 onward (step 0
+  // is the primary action — kept as legacy for back-compat). UI shows
+  // them as a list of «extra steps» under the action picker.
+  const initialExtraSteps: AutomationStep[] = (() => {
+    const stored = automation?.steps_json;
+    if (!Array.isArray(stored) || stored.length <= 1) return [];
+    return stored.slice(1).map((s) => ({
+      type: (s.type as AutomationStepType) ?? "delay_hours",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      config: ((s.config as Record<string, any>) ?? {}) as Record<string, any>,
+    }));
+  })();
+  const [extraSteps, setExtraSteps] = useState<AutomationStep[]>(initialExtraSteps);
+
   const [error, setError] = useState<string | null>(null);
   const pending = create.isPending || update.isPending;
+
+  function addExtraStep(type: AutomationStepType) {
+    const defaultConfig: Record<string, unknown> =
+      type === "delay_hours"
+        ? { hours: 24 }
+        : type === "create_task"
+          ? { title: "", due_in_hours: 24 }
+          : type === "send_template"
+            ? { template_id: "" }
+            : { target_stage_id: "" };
+    setExtraSteps([...extraSteps, { type, config: defaultConfig }]);
+  }
+
+  function updateExtraStep(idx: number, patch: Partial<AutomationStep>) {
+    setExtraSteps(
+      extraSteps.map((s, i) =>
+        i === idx
+          ? {
+              ...s,
+              ...patch,
+              config: { ...s.config, ...(patch.config ?? {}) },
+            }
+          : s,
+      ),
+    );
+  }
+
+  function removeExtraStep(idx: number) {
+    setExtraSteps(extraSteps.filter((_, i) => i !== idx));
+  }
+
+  function moveExtraStep(idx: number, dir: -1 | 1) {
+    const target = idx + dir;
+    if (target < 0 || target >= extraSteps.length) return;
+    const next = [...extraSteps];
+    [next[idx], next[target]] = [next[target], next[idx]];
+    setExtraSteps(next);
+  }
 
   function buildPayload() {
     const action_config_json: Record<string, unknown> = {};
@@ -340,6 +416,19 @@ function AutomationEditor({
         }
       : null;
 
+    // If the user added extra steps, materialise the full chain.
+    // Step 0 = primary action (kept on `action_type` + `action_config_json`
+    // for back-compat with single-step readers); steps 1+ are the
+    // extras. Otherwise leave `steps_json: null` and the row fires as
+    // a legacy single-action automation.
+    const steps_json: AutomationStep[] | null =
+      extraSteps.length > 0
+        ? [
+            { type: actionType as AutomationStepType, config: action_config_json },
+            ...extraSteps,
+          ]
+        : null;
+
     return {
       name: name.trim(),
       trigger,
@@ -347,6 +436,7 @@ function AutomationEditor({
       condition_json,
       action_type: actionType,
       action_config_json,
+      steps_json,
       is_active: isActive,
     };
   }
@@ -369,6 +459,35 @@ function AutomationEditor({
     if (actionType === "move_stage" && !targetStageId.trim()) {
       setError("Укажите ID целевой стадии.");
       return;
+    }
+
+    // Sprint 2.7 G2 — extra-steps validation. Match backend
+    // `_validate_steps` so the form catches obvious problems before
+    // a 400 round-trip.
+    for (let i = 0; i < extraSteps.length; i++) {
+      const s = extraSteps[i];
+      if (s.type === "delay_hours") {
+        const h = Number(s.config.hours);
+        if (!Number.isFinite(h) || h <= 0 || h > 720) {
+          setError(`Шаг ${i + 2}: пауза должна быть от 1 до 720 часов.`);
+          return;
+        }
+      } else if (s.type === "send_template" && !s.config.template_id) {
+        setError(`Шаг ${i + 2}: выберите шаблон.`);
+        return;
+      } else if (
+        s.type === "create_task" &&
+        !String(s.config.title ?? "").trim()
+      ) {
+        setError(`Шаг ${i + 2}: заголовок задачи обязателен.`);
+        return;
+      } else if (
+        s.type === "move_stage" &&
+        !String(s.config.target_stage_id ?? "").trim()
+      ) {
+        setError(`Шаг ${i + 2}: укажите ID стадии.`);
+        return;
+      }
     }
 
     const payload = buildPayload();
@@ -577,6 +696,206 @@ function AutomationEditor({
             </div>
           )}
 
+          {/* Sprint 2.7 G2 — extra steps for a multi-step chain.
+              Step 0 is the primary action above; these are scheduled
+              after step 0 fires. Delay steps gate the next step's
+              schedule (no side-effect of their own). */}
+          <fieldset className="border border-black/5 rounded-xl p-3 space-y-2">
+            <legend className="px-1 text-[10px] font-mono uppercase tracking-wide text-muted-3">
+              Цепочка после первого шага (необязательно)
+            </legend>
+            {extraSteps.length === 0 ? (
+              <p className="text-[11px] text-muted-3">
+                Без шагов — автоматизация однократная (запускается один раз
+                при срабатывании триггера).
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {extraSteps.map((step, idx) => (
+                  <li
+                    key={idx}
+                    className="bg-canvas/60 border border-black/10 rounded-xl p-2 space-y-2"
+                  >
+                    <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-3">
+                      <span>Шаг {idx + 2}</span>
+                      <select
+                        value={step.type}
+                        onChange={(e) =>
+                          updateExtraStep(idx, {
+                            type: e.target.value as AutomationStepType,
+                            config:
+                              e.target.value === "delay_hours"
+                                ? { hours: 24 }
+                                : e.target.value === "create_task"
+                                  ? { title: "", due_in_hours: 24 }
+                                  : e.target.value === "send_template"
+                                    ? { template_id: "" }
+                                    : { target_stage_id: "" },
+                          })
+                        }
+                        className="ml-1 bg-white border border-black/10 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-brand-accent"
+                      >
+                        {(Object.keys(STEP_TYPE_LABELS) as AutomationStepType[]).map(
+                          (t) => (
+                            <option key={t} value={t}>
+                              {STEP_TYPE_LABELS[t]}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                      <div className="flex-1" />
+                      <button
+                        type="button"
+                        onClick={() => moveExtraStep(idx, -1)}
+                        disabled={idx === 0}
+                        className="p-1 text-muted-2 hover:text-ink disabled:opacity-30"
+                        aria-label="Вверх"
+                      >
+                        <ArrowUp size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveExtraStep(idx, 1)}
+                        disabled={idx === extraSteps.length - 1}
+                        className="p-1 text-muted-2 hover:text-ink disabled:opacity-30"
+                        aria-label="Вниз"
+                      >
+                        <ArrowDown size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeExtraStep(idx)}
+                        className="p-1 text-muted-2 hover:text-rose"
+                        aria-label="Удалить шаг"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+
+                    {step.type === "delay_hours" && (
+                      <div>
+                        <label className="text-[10px] text-muted-3">
+                          Часов:
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="720"
+                          value={String(step.config.hours ?? 24)}
+                          onChange={(e) =>
+                            updateExtraStep(idx, {
+                              config: {
+                                hours: parseInt(e.target.value, 10) || 1,
+                              },
+                            })
+                          }
+                          className="ml-2 w-24 bg-white border border-black/10 rounded-lg px-2 py-1 text-xs font-mono focus:outline-none focus:border-brand-accent"
+                        />
+                        <span className="ml-2 text-[10px] text-muted-3">
+                          (1—720)
+                        </span>
+                      </div>
+                    )}
+
+                    {step.type === "send_template" && (
+                      <select
+                        value={String(step.config.template_id ?? "")}
+                        onChange={(e) =>
+                          updateExtraStep(idx, {
+                            config: { template_id: e.target.value },
+                          })
+                        }
+                        className="w-full bg-white border border-black/10 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent"
+                      >
+                        <option value="">— шаблон —</option>
+                        {templates.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name} ({t.channel})
+                          </option>
+                        ))}
+                      </select>
+                    )}
+
+                    {step.type === "create_task" && (
+                      <div className="grid grid-cols-[1fr_auto] gap-2">
+                        <input
+                          type="text"
+                          placeholder="Заголовок задачи"
+                          value={String(step.config.title ?? "")}
+                          onChange={(e) =>
+                            updateExtraStep(idx, {
+                              config: { title: e.target.value },
+                            })
+                          }
+                          className="bg-white border border-black/10 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent"
+                        />
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="часов"
+                          value={String(step.config.due_in_hours ?? 24)}
+                          onChange={(e) =>
+                            updateExtraStep(idx, {
+                              config: {
+                                due_in_hours:
+                                  parseInt(e.target.value, 10) || 24,
+                              },
+                            })
+                          }
+                          className="w-20 bg-white border border-black/10 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-accent"
+                        />
+                      </div>
+                    )}
+
+                    {step.type === "move_stage" && (
+                      <input
+                        type="text"
+                        placeholder="UUID стадии"
+                        value={String(step.config.target_stage_id ?? "")}
+                        onChange={(e) =>
+                          updateExtraStep(idx, {
+                            config: { target_stage_id: e.target.value },
+                          })
+                        }
+                        className="w-full bg-white border border-black/10 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-accent"
+                      />
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex items-center gap-1 flex-wrap pt-1">
+              <button
+                type="button"
+                onClick={() => addExtraStep("delay_hours")}
+                className="text-[11px] inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-black/10 hover:border-brand-accent"
+              >
+                <Plus size={10} /> Пауза
+              </button>
+              <button
+                type="button"
+                onClick={() => addExtraStep("send_template")}
+                className="text-[11px] inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-black/10 hover:border-brand-accent"
+              >
+                <Plus size={10} /> Шаблон
+              </button>
+              <button
+                type="button"
+                onClick={() => addExtraStep("create_task")}
+                className="text-[11px] inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-black/10 hover:border-brand-accent"
+              >
+                <Plus size={10} /> Задача
+              </button>
+              <button
+                type="button"
+                onClick={() => addExtraStep("move_stage")}
+                className="text-[11px] inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-black/10 hover:border-brand-accent"
+              >
+                <Plus size={10} /> Стадия
+              </button>
+            </div>
+          </fieldset>
+
           <label className="flex items-center gap-2 text-xs">
             <input
               type="checkbox"
@@ -626,6 +945,8 @@ function RunsDrawer({
 }) {
   const runsQuery = useAutomationRuns(automation.id);
   const runs: AutomationRunOut[] = runsQuery.data ?? [];
+  const isMultiStep =
+    Array.isArray(automation.steps_json) && automation.steps_json.length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/30">
@@ -660,27 +981,7 @@ function RunsDrawer({
           ) : (
             <ul className="space-y-2">
               {runs.map((r) => (
-                <li
-                  key={r.id}
-                  className="flex items-start gap-2 px-3 py-2 rounded-xl bg-canvas/60 border border-black/5"
-                >
-                  <div className="pt-0.5">
-                    <StatusIcon status={r.status} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-semibold text-ink">
-                      {RUN_STATUS_LABELS[r.status]}
-                    </div>
-                    <div className="text-[10px] font-mono text-muted-3">
-                      {new Date(r.executed_at).toLocaleString("ru-RU")}
-                    </div>
-                    {r.error && (
-                      <p className="text-[11px] text-muted-2 mt-1 break-words">
-                        {r.error}
-                      </p>
-                    )}
-                  </div>
-                </li>
+                <RunRow key={r.id} run={r} expandable={isMultiStep} />
               ))}
             </ul>
           )}
@@ -688,4 +989,118 @@ function RunsDrawer({
       </aside>
     </div>
   );
+}
+
+
+// ---------------------------------------------------------------------------
+// Run row — Sprint 2.7 G2: expandable per-step grid for multi-step chains.
+// ---------------------------------------------------------------------------
+
+function RunRow({
+  run,
+  expandable,
+}: {
+  run: AutomationRunOut;
+  expandable: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const stepsQuery = useAutomationStepRuns(expanded ? run.id : null);
+
+  return (
+    <li className="rounded-xl bg-canvas/60 border border-black/5 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => expandable && setExpanded((v) => !v)}
+        disabled={!expandable}
+        className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-canvas/80 disabled:cursor-default"
+      >
+        <div className="pt-0.5">
+          <StatusIcon status={run.status} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-xs font-semibold text-ink">
+            {RUN_STATUS_LABELS[run.status]}
+          </div>
+          <div className="text-[10px] font-mono text-muted-3">
+            {new Date(run.executed_at).toLocaleString("ru-RU")}
+          </div>
+          {run.error && (
+            <p className="text-[11px] text-muted-2 mt-1 break-words">
+              {run.error}
+            </p>
+          )}
+        </div>
+        {expandable && (
+          <div className="pt-0.5 text-muted-3">
+            {expanded ? (
+              <ChevronDown size={12} />
+            ) : (
+              <ChevronRight size={12} />
+            )}
+          </div>
+        )}
+      </button>
+
+      {expanded && (
+        <div className="border-t border-black/5 px-3 py-2 bg-white">
+          {stepsQuery.isLoading ? (
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-2 py-1">
+              <Loader2 size={10} className="animate-spin" /> Загрузка шагов...
+            </div>
+          ) : !stepsQuery.data || stepsQuery.data.length === 0 ? (
+            <p className="text-[11px] text-muted-3">Нет шагов для этого запуска.</p>
+          ) : (
+            <ul className="space-y-1">
+              {stepsQuery.data.map((sr) => {
+                const stepType =
+                  (sr.step_json?.type as AutomationStepType) ?? "delay_hours";
+                return (
+                  <li
+                    key={sr.id}
+                    className="flex items-start gap-1.5 text-[11px]"
+                  >
+                    <div className="pt-0.5 w-3 text-muted-3 font-mono">
+                      {sr.step_index + 1}
+                    </div>
+                    <div className="pt-0.5">
+                      <StepStatusIcon status={sr.status} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium">
+                        {STEP_TYPE_LABELS[stepType]}
+                        <span className="ml-1.5 text-muted-3">
+                          · {STEP_RUN_STATUS_LABELS[sr.status]}
+                        </span>
+                      </div>
+                      <div className="text-[10px] font-mono text-muted-3">
+                        {sr.executed_at
+                          ? `выполнен ${new Date(sr.executed_at).toLocaleString("ru-RU")}`
+                          : `запланирован на ${new Date(sr.scheduled_at).toLocaleString("ru-RU")}`}
+                      </div>
+                      {sr.error && (
+                        <p className="text-[10px] text-muted-2 mt-0.5 break-words">
+                          {sr.error}
+                        </p>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
+
+function StepStatusIcon({ status }: { status: AutomationStepRunStatus }) {
+  if (status === "success")
+    return <CheckCircle2 size={10} className="text-success" />;
+  if (status === "skipped")
+    return <MinusCircle size={10} className="text-muted-3" />;
+  if (status === "failed")
+    return <AlertCircle size={10} className="text-rose" />;
+  return <Clock size={10} className="text-muted-2" />;
 }

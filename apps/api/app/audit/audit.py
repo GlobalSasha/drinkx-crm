@@ -47,3 +47,9 @@ async def log(
             entity_type=entity_type,
             error=str(exc)[:200],
         )
+        from app.common.sentry_capture import capture
+        capture(
+            exc,
+            fingerprint=["audit-log-swallow", action],
+            tags={"site": "audit.log", "action": action},
+        )

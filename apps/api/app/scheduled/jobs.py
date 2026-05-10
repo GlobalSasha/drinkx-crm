@@ -99,6 +99,23 @@ def bulk_import_run(job_id: str) -> dict:
     return asyncio.run(_run_bulk_import(UUID(job_id)))
 
 
+@celery_app.task(name="app.scheduled.jobs.automation_step_scheduler")
+def automation_step_scheduler() -> dict:
+    """Sprint 2.7 G2 — every 5 min, fire any due multi-step automation
+    step rows. Step 0 already fired synchronously inside the original
+    trigger fan-out; this task drives steps 1+ where `executed_at IS
+    NULL AND scheduled_at <= now()`."""
+    from app.automation_builder.services import execute_due_step_runs
+
+    async def _core(session) -> int:
+        result = await execute_due_step_runs(session)
+        # `affected_count` on the ScheduledJob audit row needs an int.
+        # Use the count that was actually scanned this tick.
+        return int(result.get("scanned", 0) or 0)
+
+    return asyncio.run(_run("automation_step_scheduler", _core))
+
+
 def _build_task_engine_and_factory():
     """Each Celery task needs its own engine because asyncio.run() creates a
     fresh event loop per invocation, while asyncpg connections are bound to

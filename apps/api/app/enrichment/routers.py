@@ -30,6 +30,12 @@ async def _bg_run(run_id: UUID) -> None:
     connection from the shared request pool, which can starve concurrent
     requests or trip 'Future attached to a different loop' if the pooled
     connection was created against a different event loop's lifetime.
+
+    Failure path (Sprint 2.7 G1): if the orchestrator raises before it
+    can flip the row to 'succeeded' / 'failed' itself, this wrapper
+    opens a fresh session, marks the row 'failed' with a truncated
+    error, and reports to Sentry. Without this, a worker crash mid-run
+    would strand `status='running'` forever.
     """
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
     from sqlalchemy.pool import NullPool
@@ -44,10 +50,44 @@ async def _bg_run(run_id: UUID) -> None:
     )
     factory = async_sessionmaker(engine, expire_on_commit=False)
     try:
-        async with factory() as session:
-            await run_enrichment(db=session, run_id=run_id)
+        try:
+            async with factory() as session:
+                await run_enrichment(db=session, run_id=run_id)
+        except Exception as exc:
+            from app.common.sentry_capture import capture
+            capture(
+                exc,
+                fingerprint=["enrichment-bg-run", "stranded"],
+                tags={"site": "enrichment._bg_run"},
+                extra={"run_id": str(run_id)},
+            )
+            await _mark_run_failed(factory, run_id, exc)
+            raise
     finally:
         await engine.dispose()
+
+
+async def _mark_run_failed(factory, run_id: UUID, exc: BaseException) -> None:
+    """Best-effort flip of `EnrichmentRun.status` to 'failed' when the
+    orchestrator raised before it could set its own terminal state.
+    Soft no-op on any failure (we already reported the original cause)."""
+    from sqlalchemy import select
+
+    from app.enrichment.models import EnrichmentRun
+
+    try:
+        async with factory() as session:
+            res = await session.execute(
+                select(EnrichmentRun).where(EnrichmentRun.id == run_id)
+            )
+            row = res.scalar_one_or_none()
+            if row is None or row.status in ("succeeded", "failed"):
+                return
+            row.status = "failed"
+            row.error = f"{type(exc).__name__}: {exc}"[:1000]
+            await session.commit()
+    except Exception:  # pragma: no cover — defensive
+        return
 
 
 @router.post("", response_model=EnrichmentTriggerOut, status_code=status.HTTP_202_ACCEPTED)

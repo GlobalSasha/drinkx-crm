@@ -57,4 +57,11 @@ async def run_daily_plan_for_all_users(session: AsyncSession) -> int:
             generated += 1
         except Exception as e:
             log.warning("daily_plan_runner.user_failed", user_id=str(u.id), error=str(e))
+            from app.common.sentry_capture import capture
+            capture(
+                e,
+                fingerprint=["daily-plan-cron", "user-failed"],
+                tags={"site": "daily_plan_runner", "cron": "daily_plan_generator"},
+                extra={"user_id": str(u.id), "plan_date": local_today.isoformat()},
+            )
     return generated

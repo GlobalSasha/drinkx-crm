@@ -52,10 +52,8 @@ async def lifespan(_app: FastAPI):
     s = get_settings()
     log.info("api.startup", env=s.app_env)
     # Sentry init (only if DSN set) — keep cheap on startup
-    if s.sentry_dsn:
-        import sentry_sdk
-
-        sentry_sdk.init(dsn=s.sentry_dsn, environment=s.app_env, traces_sample_rate=0.1)
+    from app.observability import init_sentry_if_dsn
+    init_sentry_if_dsn(s)
     yield
     log.info("api.shutdown")
 

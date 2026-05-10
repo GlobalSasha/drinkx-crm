@@ -24,6 +24,7 @@ from app.automation_builder.schemas import (
     AutomationCreate,
     AutomationOut,
     AutomationRunOut,
+    AutomationStepRunOut,
     AutomationUpdate,
 )
 from app.db import get_db
@@ -62,6 +63,11 @@ async def create_automation_endpoint(
             condition_json=payload.condition_json,
             action_type=payload.action_type,
             action_config_json=payload.action_config_json,
+            steps_json=(
+                [s.model_dump() for s in payload.steps_json]
+                if payload.steps_json is not None
+                else None
+            ),
             is_active=payload.is_active,
         )
     except svc.InvalidTrigger as exc:
@@ -82,6 +88,14 @@ async def create_automation_endpoint(
                 "message": f"Конфигурация действия неполная: {exc}",
             },
         ) from exc
+    except svc.InvalidSteps as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "invalid_steps",
+                "message": f"Шаги цепочки некорректны: {exc}",
+            },
+        ) from exc
 
     await log_audit_event(
         db,
@@ -94,6 +108,7 @@ async def create_automation_endpoint(
             "name": automation.name,
             "trigger": automation.trigger,
             "action_type": automation.action_type,
+            "steps_count": len(automation.steps_json or []) or None,
         },
     )
     await db.commit()
@@ -121,6 +136,12 @@ async def update_automation_endpoint(
             condition_set="condition_json" in sent,
             action_type=payload.action_type,
             action_config_json=payload.action_config_json,
+            steps_json=(
+                [s.model_dump() for s in payload.steps_json]
+                if payload.steps_json is not None
+                else None
+            ),
+            steps_set="steps_json" in sent,
             is_active=payload.is_active,
         )
     except svc.AutomationNotFound as exc:
@@ -144,6 +165,14 @@ async def update_automation_endpoint(
             detail={
                 "code": "invalid_action_config",
                 "message": f"Конфигурация действия неполная: {exc}",
+            },
+        ) from exc
+    except svc.InvalidSteps as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "invalid_steps",
+                "message": f"Шаги цепочки некорректны: {exc}",
             },
         ) from exc
 
@@ -207,3 +236,24 @@ async def list_automation_runs_endpoint(
         limit=limit,
     )
     return [AutomationRunOut.model_validate(r) for r in rows]
+
+
+@router.get(
+    "/runs/{run_id}/steps", response_model=list[AutomationStepRunOut]
+)
+async def list_automation_step_runs_endpoint(
+    run_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> list[AutomationStepRunOut]:
+    """Per-step grid for a single parent run — Sprint 2.7 G2.
+
+    The RunsDrawer expands a parent run row to show the chain's
+    state: which steps fired, which are still scheduled, which
+    failed. Workspace-scoped through the automation join."""
+    rows = await svc.list_step_runs_for_run(
+        db,
+        automation_run_id=run_id,
+        workspace_id=user.workspace_id,
+    )
+    return [AutomationStepRunOut.model_validate(r) for r in rows]
