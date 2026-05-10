@@ -8,10 +8,9 @@ import { C } from "@/lib/design-system";
 interface Props {
   stage: Stage;
   leads: LeadOut[];
-  allVisibleLeads: LeadOut[];
 }
 
-export function PipelineColumn({ stage, leads, allVisibleLeads }: Props) {
+export function PipelineColumn({ stage, leads }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
 
   return (
@@ -55,11 +54,7 @@ export function PipelineColumn({ stage, leads, allVisibleLeads }: Props) {
           strategy={verticalListSortingStrategy}
         >
           {leads.map((lead) => (
-            <PipelineLeadCard
-              key={lead.id}
-              lead={lead}
-              visibleLeads={allVisibleLeads}
-            />
+            <PipelineLeadCard key={lead.id} lead={lead} />
           ))}
         </SortableContext>
 

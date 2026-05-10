@@ -6,7 +6,6 @@ import { PipelineHeader } from "@/components/pipeline/PipelineHeader";
 import { PipelineBoard } from "@/components/pipeline/PipelineBoard";
 import { PipelineList } from "@/components/pipeline/PipelineList";
 import { SprintModal } from "@/components/pipeline/SprintModal";
-import { BriefDrawer } from "@/components/pipeline/BriefDrawer";
 import { CreateLeadModal } from "@/components/pipeline/CreateLeadModal";
 import { usePipelines } from "@/lib/hooks/use-pipelines";
 import { useLeads } from "@/lib/hooks/use-leads";
@@ -114,7 +113,6 @@ export default function PipelinePage() {
       )}
 
       <SprintModal />
-      <BriefDrawer />
       <CreateLeadModal />
       {/* ImportWizard is mounted globally in (app)/layout.tsx so any
           page can open it via pipeline-store.openImportWizard(). */}

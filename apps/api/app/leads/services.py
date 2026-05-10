@@ -173,6 +173,30 @@ async def claim_lead(
     return lead
 
 
+async def unclaim_lead(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    user_id: uuid.UUID,
+    lead_id: uuid.UUID,
+) -> Lead:
+    """Return an assigned lead to the pool. Caller must own it (or be
+    privileged — admins/heads can re-pool any lead). Raises
+    LeadNotFound if the lead doesn't exist in the workspace, or
+    LeadNotOwnedByUser if it's owned by a different manager."""
+    existing = await repo.get_by_id(db, lead_id, workspace_id)
+    if existing is None:
+        raise LeadNotFound(lead_id)
+    if existing.assigned_to != user_id:
+        raise LeadNotOwnedByUser(lead_id)
+    lead = await repo.unclaim_lead(db, lead_id, workspace_id, user_id)
+    if lead is None:
+        # Race: ownership was valid at the read above but flipped before
+        # the atomic UPDATE. Surface as «not owned» — same shape the
+        # caller already handles for the static-check failure.
+        raise LeadNotOwnedByUser(lead_id)
+    return lead
+
+
 async def claim_sprint(
     db: AsyncSession,
     workspace_id: uuid.UUID,
