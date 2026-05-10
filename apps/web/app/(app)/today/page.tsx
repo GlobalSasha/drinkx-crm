@@ -46,7 +46,7 @@ import { useTodayPlan } from "@/lib/hooks/use-daily-plan";
 import { useFollowupsPending } from "@/lib/hooks/use-followups";
 import { useLeads } from "@/lib/hooks/use-leads";
 import { usePipelines } from "@/lib/hooks/use-pipelines";
-import { useNotificationsList } from "@/lib/hooks/use-notifications";
+import { useNotificationsList, useMarkRead } from "@/lib/hooks/use-notifications";
 import { relativeTime } from "@/lib/relative-time";
 import type { LeadOut, Priority, TaskKind, TimeBlock } from "@/lib/types";
 
@@ -386,9 +386,10 @@ function FocusWidget() {
           </p>
         )}
         {!isLoading && !isError && top.map((l) => (
-          <div
+          <Link
             key={l.id}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-brand-bg"
+            href={`/leads/${l.id}`}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-brand-bg cursor-pointer"
           >
             {l.priority && (
               <span className="bg-brand-accent text-white text-[10px] font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0">
@@ -409,7 +410,7 @@ function FocusWidget() {
               {l.score}
             </span>
             <ChevronRight size={14} className="text-brand-muted shrink-0" />
-          </div>
+          </Link>
         ))}
       </div>
     </div>
@@ -523,11 +524,10 @@ function TaskListWidget() {
         {!isLoading && !isError && visibleTasks.map((t) => {
           const taskTitle = t.hint_one_liner || "Задача";
           const due = buildPlanItemDueAt(planDate, t.time_block);
-          return (
-            <div
-              key={t.id}
-              className="flex items-center gap-3 px-3 py-2 rounded-2xl bg-brand-bg"
-            >
+          const rowClass =
+            "flex items-center gap-3 px-3 py-2 rounded-2xl bg-brand-bg";
+          const inner = (
+            <>
               <span
                 className={`${C.bodyXs} ${C.color.mutedLight} uppercase tracking-wide tabular-nums w-16 shrink-0`}
               >
@@ -556,6 +556,22 @@ function TaskListWidget() {
                 size={14}
                 className={t.done ? "text-success" : "text-brand-muted"}
               />
+            </>
+          );
+          // Daily-plan items can have a null lead_id (general / standalone
+          // tasks). Render those as a non-clickable row so we don't link
+          // to a broken `/leads/null` route.
+          return t.lead_id ? (
+            <Link
+              key={t.id}
+              href={`/leads/${t.lead_id}?tab=activity&task=${t.id}`}
+              className={`${rowClass} cursor-pointer`}
+            >
+              {inner}
+            </Link>
+          ) : (
+            <div key={t.id} className={rowClass}>
+              {inner}
             </div>
           );
         })}
@@ -689,10 +705,12 @@ function FunnelWidget() {
 
   const stages = useMemo(() => {
     const firstPipeline = pipelines?.[0];
-    if (!firstPipeline) return [] as { name: string; count: number; pct: number }[];
+    if (!firstPipeline)
+      return [] as { id: string; name: string; count: number; pct: number }[];
     const visible = firstPipeline.stages.filter((s) => !s.is_won && !s.is_lost);
     const leads = leadsData?.items ?? [];
     const counts = visible.map((s) => ({
+      id: s.id,
       name: s.name,
       count: leads.filter(
         (l) => l.assignment_status === "assigned" && l.stage_id === s.id,
@@ -729,7 +747,11 @@ function FunnelWidget() {
           </p>
         )}
         {!isLoading && !isError && visibleStages.map((s) => (
-          <div key={s.name} className="flex items-center gap-3">
+          <Link
+            key={s.id}
+            href={`/pipeline?stage=${s.id}`}
+            className="flex items-center gap-3 cursor-pointer"
+          >
             <span
               className={`${C.bodyXs} ${C.color.mutedLight} w-24 shrink-0 truncate`}
             >
@@ -746,7 +768,7 @@ function FunnelWidget() {
             >
               {s.count}
             </span>
-          </div>
+          </Link>
         ))}
       </div>
     </div>
@@ -757,6 +779,7 @@ function FunnelWidget() {
 
 function NotifWidget() {
   const { data, isLoading, isError } = useNotificationsList({ unread: false });
+  const markRead = useMarkRead();
   const items = useMemo(() => (data?.items ?? []).slice(0, 4), [data]);
   return (
     <div className="bg-white border border-brand-border rounded-[2rem] p-5 h-full flex flex-col">
@@ -785,10 +808,17 @@ function NotifWidget() {
         {!isLoading && !isError && items.map((n) => {
           const isUnread = n.read_at == null;
           const dotColor = isUnread ? "bg-brand-accent" : "bg-brand-muted";
+          // Lead-bound notifications open the lead; everything else
+          // (system, daily-plan-ready, etc.) goes to the full feed.
+          const href = n.lead_id ? `/leads/${n.lead_id}` : "/notifications";
           return (
-            <div
+            <Link
               key={n.id}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-brand-bg"
+              href={href}
+              onClick={() => {
+                if (isUnread) markRead.mutate(n.id);
+              }}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-brand-bg cursor-pointer"
             >
               <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />
               <p className={`${C.bodySm} ${C.color.text} truncate flex-1`}>
@@ -799,7 +829,7 @@ function NotifWidget() {
               >
                 {relativeTime(n.created_at)}
               </span>
-            </div>
+            </Link>
           );
         })}
       </div>
@@ -1002,10 +1032,36 @@ export default function TodayPage() {
 
   function renderWidget(id: WidgetId) {
     switch (id) {
-      case "w-tasks":    return <TasksCounter />;
-      case "w-followup": return <FollowupCounter />;
-      case "w-rotting":  return <RottingCounter />;
-      case "w-pipeline": return <PipelineCounter />;
+      case "w-tasks":
+        return (
+          <Link href="/today?tab=tasks" className="block h-full cursor-pointer">
+            <TasksCounter />
+          </Link>
+        );
+      case "w-followup":
+        return (
+          <Link
+            href="/pipeline?filter=followup_overdue"
+            className="block h-full cursor-pointer"
+          >
+            <FollowupCounter />
+          </Link>
+        );
+      case "w-rotting":
+        return (
+          <Link
+            href="/pipeline?filter=rotting"
+            className="block h-full cursor-pointer"
+          >
+            <RottingCounter />
+          </Link>
+        );
+      case "w-pipeline":
+        return (
+          <Link href="/pipeline" className="block h-full cursor-pointer">
+            <PipelineCounter />
+          </Link>
+        );
       case "w-focus":    return <FocusWidget />;
       case "w-tasklist": return <TaskListWidget />;
       case "w-chak":     return <ChakWidget />;
