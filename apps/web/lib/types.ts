@@ -1085,3 +1085,33 @@ export interface AutomationStepRunOut {
   status: AutomationStepRunStatus;
   error: string | null;
 }
+
+// Sprint 3.1 — Lead AI Agent. Backend contract lives in
+// `apps/api/app/lead_agent/schemas.py`. Pure-JSON shapes; no
+// timestamps because the runner is stateless across calls (the
+// suggestion is overwritten in `lead.agent_state['suggestion']`
+// rather than appended).
+export interface AgentSuggestion {
+  text: string;
+  action_label: string | null;
+  confidence: number;
+}
+
+export interface AgentSuggestionResponse {
+  suggestion: AgentSuggestion | null;
+}
+
+export interface AgentChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface AgentChatRequest {
+  message: string;
+  history: AgentChatMessage[];
+}
+
+export interface AgentChatResponse {
+  reply: string;
+  updated_history: AgentChatMessage[];
+}

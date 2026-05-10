@@ -27,6 +27,8 @@ import { CustomFieldsPanel } from "./CustomFieldsPanel";
 import { GateModal } from "./GateModal";
 import { LostModal } from "./LostModal";
 import { TransferModal } from "./TransferModal";
+import { AgentBanner } from "./AgentBanner";
+import { SalesCoachDrawer } from "./SalesCoachDrawer";
 import { priorityChip } from "@/lib/ui/priority";
 import { C } from "@/lib/design-system";
 
@@ -96,6 +98,7 @@ export function LeadCard({ leadId }: Props) {
   const [gateTarget, setGateTarget] = useState<Stage | null>(null);
   const [lostStage, setLostStage] = useState<Stage | null>(null);
   const [transferOpen, setTransferOpen] = useState(false);
+  const [coachOpen, setCoachOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -452,6 +455,12 @@ export function LeadCard({ leadId }: Props) {
         </div>
       </header>
 
+      {/* Sprint 3.1 Phase D — Lead AI Agent banner. Renders between
+          header and tabs/body so it's always visible without
+          scrolling. The component itself decides whether to render
+          based on `agent_state.suggestion`. */}
+      <AgentBanner leadId={lead.id} onCoachOpen={() => setCoachOpen(true)} />
+
       {/* Body
           Two-column grid: fixed 296px rail (Follow-ups) + flex-1 main column.
           items-start keeps both columns top-aligned regardless of content height.
@@ -518,6 +527,23 @@ export function LeadCard({ leadId }: Props) {
           onSuccess={() => showToast("Лид помечен Проигран")}
         />
       )}
+
+      {/* Sprint 3.1 Phase D — Sales Coach drawer + FAB.
+          FAB sits bottom-right and toggles the slide-over chat. */}
+      <button
+        type="button"
+        onClick={() => setCoachOpen(true)}
+        className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 bg-brand-primary text-white px-4 py-3 rounded-full shadow-soft hover:bg-brand-muted-strong transition-all"
+        aria-label="Открыть Sales Coach"
+        title="Спросить Чака"
+      >
+        <span className={`${C.bodySm} font-semibold`}>🤖 Чак</span>
+      </button>
+      <SalesCoachDrawer
+        leadId={lead.id}
+        open={coachOpen}
+        onClose={() => setCoachOpen(false)}
+      />
 
       {/* Toast */}
       {toast && (
