@@ -2,24 +2,25 @@
 
 Two responsibilities:
   1. Read the on-disk knowledge files once (lru_cache) and hand them
-     back to the prompt builder. Files live in `docs/skills/` and
-     `docs/knowledge/agent/` — repository paths, not packaged data.
+     back to the prompt builder. Files live at
+     `apps/api/knowledge/agent/` — co-located with the API package so
+     the existing `COPY knowledge ./knowledge` line in the Dockerfile
+     ships them into the container at `/app/knowledge/agent/...`
+     without a deploy-pipeline change.
   2. Render a compact, human-readable lead summary for the prompt
      `user` block. No DB lookups here — caller passes already-loaded
      `Lead` (and optionally a resolved `stage_name` since the model
      has only `stage_id`).
 
-The repo root is found by walking up from `__file__` until we hit a
-directory that contains `docs/`. This makes the package portable
-across `/opt/drinkx-crm/...` (production), worktree paths, and CI
-checkout dirs without a hard-coded depth count.
+The knowledge root is found by walking up from `__file__` until we
+hit a directory that contains `knowledge/agent/product-foundation.md`.
+In dev that's `apps/api/`; in the production image it's `/app`.
 
-Resolution is **lazy** and **soft-fail**: if the docs aren't visible
-to the running process (e.g. the production Docker image only ships
-`apps/api/`), `load_product_foundation()` returns `""` after a
-one-time warning. The runner falls back to a foundation-less prompt
-rather than crashing module import — operations get a noisy log,
-managers get a degraded but functional agent.
+Resolution is **lazy** and **soft-fail**: if the files aren't visible
+to the running process, `load_product_foundation()` returns `""`
+after a one-time warning. The runner falls back to a foundation-less
+prompt rather than crashing module import — operations get a noisy
+log, managers get a degraded but still functional agent.
 """
 from __future__ import annotations
 
@@ -31,39 +32,42 @@ import structlog
 
 log = structlog.get_logger()
 
-FOUNDATION_REL = Path("docs") / "knowledge" / "agent" / "product-foundation.md"
-SKILL_REL = Path("docs") / "skills" / "lead-ai-agent-skill.md"
+FOUNDATION_REL = Path("knowledge") / "agent" / "product-foundation.md"
+SKILL_REL = Path("knowledge") / "agent" / "lead-ai-agent-skill.md"
 
 
 @lru_cache(maxsize=1)
-def _find_repo_root() -> Path | None:
-    """Walk upwards until we find `docs/knowledge/agent/product-foundation.md`.
+def _find_knowledge_root() -> Path | None:
+    """Walk upwards until we find `knowledge/agent/product-foundation.md`.
 
-    Returns `None` (not raises) if no parent contains the docs tree —
-    the production Docker image only ships `apps/api/` so the file is
-    missing on `crm.drinkx.tech` until the deploy pipeline is updated
-    to copy `docs/` into the container.
+    The agent knowledge files are co-located with the API package
+    (`apps/api/knowledge/agent/`) so the existing `COPY knowledge ./knowledge`
+    line in `apps/api/Dockerfile` ships them into the container at
+    `/app/knowledge/agent/...`. In dev the walker finds them at
+    `apps/api/`; in prod at `/app`. Returns `None` (not raises) if no
+    parent contains the file — the runner is expected to handle that
+    silently rather than crash the request.
     """
     here = Path(__file__).resolve()
     for parent in here.parents:
         if (parent / FOUNDATION_REL).is_file():
             return parent
     log.warning(
-        "lead_agent.knowledge.repo_root_missing",
+        "lead_agent.knowledge.root_missing",
         searched_from=str(here),
         looking_for=str(FOUNDATION_REL),
         message=(
-            "Lead-agent knowledge files not found in any parent directory; "
-            "the agent will run with an empty product-foundation block. "
-            "Production fix: ensure `docs/knowledge/agent/` and "
-            "`docs/skills/` are reachable from inside the API container."
+            "Lead-agent knowledge files not found in any ancestor; the "
+            "agent will run with an empty product-foundation block. "
+            "Expected location: `apps/api/knowledge/agent/` (or "
+            "`/app/knowledge/agent/` inside the API container)."
         ),
     )
     return None
 
 
 def _read_relative(rel: Path) -> str:
-    root = _find_repo_root()
+    root = _find_knowledge_root()
     if root is None:
         return ""
     path = root / rel
