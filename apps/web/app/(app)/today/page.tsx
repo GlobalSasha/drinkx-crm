@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ListChecks,
   AlarmClock,
@@ -38,6 +38,13 @@ import { CSS } from "@dnd-kit/utilities";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { C } from "@/lib/design-system";
+import { useTodayPlan } from "@/lib/hooks/use-daily-plan";
+import { useFollowupsPending } from "@/lib/hooks/use-followups";
+import { useLeads } from "@/lib/hooks/use-leads";
+import { usePipelines } from "@/lib/hooks/use-pipelines";
+import { useNotificationsList } from "@/lib/hooks/use-notifications";
+import { relativeTime } from "@/lib/relative-time";
+import type { LeadOut, Priority, TaskKind, TimeBlock } from "@/lib/types";
 
 // ─── Widget registry ────────────────────────────────────────
 
@@ -90,6 +97,36 @@ const WIDGET_SPAN: Record<WidgetId, string> = {
   "w-notif":    "col-span-full",
 };
 
+// Single shared filter object for `useLeads`. TanStack Query dedupes
+// identical query keys, so the four widgets that consume this share
+// one network request.
+const TODAY_LEADS_FILTER = { page_size: 200 } as const;
+
+const TIME_BLOCK_LABEL: Record<TimeBlock, string> = {
+  morning:   "Утро",
+  midday:    "День",
+  afternoon: "После",
+  evening:   "Вечер",
+};
+
+const TASK_KIND_ICON: Record<TaskKind, React.ReactNode> = {
+  call:      <Phone size={13} />,
+  email:     <Mail size={13} />,
+  meeting:   <Calendar size={13} />,
+  research:  <Sparkles size={13} />,
+  follow_up: <AlarmClock size={13} />,
+};
+
+// Priority A is the strongest signal; D weakest. Used as a tiebreaker
+// after `score` for the focus-of-the-day ordering.
+const PRIORITY_RANK: Record<Priority, number> = { A: 4, B: 3, C: 2, D: 1 };
+
+function leadFocusSortKey(l: LeadOut): number {
+  // Higher value = earlier. score is 0..100; priority adds up to 5
+  // points so it nudges ties without overpowering.
+  return l.score + (l.priority ? PRIORITY_RANK[l.priority] : 0);
+}
+
 // ─── Greeting ──────────────────────────────────────────────
 
 function getGreeting(name: string) {
@@ -110,17 +147,23 @@ function getDateLabel() {
   };
 }
 
-// ─── Counter widget ────────────────────────────────────────
+// ─── Shared UI primitives ──────────────────────────────────
+
+/** Generic skeleton block — `animate-pulse bg-brand-panel rounded-lg`. */
+function Skeleton({ className = "" }: { className?: string }) {
+  return <div className={`animate-pulse bg-brand-panel rounded-lg ${className}`} />;
+}
 
 interface CounterProps {
   label: string;
   icon: React.ReactNode;
-  value: number;
+  value: number | null;
   note: string;
   accent?: boolean;
+  loading?: boolean;
 }
 
-function CounterWidget({ label, icon, value, note, accent }: CounterProps) {
+function CounterWidget({ label, icon, value, note, accent, loading }: CounterProps) {
   const wrapBg = accent
     ? "bg-brand-soft border border-brand-accent/20"
     : "bg-white border border-brand-border";
@@ -136,24 +179,154 @@ function CounterWidget({ label, icon, value, note, accent }: CounterProps) {
           {label}
         </span>
       </div>
-      <div className={`${C.metricSm} ${valueColor} tabular-nums leading-none`}>
-        {value}
-      </div>
+      {loading ? (
+        <Skeleton className="h-10 w-20" />
+      ) : (
+        <div className={`${C.metricSm} ${valueColor} tabular-nums leading-none`}>
+          {value ?? "—"}
+        </div>
+      )}
       <div className={`${C.bodyXs} ${C.color.mutedLight}`}>{note}</div>
     </div>
   );
 }
 
-// ─── Focus / top-leads widget ─────────────────────────────
+/** Title + optional subtitle row used by every non-counter widget. */
+function WidgetHeader({
+  title,
+  subtitle,
+  icon,
+  accent,
+}: {
+  title: string;
+  subtitle?: string;
+  icon: React.ReactNode;
+  accent?: boolean;
+}) {
+  const titleColor = accent ? "text-brand-accent-text" : C.color.text;
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          {icon}
+          <h3 className={`${C.bodySm} font-bold ${titleColor}`}>{title}</h3>
+        </div>
+        {subtitle && (
+          <p className={`${C.bodyXs} ${C.color.mutedLight} mt-0.5`}>
+            {subtitle}
+          </p>
+        )}
+      </div>
+      <ArrowUpRight size={14} className={`${C.color.mutedLight} mt-0.5 shrink-0`} />
+    </div>
+  );
+}
+
+// ─── Counter wrappers (data-aware) ─────────────────────────
+
+function TasksCounter() {
+  const { data, isLoading, isError } = useTodayPlan();
+  const items = data?.items ?? [];
+  const total = items.length;
+  const undone = items.filter((i) => !i.done).length;
+  // DailyPlanItem has no `overdue` flag and no due-time — count
+  // undone items as the «остаётся» metric so the widget still
+  // communicates urgency without inventing data.
+  const note = isError
+    ? "—"
+    : total === 0
+      ? "пока пусто"
+      : undone === 0
+        ? "всё выполнено"
+        : `${undone} ${pluralRu(undone, ["осталась", "остались", "осталось"])}`;
+  return (
+    <CounterWidget
+      label="Задачи"
+      icon={<ListChecks size={14} />}
+      value={isError ? null : total}
+      note={note}
+      loading={isLoading}
+    />
+  );
+}
+
+function FollowupCounter() {
+  const { data, isLoading, isError } = useFollowupsPending();
+  const pending = data?.pending_count ?? 0;
+  const overdue = data?.overdue_count ?? 0;
+  const note = isError
+    ? "—"
+    : pending === 0
+      ? "никто не ждёт ответа"
+      : overdue > 0
+        ? `${overdue} ${pluralRu(overdue, ["просрочен", "просрочено", "просрочено"])}`
+        : "требуют ответа";
+  return (
+    <CounterWidget
+      label="Follow-up"
+      icon={<AlarmClock size={14} />}
+      value={isError ? null : pending}
+      note={note}
+      accent
+      loading={isLoading}
+    />
+  );
+}
+
+function RottingCounter() {
+  const { data, isLoading, isError } = useLeads(TODAY_LEADS_FILTER);
+  const leads = data?.items ?? [];
+  const count = leads.filter(
+    (l) => l.assignment_status === "assigned" && l.is_rotting_stage,
+  ).length;
+  const note = isError
+    ? "—"
+    : count === 0
+      ? "движение в норме"
+      : "без движения 7+ дн";
+  return (
+    <CounterWidget
+      label="Устаревает"
+      icon={<Flame size={14} />}
+      value={isError ? null : count}
+      note={note}
+      loading={isLoading}
+    />
+  );
+}
+
+function PipelineCounter() {
+  const { data, isLoading, isError } = useLeads(TODAY_LEADS_FILTER);
+  const leads = data?.items ?? [];
+  const count = leads.filter((l) => l.assignment_status === "assigned").length;
+  const note = isError
+    ? "—"
+    : count === 0
+      ? "пока ничего"
+      : `${pluralRu(count, ["активный лид", "активных лида", "активных лидов"])}`;
+  return (
+    <CounterWidget
+      label="В воронке"
+      icon={<BarChart3 size={14} />}
+      value={isError ? null : count}
+      note={note}
+      loading={isLoading}
+    />
+  );
+}
+
+// ─── Focus widget ─────────────────────────────────────────
 
 function FocusWidget() {
-  // Realistic placeholder. Real wire-up: pull top-3 fit-scored leads
-  // from useTopLeads() (TBD).
-  const leads = [
-    { name: "Coffee Lab Moscow",     segment: "HoReCa · Москва",     score: 92, tier: "A" },
-    { name: "Brusnika QSR Network",  segment: "QSR · Екатеринбург", score: 88, tier: "A" },
-    { name: "Nika Office Park",      segment: "Офисы · СПб",         score: 81, tier: "A" },
-  ];
+  const { data, isLoading, isError } = useLeads(TODAY_LEADS_FILTER);
+  const top = useMemo(() => {
+    const leads = (data?.items ?? []).filter(
+      (l) => l.assignment_status === "assigned",
+    );
+    return [...leads]
+      .sort((a, b) => leadFocusSortKey(b) - leadFocusSortKey(a))
+      .slice(0, 4);
+  }, [data]);
   return (
     <div className="bg-white border border-brand-border rounded-[2rem] p-5 h-full flex flex-col">
       <WidgetHeader
@@ -162,20 +335,37 @@ function FocusWidget() {
         icon={<Sparkles size={16} className="text-brand-accent" />}
       />
       <div className="flex flex-col gap-2 mt-4 flex-1">
-        {leads.map((l) => (
+        {isLoading && (
+          <>
+            <Skeleton className="h-12" />
+            <Skeleton className="h-12" />
+            <Skeleton className="h-12" />
+          </>
+        )}
+        {!isLoading && isError && (
+          <p className={`${C.bodyXs} ${C.color.mutedLight}`}>—</p>
+        )}
+        {!isLoading && !isError && top.length === 0 && (
+          <p className={`${C.bodySm} ${C.color.mutedLight}`}>
+            Нет лидов в работе
+          </p>
+        )}
+        {!isLoading && !isError && top.map((l) => (
           <div
-            key={l.name}
+            key={l.id}
             className="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-brand-bg"
           >
-            <span className="bg-brand-accent text-white text-[10px] font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0">
-              {l.tier}
-            </span>
+            {l.priority && (
+              <span className="bg-brand-accent text-white text-[10px] font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0">
+                {l.priority}
+              </span>
+            )}
             <div className="min-w-0 flex-1">
               <p className={`${C.bodySm} font-semibold ${C.color.text} truncate`}>
-                {l.name}
+                {l.company_name}
               </p>
               <p className={`${C.bodyXs} ${C.color.mutedLight} truncate`}>
-                {l.segment}
+                {[l.segment, l.city].filter(Boolean).join(" · ") || "—"}
               </p>
             </div>
             <span
@@ -193,26 +383,14 @@ function FocusWidget() {
 
 // ─── Task-list widget ──────────────────────────────────────
 
-interface PlanRow {
-  block: string;
-  time: string;
-  kind: "call" | "email" | "meeting";
-  title: string;
-  lead: string;
-}
-
 function TaskListWidget() {
-  const tasks: PlanRow[] = [
-    { block: "Утро",  time: "10:00", kind: "call",    title: "Уточнить дату пилота", lead: "Coffee Lab Moscow" },
-    { block: "Утро",  time: "11:30", kind: "email",   title: "Отправить КП",          lead: "Brusnika QSR" },
-    { block: "День",  time: "14:00", kind: "meeting", title: "Демо станции",          lead: "Nika Office Park" },
-    { block: "Вечер", time: "17:30", kind: "call",    title: "Follow-up по пилоту",   lead: "Mintea Lab" },
-  ];
-  const kindIcon: Record<PlanRow["kind"], React.ReactNode> = {
-    call:    <Phone size={13} />,
-    email:   <Mail size={13} />,
-    meeting: <Calendar size={13} />,
-  };
+  const { data, isLoading, isError } = useTodayPlan();
+  const items = useMemo(() => {
+    const all = data?.items ?? [];
+    return [...all]
+      .sort((a, b) => a.position - b.position)
+      .slice(0, 5);
+  }, [data]);
   return (
     <div className="bg-white border border-brand-border rounded-[2rem] p-5 h-full flex flex-col">
       <WidgetHeader
@@ -221,34 +399,64 @@ function TaskListWidget() {
         icon={<ListChecks size={16} className="text-brand-muted" />}
       />
       <div className="flex flex-col gap-1.5 mt-4 flex-1">
-        {tasks.map((t, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-3 px-3 py-2 rounded-2xl bg-brand-bg"
-          >
-            <span
-              className={`${C.bodyXs} font-mono font-semibold uppercase tracking-wider ${C.color.mutedLight} w-12 shrink-0 tabular-nums`}
+        {isLoading && (
+          <>
+            <Skeleton className="h-10" />
+            <Skeleton className="h-10" />
+            <Skeleton className="h-10" />
+            <Skeleton className="h-10" />
+          </>
+        )}
+        {!isLoading && isError && (
+          <p className={`${C.bodyXs} ${C.color.mutedLight}`}>—</p>
+        )}
+        {!isLoading && !isError && items.length === 0 && (
+          <p className={`${C.bodySm} ${C.color.mutedLight}`}>
+            На сегодня задач нет
+          </p>
+        )}
+        {!isLoading && !isError && items.map((t) => {
+          const blockLabel = t.time_block
+            ? TIME_BLOCK_LABEL[t.time_block]
+            : "—";
+          return (
+            <div
+              key={t.id}
+              className="flex items-center gap-3 px-3 py-2 rounded-2xl bg-brand-bg"
             >
-              {t.time}
-            </span>
-            <span className="text-brand-muted shrink-0">{kindIcon[t.kind]}</span>
-            <div className="min-w-0 flex-1">
-              <p className={`${C.bodySm} font-semibold ${C.color.text} truncate`}>
-                {t.title}
-              </p>
-              <p className={`${C.bodyXs} ${C.color.mutedLight} truncate`}>
-                {t.lead}
-              </p>
+              <span
+                className={`${C.bodyXs} font-mono font-semibold uppercase tracking-wider ${C.color.mutedLight} w-12 shrink-0`}
+              >
+                {blockLabel}
+              </span>
+              <span className="text-brand-muted shrink-0">
+                {TASK_KIND_ICON[t.task_kind]}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p
+                  className={`${C.bodySm} font-semibold ${C.color.text} truncate ${
+                    t.done ? "line-through opacity-60" : ""
+                  }`}
+                >
+                  {t.hint_one_liner || "Задача"}
+                </p>
+                <p className={`${C.bodyXs} ${C.color.mutedLight} truncate`}>
+                  {t.lead_company_name ?? "—"}
+                </p>
+              </div>
+              <CheckCircle2
+                size={14}
+                className={t.done ? "text-success" : "text-brand-muted"}
+              />
             </div>
-            <CheckCircle2 size={14} className="text-brand-muted shrink-0" />
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 }
 
-// ─── Чак insights widget ──────────────────────────────────
+// ─── Чак insights widget — mock for now ────────────────────
 
 function ChakWidget() {
   const insights = [
@@ -290,13 +498,30 @@ function ChakWidget() {
 // ─── Funnel widget ─────────────────────────────────────────
 
 function FunnelWidget() {
-  const stages = [
-    { name: "Новые",      count: 18, pct: 100 },
-    { name: "Подогрев",   count: 14, pct: 78 },
-    { name: "КП",         count:  9, pct: 50 },
-    { name: "Переговоры", count:  5, pct: 28 },
-    { name: "Пилот",      count:  3, pct: 17 },
-  ];
+  const { data: pipelines, isLoading: pipelinesLoading, isError: pipelinesError } =
+    usePipelines();
+  const { data: leadsData, isLoading: leadsLoading, isError: leadsError } =
+    useLeads(TODAY_LEADS_FILTER);
+  const isLoading = pipelinesLoading || leadsLoading;
+  const isError = pipelinesError || leadsError;
+
+  const stages = useMemo(() => {
+    const firstPipeline = pipelines?.[0];
+    if (!firstPipeline) return [] as { name: string; count: number; pct: number }[];
+    const visible = firstPipeline.stages.filter((s) => !s.is_won && !s.is_lost);
+    const leads = leadsData?.items ?? [];
+    const counts = visible.map((s) => ({
+      name: s.name,
+      count: leads.filter(
+        (l) => l.assignment_status === "assigned" && l.stage_id === s.id,
+      ).length,
+    }));
+    const max = Math.max(1, ...counts.map((c) => c.count));
+    return counts.map((c) => ({ ...c, pct: Math.round((c.count / max) * 100) }));
+  }, [pipelines, leadsData]);
+
+  const visibleStages = stages.slice(0, 6);
+
   return (
     <div className="bg-white border border-brand-border rounded-[2rem] p-5 h-full flex flex-col">
       <WidgetHeader
@@ -305,7 +530,23 @@ function FunnelWidget() {
         icon={<BarChart3 size={16} className="text-brand-muted" />}
       />
       <div className="flex flex-col gap-2.5 mt-4 flex-1">
-        {stages.map((s) => (
+        {isLoading && (
+          <>
+            <Skeleton className="h-5" />
+            <Skeleton className="h-5" />
+            <Skeleton className="h-5" />
+            <Skeleton className="h-5" />
+          </>
+        )}
+        {!isLoading && isError && (
+          <p className={`${C.bodyXs} ${C.color.mutedLight}`}>—</p>
+        )}
+        {!isLoading && !isError && visibleStages.length === 0 && (
+          <p className={`${C.bodySm} ${C.color.mutedLight}`}>
+            Воронка ещё не настроена
+          </p>
+        )}
+        {!isLoading && !isError && visibleStages.map((s) => (
           <div key={s.name} className="flex items-center gap-3">
             <span
               className={`${C.bodyXs} ${C.color.mutedLight} w-24 shrink-0 truncate`}
@@ -333,28 +574,8 @@ function FunnelWidget() {
 // ─── Notifications widget (full-width strip) ───────────────
 
 function NotifWidget() {
-  const notifs = [
-    {
-      text: "Чак обогатил лид Coffee Lab Moscow",
-      time: "2 мин назад",
-      tone: "accent",
-    },
-    {
-      text: "Новая заявка с формы «Каталог»",
-      time: "12 мин назад",
-      tone: "neutral",
-    },
-    {
-      text: "Brusnika QSR ответили на КП",
-      time: "47 мин назад",
-      tone: "neutral",
-    },
-    {
-      text: "Чак напомнит о звонке с Mintea Lab в 17:30",
-      time: "1 ч назад",
-      tone: "accent",
-    },
-  ];
+  const { data, isLoading, isError } = useNotificationsList({ unread: false });
+  const items = useMemo(() => (data?.items ?? []).slice(0, 4), [data]);
   return (
     <div className="bg-white border border-brand-border rounded-[2rem] p-5 h-full flex flex-col">
       <WidgetHeader
@@ -363,59 +584,43 @@ function NotifWidget() {
         icon={<Bell size={16} className="text-brand-muted" />}
       />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 mt-4">
-        {notifs.map((n, i) => {
-          const dotColor =
-            n.tone === "accent" ? "bg-brand-accent" : "bg-brand-muted";
+        {isLoading && (
+          <>
+            <Skeleton className="h-12" />
+            <Skeleton className="h-12" />
+            <Skeleton className="h-12" />
+            <Skeleton className="h-12" />
+          </>
+        )}
+        {!isLoading && isError && (
+          <p className={`${C.bodyXs} ${C.color.mutedLight} col-span-full`}>—</p>
+        )}
+        {!isLoading && !isError && items.length === 0 && (
+          <p className={`${C.bodySm} ${C.color.mutedLight} col-span-full`}>
+            Уведомлений пока нет
+          </p>
+        )}
+        {!isLoading && !isError && items.map((n) => {
+          const isUnread = n.read_at == null;
+          const dotColor = isUnread ? "bg-brand-accent" : "bg-brand-muted";
           return (
             <div
-              key={i}
+              key={n.id}
               className="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-brand-bg"
             >
               <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />
               <p className={`${C.bodySm} ${C.color.text} truncate flex-1`}>
-                {n.text}
+                {n.title || n.body || "—"}
               </p>
               <span
                 className={`${C.bodyXs} font-mono ${C.color.mutedLight} shrink-0`}
               >
-                {n.time}
+                {relativeTime(n.created_at)}
               </span>
             </div>
           );
         })}
       </div>
-    </div>
-  );
-}
-
-// ─── Shared widget header ──────────────────────────────────
-
-function WidgetHeader({
-  title,
-  subtitle,
-  icon,
-  accent,
-}: {
-  title: string;
-  subtitle?: string;
-  icon: React.ReactNode;
-  accent?: boolean;
-}) {
-  const titleColor = accent ? "text-brand-accent-text" : C.color.text;
-  return (
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          {icon}
-          <h3 className={`${C.bodySm} font-bold ${titleColor}`}>{title}</h3>
-        </div>
-        {subtitle && (
-          <p className={`${C.bodyXs} ${C.color.mutedLight} mt-0.5`}>
-            {subtitle}
-          </p>
-        )}
-      </div>
-      <ArrowUpRight size={14} className={`${C.color.mutedLight} mt-0.5 shrink-0`} />
     </div>
   );
 }
@@ -476,6 +681,17 @@ function SortableWidget({
   );
 }
 
+// ─── Russian pluralisation helper ──────────────────────────
+
+/** Pick the right Russian plural form (1, 2-4, 5+) for a count. */
+function pluralRu(n: number, forms: [string, string, string]): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return forms[0];
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return forms[1];
+  return forms[2];
+}
+
 // ─── Page ──────────────────────────────────────────────────
 
 export default function TodayPage() {
@@ -505,6 +721,11 @@ export default function TodayPage() {
     (user?.user_metadata?.full_name as string | undefined)?.split(" ")[0] ??
     user?.email?.split("@")[0] ??
     "коллега";
+
+  // Pull the today plan once at the page level so the Чак subline
+  // can include the live task count without re-fetching.
+  const { data: plan } = useTodayPlan();
+  const todayTotal = plan?.items?.length ?? 0;
 
   // Load saved layout from localStorage. Runs whenever userId changes
   // (e.g. after auth resolves).
@@ -588,57 +809,26 @@ export default function TodayPage() {
   const greeting = getGreeting(firstName);
   const { weekday, date } = getDateLabel();
   const visible = order.filter((id) => !hidden.has(id));
-  const chakSummary = "Чак подготовил план · 7 задач на сегодня";
+
+  // Live subtitle. Uses task count when the plan resolves; falls back
+  // to a generic line otherwise so the header doesn't twitch on slow
+  // connections.
+  const chakSummary =
+    todayTotal > 0
+      ? `Чак подготовил план · ${todayTotal} ${pluralRu(todayTotal, ["задача", "задачи", "задач"])} на сегодня`
+      : "Чак готовит план на сегодня";
 
   function renderWidget(id: WidgetId) {
     switch (id) {
-      case "w-tasks":
-        return (
-          <CounterWidget
-            label="Задачи"
-            icon={<ListChecks size={14} />}
-            value={7}
-            note="3 просрочено"
-          />
-        );
-      case "w-followup":
-        return (
-          <CounterWidget
-            label="Follow-up"
-            icon={<AlarmClock size={14} />}
-            value={4}
-            note="требуют ответа"
-            accent
-          />
-        );
-      case "w-rotting":
-        return (
-          <CounterWidget
-            label="Устаревает"
-            icon={<Flame size={14} />}
-            value={5}
-            note="без движения 7+ дн"
-          />
-        );
-      case "w-pipeline":
-        return (
-          <CounterWidget
-            label="В воронке"
-            icon={<BarChart3 size={14} />}
-            value={43}
-            note="активных лида"
-          />
-        );
-      case "w-focus":
-        return <FocusWidget />;
-      case "w-tasklist":
-        return <TaskListWidget />;
-      case "w-chak":
-        return <ChakWidget />;
-      case "w-funnel":
-        return <FunnelWidget />;
-      case "w-notif":
-        return <NotifWidget />;
+      case "w-tasks":    return <TasksCounter />;
+      case "w-followup": return <FollowupCounter />;
+      case "w-rotting":  return <RottingCounter />;
+      case "w-pipeline": return <PipelineCounter />;
+      case "w-focus":    return <FocusWidget />;
+      case "w-tasklist": return <TaskListWidget />;
+      case "w-chak":     return <ChakWidget />;
+      case "w-funnel":   return <FunnelWidget />;
+      case "w-notif":    return <NotifWidget />;
     }
   }
 
