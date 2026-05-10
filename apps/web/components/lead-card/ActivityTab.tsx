@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CheckSquare,
   Square,
@@ -14,7 +14,9 @@ import {
   useCreateActivity,
   useCompleteTask,
 } from "@/lib/hooks/use-activities";
-import type { ActivityOut } from "@/lib/types";
+import { useUpdateLead } from "@/lib/hooks/use-lead";
+import { C } from "@/lib/design-system";
+import type { ActivityOut, LeadOut } from "@/lib/types";
 
 const FILTER_OPTIONS = [
   { label: "Все", value: "" },
@@ -40,9 +42,10 @@ const MODE_LABELS: Record<ComposerMode, string> = {
 
 interface Props {
   leadId: string;
+  lead: LeadOut;
 }
 
-export function ActivityTab({ leadId }: Props) {
+export function ActivityTab({ leadId, lead }: Props) {
   const [filterType, setFilterType] = useState("");
   const [mode, setMode] = useState<ComposerMode>("comment");
 
@@ -58,6 +61,56 @@ export function ActivityTab({ leadId }: Props) {
   const activitiesQuery = useActivities(leadId, filterType || undefined);
   const createActivity = useCreateActivity(leadId);
   const completeTask = useCompleteTask(leadId);
+  const updateLead = useUpdateLead(leadId);
+
+  // Next-step block — moved here from the Deal tab. Writes to the
+  // lead's `next_step` / `next_action_at` fields and mirrors the
+  // commitment as a `task` activity so it shows up in the feed below.
+  // `next_action_at` is the canonical column name; the spec used
+  // `next_step_due_at` but no such field exists in LeadUpdate.
+  const [nextStep, setNextStep] = useState(lead.next_step ?? "");
+  const [nextStepDue, setNextStepDue] = useState(
+    lead.next_action_at ? lead.next_action_at.slice(0, 16) : "",
+  );
+  const [savingNextStep, setSavingNextStep] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    setNextStep(lead.next_step ?? "");
+    setNextStepDue(
+      lead.next_action_at ? lead.next_action_at.slice(0, 16) : "",
+    );
+  }, [lead.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2500);
+  }
+
+  async function handleSaveNextStep() {
+    const trimmed = nextStep.trim();
+    if (!trimmed || savingNextStep) return;
+    setSavingNextStep(true);
+    try {
+      // 1. Persist on the lead.
+      await updateLead.mutateAsync({
+        next_step: trimmed,
+        next_action_at: nextStepDue || null,
+      });
+      // 2. Mirror as a task activity so the commitment shows up in
+      // the feed below — same shape as the inline «Задача» composer.
+      await createActivity.mutateAsync({
+        type: "task",
+        payload_json: { name: trimmed },
+        task_due_at: nextStepDue || null,
+      });
+      showToast("Следующий шаг сохранён");
+    } catch {
+      showToast("Не удалось сохранить");
+    } finally {
+      setSavingNextStep(false);
+    }
+  }
 
   const allItems: ActivityOut[] = activitiesQuery.data
     ? activitiesQuery.data.pages.flatMap((p) => p.items)
@@ -106,6 +159,34 @@ export function ActivityTab({ leadId }: Props) {
 
   return (
     <div className="space-y-5">
+      {/* Next step — pinned to the top of the activity tab. The
+          commitment lives on the lead record AND mirrors itself as a
+          task activity in the feed below for visibility. */}
+      <div className="p-4 bg-brand-soft rounded-2xl border border-brand-accent/20">
+        <p className={`${C.caption} text-brand-muted mb-3`}>следующий шаг</p>
+        <input
+          value={nextStep}
+          onChange={(e) => setNextStep(e.target.value)}
+          placeholder="Что делаем? (например: отправить КП)"
+          className={`${C.form.field} mb-2`}
+        />
+        <div className="flex gap-2 items-center">
+          <input
+            type="datetime-local"
+            value={nextStepDue}
+            onChange={(e) => setNextStepDue(e.target.value)}
+            className={`${C.form.field} flex-1`}
+          />
+          <button
+            onClick={handleSaveNextStep}
+            disabled={!nextStep.trim() || savingNextStep}
+            className={`${C.button.primary} ${C.btnLg} px-4 py-2 disabled:opacity-40 shrink-0`}
+          >
+            {savingNextStep ? "..." : "Сохранить"}
+          </button>
+        </div>
+      </div>
+
       {/* Composer */}
       <div className="bg-canvas rounded-2xl border border-black/5 p-4">
         {/* Mode tabs */}
@@ -290,6 +371,12 @@ export function ActivityTab({ leadId }: Props) {
             )}
             Загрузить ещё
           </button>
+        </div>
+      )}
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-ink text-white text-sm font-semibold px-5 py-2.5 rounded-pill shadow-soft z-50">
+          {toast}
         </div>
       )}
     </div>

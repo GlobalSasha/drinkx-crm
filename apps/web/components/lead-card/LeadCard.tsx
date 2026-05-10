@@ -88,7 +88,7 @@ export function LeadCard({ leadId }: Props) {
   const tabParam = searchParams.get("tab");
   const initialTab: TabKey = TABS.some((t) => t.key === tabParam)
     ? (tabParam as TabKey)
-    : "deal";
+    : "activity";
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
@@ -479,7 +479,7 @@ export function LeadCard({ leadId }: Props) {
             {activeTab === "ai-brief" && <AIBriefTab leadId={lead.id} />}
             {activeTab === "contacts" && <ContactsTab lead={lead} />}
             {activeTab === "scoring" && <ScoringTab lead={lead} />}
-            {activeTab === "activity" && <ActivityTab leadId={lead.id} />}
+            {activeTab === "activity" && <ActivityTab leadId={lead.id} lead={lead} />}
             {activeTab === "pilot" && showPilotTab && <PilotTab lead={lead} />}
           </div>
         </div>
