@@ -1,541 +1,729 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { RefreshCw, Sparkles, CheckCircle2, Circle, ArrowRight } from "lucide-react";
-import { useTodayPlan, useRegenerate, useCompletePlanItem } from "@/lib/hooks/use-daily-plan";
-import { segmentLabel } from "@/lib/i18n";
-import { tierFromScore } from "@/lib/types";
-import type { DailyPlanItem, TimeBlock, TaskKind } from "@/lib/types";
+import { useEffect, useState } from "react";
+import {
+  ListChecks,
+  AlarmClock,
+  Flame,
+  BarChart3,
+  GripVertical,
+  X,
+  Plus,
+  LayoutGrid,
+  Sparkles,
+  Bell,
+  TrendingUp,
+  ChevronRight,
+  Phone,
+  Mail,
+  Calendar,
+  CheckCircle2,
+  ArrowUpRight,
+} from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  rectSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import type { User } from "@supabase/supabase-js";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { C } from "@/lib/design-system";
 
-// ---- Constants ----
+// ─── Widget registry ────────────────────────────────────────
 
-const PAGE_SIZE = 10;
+type WidgetId =
+  | "w-tasks"
+  | "w-followup"
+  | "w-rotting"
+  | "w-pipeline"
+  | "w-focus"
+  | "w-tasklist"
+  | "w-chak"
+  | "w-funnel"
+  | "w-notif";
 
-// ---- Labels ----
-
-const TIME_BLOCK_LABEL: Record<TimeBlock, string> = {
-  morning: "Утро",
-  midday: "День",
-  afternoon: "После обеда",
-  evening: "Вечер",
-};
-
-const TASK_KIND_LABEL: Record<TaskKind, string> = {
-  call: "Звонок",
-  email: "Почта",
-  meeting: "Встреча",
-  research: "Изучить",
-  follow_up: "Follow-up",
-};
-
-const TASK_KIND_STYLE: Record<TaskKind, string> = {
-  call: "bg-accent/10 text-accent",
-  email: "bg-success/10 text-success",
-  meeting: "bg-warning/10 text-warning",
-  research: "bg-black/5 text-muted",
-  follow_up: "bg-rose/10 text-rose",
-};
-
-const PRIORITY_STYLE: Record<string, string> = {
-  A: "bg-accent/10 text-accent",
-  B: "bg-success/10 text-success",
-  C: "bg-warning/10 text-warning",
-  D: "bg-black/5 text-muted",
-};
-
-const TIME_BLOCK_ORDER: (TimeBlock | null)[] = [
-  "morning",
-  "midday",
-  "afternoon",
-  "evening",
-  null,
+const DEFAULT_ORDER: WidgetId[] = [
+  "w-tasks",
+  "w-followup",
+  "w-rotting",
+  "w-pipeline",
+  "w-focus",
+  "w-tasklist",
+  "w-chak",
+  "w-funnel",
+  "w-notif",
 ];
 
-// ---- Date helpers ----
+const WIDGET_LABELS: Record<WidgetId, string> = {
+  "w-tasks":    "Задачи",
+  "w-followup": "Follow-up",
+  "w-rotting":  "Устаревает",
+  "w-pipeline": "В воронке",
+  "w-focus":    "Фокус дня",
+  "w-tasklist": "Список задач",
+  "w-chak":     "Инсайты Чака",
+  "w-funnel":   "Стадии воронки",
+  "w-notif":    "Уведомления",
+};
 
-const TODAY_DATE = new Date().toLocaleDateString("ru-RU", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-});
+// Grid spans per widget. Counter widgets are 1 column on the auto-fit
+// grid; main widgets occupy 2; the notifications strip stretches across.
+const WIDGET_SPAN: Record<WidgetId, string> = {
+  "w-tasks":    "",
+  "w-followup": "",
+  "w-rotting":  "",
+  "w-pipeline": "",
+  "w-focus":    "sm:col-span-2",
+  "w-tasklist": "sm:col-span-2",
+  "w-chak":     "sm:col-span-2",
+  "w-funnel":   "sm:col-span-2",
+  "w-notif":    "col-span-full",
+};
 
-function todayIso(): string {
+// ─── Greeting ──────────────────────────────────────────────
+
+function getGreeting(name: string) {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return { text: `Доброе утро, ${name}`, icon: "🌅" };
+  if (h >= 12 && h < 17) return { text: `Добрый день, ${name}`, icon: "☀️" };
+  if (h >= 17 && h < 22) return { text: `Добрый вечер, ${name}`, icon: "🌆" };
+  return { text: `Доброй ночи, ${name}`, icon: "🌙" };
+}
+
+function getDateLabel() {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const weekday = d.toLocaleDateString("ru-RU", { weekday: "long" });
+  const date = d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
+  return {
+    weekday: weekday[0].toUpperCase() + weekday.slice(1),
+    date,
+  };
 }
 
-// ---- Sub-components ----
+// ─── Counter widget ────────────────────────────────────────
 
-function SkeletonCard() {
-  return (
-    <div className="animate-pulse flex items-center gap-3 bg-white border border-black/5 rounded-xl px-4 py-3 h-[72px]">
-      <div className="w-5 h-5 rounded-full bg-black/5 shrink-0" />
-      <div className="w-14 h-4 bg-black/5 rounded shrink-0" />
-      <div className="flex-1 space-y-1.5">
-        <div className="h-3.5 bg-black/5 rounded w-2/5" />
-        <div className="h-2.5 bg-black/5 rounded w-3/4" />
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <div className="w-6 h-4 bg-black/5 rounded" />
-        <div className="w-10 h-4 bg-black/5 rounded" />
-        <div className="w-10 h-4 bg-black/5 rounded" />
-      </div>
-    </div>
-  );
+interface CounterProps {
+  label: string;
+  icon: React.ReactNode;
+  value: number;
+  note: string;
+  accent?: boolean;
 }
 
-function PlanItemCard({ item, index }: { item: DailyPlanItem; index: number }) {
-  const router = useRouter();
-  const { mutate: complete, isPending } = useCompletePlanItem();
-
-  const taskKind = item.task_kind as TaskKind;
-  const kindLabel = TASK_KIND_LABEL[taskKind] ?? item.task_kind;
-  const kindStyle = TASK_KIND_STYLE[taskKind] ?? "bg-black/5 text-muted";
-  const tier = tierFromScore(item.priority_score);
-  const priorityStyle = PRIORITY_STYLE[tier] ?? "bg-black/5 text-muted";
-  const isHot = item.priority_score >= 80;
-
-  // Build segment+city label
-  const segCity = [
-    item.lead_segment ? segmentLabel(item.lead_segment) : null,
-    item.lead_city,
-  ]
-    .filter(Boolean)
-    .join(", ");
-
-  function handleCheck(e: React.MouseEvent) {
-    e.stopPropagation();
-    if (!item.done && !isPending) {
-      complete(item.id);
-    }
-  }
-
-  function handleOpen(e: React.MouseEvent) {
-    e.stopPropagation();
-    if (item.lead_id) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      router.push(`/leads/${item.lead_id}` as any);
-    }
-  }
-
+function CounterWidget({ label, icon, value, note, accent }: CounterProps) {
+  const wrapBg = accent
+    ? "bg-brand-soft border border-brand-accent/20"
+    : "bg-white border border-brand-border";
+  const valueColor = accent ? "text-brand-accent-text" : C.color.text;
+  const iconColor = accent ? "text-brand-accent-text" : "text-brand-muted";
   return (
-    <div
-      className={`relative flex flex-col bg-white border border-black/5 rounded-xl shadow-soft transition-all duration-300 overflow-hidden ${
-        item.done ? "opacity-50" : ""
-      } ${isHot && !item.done ? "border-l-2 border-l-accent" : ""}`}
-    >
-      {/* Main row */}
-      <div className="flex items-center gap-3 px-4 py-3">
-        {/* Checkbox */}
-        <button
-          onClick={handleCheck}
-          disabled={item.done || isPending}
-          className="shrink-0 text-muted-3 hover:text-success transition-colors disabled:cursor-default"
-          aria-label={item.done ? "Выполнено" : "Отметить выполненным"}
-        >
-          {item.done ? (
-            <CheckCircle2 size={18} className="text-success" />
-          ) : (
-            <Circle size={18} />
-          )}
-        </button>
-
-        {/* Position · task_kind pill */}
+    <div className={`${wrapBg} rounded-[2rem] p-5 h-full flex flex-col gap-2`}>
+      <div className="flex items-center gap-2">
+        <span className={iconColor}>{icon}</span>
         <span
-          className={`shrink-0 font-mono text-[10px] font-semibold px-2 py-0.5 rounded-md whitespace-nowrap ${kindStyle}`}
+          className={`${C.bodyXs} ${C.color.mutedLight} uppercase tracking-wider font-medium`}
         >
-          {String(index).padStart(2, "0")} · {kindLabel}
-        </span>
-
-        {/* Company + segment/city — takes remaining space */}
-        <div className="flex-1 min-w-0">
-          <button
-            onClick={handleOpen}
-            disabled={!item.lead_id}
-            className={`font-semibold text-sm text-ink leading-snug truncate block max-w-full text-left ${
-              item.done ? "line-through" : ""
-            } ${item.lead_id ? "hover:text-accent transition-colors" : "cursor-default"}`}
-          >
-            {item.lead_company_name ?? "—"}
-          </button>
-          {segCity && (
-            <p className="font-mono text-[10px] text-muted-3 truncate leading-tight mt-0.5 lowercase">
-              {segCity}
-            </p>
-          )}
-        </div>
-
-        {/* Right-edge cluster */}
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Priority tier chip */}
-          <span
-            className={`font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-md ${priorityStyle}`}
-          >
-            {tier}
-          </span>
-
-          {/* Score */}
-          <span className="font-mono text-[10px] text-muted-2 tabular-nums">
-            {Math.round(item.priority_score)}
-          </span>
-
-          {/* Estimated minutes */}
-          <span className="font-mono text-[10px] text-muted-3 tabular-nums whitespace-nowrap">
-            {item.estimated_minutes} мин
-          </span>
-
-          {/* Открыть link */}
-          {item.lead_id && (
-            <button
-              onClick={handleOpen}
-              className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-accent hover:text-accent/70 transition-colors"
-              aria-label={`Открыть ${item.lead_company_name}`}
-            >
-              Открыть
-              <ArrowRight size={11} />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Hint line */}
-      {item.hint_one_liner && (
-        <p
-          className={`px-4 pb-2.5 text-[11px] text-muted-2 leading-tight truncate -mt-1 ${
-            item.done ? "line-through" : ""
-          }`}
-          title={item.hint_one_liner}
-        >
-          {item.hint_one_liner}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function TimeBlockSection({
-  block,
-  items,
-  doneCount,
-}: {
-  block: TimeBlock | null;
-  items: DailyPlanItem[];
-  doneCount: number;
-}) {
-  if (items.length === 0) return null;
-
-  const label = block ? TIME_BLOCK_LABEL[block] : "Без времени";
-
-  return (
-    <div className="mb-6">
-      {/* Heading */}
-      <div className="flex items-center gap-2 mb-2">
-        <span className="font-mono uppercase tracking-[0.2em] text-[10px] text-muted-2">
           {label}
         </span>
-        <span className="bg-black/5 text-muted-2 font-mono text-[10px] px-2 py-0.5 rounded-pill tabular-nums">
-          {items.length}
-          {doneCount > 0 && (
-            <> · {doneCount} ✓</>
-          )}
-        </span>
       </div>
-      <div className="border-t border-black/5 mb-3" />
-      {/* Cards */}
-      <div className="flex flex-col gap-2">
-        {items.map((item, i) => (
-          <PlanItemCard key={item.id} item={item} index={item.position} />
+      <div className={`${C.metricSm} ${valueColor} tabular-nums leading-none`}>
+        {value}
+      </div>
+      <div className={`${C.bodyXs} ${C.color.mutedLight}`}>{note}</div>
+    </div>
+  );
+}
+
+// ─── Focus / top-leads widget ─────────────────────────────
+
+function FocusWidget() {
+  // Realistic placeholder. Real wire-up: pull top-3 fit-scored leads
+  // from useTopLeads() (TBD).
+  const leads = [
+    { name: "Coffee Lab Moscow",     segment: "HoReCa · Москва",     score: 92, tier: "A" },
+    { name: "Brusnika QSR Network",  segment: "QSR · Екатеринбург", score: 88, tier: "A" },
+    { name: "Nika Office Park",      segment: "Офисы · СПб",         score: 81, tier: "A" },
+  ];
+  return (
+    <div className="bg-white border border-brand-border rounded-[2rem] p-5 h-full flex flex-col">
+      <WidgetHeader
+        title="Фокус дня"
+        subtitle="Чак рекомендует начать с этих лидов"
+        icon={<Sparkles size={16} className="text-brand-accent" />}
+      />
+      <div className="flex flex-col gap-2 mt-4 flex-1">
+        {leads.map((l) => (
+          <div
+            key={l.name}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-brand-bg"
+          >
+            <span className="bg-brand-accent text-white text-[10px] font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0">
+              {l.tier}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className={`${C.bodySm} font-semibold ${C.color.text} truncate`}>
+                {l.name}
+              </p>
+              <p className={`${C.bodyXs} ${C.color.mutedLight} truncate`}>
+                {l.segment}
+              </p>
+            </div>
+            <span
+              className={`${C.bodyXs} font-mono font-bold tabular-nums bg-brand-soft text-brand-accent-text px-2 py-0.5 rounded-full shrink-0`}
+            >
+              {l.score}
+            </span>
+            <ChevronRight size={14} className="text-brand-muted shrink-0" />
+          </div>
         ))}
       </div>
     </div>
   );
 }
 
-// ---- Pagination controls ----
+// ─── Task-list widget ──────────────────────────────────────
 
-function Pagination({
-  currentPage,
-  totalPages,
-  onPage,
-}: {
-  currentPage: number;
-  totalPages: number;
-  onPage: (p: number) => void;
-}) {
-  if (totalPages <= 1) return null;
+interface PlanRow {
+  block: string;
+  time: string;
+  kind: "call" | "email" | "meeting";
+  title: string;
+  lead: string;
+}
 
+function TaskListWidget() {
+  const tasks: PlanRow[] = [
+    { block: "Утро",  time: "10:00", kind: "call",    title: "Уточнить дату пилота", lead: "Coffee Lab Moscow" },
+    { block: "Утро",  time: "11:30", kind: "email",   title: "Отправить КП",          lead: "Brusnika QSR" },
+    { block: "День",  time: "14:00", kind: "meeting", title: "Демо станции",          lead: "Nika Office Park" },
+    { block: "Вечер", time: "17:30", kind: "call",    title: "Follow-up по пилоту",   lead: "Mintea Lab" },
+  ];
+  const kindIcon: Record<PlanRow["kind"], React.ReactNode> = {
+    call:    <Phone size={13} />,
+    email:   <Mail size={13} />,
+    meeting: <Calendar size={13} />,
+  };
   return (
-    <div className="flex items-center justify-center gap-1 mt-8 mb-2">
-      {/* Prev arrow */}
-      <button
-        onClick={() => onPage(currentPage - 1)}
-        disabled={currentPage === 1}
-        className="w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg text-muted hover:bg-canvas-2 hover:text-ink transition-colors disabled:opacity-30 disabled:cursor-not-allowed font-mono text-sm"
-        aria-label="Предыдущая страница"
-      >
-        ←
-      </button>
-
-      {/* Page numbers */}
-      {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-        <button
-          key={p}
-          onClick={() => onPage(p)}
-          className={`w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg font-mono text-[11px] transition-colors ${
-            p === currentPage
-              ? "bg-accent text-white font-semibold"
-              : "text-muted hover:bg-canvas-2 hover:text-ink"
-          }`}
-          aria-label={`Страница ${p}`}
-          aria-current={p === currentPage ? "page" : undefined}
-        >
-          {p}
-        </button>
-      ))}
-
-      {/* Next arrow */}
-      <button
-        onClick={() => onPage(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        className="w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg text-muted hover:bg-canvas-2 hover:text-ink transition-colors disabled:opacity-30 disabled:cursor-not-allowed font-mono text-sm"
-        aria-label="Следующая страница"
-      >
-        →
-      </button>
+    <div className="bg-white border border-brand-border rounded-[2rem] p-5 h-full flex flex-col">
+      <WidgetHeader
+        title="Список задач"
+        subtitle="Расставлено по таймблокам Чаком"
+        icon={<ListChecks size={16} className="text-brand-muted" />}
+      />
+      <div className="flex flex-col gap-1.5 mt-4 flex-1">
+        {tasks.map((t, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-3 px-3 py-2 rounded-2xl bg-brand-bg"
+          >
+            <span
+              className={`${C.bodyXs} font-mono font-semibold uppercase tracking-wider ${C.color.mutedLight} w-12 shrink-0 tabular-nums`}
+            >
+              {t.time}
+            </span>
+            <span className="text-brand-muted shrink-0">{kindIcon[t.kind]}</span>
+            <div className="min-w-0 flex-1">
+              <p className={`${C.bodySm} font-semibold ${C.color.text} truncate`}>
+                {t.title}
+              </p>
+              <p className={`${C.bodyXs} ${C.color.mutedLight} truncate`}>
+                {t.lead}
+              </p>
+            </div>
+            <CheckCircle2 size={14} className="text-brand-muted shrink-0" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-// ---- Inner page (uses useSearchParams — must be inside Suspense) ----
+// ─── Чак insights widget ──────────────────────────────────
 
-function TodayPageInner() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const { data: plan, isLoading, isError } = useTodayPlan();
-  const { mutate: regenerate, isPending: isRegenerating } = useRegenerate();
-
-  // Derive page from URL, default 1
-  const pageParam = parseInt(searchParams.get("page") ?? "1", 10);
-  const [page, setPage] = useState(isNaN(pageParam) || pageParam < 1 ? 1 : pageParam);
-
-  // Reset to page 1 when plan regenerates (status changes to generating then ready)
-  const planId = plan?.id;
-  useEffect(() => {
-    setPage(1);
-    const url = new URL(window.location.href);
-    url.searchParams.delete("page");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    router.replace((url.pathname + (url.search === "?" ? "" : url.search)) as any, { scroll: false });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planId]);
-
-  const totalItems = plan?.summary_json?.count ?? plan?.items?.length ?? 0;
-  const totalMinutes = plan?.summary_json?.total_minutes ?? 0;
-
-  function handleRegenerate() {
-    regenerate(todayIso());
-  }
-
-  function goToPage(p: number) {
-    const url = new URL(window.location.href);
-    if (p === 1) {
-      url.searchParams.delete("page");
-    } else {
-      url.searchParams.set("page", String(p));
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    router.push((url.pathname + url.search) as any, { scroll: false });
-    setPage(p);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  // ---- Pagination logic ----
-  // Sort all items by position, slice for current page
-  const allItems = plan?.items ?? [];
-  const sortedItems = [...allItems].sort((a, b) => a.position - b.position);
-  const totalPages = Math.ceil(sortedItems.length / PAGE_SIZE);
-  const safePage = Math.min(Math.max(page, 1), Math.max(totalPages, 1));
-  const pageItems = sortedItems.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-
-  // Group page items by time_block, preserving order
-  const groupedItems: Map<TimeBlock | null, DailyPlanItem[]> = new Map();
-  for (const block of TIME_BLOCK_ORDER) {
-    const matching = pageItems.filter((i) => (i.time_block ?? null) === block);
-    if (matching.length > 0) {
-      groupedItems.set(block, matching);
-    }
-  }
-
-  // Done counts per block (from full plan, not page slice — for heading badge accuracy)
-  function doneCountForBlock(block: TimeBlock | null): number {
-    return allItems.filter(
-      (i) => (i.time_block ?? null) === block && i.done
-    ).length;
-  }
-
-  const isGenerating = plan?.status === "generating" || isRegenerating;
-
+function ChakWidget() {
+  const insights = [
+    {
+      icon: <Sparkles size={14} className="text-brand-accent" />,
+      text: "3 лида готовы к закрытию — score выше 85, нет блокеров",
+    },
+    {
+      icon: <TrendingUp size={14} className="text-brand-accent" />,
+      text: "Конверсия из «Подогрев» в «КП» выросла на 18% за неделю",
+    },
+    {
+      icon: <Flame size={14} className="text-brand-accent" />,
+      text: "Coffee Lab Moscow — 5 дней без касания, рекомендую напомнить",
+    },
+  ];
   return (
-    <>
-      {/* Sticky header */}
-      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-black/5 px-4 sm:px-6 py-3.5">
-        <div className="flex flex-wrap items-center justify-between gap-3 max-w-4xl mx-auto">
-          <div className="min-w-0">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-xl font-extrabold tracking-tight">Сегодня</h1>
-              <span className="font-mono text-[11px] text-muted-2 lowercase">{TODAY_DATE}</span>
-            </div>
-            {plan?.status === "ready" && (
-              <p className="font-mono text-[10px] text-muted-3 mt-0.5 tabular-nums">
-                {totalItems} задач
-                {totalMinutes > 0 && ` · ${totalMinutes} мин`}
-                {totalPages > 1 && ` · стр. ${safePage} из ${totalPages}`}
-              </p>
-            )}
-          </div>
-
-          {/* Regenerate button */}
-          <button
-            onClick={handleRegenerate}
-            disabled={isGenerating}
-            className="inline-flex items-center gap-2 bg-canvas border border-black/10 text-muted text-xs font-semibold rounded-pill px-4 py-2 hover:bg-canvas-2 hover:text-ink transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-          >
-            <RefreshCw size={13} className={isGenerating ? "animate-spin" : ""} />
-            <span className="hidden sm:inline">Пересобрать план</span>
-            <span className="sm:hidden">Пересобрать</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Body */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
-
-        {/* Loading initial */}
-        {isLoading && (
-          <div className="flex flex-col gap-2">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <SkeletonCard key={i} />
-            ))}
-          </div>
-        )}
-
-        {/* API error */}
-        {isError && (
-          <div className="flex items-center justify-center py-20 text-rose text-sm">
-            Ошибка загрузки плана. Проверьте подключение к API.
-          </div>
-        )}
-
-        {/* No plan yet — empty state */}
-        {!isLoading && !isError && !plan && (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="bg-white border border-black/5 rounded-2xl p-10 shadow-soft max-w-md w-full mx-auto">
-              <Sparkles size={32} className="mx-auto mb-4 text-muted-3" />
-              <p className="text-lg font-extrabold tracking-tight mb-2">
-                План на сегодня ещё не сформирован
-              </p>
-              <p className="text-sm text-muted mb-6">
-                Нажмите «Сформировать», чтобы AI собрал список задач на основе
-                ваших активных лидов.
-              </p>
-              <button
-                onClick={handleRegenerate}
-                disabled={isRegenerating}
-                className="inline-flex items-center gap-2 bg-accent text-white rounded-pill px-5 py-2.5 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-accent/90 active:scale-[0.98] disabled:opacity-60"
-              >
-                {isRegenerating ? (
-                  <RefreshCw size={14} className="animate-spin" />
-                ) : (
-                  <Sparkles size={14} />
-                )}
-                Сформировать
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Generating state */}
-        {!isLoading && !isError && plan?.status === "generating" && (
-          <div className="flex flex-col gap-2">
-            <p className="text-[11px] text-muted-2 mb-2 font-mono text-center tracking-wide uppercase">
-              AI собирает план…
+    <div className="bg-brand-soft border border-brand-accent/20 rounded-[2rem] p-5 h-full flex flex-col">
+      <WidgetHeader
+        title="Инсайты от Чака"
+        subtitle="Что Чак заметил в твоих лидах сегодня"
+        icon={<Sparkles size={16} className="text-brand-accent-text" />}
+        accent
+      />
+      <div className="flex flex-col gap-2.5 mt-4 flex-1">
+        {insights.map((it, i) => (
+          <div key={i} className="flex items-start gap-3">
+            <span className="mt-0.5 shrink-0">{it.icon}</span>
+            <p className={`${C.bodySm} ${C.color.text} leading-snug`}>
+              {it.text}
             </p>
-            {Array.from({ length: 6 }).map((_, i) => (
-              <SkeletonCard key={i} />
-            ))}
           </div>
-        )}
-
-        {/* Failed state */}
-        {!isLoading && !isError && plan?.status === "failed" && (
-          <div className="bg-rose/5 border border-rose/20 rounded-2xl p-6 mb-6">
-            <p className="text-sm font-semibold text-rose mb-1">Ошибка генерации</p>
-            <p className="text-xs text-rose/80 font-mono mb-4 line-clamp-2">
-              {plan.generation_error ?? "Неизвестная ошибка"}
-            </p>
-            <button
-              onClick={handleRegenerate}
-              disabled={isRegenerating}
-              className="inline-flex items-center gap-2 bg-rose text-white rounded-pill px-4 py-2 text-xs font-semibold hover:bg-rose/90 transition-colors disabled:opacity-60"
-            >
-              <RefreshCw size={12} className={isRegenerating ? "animate-spin" : ""} />
-              Попробовать снова
-            </button>
-          </div>
-        )}
-
-        {/* Ready state — paginated time-blocked sections */}
-        {!isLoading && !isError && plan?.status === "ready" && (
-          <>
-            {groupedItems.size === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="bg-white border border-black/5 rounded-2xl p-10 shadow-soft max-w-md w-full mx-auto">
-                  <Sparkles size={32} className="mx-auto mb-4 text-muted-3" />
-                  <p className="text-base font-semibold text-ink mb-2">План пуст</p>
-                  <p className="text-sm text-muted">
-                    В вашем плане нет задач на сегодня.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <>
-                {Array.from(groupedItems.entries()).map(([block, items]) => (
-                  <TimeBlockSection
-                    key={block ?? "null"}
-                    block={block}
-                    items={items}
-                    doneCount={doneCountForBlock(block)}
-                  />
-                ))}
-                <Pagination
-                  currentPage={safePage}
-                  totalPages={totalPages}
-                  onPage={goToPage}
-                />
-              </>
-            )}
-          </>
-        )}
+        ))}
       </div>
-    </>
+    </div>
   );
 }
 
-// ---- Page (Suspense boundary for useSearchParams in Next 15) ----
+// ─── Funnel widget ─────────────────────────────────────────
+
+function FunnelWidget() {
+  const stages = [
+    { name: "Новые",      count: 18, pct: 100 },
+    { name: "Подогрев",   count: 14, pct: 78 },
+    { name: "КП",         count:  9, pct: 50 },
+    { name: "Переговоры", count:  5, pct: 28 },
+    { name: "Пилот",      count:  3, pct: 17 },
+  ];
+  return (
+    <div className="bg-white border border-brand-border rounded-[2rem] p-5 h-full flex flex-col">
+      <WidgetHeader
+        title="Стадии воронки"
+        subtitle="Распределение активных лидов"
+        icon={<BarChart3 size={16} className="text-brand-muted" />}
+      />
+      <div className="flex flex-col gap-2.5 mt-4 flex-1">
+        {stages.map((s) => (
+          <div key={s.name} className="flex items-center gap-3">
+            <span
+              className={`${C.bodyXs} ${C.color.mutedLight} w-24 shrink-0 truncate`}
+            >
+              {s.name}
+            </span>
+            <div className="flex-1 h-2 bg-brand-bg rounded-full overflow-hidden">
+              <div
+                className="h-full bg-brand-accent rounded-full transition-all duration-500"
+                style={{ width: `${s.pct}%` }}
+              />
+            </div>
+            <span
+              className={`${C.bodyXs} font-mono font-bold tabular-nums ${C.color.text} w-6 text-right shrink-0`}
+            >
+              {s.count}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Notifications widget (full-width strip) ───────────────
+
+function NotifWidget() {
+  const notifs = [
+    {
+      text: "Чак обогатил лид Coffee Lab Moscow",
+      time: "2 мин назад",
+      tone: "accent",
+    },
+    {
+      text: "Новая заявка с формы «Каталог»",
+      time: "12 мин назад",
+      tone: "neutral",
+    },
+    {
+      text: "Brusnika QSR ответили на КП",
+      time: "47 мин назад",
+      tone: "neutral",
+    },
+    {
+      text: "Чак напомнит о звонке с Mintea Lab в 17:30",
+      time: "1 ч назад",
+      tone: "accent",
+    },
+  ];
+  return (
+    <div className="bg-white border border-brand-border rounded-[2rem] p-5 h-full flex flex-col">
+      <WidgetHeader
+        title="Уведомления"
+        subtitle="Что произошло сегодня"
+        icon={<Bell size={16} className="text-brand-muted" />}
+      />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 mt-4">
+        {notifs.map((n, i) => {
+          const dotColor =
+            n.tone === "accent" ? "bg-brand-accent" : "bg-brand-muted";
+          return (
+            <div
+              key={i}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-brand-bg"
+            >
+              <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />
+              <p className={`${C.bodySm} ${C.color.text} truncate flex-1`}>
+                {n.text}
+              </p>
+              <span
+                className={`${C.bodyXs} font-mono ${C.color.mutedLight} shrink-0`}
+              >
+                {n.time}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Shared widget header ──────────────────────────────────
+
+function WidgetHeader({
+  title,
+  subtitle,
+  icon,
+  accent,
+}: {
+  title: string;
+  subtitle?: string;
+  icon: React.ReactNode;
+  accent?: boolean;
+}) {
+  const titleColor = accent ? "text-brand-accent-text" : C.color.text;
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          {icon}
+          <h3 className={`${C.bodySm} font-bold ${titleColor}`}>{title}</h3>
+        </div>
+        {subtitle && (
+          <p className={`${C.bodyXs} ${C.color.mutedLight} mt-0.5`}>
+            {subtitle}
+          </p>
+        )}
+      </div>
+      <ArrowUpRight size={14} className={`${C.color.mutedLight} mt-0.5 shrink-0`} />
+    </div>
+  );
+}
+
+// ─── Sortable wrapper ──────────────────────────────────────
+
+interface SortableWidgetProps {
+  id: WidgetId;
+  editing: boolean;
+  onHide: () => void;
+  spanClassName: string;
+  children: React.ReactNode;
+}
+
+function SortableWidget({
+  id,
+  editing,
+  onHide,
+  spanClassName,
+  children,
+}: SortableWidgetProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} className={`relative ${spanClassName}`}>
+      {editing && (
+        <>
+          <button
+            {...attributes}
+            {...listeners}
+            className="absolute top-3 right-10 z-20 w-6 h-6 rounded-full bg-brand-panel flex items-center justify-center cursor-grab active:cursor-grabbing"
+            aria-label="Переместить виджет"
+          >
+            <GripVertical size={12} className="text-brand-muted" />
+          </button>
+          <button
+            onClick={onHide}
+            className="absolute top-3 right-3 z-20 w-6 h-6 rounded-full bg-brand-panel flex items-center justify-center"
+            aria-label="Скрыть виджет"
+          >
+            <X size={12} className="text-brand-muted" />
+          </button>
+        </>
+      )}
+      {children}
+    </div>
+  );
+}
+
+// ─── Page ──────────────────────────────────────────────────
 
 export default function TodayPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="max-w-4xl mx-auto px-6 py-6 flex flex-col gap-2">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
-        </div>
+  const [user, setUser] = useState<User | null>(null);
+  const [order, setOrder] = useState<WidgetId[]>(DEFAULT_ORDER);
+  const [hidden, setHidden] = useState<Set<WidgetId>>(new Set());
+  const [editing, setEditing] = useState(false);
+  // Track when localStorage has been hydrated so we don't overwrite
+  // saved layout with the initial defaults during the persistence
+  // effect below.
+  const [hydrated, setHydrated] = useState(false);
+
+  // Load Supabase user — same pattern AppShell uses for displayName.
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const userId = user?.id ?? "anon";
+  const firstName =
+    (user?.user_metadata?.full_name as string | undefined)?.split(" ")[0] ??
+    user?.email?.split("@")[0] ??
+    "коллега";
+
+  // Load saved layout from localStorage. Runs whenever userId changes
+  // (e.g. after auth resolves).
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`today_widgets_${userId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved) as {
+          order?: WidgetId[];
+          hidden?: WidgetId[];
+        };
+        // Validate against the current widget catalog so removed/renamed
+        // ids don't sneak back in from old layouts.
+        const validIds = new Set(DEFAULT_ORDER);
+        const filteredOrder = parsed.order?.filter((id) =>
+          validIds.has(id),
+        ) ?? [];
+        // Append any new widgets that were added since the save —
+        // otherwise they'd never appear for users with old layouts.
+        const missing = DEFAULT_ORDER.filter((id) => !filteredOrder.includes(id));
+        setOrder([...filteredOrder, ...missing]);
+        setHidden(new Set(parsed.hidden?.filter((id) => validIds.has(id)) ?? []));
+      } else {
+        setOrder(DEFAULT_ORDER);
+        setHidden(new Set());
       }
-    >
-      <TodayPageInner />
-    </Suspense>
+    } catch {
+      // Corrupt entry — fall back to defaults.
+      setOrder(DEFAULT_ORDER);
+      setHidden(new Set());
+    }
+    setHydrated(true);
+  }, [userId]);
+
+  // Persist on change, but only after the initial load has completed.
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(
+        `today_widgets_${userId}`,
+        JSON.stringify({ order, hidden: [...hidden] }),
+      );
+    } catch {
+      // Quota exceeded or storage disabled — silently skip.
+    }
+  }, [order, hidden, userId, hydrated]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setOrder((prev) =>
+        arrayMove(
+          prev,
+          prev.indexOf(active.id as WidgetId),
+          prev.indexOf(over.id as WidgetId),
+        ),
+      );
+    }
+  }
+
+  function hideWidget(id: WidgetId) {
+    setHidden((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }
+
+  function showWidget(id: WidgetId) {
+    setHidden((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
+
+  const greeting = getGreeting(firstName);
+  const { weekday, date } = getDateLabel();
+  const visible = order.filter((id) => !hidden.has(id));
+  const chakSummary = "Чак подготовил план · 7 задач на сегодня";
+
+  function renderWidget(id: WidgetId) {
+    switch (id) {
+      case "w-tasks":
+        return (
+          <CounterWidget
+            label="Задачи"
+            icon={<ListChecks size={14} />}
+            value={7}
+            note="3 просрочено"
+          />
+        );
+      case "w-followup":
+        return (
+          <CounterWidget
+            label="Follow-up"
+            icon={<AlarmClock size={14} />}
+            value={4}
+            note="требуют ответа"
+            accent
+          />
+        );
+      case "w-rotting":
+        return (
+          <CounterWidget
+            label="Устаревает"
+            icon={<Flame size={14} />}
+            value={5}
+            note="без движения 7+ дн"
+          />
+        );
+      case "w-pipeline":
+        return (
+          <CounterWidget
+            label="В воронке"
+            icon={<BarChart3 size={14} />}
+            value={43}
+            note="активных лида"
+          />
+        );
+      case "w-focus":
+        return <FocusWidget />;
+      case "w-tasklist":
+        return <TaskListWidget />;
+      case "w-chak":
+        return <ChakWidget />;
+      case "w-funnel":
+        return <FunnelWidget />;
+      case "w-notif":
+        return <NotifWidget />;
+    }
+  }
+
+  return (
+    <div className="font-sans bg-canvas min-h-screen">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        {/* Header */}
+        <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
+          <div className="min-w-0">
+            <h1 className={`${C.h3} ${C.color.text} flex items-center gap-2`}>
+              <span aria-hidden>{greeting.icon}</span>
+              <span>{greeting.text}</span>
+            </h1>
+            <p className={`${C.bodySm} ${C.color.mutedLight} mt-1`}>
+              {weekday}, {date} · {chakSummary}
+            </p>
+          </div>
+          <button
+            onClick={() => setEditing((v) => !v)}
+            className={`${C.button.ghost} ${C.btnLg} px-4 py-2 inline-flex items-center gap-2`}
+          >
+            <LayoutGrid size={14} aria-hidden />
+            {editing ? "Готово" : "Настроить"}
+          </button>
+        </div>
+
+        {/* Edit-mode hint */}
+        {editing && (
+          <div
+            className={`${C.bodyXs} ${C.color.mutedLight} mb-3 px-1`}
+            role="status"
+          >
+            Перетащи виджет за рукоять, чтобы поменять порядок. Крестик — скрыть.
+          </div>
+        )}
+
+        {/* Grid */}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={visible} strategy={rectSortingStrategy}>
+            <div
+              className="grid gap-3"
+              style={{
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              }}
+            >
+              {visible.map((id) => (
+                <SortableWidget
+                  key={id}
+                  id={id}
+                  editing={editing}
+                  onHide={() => hideWidget(id)}
+                  spanClassName={WIDGET_SPAN[id]}
+                >
+                  {renderWidget(id)}
+                </SortableWidget>
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+
+        {/* Hidden-widgets restore panel */}
+        {editing && hidden.size > 0 && (
+          <div className="border border-dashed border-brand-border rounded-[2rem] p-4 mt-4">
+            <p className={`${C.bodySm} ${C.color.mutedLight} mb-3`}>
+              Скрытые виджеты — нажми, чтобы вернуть
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {[...hidden].map((id) => (
+                <button
+                  key={id}
+                  onClick={() => showWidget(id)}
+                  className={`${C.button.ghost} ${C.btn} px-3 py-1.5 inline-flex items-center gap-1`}
+                >
+                  <Plus size={12} aria-hidden />
+                  {WIDGET_LABELS[id]}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
