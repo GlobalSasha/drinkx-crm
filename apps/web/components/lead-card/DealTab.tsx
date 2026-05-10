@@ -16,6 +16,13 @@ const DEAL_TYPE_OPTIONS: { value: DealType; label: string }[] = [
 
 const PRIORITY_OPTIONS: Priority[] = ["A", "B", "C", "D"];
 
+const PRIORITY_LABELS: Record<Priority, string> = {
+  A: "Горячий — закрываем в этом квартале",
+  B: "Перспективный — активная проработка",
+  C: "В наблюдении — периодический контакт",
+  D: "Холодный — низкий приоритет",
+};
+
 interface Props {
   lead: LeadOut;
 }
@@ -28,19 +35,15 @@ export function DealTab({ lead }: Props) {
   const [priority, setPriority] = useState<Priority | "">(lead.priority ?? "");
   const [score, setScore] = useState(lead.score ?? 0);
   const [blocker, setBlocker] = useState(lead.blocker ?? "");
-  const [nextStep, setNextStep] = useState(lead.next_step ?? "");
-  const [nextActionAt, setNextActionAt] = useState(
-    lead.next_action_at ? lead.next_action_at.slice(0, 16) : ""
-  );
 
-  // Sync if lead prop changes externally
+  // Sync if lead prop changes externally. `next_step` / `next_action_at`
+  // are owned by the Activity tab now — that block writes them and
+  // simultaneously creates a mirroring task activity.
   useEffect(() => {
     setDealType(lead.deal_type ?? "");
     setPriority(lead.priority ?? "");
     setScore(lead.score ?? 0);
     setBlocker(lead.blocker ?? "");
-    setNextStep(lead.next_step ?? "");
-    setNextActionAt(lead.next_action_at ? lead.next_action_at.slice(0, 16) : "");
   }, [lead.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const patch = useCallback(
@@ -73,16 +76,6 @@ export function DealTab({ lead }: Props) {
     patch({ blocker: v || null });
   }
 
-  function onNextStepChange(v: string) {
-    setNextStep(v);
-    patch({ next_step: v || null });
-  }
-
-  function onNextActionAtChange(v: string) {
-    setNextActionAt(v);
-    patch({ next_action_at: v || null });
-  }
-
   const tier = tierFromScore(score);
 
   return (
@@ -106,54 +99,60 @@ export function DealTab({ lead }: Props) {
         </select>
       </div>
 
-      {/* Priority */}
-      <div>
-        <label className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-3 block mb-1.5">
-          Приоритет
-        </label>
-        <div className="flex gap-2">
-          {PRIORITY_OPTIONS.map((p) => (
-            <button
-              key={p}
-              onClick={() => onPriorityChange(p)}
-              className={`flex-1 py-2 text-sm font-bold rounded-xl border transition-all ${
-                priority === p
-                  ? priorityConfig[p].chipBordered
-                  : "bg-canvas text-muted border-black/10 hover:bg-canvas-2"
-              }`}
-            >
-              {p}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Score slider */}
-      <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <label className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-3">
-            Score
+      {/* Priority + score — capped width so the buttons don't stretch
+          across the whole tab on wide layouts. */}
+      <div className="max-w-lg space-y-6">
+        {/* Priority */}
+        <div>
+          <label className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-3 block mb-1.5">
+            Приоритет
           </label>
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-sm font-bold text-ink">{score}</span>
-            <span
-              className={`text-xs font-bold px-2 py-0.5 rounded-pill ${priorityConfig[tier as Priority]?.solid ?? "bg-muted text-white"}`}
-            >
-              {tier}
-            </span>
+          <div className="flex gap-2">
+            {PRIORITY_OPTIONS.map((p) => (
+              <button
+                key={p}
+                onClick={() => onPriorityChange(p)}
+                title={PRIORITY_LABELS[p]}
+                aria-label={`Приоритет ${p}: ${PRIORITY_LABELS[p]}`}
+                className={`flex-1 py-2 text-sm font-bold rounded-xl border transition-all ${
+                  priority === p
+                    ? priorityConfig[p].chipBordered
+                    : "bg-canvas text-muted border-black/10 hover:bg-canvas-2"
+                }`}
+              >
+                {p}
+              </button>
+            ))}
           </div>
         </div>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={score}
-          onChange={(e) => onScoreChange(Number(e.target.value))}
-          className="w-full accent-accent"
-        />
-        <div className="flex justify-between text-[10px] font-mono text-muted-3 mt-0.5">
-          <span>0</span>
-          <span>100</span>
+
+        {/* Score slider */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-3">
+              Оценка лида
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-sm font-bold text-ink">{score}</span>
+              <span
+                className={`text-xs font-bold px-2 py-0.5 rounded-pill ${priorityConfig[tier as Priority]?.solid ?? "bg-muted text-white"}`}
+              >
+                {tier}
+              </span>
+            </div>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={score}
+            onChange={(e) => onScoreChange(Number(e.target.value))}
+            className="w-full accent-accent"
+          />
+          <div className="flex justify-between text-[10px] font-mono text-muted-3 mt-0.5">
+            <span>0</span>
+            <span>100</span>
+          </div>
         </div>
       </div>
 
@@ -171,32 +170,6 @@ export function DealTab({ lead }: Props) {
         />
       </div>
 
-      {/* Next step + date */}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-3 block mb-1.5">
-            Следующий шаг
-          </label>
-          <input
-            type="text"
-            value={nextStep}
-            onChange={(e) => onNextStepChange(e.target.value)}
-            placeholder="Отправить КП..."
-            className="w-full px-3 py-2.5 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white transition-all"
-          />
-        </div>
-        <div>
-          <label className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-3 block mb-1.5">
-            Срок
-          </label>
-          <input
-            type="datetime-local"
-            value={nextActionAt}
-            onChange={(e) => onNextActionAtChange(e.target.value)}
-            className="w-full px-3 py-2.5 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white transition-all"
-          />
-        </div>
-      </div>
     </div>
   );
 }

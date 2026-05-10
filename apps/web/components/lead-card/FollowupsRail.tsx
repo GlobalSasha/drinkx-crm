@@ -44,7 +44,7 @@ export function FollowupsRail({ leadId }: Props) {
     <div className="bg-white border border-black/5 rounded-2xl shadow-soft p-5 min-h-[120px]">
       <div className="flex items-center justify-between mb-3">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-2">
-          Follow-ups
+          Этапы работы
         </p>
         <button
           onClick={() => setShowForm((v) => !v)}
