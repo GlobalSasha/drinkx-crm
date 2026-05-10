@@ -1,12 +1,17 @@
-"""Automation Builder data access — Sprint 2.5 G1."""
+"""Automation Builder data access — Sprint 2.5 G1, multi-step Sprint 2.7 G2."""
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.automation_builder.models import Automation, AutomationRun
+from app.automation_builder.models import (
+    Automation,
+    AutomationRun,
+    AutomationStepRun,
+)
 
 
 async def list_for_workspace(
@@ -71,6 +76,7 @@ async def create(
     action_type: str,
     action_config_json: dict,
     is_active: bool,
+    steps_json: list[dict] | None = None,
 ) -> Automation:
     row = Automation(
         workspace_id=workspace_id,
@@ -81,6 +87,7 @@ async def create(
         condition_json=condition_json,
         action_type=action_type,
         action_config_json=action_config_json,
+        steps_json=steps_json,
         is_active=is_active,
     )
     db.add(row)
@@ -100,6 +107,8 @@ async def update(
     condition_set: bool = False,
     action_type: str | None = None,
     action_config_json: dict | None = None,
+    steps_json: list[dict] | None = None,
+    steps_set: bool = False,
     is_active: bool | None = None,
 ) -> Automation:
     """In-place update. None = leave field as-is. The `*_set` flags
@@ -117,6 +126,8 @@ async def update(
         automation.action_type = action_type
     if action_config_json is not None:
         automation.action_config_json = action_config_json
+    if steps_set:
+        automation.steps_json = steps_json
     if is_active is not None:
         automation.is_active = is_active
     await db.flush()
@@ -173,6 +184,70 @@ async def list_runs_for_automation(
             Automation.workspace_id == workspace_id,
         )
         .order_by(AutomationRun.executed_at.desc())
+        .limit(limit)
+    )
+    return list(res.scalars().all())
+
+
+# ---------------------------------------------------------------------------
+# Step-run access — Sprint 2.7 G2
+# ---------------------------------------------------------------------------
+
+async def create_step_run(
+    db: AsyncSession,
+    *,
+    automation_run_id: uuid.UUID,
+    lead_id: uuid.UUID | None,
+    step_index: int,
+    step_json: dict,
+    scheduled_at: datetime,
+    executed_at: datetime | None,
+    status: str,
+    error: str | None = None,
+) -> AutomationStepRun:
+    row = AutomationStepRun(
+        automation_run_id=automation_run_id,
+        lead_id=lead_id,
+        step_index=step_index,
+        step_json=step_json,
+        scheduled_at=scheduled_at,
+        executed_at=executed_at,
+        status=status,
+        error=error[:500] if error else None,
+    )
+    db.add(row)
+    await db.flush()
+    return row
+
+
+async def list_step_runs_for_run(
+    db: AsyncSession,
+    *,
+    automation_run_id: uuid.UUID,
+) -> list[AutomationStepRun]:
+    """Per-step grid for the RunsDrawer — ordered by step_index."""
+    res = await db.execute(
+        select(AutomationStepRun)
+        .where(AutomationStepRun.automation_run_id == automation_run_id)
+        .order_by(AutomationStepRun.step_index.asc())
+    )
+    return list(res.scalars().all())
+
+
+async def list_due_step_runs(
+    db: AsyncSession, *, now: datetime, limit: int = 200
+) -> list[AutomationStepRun]:
+    """Beat-scheduler picker. Returns step rows whose scheduled time
+    is in the past and which haven't fired yet. Bounded by `limit`
+    so a single tick can't run away with the worker — leftovers
+    catch up on the next tick."""
+    res = await db.execute(
+        select(AutomationStepRun)
+        .where(
+            AutomationStepRun.executed_at.is_(None),
+            AutomationStepRun.scheduled_at <= now,
+        )
+        .order_by(AutomationStepRun.scheduled_at.asc())
         .limit(limit)
     )
     return list(res.scalars().all())

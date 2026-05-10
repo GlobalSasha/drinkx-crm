@@ -213,8 +213,14 @@ async def test_send_template_action_skips_when_lead_has_no_email():
 
     with patch.object(ab_svc, "Activity", new=fake_activity), \
          patch("app.email.sender.send_email", new=fake_send_email):
+        # Sprint 2.7 G2 — handler signature now takes `(lead, config,
+        # automation_id_str)` so the same code path serves both the
+        # synchronous step 0 fire and the beat scheduler's step N fire.
         await ab_svc._send_template_action(
-            db, automation=automation, lead=lead
+            db,
+            lead=lead,
+            config=automation.action_config_json,
+            automation_id_str=str(automation.id),
         )
 
     # send_email never invoked
@@ -260,8 +266,14 @@ async def test_send_template_action_skips_whitespace_only_email():
 
     with patch.object(ab_svc, "Activity", new=fake_activity), \
          patch("app.email.sender.send_email", new=fake_send_email):
+        # Sprint 2.7 G2 — handler signature now takes `(lead, config,
+        # automation_id_str)` so the same code path serves both the
+        # synchronous step 0 fire and the beat scheduler's step N fire.
         await ab_svc._send_template_action(
-            db, automation=automation, lead=lead
+            db,
+            lead=lead,
+            config=automation.action_config_json,
+            automation_id_str=str(automation.id),
         )
 
     assert len(send_calls) == 0
@@ -318,7 +330,10 @@ async def test_send_template_action_email_queues_pending_dispatch():
          patch("app.email.sender.send_email", new=fake_send_email):
         async with collect_pending_email_dispatches() as pending:
             await ab_svc._send_template_action(
-                db, automation=automation, lead=lead
+                db,
+                lead=lead,
+                config=automation.action_config_json,
+                automation_id_str=str(automation.id),
             )
 
     # send_email NOT invoked inside the action — deferred to drainer
@@ -372,8 +387,14 @@ async def test_send_template_action_tg_channel_keeps_pending_stub():
     # `app.automation_builder.services` at module import time.
     with patch.object(ab_svc, "Activity", new=fake_activity), \
          patch("app.email.sender.send_email", new=fake_send_email):
+        # Sprint 2.7 G2 — handler signature now takes `(lead, config,
+        # automation_id_str)` so the same code path serves both the
+        # synchronous step 0 fire and the beat scheduler's step N fire.
         await ab_svc._send_template_action(
-            db, automation=automation, lead=lead
+            db,
+            lead=lead,
+            config=automation.action_config_json,
+            automation_id_str=str(automation.id),
         )
 
     # send_email NOT called for non-email channels

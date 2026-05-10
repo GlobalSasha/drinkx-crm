@@ -9,6 +9,7 @@ import type {
   AutomationCreate,
   AutomationOut,
   AutomationRunOut,
+  AutomationStepRunOut,
   AutomationUpdate,
 } from "@/lib/types";
 
@@ -63,5 +64,18 @@ export function useDeleteAutomation() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: KEY });
     },
+  });
+}
+
+// Sprint 2.7 G2 — per-step grid for the RunsDrawer.
+export function useAutomationStepRuns(runId: string | null) {
+  return useQuery<AutomationStepRunOut[]>({
+    queryKey: ["automation-step-runs", runId],
+    queryFn: () =>
+      api.get<AutomationStepRunOut[]>(
+        `/automations/runs/${runId}/steps`,
+      ),
+    enabled: !!runId,
+    staleTime: 15_000,
   });
 }

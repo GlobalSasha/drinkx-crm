@@ -999,6 +999,25 @@ export type AutomationRunStatus =
   | "skipped"
   | "failed";
 
+// Sprint 2.7 G2 — multi-step automation chains.
+export type AutomationStepType =
+  | "delay_hours"
+  | "send_template"
+  | "create_task"
+  | "move_stage";
+
+export type AutomationStepRunStatus =
+  | "pending"
+  | "success"
+  | "skipped"
+  | "failed";
+
+export interface AutomationStep {
+  type: AutomationStepType;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  config: Record<string, any>;
+}
+
 export interface AutomationOut {
   id: string;
   name: string;
@@ -1010,6 +1029,8 @@ export interface AutomationOut {
   action_type: AutomationAction;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   action_config_json: Record<string, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  steps_json: Array<Record<string, any>> | null;
   is_active: boolean;
   created_by: string | null;
   created_at: string;
@@ -1026,6 +1047,7 @@ export interface AutomationCreate {
   action_type: AutomationAction;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   action_config_json: Record<string, any>;
+  steps_json?: AutomationStep[] | null;
   is_active?: boolean;
 }
 
@@ -1039,6 +1061,7 @@ export interface AutomationUpdate {
   action_type?: AutomationAction;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   action_config_json?: Record<string, any>;
+  steps_json?: AutomationStep[] | null;
   is_active?: boolean;
 }
 
@@ -1049,4 +1072,16 @@ export interface AutomationRunOut {
   status: AutomationRunStatus;
   error: string | null;
   executed_at: string;
+}
+
+export interface AutomationStepRunOut {
+  id: string;
+  automation_run_id: string;
+  step_index: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  step_json: Record<string, any>;
+  scheduled_at: string;
+  executed_at: string | null;
+  status: AutomationStepRunStatus;
+  error: string | null;
 }

@@ -356,6 +356,12 @@ async def test_evaluate_trigger_stage_change_to_stage_filter():
         runs.append(kw)
         return MagicMock()
 
+    async def fake_create_step_run(_db, **kw):
+        # Sprint 2.7 G2 — `evaluate_trigger` now also writes a step-0
+        # audit row (and step 1+ for multi-step). Tests that don't
+        # care about per-step audit just MagicMock past it.
+        return MagicMock()
+
     db = AsyncMock()
     db.begin_nested = MagicMock(return_value=_AsyncCM())
     lead = _make_lead()
@@ -371,6 +377,9 @@ async def test_evaluate_trigger_stage_change_to_stage_filter():
     ), patch(
         "app.automation_builder.repositories.create_run",
         new=fake_create_run,
+    ), patch(
+        "app.automation_builder.repositories.create_step_run",
+        new=fake_create_step_run,
     ), patch(
         "app.automation_builder.services.Activity", new=MagicMock
     ):
@@ -463,6 +472,9 @@ async def test_evaluate_trigger_isolates_failures():
         runs.append(kw)
         return MagicMock()
 
+    async def fake_create_step_run(_db, **kw):
+        return MagicMock()
+
     db = AsyncMock()
     db.begin_nested = MagicMock(return_value=_AsyncCM())
     lead = _make_lead()
@@ -473,6 +485,9 @@ async def test_evaluate_trigger_isolates_failures():
     ), patch(
         "app.automation_builder.repositories.create_run",
         new=fake_create_run,
+    ), patch(
+        "app.automation_builder.repositories.create_step_run",
+        new=fake_create_step_run,
     ), patch(
         "app.automation_builder.services.Activity", new=MagicMock
     ):

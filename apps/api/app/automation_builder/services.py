@@ -1,11 +1,13 @@
-"""Automation Builder domain services — Sprint 2.5 G1.
+"""Automation Builder domain services — Sprint 2.5 G1, multi-step Sprint 2.7 G2.
 
 Three concerns:
-  1. CRUD on automations (validate trigger/action enums, scope to workspace).
+  1. CRUD on automations (validate trigger/action enums + steps, scope to workspace).
   2. `evaluate_trigger(trigger_type, ctx)` — fan-out from existing hot
      paths (stage_change post-action, form lead-factory after-create,
      inbox processor after-attach). Workspace-scoped, condition-aware,
-     append-only run history.
+     append-only run history. Multi-step automations fire step 0
+     synchronously and queue steps 1+ as `automation_step_runs` rows
+     for the beat scheduler.
   3. Action handlers — `send_template_action` / `create_task_action` /
      `move_stage_action`. v1 keeps the side-effects fail-soft so a
      misconfigured automation can't break the parent transaction.
@@ -29,9 +31,11 @@ from app.automation_builder import repositories as repo
 from app.automation_builder.condition import evaluate as evaluate_condition
 from app.automation_builder.models import (
     VALID_ACTIONS,
+    VALID_STEP_TYPES,
     VALID_TRIGGERS,
     Automation,
     AutomationRun,
+    AutomationStepRun,
 )
 from app.automation_builder.render import render_template_text
 from app.leads.models import Lead
@@ -60,6 +64,11 @@ class InvalidActionConfig(Exception):
     action_type. Each handler documents its required keys."""
 
 
+class InvalidSteps(Exception):
+    """400 — `steps_json` malformed (unknown type, bad config, or
+    a delay outside the 0 < hours <= 720 window)."""
+
+
 # ---------------------------------------------------------------------------
 # CRUD
 # ---------------------------------------------------------------------------
@@ -81,6 +90,100 @@ def _validate_action_config(action_type: str, config: dict | None) -> None:
             raise InvalidActionConfig("move_stage requires target_stage_id")
 
 
+# ---------------------------------------------------------------------------
+# Multi-step helpers — Sprint 2.7 G2
+# ---------------------------------------------------------------------------
+
+# A delay can be at most 30 days. Beyond that, schedule a calendar
+# event manually — keeps the queue from growing unboundedly with
+# typo'd 8760-hour delays.
+_DELAY_HOURS_MAX = 720
+
+
+def _validate_steps(steps: list[dict] | None) -> None:
+    """Hard-fail if `steps_json` is malformed:
+      - unknown `type` (must be in VALID_STEP_TYPES)
+      - missing/invalid `config` for action steps
+      - delay_hours outside (0, 720]
+      - empty list / first step is delay_hours (a chain that opens
+        with a wait has no anchor — the trigger event IS the anchor,
+        and the user can always add a delay step before another
+        action; we just disallow leading-delay-only chains).
+    """
+    if steps is None:
+        return
+    if not isinstance(steps, list):
+        raise InvalidSteps("steps_json must be a list")
+    if len(steps) == 0:
+        # Treat empty list same as null — caller may rely on this.
+        return
+    for idx, step in enumerate(steps):
+        if not isinstance(step, dict):
+            raise InvalidSteps(f"step {idx}: must be an object")
+        step_type = step.get("type")
+        config = step.get("config") or {}
+        if step_type not in VALID_STEP_TYPES:
+            raise InvalidSteps(f"step {idx}: unknown type {step_type!r}")
+        if step_type == "delay_hours":
+            try:
+                hours = int(config.get("hours") or 0)
+            except (TypeError, ValueError):
+                raise InvalidSteps(f"step {idx}: hours must be int") from None
+            if hours <= 0 or hours > _DELAY_HOURS_MAX:
+                raise InvalidSteps(
+                    f"step {idx}: hours must be in (0, {_DELAY_HOURS_MAX}]"
+                )
+        else:
+            # Action step — re-use the existing per-action-type guard.
+            _validate_action_config(step_type, config)
+
+
+def _has_steps(automation: Automation) -> bool:
+    """A multi-step automation is one with a non-empty steps_json."""
+    steps = automation.steps_json
+    return bool(steps) and isinstance(steps, list) and len(steps) > 0
+
+
+def _legacy_step_from_action(automation: Automation) -> dict:
+    """For old single-action rows, treat them as a 1-element chain."""
+    return {
+        "type": automation.action_type,
+        "config": dict(automation.action_config_json or {}),
+    }
+
+
+def _resolved_chain(automation: Automation) -> list[dict]:
+    """Return the chain to fire — `steps_json` if present, otherwise
+    the legacy single-action wrapped as a 1-element list. Always
+    returns a non-empty list."""
+    if _has_steps(automation):
+        return list(automation.steps_json or [])
+    return [_legacy_step_from_action(automation)]
+
+
+def _compute_schedule_offsets(steps: list[dict]) -> list[int]:
+    """Map each step's index to a cumulative delay in hours from t=0.
+    Step 0 is always 0; step N's offset = sum of `delay_hours` steps
+    strictly before N in the chain. The delay step itself contributes
+    its hours to subsequent steps but doesn't get a wall-clock slot
+    of its own (it has no side-effect to fire — it's just a gate).
+
+    Example: [send_template, delay 2h, create_task, delay 24h, send_template]
+      → offsets = [0, 2, 2, 26, 26]
+    """
+    offsets: list[int] = []
+    cumulative = 0
+    for step in steps:
+        offsets.append(cumulative)
+        if step.get("type") == "delay_hours":
+            try:
+                cumulative += int(step.get("config", {}).get("hours") or 0)
+            except (TypeError, ValueError):
+                # Validation should catch this earlier; defensive.
+                pass
+    return offsets
+
+
 async def list_automations(
     db: AsyncSession, *, workspace_id: uuid.UUID
 ) -> list[Automation]:
@@ -98,6 +201,7 @@ async def create_automation(
     condition_json: dict | None,
     action_type: str,
     action_config_json: dict,
+    steps_json: list[dict] | None = None,
     is_active: bool = True,
 ) -> Automation:
     if trigger not in VALID_TRIGGERS:
@@ -105,6 +209,7 @@ async def create_automation(
     if action_type not in VALID_ACTIONS:
         raise InvalidAction(action_type)
     _validate_action_config(action_type, action_config_json)
+    _validate_steps(steps_json)
 
     return await repo.create(
         db,
@@ -116,6 +221,7 @@ async def create_automation(
         condition_json=condition_json,
         action_type=action_type,
         action_config_json=action_config_json or {},
+        steps_json=steps_json if steps_json else None,
         is_active=is_active,
     )
 
@@ -133,6 +239,8 @@ async def update_automation(
     condition_set: bool = False,
     action_type: str | None = None,
     action_config_json: dict | None = None,
+    steps_json: list[dict] | None = None,
+    steps_set: bool = False,
     is_active: bool | None = None,
 ) -> Automation:
     if trigger is not None and trigger not in VALID_TRIGGERS:
@@ -158,6 +266,13 @@ async def update_automation(
     if action_type is not None or action_config_json is not None:
         _validate_action_config(target_action, target_config)
 
+    if steps_set:
+        # Empty list normalises to None — keeps the «is multi-step»
+        # check (truthy on non-empty list) consistent in the runtime.
+        normalised = steps_json if steps_json else None
+        _validate_steps(normalised)
+        steps_json = normalised
+
     return await repo.update(
         db,
         automation=automation,
@@ -169,6 +284,8 @@ async def update_automation(
         condition_set=condition_set,
         action_type=action_type,
         action_config_json=action_config_json,
+        steps_json=steps_json,
+        steps_set=steps_set,
         is_active=is_active,
     )
 
@@ -242,16 +359,19 @@ async def evaluate_trigger(
     payload: dict[str, Any] | None = None,
 ) -> list[AutomationRun]:
     """Top-level fan-out. For each active automation that matches the
-    trigger + per-trigger filter + condition_json, dispatch the action
-    and append a run row. Returns the run rows for ops/visibility.
+    trigger + per-trigger filter + condition_json, dispatch step 0 and
+    schedule steps 1+ (multi-step) or just dispatch the single action
+    (legacy). Returns the parent run rows for ops/visibility.
 
     Caller is responsible for committing the parent transaction. This
     function only stages rows on the session — it never commits.
 
-    Failure isolation: each automation runs in its own try/except. A
-    failure in one automation does NOT abort the rest of the fan-out
-    or the parent transaction. Failed runs append with status='failed'
-    and an `error` string."""
+    Failure isolation: each automation runs in its own SAVEPOINT. A
+    failure in step 0 does NOT abort the rest of the fan-out or the
+    parent transaction; subsequent steps stay unscheduled. A failure
+    in step N (N>0) is owned by the beat scheduler — it doesn't roll
+    back step 0's effect.
+    """
     # Imports kept lazy — `dispatch.py` imports back into this
     # module's neighbours (Activity, send_email), so dragging them at
     # module import time would create a circular hazard with
@@ -270,6 +390,7 @@ async def evaluate_trigger(
     )
     payload = payload or {}
     runs: list[AutomationRun] = []
+    now = datetime.now(tz=timezone.utc)
 
     for automation in automations:
         if not _trigger_config_matches(automation, payload):
@@ -301,8 +422,17 @@ async def evaluate_trigger(
             runs.append(run)
             continue
 
+        chain = _resolved_chain(automation)
+        offsets = _compute_schedule_offsets(chain)
+        # Step 0 is the synchronous fire; if it's a delay the chain
+        # opens with nothing to dispatch — `_validate_steps` should
+        # have refused this, but guard defensively at the runtime
+        # boundary too.
+        step0 = chain[0]
+        is_step0_delay = step0.get("type") == "delay_hours"
+
         # Sprint 2.6 G1 stability fix #2 — wrap each per-automation
-        # action in a SAVEPOINT. A SQLAlchemy error inside one
+        # step 0 in a SAVEPOINT. A SQLAlchemy error inside one
         # handler used to poison the parent session, leaving the
         # caller's `session.commit()` to silently roll back. With
         # `begin_nested()`, the exception unwinds to the savepoint
@@ -315,35 +445,82 @@ async def evaluate_trigger(
         # before and truncate on rollback so the queue stays in
         # lockstep with the savepoint outcome.
         pre_pending_len = current_pending_length()
+        step0_failed_error: str | None = None
         try:
             async with db.begin_nested():
-                await _dispatch_action(
-                    db, automation=automation, lead=lead
-                )
+                if is_step0_delay:
+                    # Defensive — leading delay is invalid but if it
+                    # somehow slipped through, treat step 0 as a no-op
+                    # and let the scheduler drive subsequent steps.
+                    pass
+                else:
+                    await _dispatch_step(
+                        db, automation=automation, lead=lead, step=step0
+                    )
         except Exception as exc:
             truncate_pending_to(pre_pending_len)
-            run = await repo.create_run(
-                db,
-                automation_id=automation.id,
-                lead_id=lead.id,
-                status="failed",
-                error=str(exc)[:500],
-            )
-            runs.append(run)
+            step0_failed_error = str(exc)[:500]
             log.warning(
                 "automation.action.failed",
                 automation_id=str(automation.id),
                 error=str(exc)[:200],
             )
-            continue
 
+        # Parent run row — single source of truth for the fan-out
+        # outcome. Multi-step rows that scheduled later steps still
+        # land as `status='success'` here; per-step status lives on
+        # AutomationStepRun.
+        run_status = "failed" if step0_failed_error else "success"
         run = await repo.create_run(
             db,
             automation_id=automation.id,
             lead_id=lead.id,
-            status="success",
+            status=run_status,
+            error=step0_failed_error,
         )
         runs.append(run)
+
+        # Per-step audit row for step 0 — always written so the
+        # RunsDrawer per-step grid is populated even for legacy
+        # single-action automations.
+        await repo.create_step_run(
+            db,
+            automation_run_id=run.id,
+            lead_id=lead.id,
+            step_index=0,
+            step_json=step0,
+            scheduled_at=now,
+            executed_at=now,
+            status=run_status,
+            error=step0_failed_error,
+        )
+
+        if step0_failed_error:
+            # Chain stops on step 0 failure. Steps 1+ stay
+            # unscheduled — operator must rerun manually.
+            continue
+
+        # Schedule steps 1+ for the beat scheduler to pick up. Skip
+        # delay_hours steps themselves — they have no side-effect to
+        # fire; they're just gates that pushed subsequent steps'
+        # offsets forward. Their effect is already baked into
+        # `offsets[i]` for any non-delay step that comes after.
+        for idx in range(1, len(chain)):
+            step = chain[idx]
+            if step.get("type") == "delay_hours":
+                continue
+            scheduled_at = now + timedelta(hours=offsets[idx])
+            await repo.create_step_run(
+                db,
+                automation_run_id=run.id,
+                lead_id=lead.id,
+                step_index=idx,
+                step_json=step,
+                scheduled_at=scheduled_at,
+                executed_at=None,
+                status="pending",
+                error=None,
+            )
 
     return runs
 
@@ -389,32 +566,72 @@ async def safe_evaluate_trigger(
 # Action handlers
 # ---------------------------------------------------------------------------
 
-async def _dispatch_action(
-    db: AsyncSession, *, automation: Automation, lead: Lead
+async def _dispatch_step(
+    db: AsyncSession,
+    *,
+    automation: Automation | None,
+    lead: Lead,
+    step: dict,
 ) -> None:
-    """Pick + run the action handler. Each handler stages rows on the
-    session; caller commits."""
-    if automation.action_type == "send_template":
+    """Pick + run the step handler. Each handler stages rows on the
+    session; caller commits.
+
+    Sprint 2.7 G2: replaces the old `_dispatch_action(automation, lead)`
+    shape. The new signature also accepts `automation=None` so the
+    beat scheduler can fire step N>0 even after the parent automation
+    was deleted — `step_json` is a frozen snapshot, that's enough.
+    `automation_id` for audit comes from the AutomationRun row instead.
+
+    `delay_hours` is a no-op at dispatch time — its hours have already
+    been added to subsequent steps' `scheduled_at` in
+    `_compute_schedule_offsets`. The scheduler shouldn't even queue
+    a row for it (defensive guard here in case it somehow does).
+    """
+    step_type = step.get("type")
+    config = step.get("config") or {}
+
+    # automation_id is needed only for audit on the resulting
+    # Activity row. Frozen-step dispatch from the scheduler reads it
+    # from the parent run; sync step 0 reads it from `automation`.
+    automation_id_str = (
+        str(automation.id) if automation is not None else step.get("_automation_id", "")
+    )
+
+    if step_type == "send_template":
         await _send_template_action(
-            db, automation=automation, lead=lead
+            db,
+            lead=lead,
+            config=config,
+            automation_id_str=automation_id_str,
         )
-    elif automation.action_type == "create_task":
+    elif step_type == "create_task":
         await _create_task_action(
-            db, automation=automation, lead=lead
+            db,
+            lead=lead,
+            config=config,
+            automation_id_str=automation_id_str,
         )
-    elif automation.action_type == "move_stage":
+    elif step_type == "move_stage":
         await _move_stage_action(
-            db, automation=automation, lead=lead
+            db,
+            lead=lead,
+            config=config,
+            automation_id_str=automation_id_str,
         )
+    elif step_type == "delay_hours":
+        # Pure gate — handled by `_compute_schedule_offsets`; no work here.
+        return
     else:
-        # Defensive — service-layer validation should prevent this.
-        raise ValueError(
-            f"unknown action_type: {automation.action_type}"
-        )
+        # Defensive — `_validate_steps` should prevent this.
+        raise ValueError(f"unknown step type: {step_type!r}")
 
 
 async def _send_template_action(
-    db: AsyncSession, *, automation: Automation, lead: Lead
+    db: AsyncSession,
+    *,
+    lead: Lead,
+    config: dict,
+    automation_id_str: str,
 ) -> None:
     """Render the configured template against the lead and stage the
     Activity row that records what happened.
@@ -454,7 +671,6 @@ async def _send_template_action(
     )
     from app.template.models import MessageTemplate
 
-    config = automation.action_config_json or {}
     template_id = config.get("template_id")
     if not template_id:
         raise ValueError("send_template missing template_id")
@@ -475,7 +691,7 @@ async def _send_template_action(
     payload: dict = {
         "text": rendered[:5000],
         "source": "automation",
-        "automation_id": str(automation.id),
+        "automation_id": automation_id_str,
         "template_id": str(template.id),
         "template_name": template.name,
         "channel": template.channel,
@@ -497,7 +713,7 @@ async def _send_template_action(
             payload["outbound_pending"] = False
             log.warning(
                 "automation.send_template.skipped_no_email",
-                automation_id=str(automation.id),
+                automation_id=automation_id_str,
                 lead_id=str(lead.id),
             )
             db.add(
@@ -542,7 +758,7 @@ async def _send_template_action(
                 to=recipient,
                 subject=subject,
                 body=rendered,
-                automation_id=automation.id,
+                automation_id=uuid.UUID(automation_id_str) if automation_id_str else uuid.uuid4(),
                 template_id=template.id,
             )
         )
@@ -565,11 +781,14 @@ async def _send_template_action(
 
 
 async def _create_task_action(
-    db: AsyncSession, *, automation: Automation, lead: Lead
+    db: AsyncSession,
+    *,
+    lead: Lead,
+    config: dict,
+    automation_id_str: str,
 ) -> None:
     """Stage a task-type Activity row on the lead. `due_in_hours`
     defaults to 24."""
-    config = automation.action_config_json or {}
     title = config.get("title")
     if not title:
         raise ValueError("create_task missing title")
@@ -587,14 +806,18 @@ async def _create_task_action(
             payload_json={
                 "title": rendered_title[:200],
                 "source": "automation",
-                "automation_id": str(automation.id),
+                "automation_id": automation_id_str,
             },
         )
     )
 
 
 async def _move_stage_action(
-    db: AsyncSession, *, automation: Automation, lead: Lead
+    db: AsyncSession,
+    *,
+    lead: Lead,
+    config: dict,
+    automation_id_str: str,
 ) -> None:
     """Direct stage flip. v1 bypasses the gate engine in
     `app/automation/stage_change.py` — automations are admin-curated
@@ -605,7 +828,6 @@ async def _move_stage_action(
 
     from app.pipelines.models import Stage
 
-    config = automation.action_config_json or {}
     target_stage_id = config.get("target_stage_id")
     if not target_stage_id:
         raise ValueError("move_stage missing target_stage_id")
@@ -634,7 +856,144 @@ async def _move_stage_action(
                 "from_stage_id": str(from_stage_id) if from_stage_id else None,
                 "to_stage_id": str(target.id),
                 "source": "automation",
-                "automation_id": str(automation.id),
+                "automation_id": automation_id_str,
             },
         )
     )
+
+
+# ---------------------------------------------------------------------------
+# Step scheduler — Sprint 2.7 G2
+#
+# Called from the `automation_step_scheduler` Celery beat task in
+# `app/scheduled/jobs.py`. Picks up due `AutomationStepRun` rows and
+# fires their step. Per-step exception isolation: a failed step
+# doesn't roll back step 0's effect (already committed) and doesn't
+# block the rest of the queue.
+# ---------------------------------------------------------------------------
+
+async def execute_due_step_runs(
+    db: AsyncSession,
+    *,
+    now: datetime | None = None,
+    limit: int = 200,
+) -> dict:
+    """Process all step rows whose `scheduled_at <= now` and which
+    haven't fired yet. Returns a summary dict for the cron audit row.
+
+    Per-row commit pattern (mirrors `bulk_import_run` in jobs.py) —
+    the scheduler must not let one slow / failing step block the rest.
+    """
+    from sqlalchemy import select
+
+    from app.automation_builder.dispatch import (
+        collect_pending_email_dispatches,
+        flush_pending_email_dispatches,
+    )
+    from app.leads.models import Lead
+
+    if now is None:
+        now = datetime.now(tz=timezone.utc)
+
+    rows = await repo.list_due_step_runs(db, now=now, limit=limit)
+
+    fired = 0
+    failed = 0
+    for step_run in rows:
+        # Re-fetch the lead — it may have been deleted between the
+        # parent run and now. SET NULL on `lead_id` would already
+        # null it; we double-check here.
+        lead: Lead | None = None
+        if step_run.lead_id is not None:
+            lead_res = await db.execute(
+                select(Lead).where(Lead.id == step_run.lead_id)
+            )
+            lead = lead_res.scalar_one_or_none()
+
+        if lead is None:
+            step_run.status = "skipped"
+            step_run.error = "lead deleted before scheduled fire"
+            step_run.executed_at = datetime.now(tz=timezone.utc)
+            await db.commit()
+            continue
+
+        # Pull `automation_id` from the parent run for audit.
+        parent_res = await db.execute(
+            select(AutomationRun).where(AutomationRun.id == step_run.automation_run_id)
+        )
+        parent = parent_res.scalar_one_or_none()
+        automation_id_str = str(parent.automation_id) if parent else ""
+
+        # Carry the audit id into the step dict so `_dispatch_step`
+        # can read it without a separate repo call.
+        step_payload = dict(step_run.step_json or {})
+        step_payload["_automation_id"] = automation_id_str
+
+        # Each step gets its own collector + savepoint so failures
+        # don't poison the next iteration's session. The collector is
+        # an async context manager — yields a list that
+        # `_send_template_action` appends to. If the savepoint rolls
+        # back, `flush_pending_email_dispatches` will skip rows whose
+        # Activity is missing (post-rollback), so no manual cleanup
+        # of the queue is needed here.
+        try:
+            async with collect_pending_email_dispatches() as queue:
+                async with db.begin_nested():
+                    await _dispatch_step(
+                        db,
+                        automation=None,
+                        lead=lead,
+                        step=step_payload,
+                    )
+            step_run.status = "success"
+            step_run.error = None
+            step_run.executed_at = datetime.now(tz=timezone.utc)
+            await db.commit()
+            await flush_pending_email_dispatches(queue)
+            fired += 1
+        except Exception as exc:
+            step_run.status = "failed"
+            step_run.error = str(exc)[:500]
+            step_run.executed_at = datetime.now(tz=timezone.utc)
+            try:
+                await db.commit()
+            except Exception:  # pragma: no cover — defensive
+                await db.rollback()
+            failed += 1
+            log.warning(
+                "automation.step_run.failed",
+                step_run_id=str(step_run.id),
+                step_index=step_run.step_index,
+                error=str(exc)[:200],
+            )
+
+    return {
+        "scanned": len(rows),
+        "fired": fired,
+        "failed": failed,
+    }
+
+
+async def list_step_runs_for_run(
+    db: AsyncSession,
+    *,
+    automation_run_id: uuid.UUID,
+    workspace_id: uuid.UUID,
+) -> list[AutomationStepRun]:
+    """Per-step grid for the RunsDrawer. Workspace-scoped through
+    a join to defend against id-guessing across workspaces."""
+    from sqlalchemy import select
+
+    res = await db.execute(
+        select(AutomationStepRun)
+        .join(
+            AutomationRun, AutomationRun.id == AutomationStepRun.automation_run_id
+        )
+        .join(Automation, Automation.id == AutomationRun.automation_id)
+        .where(
+            AutomationStepRun.automation_run_id == automation_run_id,
+            Automation.workspace_id == workspace_id,
+        )
+        .order_by(AutomationStepRun.step_index.asc())
+    )
+    return list(res.scalars().all())
