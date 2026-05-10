@@ -323,6 +323,11 @@ export interface FollowupUpdate {
   position?: number | null;
 }
 
+export interface FollowupsPendingOut {
+  pending_count: number;
+  overdue_count: number;
+}
+
 // ---- Scoring ----
 
 export interface ScoringCriterion {

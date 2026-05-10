@@ -37,3 +37,16 @@ class FollowupOut(FollowupBase):
     completed_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class FollowupsPendingOut(BaseModel):
+    """Counters for the Today screen Follow-up widget.
+
+    pending_count: status IN ('pending','active') AND due_at within the
+    next 24h (includes already-overdue rows).
+    overdue_count: same status filter AND due_at strictly in the past
+    (subset of pending_count).
+    """
+
+    pending_count: int
+    overdue_count: int
