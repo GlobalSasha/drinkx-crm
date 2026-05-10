@@ -159,35 +159,41 @@
 - 0 new npm deps; 0 new Python deps; `pnpm build` 13 routes (was 12; `/settings` at 7.61 kB)
 - `pipelines.is_default` boolean kept as redundant signal for diff_engine + back-compat — drop is a 2.4+ housekeeping pass
 
+**Sprint 2.7 — DONE (pending merge → main)** · `docs/SPRINT_2_7_SENTRY_MULTISTEP.md` · branch `sprint/2.7-sentry-multistep` · PR [drinkx-crm#12](https://github.com/GlobalSasha/crm/pull/12) · 3 commits (`65c5bef..03bf762`)
+- **Sentry activation + multi-step automation chains — Phase 2 final slice**
+- 3 of 5 planned gates shipped; G3 + G4 deferred to long-tail by product decision (see DEFERRED section below)
+- **G1 — Sentry activation** (`1c4283d`): new `app/common/sentry_capture.py` (single chokepoint, lazy import, soft no-op when SDK missing) + new `app/observability.py` (init_sentry_if_dsn extracted from main.py:lifespan for testability); 4 cron-class swallow sites wrap `capture()` alongside structlog (audit.log, automation_builder.safe_evaluate_trigger, daily_plan_runner, digest_runner); enrichment `_bg_run` failure path catches + flips `EnrichmentRun.status='failed'` via new `_mark_run_failed` + reports — closes the Sprint 2.6 audit finding «BackgroundTasks strands rows in 'running' on failure». Frontend: new `lib/sentry-capture.ts` runtime helper; `app/global-error.tsx` + `app/(app)/error.tsx` boundaries; `window.onerror` + `unhandledrejection` listeners in providers.tsx. 8 mock tests.
+- **G2 — Multi-step automation chains** (`03bf762`): Migration 0021 — `automations.steps_json JSONB NULL` (additive — null = legacy single-action) + new `automation_step_runs` table with partial index `(scheduled_at) WHERE executed_at IS NULL`; `_dispatch_action` collapsed into `_dispatch_step(step)`; handlers refactored to `(lead, config, automation_id_str)` so the same code path serves synchronous step 0 and async step N. New `execute_due_step_runs` driven by `automation_step_scheduler` Celery beat task every 5 min. New `GET /api/automations/runs/{run_id}/steps` for the RunsDrawer per-step grid. Frontend: «Цепочка после первого шага» fieldset in the editor with +Пауза/+Шаблон/+Задача/+Стадия + ↑/↓/✕ controls; expandable per-step grid in RunsDrawer. 13 mock tests.
+- **G3 — tg outbound dispatch** ⏭️ DEFERRED to long-tail. Migration 0022 (`lead.tg_chat_id`), `app/telegram/sender.py`, LeadCard tg-handle field — all still in scope when picked up. Templates with `channel='tg'` still stage `delivery_status='pending'` Activity rows (Sprint 2.5 stub stays).
+- **G4 — Enrichment → Celery + WebSocket** ⏭️ DEFERRED to long-tail. Strand-on-failure problem already closed at G1 (`_mark_run_failed`); remaining motivation is real-time progress UI, and the existing 2-second poll is acceptable.
+- **G5 — Sprint close** (this commit): SPRINT_2_7_SENTRY_MULTISTEP.md, SMOKE_CHECKLIST_2_7.md, brain rotation (00 + 02 + 04).
+- 21 new mock tests (8 G1 + 13 G2). Combined baseline: **133 mock tests passing** (was 112).
+- 0 new npm deps in PR; 0 new Python deps. `sentry-sdk[fastapi]` was pre-pinned since 2.1 G10.
+- ADRs reaffirmed: ADR-009 (package-per-domain), ADR-018 (LLM provider abstraction), ADR-019 (email lead-scoping). No new ADRs.
+- Operator follow-on (3 items, none blocking): `pnpm add @sentry/nextjs` in apps/web; set `SENTRY_DSN` + `NEXT_PUBLIC_SENTRY_DSN` in production .env; configure Sentry-side rate limits before noisy crons burn the 5k/month free tier.
+
 ## 🔜 NEXT
 
-### Phase 2 — Sprint 2.7 — Sentry activation + multi-step automations (~5 gates)
-See `docs/brain/04_NEXT_SPRINT.md` for full scope.
+### Phase 3 — Sprint 3.1 — Lead AI Agent (~5 phases)
+See `docs/SPRINT_3_1_LEAD_AI_AGENT.md` for full spec.
 
-**Main driver:** activate Sentry (frontend + backend) so the silent-
-failure tech debt the Sprint 2.6 stability audit flagged (cron
-swallows, audit-log swallow, BackgroundTasks-strands-running)
-becomes surfaceable. This is load-bearing infra, not feature work.
+**Main driver:** unified AI agent inside the lead card. Background
+mode is a Celery task watching for paused conversations + sales-
+methodology gaps and surfacing a banner-recommendation. Foreground
+mode is a chat drawer with full lead context (Sales Coach), opened
+on demand.
 
-Tentative gate breakdown:
-- **G1 — Sentry activation** — `pnpm add @sentry/nextjs` (first net-new dep since Sprint 2.0), DSN env vars, error boundaries on high-traffic routes, structured fingerprints for the cron paths. Closes the carryover since Sprint 2.1 G10.
-- **G2 — Multi-step automation chains** (Sprint 2.6 G2 skip) — send → wait N days → action. Migration `0021_automation_steps` + per-step run rows + Celery beat scheduler watching `wait_until`.
-- **G3 — tg channel outbound dispatch** — Telegram Bot API client, `lead.tg_chat_id` mapping, `send_template` flips from stub to real for tg. SMS deferred to 2.8 (separate provider eval).
-- **G4 — Enrichment → Celery + WebSocket** (Phase G carryover from Sprint 1.3) — move off FastAPI BackgroundTasks; `EnrichmentRun.status` no longer strands in 'running' on failure. WebSocket `/ws/{user_id}` for real-time progress on `/leads/{id}` AI Brief tab.
-- **G5 — Sprint close** — report, brain rotation, smoke checklist.
+Tentative phase breakdown:
+- **Phase A — Knowledge files** — copy `docs/skills/lead-ai-agent-skill.md` + `docs/knowledge/agent/product-foundation.md` into the repo. Files are read from disk into a process-cached system prompt, not stored in DB or Redis. Artifacts have to come from the user before Phase A starts.
+- **Phase B — Migration** — add `leads.agent_state JSONB NOT NULL DEFAULT '{}'` (actual index will be **0022 or higher**, NOT 0013 as the original spec said — 0013 is taken by `default_pipeline`, and 0021 by Sprint 2.7's automation_steps).
+- **Phase C — Backend `app/lead_agent/`** — context.py (assembles full per-lead context), prompts.py (builds system prompt from knowledge files + skill), runner.py (LLM via existing `get_llm_provider()` fallback chain — Flash for background, Pro for chat), tasks.py (Celery `lead_agent.background_check` + `scan_silence`), routers.py (3 endpoints: GET suggestion / POST chat / PATCH action).
+- **Phase D — Frontend** — AgentBanner.tsx between LeadCard header and tabs (renders when `suggestion.silent === false`); SalesCoachDrawer.tsx with FAB toggle, quick chips, in-memory chat history.
+- **Phase E — Existing-code hooks** — `app/automation/stage_change.py` fires `lead_agent_background_check.apply_async(args=[lead_id])`; `app/inbox/` fires it with `countdown=900` after a new inbound.
 
-Carryovers from 2.6 to fold into 2.7 (full list also in
-`SPRINT_2_6_OUTBOUND_EMAIL.md`):
-- Sentry activation (G1 driver)
-- Multi-step automation chains (G2 driver)
-- Real tg / sms outbound dispatch (G3 driver)
-- Enrichment → Celery + WebSocket (G4 driver)
-- pg_dump cron install on host (operator step open since 2.4 G5)
-- inbox/processor Celery dispatch retry path
-- Daily plan / digest cron failures swallowed without Sentry (closed by G1)
-- audit.log() swallows insert failures (defense-in-depth gap; closed by G1)
-
-Other outstanding deferred work for 2.7+:
+### Phase 2 — Sprint 2.8 (long-tail)
+Tentative parking lot for the items 2.7 deferred:
+- **G3 carryover — tg channel outbound dispatch** — Telegram Bot API client, `lead.tg_chat_id` column + LeadCard input, `send_telegram` tri-state contract mirroring `send_email`
+- **G4 carryover — Enrichment → Celery + WebSocket** — when manager-facing real-time progress becomes a priority
 - **AmoCRM adapter** — long-tail since Sprint 2.1 G5; skipped 2.5 G3
 - **Telegram Business inbox** + **email send (gmail.send scope)** — deferred since Sprint 2.0
 - **Quote / КП builder**, **Knowledge Base CRUD UI** — deferred from 2.0 envelope
@@ -198,9 +204,11 @@ Other outstanding deferred work for 2.7+:
 - **Stage-replacement preview** in PipelineEditor (Sprint 2.3 polish carryover)
 - **Workspace AI override → fallback chain wiring** (Sprint 2.4 G3 carryover; UI persists, env still wins)
 - **Multi-clause condition UI** in Automation Builder modal (backend supports n-clause; frontend ships single row)
+- **Multi-step automation polish** — dnd-kit reorder in the builder (lib already on the page from 2.6 G4); pause-mid-chain UI; per-step retry on failure (Sprint 2.7 G2 carryovers)
 - **Default pipeline 6–7 stages confirm + ICP fields** (light-touch DB seed change)
 - DST-aware cron edge handling
-- Sentry DSNs activation (Sprint 1.5 soft-launch carryover; pg_dump cron closed by Sprint 2.4 G5)
+- pg_dump cron install on host (operator step open since 2.4 G5)
+- inbox/processor Celery dispatch retry path
 
 ## 📅 LATER
 
