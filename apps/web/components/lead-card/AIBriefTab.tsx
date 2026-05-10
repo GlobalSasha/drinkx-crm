@@ -108,7 +108,7 @@ export function AIBriefTab({ leadId }: Props) {
           <button
             onClick={handleTrigger}
             disabled={isRunning}
-            className="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold bg-accent text-white rounded-pill hover:bg-accent/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-700 ease-soft active:scale-[0.98]"
+            className="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold bg-brand-accent text-white rounded-pill hover:bg-brand-accent/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-700 ease-soft active:scale-[0.98]"
           >
             {isRunning ? (
               <>
@@ -178,7 +178,7 @@ function RunningState({ startedAt }: { startedAt: string }) {
   return (
     <div className="bg-white border border-black/5 rounded-2xl shadow-soft p-7">
       <div className="flex items-center gap-3 mb-5">
-        <Loader2 size={18} className="text-accent animate-spin" />
+        <Loader2 size={18} className="text-brand-accent animate-spin" />
         <div>
           <p className="text-base font-semibold text-ink">AI собирает данные</p>
           <p className="text-xs text-muted-2 mt-0.5">
@@ -236,8 +236,8 @@ function EmptyState({ onTrigger, isPending }: { onTrigger: () => void; isPending
   return (
     <div className="bg-white border border-black/5 rounded-2xl shadow-soft px-8 py-14">
       <div className="flex flex-col items-center text-center gap-5 max-w-sm mx-auto">
-        <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center">
-          <Sparkles size={26} className="text-accent" />
+        <div className="w-14 h-14 rounded-2xl bg-brand-soft flex items-center justify-center">
+          <Sparkles size={26} className="text-brand-accent" />
         </div>
         <div>
           <h3 className="text-lg font-bold text-ink mb-1.5">Нет AI-обзора</h3>
@@ -249,7 +249,7 @@ function EmptyState({ onTrigger, isPending }: { onTrigger: () => void; isPending
         <button
           onClick={onTrigger}
           disabled={isPending}
-          className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold bg-accent text-white rounded-pill hover:bg-accent/90 disabled:opacity-60 transition-all duration-700 ease-soft active:scale-[0.98]"
+          className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold bg-brand-accent text-white rounded-pill hover:bg-brand-accent/90 disabled:opacity-60 transition-all duration-700 ease-soft active:scale-[0.98]"
         >
           {isPending ? (
             <Loader2 size={15} className="animate-spin" />
@@ -272,7 +272,7 @@ function ResultBody({ result }: { result: ResearchOutput }) {
   const fitTier = fitScore >= 8 ? "hot" : fitScore >= 5 ? "warm" : "cold";
   const fitTone = {
     hot: "bg-warning/15 text-warning ring-warning/30",
-    warm: "bg-accent/10 text-accent ring-accent/25",
+    warm: "bg-brand-soft text-brand-accent ring-accent/25",
     cold: "bg-black/5 text-muted-2 ring-black/10",
   }[fitTier];
 
@@ -345,19 +345,19 @@ function ResultBody({ result }: { result: ResearchOutput }) {
 
       {/* COFFEE SIGNALS — the thesis */}
       {coffeeSignals.length > 0 && (
-        <section className="bg-accent/[0.04] border border-accent/15 rounded-2xl px-7 py-6">
+        <section className="bg-brand-accent/[0.04] border border-brand-accent/15 rounded-2xl px-7 py-6">
           <div className="flex items-center gap-2 mb-3.5">
-            <div className="w-7 h-7 rounded-lg bg-accent/15 flex items-center justify-center">
-              <Sparkles size={13} className="text-accent" />
+            <div className="w-7 h-7 rounded-lg bg-brand-soft flex items-center justify-center">
+              <Sparkles size={13} className="text-brand-accent" />
             </div>
-            <h3 className="text-xs font-mono uppercase tracking-[0.16em] text-accent">
+            <h3 className="text-xs font-mono uppercase tracking-[0.16em] text-brand-accent">
               Кофейные сигналы
             </h3>
           </div>
           <ul className="space-y-2 text-[15px] text-ink/90 leading-relaxed">
             {coffeeSignals.map((s, i) => (
               <li key={i} className="flex gap-3">
-                <span className="text-accent mt-1.5 shrink-0 leading-none">●</span>
+                <span className="text-brand-accent mt-1.5 shrink-0 leading-none">●</span>
                 <span>{s}</span>
               </li>
             ))}
@@ -568,7 +568,7 @@ function DecisionMakerCard({ hint }: { hint: DecisionMakerHint }) {
 
   return (
     <div className="bg-white border border-black/5 rounded-2xl p-4 flex gap-3.5 shadow-soft">
-      <div className="shrink-0 w-11 h-11 rounded-xl bg-accent/10 text-accent flex items-center justify-center text-base font-extrabold">
+      <div className="shrink-0 w-11 h-11 rounded-xl bg-brand-soft text-brand-accent flex items-center justify-center text-base font-extrabold">
         {initial}
       </div>
       <div className="flex-1 min-w-0">
@@ -580,7 +580,7 @@ function DecisionMakerCard({ hint }: { hint: DecisionMakerHint }) {
         )}
         <div className="flex flex-wrap items-center gap-1.5 mt-2">
           {roleLabel && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-accent/10 text-accent uppercase tracking-wider">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-brand-soft text-brand-accent uppercase tracking-wider">
               {roleLabel}
             </span>
           )}

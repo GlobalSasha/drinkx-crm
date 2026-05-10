@@ -133,7 +133,7 @@ export function ActivityTab({ leadId }: Props) {
               onChange={(e) => setCommentText(e.target.value)}
               placeholder="Напишите комментарий..."
               rows={3}
-              className="w-full px-3 py-2.5 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 resize-none transition-all"
+              className="w-full px-3 py-2.5 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 resize-none transition-all"
             />
             <div className="flex justify-end">
               <button
@@ -155,13 +155,13 @@ export function ActivityTab({ leadId }: Props) {
               value={taskName}
               onChange={(e) => setTaskName(e.target.value)}
               placeholder="Название задачи..."
-              className="w-full px-3 py-2.5 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+              className="w-full px-3 py-2.5 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-all"
             />
             <input
               type="datetime-local"
               value={taskDueAt}
               onChange={(e) => setTaskDueAt(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+              className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-all"
             />
             <div className="flex justify-end">
               <button
@@ -183,13 +183,13 @@ export function ActivityTab({ leadId }: Props) {
               value={reminderText}
               onChange={(e) => setReminderText(e.target.value)}
               placeholder="Текст напоминания..."
-              className="w-full px-3 py-2.5 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+              className="w-full px-3 py-2.5 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-all"
             />
             <input
               type="datetime-local"
               value={reminderAt}
               onChange={(e) => setReminderAt(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+              className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-all"
             />
             <div className="flex justify-end">
               <button
@@ -211,12 +211,12 @@ export function ActivityTab({ leadId }: Props) {
               value={fileUrl}
               onChange={(e) => setFileUrl(e.target.value)}
               placeholder="URL файла..."
-              className="w-full px-3 py-2.5 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+              className="w-full px-3 py-2.5 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-all"
             />
             <select
               value={fileKind}
               onChange={(e) => setFileKind(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+              className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-all"
             >
               <option value="document">Документ</option>
               <option value="presentation">Презентация</option>
@@ -330,7 +330,7 @@ function ActivityItem({
           {activity.task_done ? (
             <CheckSquare size={16} className="text-success" />
           ) : (
-            <Square size={16} className="text-muted-2 hover:text-accent transition-colors" />
+            <Square size={16} className="text-muted-2 hover:text-brand-accent transition-colors" />
           )}
         </button>
         <div className="flex-1 min-w-0">
@@ -378,7 +378,7 @@ function ActivityItem({
       <div className="p-3 bg-canvas rounded-xl border border-black/5">
         <div className="flex items-center justify-between gap-2 mb-1">
           <div className="flex items-center gap-1.5 min-w-0">
-            <ClipboardList size={14} className="text-accent shrink-0" />
+            <ClipboardList size={14} className="text-brand-accent shrink-0" />
             <span className="text-[10px] font-mono text-muted-3 uppercase tracking-wide">
               Заявка с формы
             </span>
@@ -460,7 +460,7 @@ function ActivityItem({
           href={activity.file_url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs text-accent hover:underline"
+          className="text-xs text-brand-accent hover:underline"
         >
           {activity.file_kind ?? "Файл"}: {activity.file_url}
         </a>
@@ -514,7 +514,7 @@ function EmailActivityItem({
           {isLong && (
             <button
               onClick={() => setExpanded((v) => !v)}
-              className="mt-1.5 text-[11px] font-semibold text-accent hover:underline inline-flex items-center gap-0.5"
+              className="mt-1.5 text-[11px] font-semibold text-brand-accent hover:underline inline-flex items-center gap-0.5"
             >
               {expanded ? "Свернуть" : "Показать полностью"}
               <ChevronDown

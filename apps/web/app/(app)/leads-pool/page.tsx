@@ -66,7 +66,7 @@ function PoolRow({
 }) {
   const tier = tierFromScore(lead.score);
   const TIER_STYLE: Record<string, string> = {
-    A: "bg-accent/10 text-accent",
+    A: "bg-brand-soft text-brand-accent",
     B: "bg-success/10 text-success",
     C: "bg-warning/10 text-warning",
     D: "bg-black/5 text-muted",
@@ -102,7 +102,7 @@ function PoolRow({
         ) : (
           <button
             onClick={() => onClaim(lead.id)}
-            className="inline-flex items-center gap-1.5 bg-accent text-white rounded-pill px-3 py-1.5 text-xs font-semibold transition-all duration-200 hover:bg-accent/90 active:scale-[0.98]"
+            className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-pill px-3 py-1.5 text-xs font-semibold transition-all duration-200 hover:bg-brand-accent/90 active:scale-[0.98]"
           >
             Взять в работу
           </button>
@@ -272,7 +272,7 @@ export default function LeadsPoolPage() {
               placeholder="Поиск..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 pr-3 py-1.5 text-sm bg-canvas border border-black/10 rounded-pill outline-none focus:border-accent/40 focus:bg-white transition-all duration-300 w-40"
+              className="pl-8 pr-3 py-1.5 text-sm bg-canvas border border-black/10 rounded-pill outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300 w-40"
             />
           </div>
 
@@ -414,7 +414,7 @@ function ChipButton({
       onClick={onClick}
       className={`inline-flex items-center gap-1.5 pl-3 pr-2.5 py-1 rounded-pill text-xs font-semibold transition-all duration-200 ${
         active
-          ? "bg-accent text-white"
+          ? "bg-brand-accent text-white"
           : "bg-canvas text-muted hover:bg-canvas-2"
       }`}
     >

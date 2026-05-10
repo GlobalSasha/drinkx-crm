@@ -366,7 +366,7 @@ function TabButton({
       className={clsx(
         "inline-flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold border-b-2 transition-colors -mb-px",
         active
-          ? "border-accent text-ink"
+          ? "border-brand-accent text-ink"
           : "border-transparent text-muted-2 hover:text-ink",
       )}
     >
@@ -413,7 +413,7 @@ function SettingsTab({
           value={name}
           onChange={(e) => onName(e.target.value)}
           placeholder="Например: Заявка с лендинга QSR"
-          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-accent transition-colors"
+          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
         />
       </Field>
 
@@ -469,7 +469,7 @@ function SettingsTab({
         <select
           value={targetStageId ?? ""}
           onChange={(e) => onStageChange(e.target.value)}
-          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-accent transition-colors"
+          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
         >
           <option value="">— по умолчанию (первая стадия)</option>
           {stageOptions.map((o) => (
@@ -489,7 +489,7 @@ function SettingsTab({
           value={redirectUrl}
           onChange={(e) => onRedirectUrl(e.target.value)}
           placeholder="https://drinkx.ru/thanks"
-          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-accent transition-colors"
+          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
         />
       </Field>
     </div>
@@ -536,12 +536,12 @@ function FieldRowEditor({
         value={field.label}
         onChange={(e) => onPatch({ label: e.target.value })}
         placeholder="Например: Имя"
-        className="text-sm bg-canvas border border-black/10 rounded-lg px-2.5 py-1.5 outline-none focus:border-accent"
+        className="text-sm bg-canvas border border-black/10 rounded-lg px-2.5 py-1.5 outline-none focus:border-brand-accent"
       />
       <select
         value={field.type}
         onChange={(e) => onPatch({ type: e.target.value as FieldType })}
-        className="text-sm bg-canvas border border-black/10 rounded-lg px-2.5 py-1.5 outline-none focus:border-accent"
+        className="text-sm bg-canvas border border-black/10 rounded-lg px-2.5 py-1.5 outline-none focus:border-brand-accent"
       >
         {FIELD_TYPES.map((t) => (
           <option key={t.value} value={t.value}>
@@ -554,7 +554,7 @@ function FieldRowEditor({
         className={clsx(
           "h-7 rounded-pill text-[11px] font-semibold transition-colors",
           field.required
-            ? "bg-accent text-white"
+            ? "bg-brand-accent text-white"
             : "bg-canvas text-muted-2 hover:bg-canvas-2",
         )}
         aria-pressed={field.required}
@@ -622,7 +622,7 @@ function EmbedTab({
           value={fullSnippet}
           rows={3}
           onFocus={(e) => e.currentTarget.select()}
-          className="w-full text-[11px] font-mono leading-relaxed bg-canvas border border-black/10 rounded-xl p-3 outline-none focus:border-accent/40 resize-none"
+          className="w-full text-[11px] font-mono leading-relaxed bg-canvas border border-black/10 rounded-xl p-3 outline-none focus:border-brand-accent/40 resize-none"
         />
         <div className="flex items-center justify-between mt-2">
           <span className="text-[10px] text-muted-3">
@@ -652,7 +652,7 @@ function EmbedTab({
             href={directUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[12px] font-mono text-accent hover:underline break-all"
+            className="text-[12px] font-mono text-brand-accent hover:underline break-all"
           >
             {directUrl}
           </a>

@@ -170,7 +170,9 @@ function CounterWidget({ label, icon, value, note, accent, loading }: CounterPro
   const valueColor = accent ? "text-brand-accent-text" : C.color.text;
   const iconColor = accent ? "text-brand-accent-text" : "text-brand-muted";
   return (
-    <div className={`${wrapBg} rounded-[2rem] p-5 h-full flex flex-col gap-2`}>
+    <div
+      className={`${wrapBg} rounded-[2rem] p-5 h-full flex flex-col items-center text-center gap-2`}
+    >
       <div className="flex items-center gap-2">
         <span className={iconColor}>{icon}</span>
         <span

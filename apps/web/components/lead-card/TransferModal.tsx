@@ -110,7 +110,7 @@ export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }:
               autoComplete="off"
               autoFocus
               spellCheck={false}
-              className="w-full px-3 py-2 text-sm font-mono bg-canvas border border-black/10 rounded-xl outline-none focus:border-accent/40 focus:bg-white transition-all"
+              className="w-full px-3 py-2 text-sm font-mono bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white transition-all"
             />
             <p className="text-[11px] text-muted-3 mt-1">
               Спросите получателя в Settings → Profile (или у админа). Список
@@ -133,7 +133,7 @@ export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }:
               placeholder="Например: «Уехал в отпуск, передаю на твою территорию»"
               rows={2}
               maxLength={500}
-              className="w-full px-3 py-2 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-accent/40 focus:bg-white resize-none transition-all"
+              className="w-full px-3 py-2 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white resize-none transition-all"
             />
           </div>
 

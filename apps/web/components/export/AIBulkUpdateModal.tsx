@@ -123,7 +123,7 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
           {/* Header */}
           <div className="px-6 py-4 border-b border-black/5 flex items-start justify-between gap-4">
             <div className="min-w-0 flex items-start gap-2">
-              <div className="w-8 h-8 rounded-xl bg-accent/10 text-accent flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-brand-soft text-brand-accent flex items-center justify-center shrink-0">
                 <Sparkles size={16} />
               </div>
               <div>
@@ -198,7 +198,7 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
                     : promptQuery.data?.prompt ?? "Не удалось загрузить промпт"
                 }
                 rows={6}
-                className="w-full text-[11px] font-mono leading-relaxed bg-canvas border border-black/10 rounded-xl p-3 outline-none focus:border-accent/40 resize-none"
+                className="w-full text-[11px] font-mono leading-relaxed bg-canvas border border-black/10 rounded-xl p-3 outline-none focus:border-brand-accent/40 resize-none"
                 onFocus={(e) => e.currentTarget.select()}
               />
               <div className="flex items-center justify-between mt-2">
@@ -229,7 +229,7 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
             >
               <button
                 onClick={handleHandoff}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-pill bg-accent text-white text-[12px] font-semibold hover:bg-accent/90 transition-all duration-300"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-pill bg-brand-accent text-white text-[12px] font-semibold hover:bg-brand-accent/90 transition-all duration-300"
               >
                 Продолжить — загрузить файл
                 <ArrowRight size={13} />

@@ -23,12 +23,12 @@ const KIND_LABEL: Record<string, string> = {
 };
 
 const KIND_STYLE: Record<string, string> = {
-  lead_transferred: "bg-accent/10 text-accent",
+  lead_transferred: "bg-brand-soft text-brand-accent",
   enrichment_done: "bg-success/10 text-success",
   enrichment_failed: "bg-rose/10 text-rose",
-  daily_plan_ready: "bg-accent/10 text-accent",
+  daily_plan_ready: "bg-brand-soft text-brand-accent",
   followup_due: "bg-warning/10 text-warning",
-  mention: "bg-accent/10 text-accent",
+  mention: "bg-brand-soft text-brand-accent",
   system: "bg-black/5 text-muted",
 };
 
@@ -144,7 +144,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
           <div className="flex items-center gap-2">
             <h2 className="text-base font-extrabold tracking-tight">Уведомления</h2>
             {unread > 0 && (
-              <span className="bg-accent text-white text-[10px] font-mono font-bold px-2 py-0.5 rounded-pill tabular-nums">
+              <span className="bg-brand-accent text-white text-[10px] font-mono font-bold px-2 py-0.5 rounded-pill tabular-nums">
                 {unread}
               </span>
             )}
@@ -190,7 +190,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
           <button
             onClick={() => markAll()}
             disabled={unread === 0 || isMarkingAll}
-            className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-muted hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-muted hover:text-brand-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Check size={12} />
             Прочитать все
@@ -256,7 +256,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
                     <div className="pt-1.5 shrink-0">
                       <div
                         className={`w-2 h-2 rounded-full ${
-                          isUnread ? "bg-accent" : "bg-transparent"
+                          isUnread ? "bg-brand-accent" : "bg-transparent"
                         }`}
                       />
                     </div>
@@ -303,7 +303,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
                       <button
                         onClick={() => handleNavRowClick(n)}
                         className={`w-full text-left px-5 py-3 transition-colors hover:bg-canvas ${
-                          isUnread ? "bg-accent/[0.02]" : ""
+                          isUnread ? "bg-brand-accent/[0.02]" : ""
                         }`}
                       >
                         {body}
@@ -321,7 +321,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
                   <li
                     key={n.id}
                     className={`group relative px-5 py-3 transition-colors hover:bg-canvas ${
-                      isUnread ? "bg-accent/[0.02]" : ""
+                      isUnread ? "bg-brand-accent/[0.02]" : ""
                     }`}
                   >
                     {body}

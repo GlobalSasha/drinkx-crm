@@ -8,12 +8,12 @@ export default function HomePage() {
           Phase 1 · Foundation
         </div>
         <h1 className="text-5xl font-extrabold tracking-tight leading-none mb-6">
-          drinkx<span className="text-accent">.</span>crm
+          drinkx<span className="text-brand-accent">.</span>crm
         </h1>
         <p className="text-muted mb-8 leading-relaxed">
           Production build. Skeleton only — see <code className="font-mono text-sm">AUTOPILOT.md</code> for the
           roadmap. Prototype with all real screens lives at{" "}
-          <a className="text-accent underline" href="https://globalsasha.github.io/drinkx-crm-prototype/">
+          <a className="text-brand-accent underline" href="https://globalsasha.github.io/drinkx-crm-prototype/">
             globalsasha.github.io/drinkx-crm-prototype
           </a>
           .

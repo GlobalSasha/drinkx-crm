@@ -192,7 +192,7 @@ function Stepper({
                 className={clsx(
                   "shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold tabular-nums transition-colors",
                   state === "done" && "bg-emerald-500 text-white",
-                  state === "current" && "bg-accent text-white",
+                  state === "current" && "bg-brand-accent text-white",
                   state === "upcoming" && "bg-canvas text-muted-3 border border-black/10",
                 )}
                 aria-current={state === "current" ? "step" : undefined}

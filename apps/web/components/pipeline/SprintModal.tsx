@@ -178,8 +178,8 @@ export function SprintModal({ isOpen: isOpenProp, onClose: onCloseProp }: Props 
                     onClick={() => toggleCity(city)}
                     className={`px-3 py-1.5 rounded-pill text-xs font-semibold border transition-all duration-200 ${
                       selectedCities.includes(city)
-                        ? "bg-accent text-white border-accent"
-                        : "bg-canvas border-black/10 text-muted hover:border-accent/40"
+                        ? "bg-brand-accent text-white border-brand-accent"
+                        : "bg-canvas border-black/10 text-muted hover:border-brand-accent/40"
                     }`}
                   >
                     {city}
@@ -195,7 +195,7 @@ export function SprintModal({ isOpen: isOpenProp, onClose: onCloseProp }: Props 
               Найдено{" "}
               <span className="font-semibold text-ink">{previewFound}</span>{" "}
               карточек → добавится{" "}
-              <span className="font-semibold text-accent">{previewAdded}</span>
+              <span className="font-semibold text-brand-accent">{previewAdded}</span>
             </p>
           </div>
 
@@ -210,7 +210,7 @@ export function SprintModal({ isOpen: isOpenProp, onClose: onCloseProp }: Props 
             <button
               onClick={handleSubmit}
               disabled={createSprint.isPending || previewAdded === 0}
-              className="inline-flex items-center gap-2 px-5 py-2 rounded-pill text-sm font-semibold bg-accent text-white transition-all duration-200 hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 px-5 py-2 rounded-pill text-sm font-semibold bg-brand-accent text-white transition-all duration-200 hover:bg-brand-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {createSprint.isPending && (
                 <Loader2 size={14} className="animate-spin" />

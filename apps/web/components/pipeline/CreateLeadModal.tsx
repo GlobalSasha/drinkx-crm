@@ -83,7 +83,7 @@ export function CreateLeadModal() {
                   setError(null);
                 }}
                 placeholder="ООО «Пример»"
-                className="w-full px-4 py-2.5 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-accent/40 focus:bg-white transition-all duration-200"
+                className="w-full px-4 py-2.5 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-200"
               />
               {error && (
                 <p className="text-xs text-rose mt-1">{error}</p>

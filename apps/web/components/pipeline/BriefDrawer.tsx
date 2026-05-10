@@ -7,7 +7,7 @@ import { useTriggerEnrichment } from "@/lib/hooks/use-enrichment";
 import type { LeadOut } from "@/lib/types";
 
 const PRIORITY_COLORS: Record<string, string> = {
-  A: "text-accent bg-accent/10",
+  A: "text-brand-accent bg-brand-soft",
   B: "text-success bg-success/10",
   C: "text-warning bg-warning/10",
   D: "text-muted bg-black/5",
@@ -139,7 +139,7 @@ function DrawerBody({ lead }: { lead: LeadOut }) {
           </Badge>
         )}
         {lead.fit_score != null && (
-          <Badge className="text-accent bg-accent/10 font-mono">
+          <Badge className="text-brand-accent bg-brand-soft font-mono">
             Fit {lead.fit_score}
           </Badge>
         )}
@@ -198,7 +198,7 @@ function EnrichmentCTA({ leadId }: { leadId: string }) {
       <button
         onClick={() => trigger.mutate()}
         disabled={trigger.isPending}
-        className="flex items-center gap-1.5 text-xs font-semibold text-accent hover:text-accent/80 disabled:opacity-50 shrink-0 transition-colors"
+        className="flex items-center gap-1.5 text-xs font-semibold text-brand-accent hover:text-brand-accent/80 disabled:opacity-50 shrink-0 transition-colors"
       >
         {trigger.isPending ? (
           <Loader2 size={12} className="animate-spin" />

@@ -159,7 +159,7 @@ export function MappingStep({ job, onBack, onConfirmed }: Props) {
                     "text-sm bg-canvas border rounded-lg px-2.5 py-1.5 outline-none transition-colors w-full",
                     isDuplicate
                       ? "border-amber-400 focus:border-amber-500"
-                      : "border-black/10 focus:border-accent",
+                      : "border-black/10 focus:border-brand-accent",
                   )}
                 >
                   <option value={NONE_VALUE}>— не импортировать</option>

@@ -94,7 +94,7 @@ export function LostModal({
               onChange={(e) => setReason(e.target.value)}
               placeholder="Например: бюджет не подтверждён, конкурент выиграл, клиент закрыл проект"
               rows={3}
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-accent resize-none"
+              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent resize-none"
             />
             <p className="text-[10px] text-muted-3 mt-1">
               Помогает с ретроспективой по проигранным сделкам.

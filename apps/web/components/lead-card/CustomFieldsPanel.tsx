@@ -253,7 +253,7 @@ function CustomFieldEditor({
           onBlur={onCancel}
           onKeyDown={onKey}
           disabled={pending}
-          className="bg-canvas border border-accent/30 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-accent w-full max-w-[280px] disabled:opacity-50"
+          className="bg-canvas border border-brand-accent/30 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-brand-accent w-full max-w-[280px] disabled:opacity-50"
         >
           <option value="">— очистить —</option>
           {options.map((o) => (
@@ -287,7 +287,7 @@ function CustomFieldEditor({
         onKeyDown={onKey}
         disabled={pending}
         step={attr.kind === "number" ? "any" : undefined}
-        className="bg-canvas border border-accent/30 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-accent w-full max-w-[280px] disabled:opacity-50"
+        className="bg-canvas border border-brand-accent/30 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-brand-accent w-full max-w-[280px] disabled:opacity-50"
       />
       {pending && <Loader2 size={12} className="animate-spin text-muted-2" />}
     </div>

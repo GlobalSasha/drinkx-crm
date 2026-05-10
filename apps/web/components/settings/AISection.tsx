@@ -154,7 +154,7 @@ export function AISection() {
                     ? "bg-rose"
                     : pct > 80
                       ? "bg-warning"
-                      : "bg-accent"
+                      : "bg-brand-accent"
                 }`}
                 style={{ width: `${pct}%` }}
               />
@@ -187,7 +187,7 @@ export function AISection() {
             step="0.5"
             value={budget}
             onChange={(e) => setBudget(e.target.value)}
-            className="mt-1 w-full max-w-[200px] bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-accent"
+            className="mt-1 w-full max-w-[200px] bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent"
           />
           <p className="text-[11px] text-muted-3 mt-1">
             При достижении лимита фоновые исследования останавливаются.
@@ -206,7 +206,7 @@ export function AISection() {
             id="ai-model"
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            className="mt-1 w-full max-w-[280px] bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-accent"
+            className="mt-1 w-full max-w-[280px] bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent"
           >
             {data.available_models.map((m) => (
               <option key={m} value={m}>

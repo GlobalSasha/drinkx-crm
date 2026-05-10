@@ -60,7 +60,7 @@ export function ProgressStep({ jobId, initialJob, onClose }: Props) {
           <div
             className={clsx(
               "absolute inset-y-0 left-0 transition-[width] duration-500 ease-out",
-              isFailed ? "bg-red-500" : "bg-accent",
+              isFailed ? "bg-red-500" : "bg-brand-accent",
             )}
             style={{ width: `${Math.max(percent, 2)}%` }}
             aria-hidden

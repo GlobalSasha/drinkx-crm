@@ -224,7 +224,7 @@ export default function AuditPage() {
               onClick={() => setActionFilter(f.value)}
               className={`font-mono text-[11px] px-3 py-1.5 rounded-pill transition-colors ${
                 isActive
-                  ? "bg-accent text-white font-semibold"
+                  ? "bg-brand-accent text-white font-semibold"
                   : "bg-canvas text-muted-2 hover:bg-black/5 hover:text-ink"
               }`}
             >
@@ -270,7 +270,7 @@ export default function AuditPage() {
                     <button
                       onClick={() => refetch()}
                       disabled={isFetching}
-                      className="text-[11px] font-semibold text-accent hover:text-accent/80 transition-colors disabled:opacity-50"
+                      className="text-[11px] font-semibold text-brand-accent hover:text-brand-accent/80 transition-colors disabled:opacity-50"
                     >
                       Повторить
                     </button>

@@ -75,7 +75,7 @@ function SignInForm() {
         ВХОД В CRM
       </div>
       <h1 className="text-4xl font-extrabold tracking-[-0.035em] leading-none mb-2">
-        drinkx<span className="text-accent">.</span>crm
+        drinkx<span className="text-brand-accent">.</span>crm
       </h1>
       <p className="text-muted text-sm mb-8 leading-relaxed">
         Войди через Google — за 2 минуты настроим всё что нужно: профиль,
@@ -92,7 +92,7 @@ function SignInForm() {
       <button
         onClick={handleGoogle}
         disabled={loading}
-        className="w-full py-3.5 px-4 rounded-pill border border-black/10 bg-white flex items-center justify-center gap-3 text-sm font-medium hover:border-accent/30 transition-all duration-700 ease-soft active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+        className="w-full py-3.5 px-4 rounded-pill border border-black/10 bg-white flex items-center justify-center gap-3 text-sm font-medium hover:border-brand-accent/30 transition-all duration-700 ease-soft active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
       >
         <span
           className="w-[18px] h-[18px] rounded-full shrink-0"
@@ -115,7 +115,7 @@ function SignInForm() {
           <p className="text-sm font-semibold text-ink mb-1">Проверь почту</p>
           <p className="text-xs text-muted">
             Мы отправили magic link на{" "}
-            <span className="font-mono text-accent">{email}</span>.
+            <span className="font-mono text-brand-accent">{email}</span>.
             Перейди по ссылке в письме чтобы войти.
           </p>
           <button
@@ -123,7 +123,7 @@ function SignInForm() {
               setOtpSent(false);
               setEmail("");
             }}
-            className="mt-4 text-xs text-muted hover:text-accent underline"
+            className="mt-4 text-xs text-muted hover:text-brand-accent underline"
           >
             Отправить снова
           </button>
@@ -139,12 +139,12 @@ function SignInForm() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@drinkx.tech"
             required
-            className="w-full bg-black/[0.03] border border-black/10 rounded-lg px-4 py-2.5 text-sm text-ink placeholder:text-muted-2 focus:outline-none focus:border-accent/40"
+            className="w-full bg-black/[0.03] border border-black/10 rounded-lg px-4 py-2.5 text-sm text-ink placeholder:text-muted-2 focus:outline-none focus:border-brand-accent/40"
           />
           <button
             type="submit"
             disabled={loading || !email}
-            className="w-full py-3 px-4 rounded-pill bg-accent text-white text-sm font-medium hover:bg-accent/90 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full py-3 px-4 rounded-pill bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/90 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {loading ? "Отправляем…" : "Получить ссылку"}
           </button>
@@ -159,7 +159,7 @@ function SignInForm() {
       </p>
 
       <div className="mt-6 pt-6 border-t border-black/10 text-center">
-        <Link href="/" className="text-xs text-muted hover:text-accent">
+        <Link href="/" className="text-xs text-muted hover:text-brand-accent">
           ← на главную
         </Link>
       </div>

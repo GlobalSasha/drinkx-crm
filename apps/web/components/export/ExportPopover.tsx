@@ -215,7 +215,7 @@ export function ExportPopover({
                     className={clsx(
                       "flex items-start gap-2 rounded-xl border px-2.5 py-2 text-left transition-all duration-200 outline-none",
                       active
-                        ? "border-accent bg-accent/5"
+                        ? "border-brand-accent bg-brand-soft"
                         : "border-black/10 hover:border-black/20 hover:bg-canvas",
                       f.value === "md_zip" && "col-span-2",
                       busy && "opacity-50 cursor-not-allowed",
@@ -225,7 +225,7 @@ export function ExportPopover({
                     <span
                       className={clsx(
                         "mt-0.5 shrink-0",
-                        active ? "text-accent" : "text-muted-2",
+                        active ? "text-brand-accent" : "text-muted-2",
                       )}
                     >
                       {f.icon}
@@ -276,7 +276,7 @@ export function ExportPopover({
               className={clsx(
                 "shrink-0 ml-2 w-9 h-5 rounded-pill relative transition-colors",
                 includeAiBrief || format === "md_zip"
-                  ? "bg-accent"
+                  ? "bg-brand-accent"
                   : "bg-black/15",
               )}
               aria-hidden
@@ -332,7 +332,7 @@ export function ExportPopover({
                 "inline-flex items-center gap-2 px-4 py-2 rounded-pill text-[12px] font-semibold transition-all duration-300",
                 phase === "done"
                   ? "bg-emerald-600 text-white"
-                  : "bg-accent text-white hover:bg-accent/90",
+                  : "bg-brand-accent text-white hover:bg-brand-accent/90",
                 "disabled:opacity-60 disabled:cursor-not-allowed",
               )}
             >

@@ -87,7 +87,7 @@ export default function SettingsPage() {
                 className={clsx(
                   "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors",
                   isActive
-                    ? "bg-accent/10 text-accent"
+                    ? "bg-brand-soft text-brand-accent"
                     : "text-muted hover:bg-black/5 hover:text-ink",
                 )}
               >

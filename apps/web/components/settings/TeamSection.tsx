@@ -241,8 +241,8 @@ function UserRow({
     <tr className="border-b border-black/5 last:border-0 hover:bg-canvas/40 transition-colors">
       <td className="px-4 py-3 align-middle">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-accent/15 flex items-center justify-center shrink-0">
-            <span className="text-[11px] font-bold text-accent">{initial}</span>
+          <div className="w-7 h-7 rounded-full bg-brand-soft flex items-center justify-center shrink-0">
+            <span className="text-[11px] font-bold text-brand-accent">{initial}</span>
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-ink truncate">
@@ -261,7 +261,7 @@ function UserRow({
               value={user.role}
               onChange={(e) => onRoleChange(e.target.value)}
               disabled={change.isPending}
-              className="px-2 py-1 text-xs bg-white border border-black/10 rounded-lg outline-none focus:border-accent/40 transition-colors disabled:opacity-40"
+              className="px-2 py-1 text-xs bg-white border border-black/10 rounded-lg outline-none focus:border-brand-accent/40 transition-colors disabled:opacity-40"
             >
               {ROLE_OPTIONS.map((r) => (
                 <option key={r} value={r}>
@@ -276,7 +276,7 @@ function UserRow({
         ) : (
           <span className="inline-flex items-center gap-1 text-xs text-muted">
             {user.role === "admin" ? (
-              <Shield size={11} className="text-accent" />
+              <Shield size={11} className="text-brand-accent" />
             ) : (
               <UserCircle2 size={11} className="text-muted-3" />
             )}
@@ -404,7 +404,7 @@ function InviteModal({
           <div className="px-6 py-5 space-y-4">
             {sent ? (
               <div className="text-center py-4">
-                <Mail size={28} className="mx-auto text-accent mb-2" />
+                <Mail size={28} className="mx-auto text-brand-accent mb-2" />
                 <p className="text-sm font-semibold text-ink">
                   Приглашение отправлено
                 </p>
@@ -425,7 +425,7 @@ function InviteModal({
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="manager@drinkx.tech"
-                    className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-colors"
+                    className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-colors"
                   />
                 </div>
                 <div>
@@ -437,7 +437,7 @@ function InviteModal({
                     onChange={(e) =>
                       setRole(e.target.value as "admin" | "head" | "manager")
                     }
-                    className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-colors"
+                    className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-colors"
                   >
                     {ROLE_OPTIONS.map((r) => (
                       <option key={r} value={r}>

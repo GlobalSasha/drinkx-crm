@@ -126,7 +126,7 @@ export function PipelineSwitcher() {
                 <Check
                   size={14}
                   className={`shrink-0 ${
-                    isSelected ? "text-accent" : "opacity-0"
+                    isSelected ? "text-brand-accent" : "opacity-0"
                   }`}
                 />
                 <span className="flex-1 min-w-0 truncate font-semibold">

@@ -95,7 +95,7 @@ export function DealTab({ lead }: Props) {
         <select
           value={dealType}
           onChange={(e) => onDealTypeChange(e.target.value)}
-          className="w-full px-3 py-2.5 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-accent/40 focus:bg-white transition-all"
+          className="w-full px-3 py-2.5 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white transition-all"
         >
           <option value="">— не выбрано —</option>
           {DEAL_TYPE_OPTIONS.map((o) => (
@@ -167,7 +167,7 @@ export function DealTab({ lead }: Props) {
           onChange={(e) => onBlockerChange(e.target.value)}
           placeholder="Опишите блокер..."
           rows={3}
-          className="w-full px-3 py-2.5 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-accent/40 focus:bg-white resize-none transition-all"
+          className="w-full px-3 py-2.5 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white resize-none transition-all"
         />
       </div>
 
@@ -182,7 +182,7 @@ export function DealTab({ lead }: Props) {
             value={nextStep}
             onChange={(e) => onNextStepChange(e.target.value)}
             placeholder="Отправить КП..."
-            className="w-full px-3 py-2.5 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-accent/40 focus:bg-white transition-all"
+            className="w-full px-3 py-2.5 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white transition-all"
           />
         </div>
         <div>
@@ -193,7 +193,7 @@ export function DealTab({ lead }: Props) {
             type="datetime-local"
             value={nextActionAt}
             onChange={(e) => onNextActionAtChange(e.target.value)}
-            className="w-full px-3 py-2.5 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-accent/40 focus:bg-white transition-all"
+            className="w-full px-3 py-2.5 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white transition-all"
           />
         </div>
       </div>

@@ -66,7 +66,7 @@ export function PipelineList({ stages, leads }: Props) {
                     key={lead.id}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     href={`/leads/${lead.id}` as any}
-                    className="flex items-center gap-3 px-3 py-2.5 bg-white border border-black/5 rounded-xl active:bg-canvas hover:border-accent/30 transition-colors"
+                    className="flex items-center gap-3 px-3 py-2.5 bg-white border border-black/5 rounded-xl active:bg-canvas hover:border-brand-accent/30 transition-colors"
                   >
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-ink truncate">

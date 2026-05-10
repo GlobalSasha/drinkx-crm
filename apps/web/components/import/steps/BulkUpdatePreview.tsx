@@ -64,7 +64,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
   return (
     <div className="space-y-5">
       <div className="flex items-start gap-2">
-        <div className="w-8 h-8 rounded-xl bg-accent/10 text-accent flex items-center justify-center shrink-0">
+        <div className="w-8 h-8 rounded-xl bg-brand-soft text-brand-accent flex items-center justify-center shrink-0">
           <Sparkles size={16} />
         </div>
         <div>
@@ -169,7 +169,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
         <button
           onClick={startApply}
           disabled={totalActionable === 0 || apply.isPending}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-pill bg-accent text-white text-sm font-semibold hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-pill bg-brand-accent text-white text-sm font-semibold hover:bg-brand-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300"
         >
           {apply.isPending && <Loader2 size={14} className="animate-spin" />}
           {apply.isPending

@@ -152,7 +152,7 @@ export function PreviewStep({ job, onBack, onApplied }: Props) {
         <button
           onClick={startApply}
           disabled={willCreate === 0 || apply.isPending}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-pill bg-accent text-white text-sm font-semibold hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-pill bg-brand-accent text-white text-sm font-semibold hover:bg-brand-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300"
         >
           {apply.isPending && <Loader2 size={14} className="animate-spin" />}
           {apply.isPending

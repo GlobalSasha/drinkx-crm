@@ -215,7 +215,7 @@ function FormRow({
         }}
         className={clsx(
           "relative inline-flex w-9 h-5 rounded-pill transition-colors",
-          form.is_active ? "bg-accent" : "bg-black/15",
+          form.is_active ? "bg-brand-accent" : "bg-black/15",
         )}
         aria-pressed={form.is_active}
         aria-label={form.is_active ? "Деактивировать форму" : "Активировать форму"}

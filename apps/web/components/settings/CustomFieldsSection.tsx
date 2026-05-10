@@ -275,7 +275,7 @@ function CustomFieldEditor({
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="Регион"
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-accent"
+              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent"
             />
           </div>
 
@@ -291,7 +291,7 @@ function CustomFieldEditor({
               }
               disabled={isEdit}
               placeholder="region"
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-accent disabled:opacity-60"
+              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent disabled:opacity-60"
             />
             <p className="text-[10px] text-muted-3 mt-1">
               Латиница, цифры, подчёркивания.
@@ -306,7 +306,7 @@ function CustomFieldEditor({
               value={kind}
               onChange={(e) => setKind(e.target.value as AttributeKind)}
               disabled={isEdit}
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-accent disabled:opacity-60"
+              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent disabled:opacity-60"
             >
               {(Object.keys(KIND_LABELS) as AttributeKind[]).map((k) => (
                 <option key={k} value={k}>
@@ -325,7 +325,7 @@ function CustomFieldEditor({
                 <button
                   type="button"
                   onClick={addOption}
-                  className="text-[11px] text-accent font-semibold hover:underline"
+                  className="text-[11px] text-brand-accent font-semibold hover:underline"
                 >
                   + добавить
                 </button>
@@ -340,7 +340,7 @@ function CustomFieldEditor({
                         updateOption(i, { value: e.target.value })
                       }
                       placeholder="value"
-                      className="flex-1 bg-canvas border border-black/10 rounded-lg px-2 py-1 text-xs font-mono focus:outline-none focus:border-accent"
+                      className="flex-1 bg-canvas border border-black/10 rounded-lg px-2 py-1 text-xs font-mono focus:outline-none focus:border-brand-accent"
                     />
                     <input
                       type="text"
@@ -349,7 +349,7 @@ function CustomFieldEditor({
                         updateOption(i, { label: e.target.value })
                       }
                       placeholder="Метка"
-                      className="flex-1 bg-canvas border border-black/10 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-accent"
+                      className="flex-1 bg-canvas border border-black/10 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-brand-accent"
                     />
                     <button
                       type="button"

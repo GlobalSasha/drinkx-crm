@@ -62,13 +62,13 @@ export function FollowupsRail({ leadId }: Props) {
             onChange={(e) => setName(e.target.value)}
             placeholder="Название..."
             autoFocus
-            className="w-full px-3 py-2 text-xs bg-canvas border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+            className="w-full px-3 py-2 text-xs bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-all"
           />
           <input
             type="datetime-local"
             value={dueAt}
             onChange={(e) => setDueAt(e.target.value)}
-            className="w-full px-3 py-1.5 text-xs bg-canvas border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+            className="w-full px-3 py-1.5 text-xs bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-all"
           />
           <div className="flex gap-1.5">
             <button

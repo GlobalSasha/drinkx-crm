@@ -292,7 +292,7 @@ function TemplateEditor({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Первое касание"
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-accent"
+              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent"
             />
           </div>
 
@@ -303,7 +303,7 @@ function TemplateEditor({
             <select
               value={channel}
               onChange={(e) => setChannel(e.target.value as TemplateChannel)}
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-accent"
+              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent"
             >
               {(Object.keys(CHANNEL_LABELS) as TemplateChannel[]).map((c) => (
                 <option key={c} value={c}>
@@ -322,7 +322,7 @@ function TemplateEditor({
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               placeholder="Онбординг"
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-accent"
+              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent"
             />
           </div>
 
@@ -335,7 +335,7 @@ function TemplateEditor({
               onChange={(e) => setText(e.target.value)}
               rows={6}
               placeholder="Здравствуйте, {{lead.contact_name}}…"
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-accent font-mono"
+              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent font-mono"
             />
             <p className="text-[10px] text-muted-3 mt-1">
               Подстановки появятся в Sprint 2.5 — пока обычный текст.

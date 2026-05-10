@@ -185,7 +185,7 @@ export function PipelinesSection() {
                   <td className="px-4 py-3 align-middle">
                     <button
                       onClick={() => openEdit(p)}
-                      className="text-sm font-semibold text-ink hover:text-accent transition-colors text-left"
+                      className="text-sm font-semibold text-ink hover:text-brand-accent transition-colors text-left"
                     >
                       {p.name}
                     </button>
@@ -197,7 +197,7 @@ export function PipelinesSection() {
                   </td>
                   <td className="px-4 py-3 align-middle">
                     {isDefault ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wide bg-accent/10 text-accent rounded-pill px-2 py-0.5">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wide bg-brand-soft text-brand-accent rounded-pill px-2 py-0.5">
                         <Star size={10} />
                         по умолчанию
                       </span>

@@ -5,7 +5,7 @@ import type { LeadOut } from "@/lib/types";
 import { DEFAULT_SCORING_CRITERIA, tierFromScore } from "@/lib/types";
 
 const TIER_COLORS: Record<string, string> = {
-  A: "bg-accent text-white",
+  A: "bg-brand-accent text-white",
   B: "bg-success text-white",
   C: "bg-warning text-white",
   D: "bg-muted text-white",

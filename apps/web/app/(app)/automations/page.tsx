@@ -166,7 +166,7 @@ export default function AutomationsPage() {
                     <button
                       type="button"
                       onClick={() => setRunsFor(a)}
-                      className="hover:text-accent text-left"
+                      className="hover:text-brand-accent text-left"
                       title="Показать историю запусков"
                     >
                       {a.name}
@@ -417,7 +417,7 @@ function AutomationEditor({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="При попадании в Pilot — отправить welcome"
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-accent"
+              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent"
             />
           </div>
 
@@ -430,7 +430,7 @@ function AutomationEditor({
               onChange={(e) =>
                 setTrigger(e.target.value as AutomationTrigger)
               }
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-accent"
+              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent"
             >
               {(Object.keys(TRIGGER_LABELS) as AutomationTrigger[]).map((t) => (
                 <option key={t} value={t}>
@@ -448,7 +448,7 @@ function AutomationEditor({
               <select
                 value={conditionField}
                 onChange={(e) => setConditionField(e.target.value)}
-                className="bg-canvas border border-black/10 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-accent"
+                className="bg-canvas border border-black/10 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent"
               >
                 <option value="">— без условия —</option>
                 <option value="priority">priority</option>
@@ -461,7 +461,7 @@ function AutomationEditor({
                 value={conditionOp}
                 onChange={(e) => setConditionOp(e.target.value)}
                 disabled={!conditionField}
-                className="bg-canvas border border-black/10 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-accent disabled:opacity-50"
+                className="bg-canvas border border-black/10 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent disabled:opacity-50"
               >
                 <option value="eq">=</option>
                 <option value="neq">≠</option>
@@ -482,7 +482,7 @@ function AutomationEditor({
                   conditionOp === "is_not_null"
                 }
                 placeholder="value"
-                className="bg-canvas border border-black/10 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-accent disabled:opacity-50"
+                className="bg-canvas border border-black/10 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-accent disabled:opacity-50"
               />
             </div>
           </fieldset>
@@ -496,7 +496,7 @@ function AutomationEditor({
               onChange={(e) =>
                 setActionType(e.target.value as AutomationAction)
               }
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-accent"
+              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent"
             >
               {(Object.keys(ACTION_LABELS) as AutomationAction[]).map((a) => (
                 <option key={a} value={a}>
@@ -514,7 +514,7 @@ function AutomationEditor({
               <select
                 value={templateId}
                 onChange={(e) => setTemplateId(e.target.value)}
-                className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-accent"
+                className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent"
               >
                 <option value="">— выберите шаблон —</option>
                 {templates.map((t) => (
@@ -537,7 +537,7 @@ function AutomationEditor({
                   value={taskTitle}
                   onChange={(e) => setTaskTitle(e.target.value)}
                   placeholder="Связаться с ЛПР"
-                  className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-accent"
+                  className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent"
                 />
                 <p className="text-[10px] text-muted-3 mt-1">
                   Поддерживает подстановки <code>{"{{lead.field}}"}</code>.
@@ -552,7 +552,7 @@ function AutomationEditor({
                   min="1"
                   value={dueInHours}
                   onChange={(e) => setDueInHours(e.target.value)}
-                  className="mt-1 w-32 bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-accent"
+                  className="mt-1 w-32 bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent"
                 />
               </div>
             </>
@@ -568,7 +568,7 @@ function AutomationEditor({
                 value={targetStageId}
                 onChange={(e) => setTargetStageId(e.target.value)}
                 placeholder="00000000-0000-0000-0000-000000000000"
-                className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-accent"
+                className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent"
               />
               <p className="text-[10px] text-muted-3 mt-1">
                 ID можно скопировать из URL карточки стадии в /settings →

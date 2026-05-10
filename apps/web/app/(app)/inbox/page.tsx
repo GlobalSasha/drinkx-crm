@@ -83,7 +83,7 @@ function LeadSearchDropdown({
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Найти лид по компании…"
-          className="flex-1 text-sm px-2 py-1.5 rounded-lg bg-canvas border border-black/5 outline-none focus:border-accent"
+          className="flex-1 text-sm px-2 py-1.5 rounded-lg bg-canvas border border-black/5 outline-none focus:border-brand-accent"
         />
         <button
           onClick={onClose}
@@ -179,7 +179,7 @@ function CreateLeadModal({
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full text-sm px-3 py-2 rounded-lg bg-canvas border border-black/5 outline-none focus:border-accent mb-4"
+          className="w-full text-sm px-3 py-2 rounded-lg bg-canvas border border-black/5 outline-none focus:border-brand-accent mb-4"
         />
         <div className="flex justify-end gap-2">
           <button
@@ -190,7 +190,7 @@ function CreateLeadModal({
           </button>
           <button
             onClick={() => onConfirm(name.trim() || defaultName)}
-            className="text-sm font-semibold px-3 py-2 rounded-lg bg-accent text-white hover:opacity-90"
+            className="text-sm font-semibold px-3 py-2 rounded-lg bg-brand-accent text-white hover:opacity-90"
           >
             Создать
           </button>
@@ -433,7 +433,7 @@ export default function InboxPage() {
           <button
             onClick={handleConnect}
             disabled={connect.isPending}
-            className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl bg-accent text-white hover:opacity-90 disabled:opacity-50"
+            className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl bg-brand-accent text-white hover:opacity-90 disabled:opacity-50"
           >
             <Mail size={14} />
             {connect.isPending ? "Подключаем…" : "Подключить Gmail"}

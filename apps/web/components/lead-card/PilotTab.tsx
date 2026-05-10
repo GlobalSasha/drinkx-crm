@@ -73,8 +73,8 @@ export function PilotTab({ lead }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="bg-accent/5 border border-accent/15 rounded-xl px-4 py-3">
-        <p className="text-sm font-semibold text-accent">Контракт успеха пилота (ADR-011)</p>
+      <div className="bg-brand-soft border border-brand-accent/15 rounded-xl px-4 py-3">
+        <p className="text-sm font-semibold text-brand-accent">Контракт успеха пилота (ADR-011)</p>
         <p className="text-xs text-muted-2 mt-0.5">
           Заполните условия пилота перед запуском
         </p>
@@ -86,7 +86,7 @@ export function PilotTab({ lead }: Props) {
           {...field("goal")}
           rows={3}
           placeholder="Цель и ожидаемый результат..."
-          className="w-full px-3 py-2.5 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-accent/40 resize-none transition-all"
+          className="w-full px-3 py-2.5 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 resize-none transition-all"
         />
       </FormSection>
 
@@ -100,7 +100,7 @@ export function PilotTab({ lead }: Props) {
             <input
               type="date"
               {...field("period_start")}
-              className="w-full px-3 py-2 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+              className="w-full px-3 py-2 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-all"
             />
           </div>
           <div>
@@ -110,7 +110,7 @@ export function PilotTab({ lead }: Props) {
             <input
               type="date"
               {...field("period_end")}
-              className="w-full px-3 py-2 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+              className="w-full px-3 py-2 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-all"
             />
           </div>
         </div>
@@ -122,7 +122,7 @@ export function PilotTab({ lead }: Props) {
           type="text"
           {...field("locations")}
           placeholder="Список локаций через запятую..."
-          className="w-full px-3 py-2.5 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+          className="w-full px-3 py-2.5 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-all"
         />
       </FormSection>
 
@@ -146,7 +146,7 @@ export function PilotTab({ lead }: Props) {
               <input
                 type="text"
                 {...field(key)}
-                className="w-full px-3 py-2 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+                className="w-full px-3 py-2 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-all"
               />
             </div>
           ))}
@@ -163,7 +163,7 @@ export function PilotTab({ lead }: Props) {
             <input
               type="text"
               {...field("responsible_client")}
-              className="w-full px-3 py-2 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+              className="w-full px-3 py-2 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-all"
             />
           </div>
           <div>
@@ -173,7 +173,7 @@ export function PilotTab({ lead }: Props) {
             <input
               type="text"
               {...field("responsible_drinkx")}
-              className="w-full px-3 py-2 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+              className="w-full px-3 py-2 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-all"
             />
           </div>
         </div>
@@ -189,7 +189,7 @@ export function PilotTab({ lead }: Props) {
             <input
               type="date"
               {...field("review_date")}
-              className="w-full px-3 py-2 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+              className="w-full px-3 py-2 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-all"
             />
           </div>
           <div>
@@ -198,7 +198,7 @@ export function PilotTab({ lead }: Props) {
             </label>
             <select
               {...field("decision")}
-              className="w-full px-3 py-2 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+              className="w-full px-3 py-2 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-all"
             >
               <option value="">— не выбрано —</option>
               <option value="scale">Масштабировать</option>

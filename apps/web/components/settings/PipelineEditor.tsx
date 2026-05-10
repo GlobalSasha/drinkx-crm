@@ -268,7 +268,7 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Например: Партнёры"
-                className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-colors"
+                className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-colors"
               />
             </div>
 
@@ -402,7 +402,7 @@ function StageRowItem({
         value={row.name}
         onChange={(e) => onPatch({ name: e.target.value })}
         placeholder="Название стадии"
-        className="px-2 py-1 text-sm bg-white border border-black/10 rounded-lg outline-none focus:border-accent/40 transition-colors min-w-0"
+        className="px-2 py-1 text-sm bg-white border border-black/10 rounded-lg outline-none focus:border-brand-accent/40 transition-colors min-w-0"
       />
 
       <input
@@ -427,7 +427,7 @@ function StageRowItem({
               ),
             })
           }
-          className="w-14 px-1.5 py-1 text-sm font-mono bg-white border border-black/10 rounded-lg outline-none focus:border-accent/40 transition-colors text-right tabular-nums"
+          className="w-14 px-1.5 py-1 text-sm font-mono bg-white border border-black/10 rounded-lg outline-none focus:border-brand-accent/40 transition-colors text-right tabular-nums"
           title="Срок до пометки «протухает»"
         />
         <span className="text-[10px] font-mono text-muted-3">дн.</span>

@@ -283,7 +283,7 @@ export function ContactsTab({ lead }: Props) {
               setShowAddForm(true);
               setEditingId(null);
             }}
-            className="flex items-center gap-2 text-sm font-semibold text-accent hover:text-accent/80 transition-colors"
+            className="flex items-center gap-2 text-sm font-semibold text-brand-accent hover:text-brand-accent/80 transition-colors"
           >
             <Plus size={15} />
             Добавить ЛПР
@@ -386,7 +386,7 @@ function ContactCard({
         {contact.email && (
           <a
             href={`mailto:${contact.email}`}
-            className="flex items-center gap-1 text-xs text-muted-2 hover:text-accent transition-colors"
+            className="flex items-center gap-1 text-xs text-muted-2 hover:text-brand-accent transition-colors"
           >
             <Mail size={11} />
             {contact.email}
@@ -395,7 +395,7 @@ function ContactCard({
         {contact.phone && (
           <a
             href={`tel:${contact.phone}`}
-            className="flex items-center gap-1 text-xs text-muted-2 hover:text-accent transition-colors"
+            className="flex items-center gap-1 text-xs text-muted-2 hover:text-brand-accent transition-colors"
           >
             <Phone size={11} />
             {contact.phone}
@@ -406,7 +406,7 @@ function ContactCard({
             href={contact.telegram_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 text-xs text-muted-2 hover:text-accent transition-colors"
+            className="flex items-center gap-1 text-xs text-muted-2 hover:text-brand-accent transition-colors"
           >
             <Send size={11} />
             TG
@@ -417,7 +417,7 @@ function ContactCard({
             href={contact.linkedin_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 text-xs text-muted-2 hover:text-accent transition-colors"
+            className="flex items-center gap-1 text-xs text-muted-2 hover:text-brand-accent transition-colors"
           >
             <Linkedin size={11} />
             LI
@@ -518,7 +518,7 @@ function ContactForm({
             setForm({ ...form, [key]: e.target.value || null })
           }
           placeholder={placeholder}
-          className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+          className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-all"
         />
       </div>
     );
@@ -540,7 +540,7 @@ function ContactForm({
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder="Иван Иванов"
-            className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+            className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-all"
           />
         </div>
         <div>
@@ -552,7 +552,7 @@ function ContactForm({
             value={form.title ?? ""}
             onChange={(e) => setForm({ ...form, title: e.target.value || null })}
             placeholder="Генеральный директор"
-            className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+            className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-all"
           />
         </div>
       </div>
@@ -569,7 +569,7 @@ function ContactForm({
               role_type: (e.target.value as ContactRoleType) || null,
             })
           }
-          className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+          className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-all"
         >
           <option value="">— не выбрано —</option>
           <option value="economic_buyer">ЛПР (тот, кто платит)</option>
@@ -599,7 +599,7 @@ function ContactForm({
             onChange={(e) =>
               setForm({ ...form, confidence: e.target.value as "low" | "medium" | "high" })
             }
-            className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+            className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-all"
           >
             <option value="low">Низкая</option>
             <option value="medium">Средняя</option>
@@ -618,7 +618,7 @@ function ContactForm({
                 verified_status: e.target.value as "to_verify" | "verified" | "invalid",
               })
             }
-            className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 transition-all"
+            className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-all"
           >
             <option value="to_verify">Не проверен</option>
             <option value="verified">Верифицирован</option>
@@ -635,7 +635,7 @@ function ContactForm({
           value={form.notes ?? ""}
           onChange={(e) => setForm({ ...form, notes: e.target.value || null })}
           rows={2}
-          className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-accent/40 resize-none transition-all"
+          className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 resize-none transition-all"
         />
       </div>
 

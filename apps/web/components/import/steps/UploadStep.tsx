@@ -103,10 +103,10 @@ export function UploadStep({ onUploaded }: Props) {
         className={clsx(
           "w-full rounded-2xl border-2 border-dashed transition-all duration-200 px-6 py-12 text-center flex flex-col items-center justify-center gap-3 outline-none",
           dragOver
-            ? "border-accent bg-accent/5"
+            ? "border-brand-accent bg-brand-soft"
             : picked
               ? "border-emerald-400/40 bg-emerald-50/40"
-              : "border-black/15 hover:border-accent/60 hover:bg-canvas/60",
+              : "border-black/15 hover:border-brand-accent/60 hover:bg-canvas/60",
           busy && "opacity-60 cursor-wait",
         )}
       >
@@ -131,7 +131,7 @@ export function UploadStep({ onUploaded }: Props) {
               className={clsx(
                 "w-12 h-12 rounded-2xl flex items-center justify-center transition-colors",
                 dragOver
-                  ? "bg-accent text-white"
+                  ? "bg-brand-accent text-white"
                   : "bg-canvas text-muted",
               )}
             >
