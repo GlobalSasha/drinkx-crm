@@ -27,6 +27,8 @@ import { CustomFieldsPanel } from "./CustomFieldsPanel";
 import { GateModal } from "./GateModal";
 import { LostModal } from "./LostModal";
 import { TransferModal } from "./TransferModal";
+import { AgentBanner } from "./AgentBanner";
+import { SalesCoachDrawer } from "./SalesCoachDrawer";
 import { priorityChip } from "@/lib/ui/priority";
 import { C } from "@/lib/design-system";
 
@@ -90,6 +92,11 @@ export function LeadCard({ leadId }: Props) {
     ? (tabParam as TabKey)
     : "activity";
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
+
+  // Sales Coach drawer state — Sprint 3.1 Phase D. Open via the
+  // floating «🤖 AI Coach» button or the AgentBanner action button.
+  const [coachOpen, setCoachOpen] = useState(false);
+  const [coachSeed, setCoachSeed] = useState<string | undefined>(undefined);
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
   const [stageDropdownOpen, setStageDropdownOpen] = useState(false);
@@ -459,6 +466,18 @@ export function LeadCard({ leadId }: Props) {
           KB rail panel removed (Option a): no frontend data flows into it yet;
           KB matches will surface as chips inside the AI Brief result body (Phase G). */}
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-4 sm:py-6">
+        {/* Lead AI Agent banner — Sprint 3.1 Phase D. Sits between
+            the sticky header and the rail/tab body. Hides itself
+            when there is no cached suggestion. The action button
+            opens the Sales Coach drawer with a seed question. */}
+        <AgentBanner
+          leadId={lead.id}
+          onAction={() => {
+            setCoachSeed("Что делать дальше по этой карточке?");
+            setCoachOpen(true);
+          }}
+        />
+
         {/* Single column on < md (rail stacks ABOVE tab body so the user
             sees follow-ups first); side-by-side on md+. min-w-0 on the
             main column lets long content (tables, AI Brief paragraphs)
@@ -505,6 +524,38 @@ export function LeadCard({ leadId }: Props) {
           onClose={() => setTransferOpen(false)}
           onSuccess={() => showToast("Лид передан")}
         />
+      )}
+
+      {/* Sales Coach drawer — Sprint 3.1 Phase D. Mounted always so
+          its open/close transitions are smooth; the component
+          short-circuits when `open=false`. Seed message comes from
+          the banner's action button or `undefined` for a free-form
+          first turn. */}
+      <SalesCoachDrawer
+        leadId={lead.id}
+        open={coachOpen}
+        onClose={() => {
+          setCoachOpen(false);
+          setCoachSeed(undefined);
+        }}
+        seedMessage={coachSeed}
+      />
+
+      {/* Floating «🤖 AI Coach» button — bottom-right of viewport.
+          Hidden when the drawer is open so it doesn't peek through
+          the backdrop on mobile. */}
+      {!coachOpen && (
+        <button
+          onClick={() => {
+            setCoachSeed(undefined);
+            setCoachOpen(true);
+          }}
+          aria-label="Открыть Sales Coach"
+          className={`fixed bottom-6 right-6 z-30 ${C.button.primary} ${C.btnLg} px-4 py-3 rounded-full shadow-lg flex items-center gap-2`}
+        >
+          <span aria-hidden>🤖</span>
+          <span>AI Coach</span>
+        </button>
       )}
 
       {/* Sprint 2.6 G3: Lost-confirmation modal — replaces the prior

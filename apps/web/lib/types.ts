@@ -1085,3 +1085,35 @@ export interface AutomationStepRunOut {
   status: AutomationStepRunStatus;
   error: string | null;
 }
+
+// ---- Lead AI Agent (Sprint 3.1) ----
+
+export interface AgentSuggestion {
+  text: string;
+  action_label: string | null;
+  confidence: number;
+}
+
+export interface AgentSuggestionResponse {
+  suggestion: AgentSuggestion | null;
+}
+
+export interface AgentChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface AgentChatRequest {
+  message: string;
+  history: AgentChatMessage[];
+}
+
+export interface AgentChatResponse {
+  reply: string;
+  updated_history: AgentChatMessage[];
+}
+
+export interface AgentRefreshResponse {
+  status: string;
+  lead_id: string;
+}
