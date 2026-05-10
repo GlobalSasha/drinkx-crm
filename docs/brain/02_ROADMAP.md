@@ -172,23 +172,31 @@
 - ADRs reaffirmed: ADR-009 (package-per-domain), ADR-018 (LLM provider abstraction), ADR-019 (email lead-scoping). No new ADRs.
 - Operator follow-on (3 items, none blocking): `pnpm add @sentry/nextjs` in apps/web; set `SENTRY_DSN` + `NEXT_PUBLIC_SENTRY_DSN` in production .env; configure Sentry-side rate limits before noisy crons burn the 5k/month free tier.
 
+**Sprint 3.1 — DONE (merged + deployed)** · `docs/SPRINT_3_1_LEAD_AI_AGENT_REPORT.md` · 4 PRs ([#18](https://github.com/GlobalSasha/drinkx-crm/pull/18), [#19](https://github.com/GlobalSasha/drinkx-crm/pull/19), [#20](https://github.com/GlobalSasha/drinkx-crm/pull/20), [#22](https://github.com/GlobalSasha/drinkx-crm/pull/22)) merged 2026-05-10
+- **Lead AI Agent — first Phase 3 slice. All 5 phases shipped in a single day.**
+- **Phase A** (PR #18) — Knowledge files: `apps/api/knowledge/agent/lead-ai-agent-skill.md` (behaviour, SPIN-by-stage, output formats, tone, hard rules) + `apps/api/knowledge/agent/product-foundation.md` (DrinkX positioning, S100–S400, segments, top objections, USP map, vocabulary). Original spec placed them under `docs/`; PR #20 co-located them with the API package so the existing `COPY knowledge ./knowledge` Dockerfile line ships them.
+- **Phase B** (PR #18) — Migration `0022_lead_agent_state` adds `leads.agent_state JSONB NOT NULL DEFAULT '{}'`. ORM column type narrowed to plain `JSON` for test-stub compat (Postgres still stores JSONB at the migration level).
+- **Phase C** (PR #18) — `app/lead_agent/` package: `schemas.py` (AgentSuggestion / ChatMessage / *Request / *Response), `context.py` (lru_cache loaders + soft-fail repo walker + `build_lead_context`), `prompts.py` (SUGGESTION_SYSTEM Flash + CHAT_SYSTEM Pro, FOUNDATION_INJECT_CHARS=3000), `runner.py` (`get_suggestion` Flash + `chat` Pro, both via `complete_with_fallback`, RU graceful fallback on `LLMError`), `tasks.py` (`refresh_suggestion_async` + `scan_silence_async` via per-task NullPool engine), `routers.py` (3 endpoints under `/leads/{id}/agent/`). Celery wrappers in `scheduled/jobs.py`. New beat schedule entry `lead-agent-scan-silence` every 6h sweeps active leads.
+- **Operator follow-on** (PR #19) — `apps/api/Dockerfile` repo-root build context + `COPY docs ./docs`. Later superseded by PR #20's knowledge co-location, but the repo-root context is retained.
+- **Phase D** (PR #22) — Frontend: 3 React Query hooks (`useAgentSuggestion`, `useRefreshAgentSuggestion` with 12s soft-poll, `useAgentChat`); `AgentBanner.tsx` between LeadCard header and tabs (empty-row state, full state, low-confidence mute, dismiss, refresh); `SalesCoachDrawer.tsx` slide-over chat with static greeting, four quick chips, in-memory history (per skill §8), Esc/backdrop close, optimistic user-turn append, in-line failure message; FAB `🤖 Чак` bottom-right on LeadCard.
+- **Phase E** (PR #22) — Two trigger hooks: `app/automation/stage_change.py` adds `trigger_lead_agent_refresh` POST_ACTION (last in list, fires `apply_async(args=[lead.id])` synchronously); `app/inbox/processor.py` after inbound auto-attach + drainer fires same task with `countdown=900` (15-min «менеджер может ответить сам» window). Both wrapped in `try/except` so a broker hiccup never rolls back the parent commit.
+- 51 mock-only tests pass throughout. 0 dedicated lead_agent tests — runner is a thin shim around `complete_with_fallback`, routers are read-only or fire-and-forget enqueues. Real verification is the post-deploy smoke check.
+- 0 new npm deps; 0 new Python deps. ADRs reaffirmed: ADR-009, ADR-018, ADR-007. No new ADRs.
+- Production state: agent endpoints live at `/api/leads/{id}/agent/*`; `lead-agent-scan-silence` beat entry active; FAB + banner visible on every LeadCard.
+
 ## 🔜 NEXT
 
-### Phase 3 — Sprint 3.1 — Lead AI Agent (~5 phases)
-See `docs/SPRINT_3_1_LEAD_AI_AGENT.md` for full spec.
+### Phase 3 — Sprint 3.2 — Lead AI Agent polish (~3-5 days)
+See `docs/brain/04_NEXT_SPRINT.md` for full spec.
 
-**Main driver:** unified AI agent inside the lead card. Background
-mode is a Celery task watching for paused conversations + sales-
-methodology gaps and surfacing a banner-recommendation. Foreground
-mode is a chat drawer with full lead context (Sales Coach), opened
-on demand.
+**Main driver:** the 3.1 close-report parked five features as out-of-scope for v1 of the agent. They're the natural follow-on once managers actually use the banner and chat drawer in anger.
 
-Tentative phase breakdown:
-- **Phase A — Knowledge files** — copy `docs/skills/lead-ai-agent-skill.md` + `docs/knowledge/agent/product-foundation.md` into the repo. Files are read from disk into a process-cached system prompt, not stored in DB or Redis. Artifacts have to come from the user before Phase A starts.
-- **Phase B — Migration** — add `leads.agent_state JSONB NOT NULL DEFAULT '{}'` (actual index will be **0022 or higher**, NOT 0013 as the original spec said — 0013 is taken by `default_pipeline`, and 0021 by Sprint 2.7's automation_steps).
-- **Phase C — Backend `app/lead_agent/`** — context.py (assembles full per-lead context), prompts.py (builds system prompt from knowledge files + skill), runner.py (LLM via existing `get_llm_provider()` fallback chain — Flash for background, Pro for chat), tasks.py (Celery `lead_agent.background_check` + `scan_silence`), routers.py (3 endpoints: GET suggestion / POST chat / PATCH action).
-- **Phase D — Frontend** — AgentBanner.tsx between LeadCard header and tabs (renders when `suggestion.silent === false`); SalesCoachDrawer.tsx with FAB toggle, quick chips, in-memory chat history.
-- **Phase E — Existing-code hooks** — `app/automation/stage_change.py` fires `lead_agent_background_check.apply_async(args=[lead_id])`; `app/inbox/` fires it with `countdown=900` after a new inbound.
+Tentative scope:
+- **Per-suggestion id + persistent dismiss** — currently the «×» button is session-only (refresh brings the suggestion back). Add `suggestion.id` (UUIDv4 generated by the runner) + `agent_state.dismissed_suggestion_ids[]` so a dismissal sticks across page loads. Migration: not needed (JSONB).
+- **Manager rating thumbs up/down** — feeds the «менеджер игнорирует советы» pattern in `agent_state.suggestions_log` (skill §11 «Special scenarios»). After 3+ consecutive ignores, the runner softens the prompt tone (already a documented branch in the skill, just unwired today).
+- **Chat streaming via SSE / WebSocket** — current sync POST works but feels laggy on long Pro responses. Reuse the WS infrastructure once Sprint 2.7 G4 lands (or stand up SSE separately if G4 keeps slipping).
+- **SPIN-analysis of inbound emails through LLM** — replace the pattern-match heuristic in `runner.get_suggestion` with a focused second LLM call (mirror `_extract_contacts_from_sources` in enrichment).
+- **Telegram-notification of recommendations** — push the banner to a Telegram bot when the manager isn't on the web (pairs naturally with Sprint 2.8 G3 carryover for tg outbound dispatch).
 
 ### Phase 2 — Sprint 2.8 (long-tail)
 Tentative parking lot for the items 2.7 deferred:
