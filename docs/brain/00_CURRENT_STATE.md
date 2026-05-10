@@ -1,6 +1,6 @@
 # DrinkX CRM — Current State
 
-Last updated: 2026-05-09 (Sprint 2.6 DONE on branch `sprint/2.6-outbound-email`; Sprint 2.5 already merged into main `3aa78f3`)
+Last updated: 2026-05-10 (Sprint 2.7 DONE on branch `sprint/2.7-sentry-multistep`, PR [#12](https://github.com/GlobalSasha/crm/pull/12); G3 + G4 deferred to long-tail. Sprint 2.6 already merged into main.)
 
 ## Phase 0 — COMPLETED ✅ (lives in `crm-prototype` repo)
 
@@ -464,9 +464,49 @@ Test baseline (mock-only): **112 passing** (108 → +4 G4 = 112; full sprint tra
 
 Stability audit summary: 0 CRITICAL remain, 2 of 4 HIGH fixed (template delete 409 + followups N+1). The remaining 2 HIGH (cron swallow, BackgroundTasks-strands-running) both depend on Sentry activation in Sprint 2.7 G1.
 
-### ⏸ NOT YET BUILT (after Sprint 2.6)
-- **Phase 2 Sprint 2.7+** — Sentry activation (frontend `@sentry/nextjs` + backend DSN; carryover since 2.1 G10); multi-step automation chains; tg / sms outbound dispatch (provider eval); enrichment → Celery + WebSocket; multi-clause condition UI; AmoCRM adapter (long-tail since 2.1); Telegram Business inbox + email send; Quote/КП builder; Knowledge Base CRUD UI
-- **Phase 3** — Multi-tenancy (invite-flow + per-tenant routing for second client), MCP server, Sales Coach chat, OCR визиток, pgvector
+### ✅ Sprint 2.7 — Sentry activation + multi-step automations (DONE — branch `sprint/2.7-sentry-multistep`, PR [#12](https://github.com/GlobalSasha/crm/pull/12), pending merge)
+**3 of 5 planned gates shipped (G1 + G2 + G5); G3 + G4 deferred to long-tail by product decision.**
+
+Commit range: 3 commits on the branch (`65c5bef..HEAD`).
+
+Full sprint report: `docs/SPRINT_2_7_SENTRY_MULTISTEP.md`.
+
+Gates summary:
+- **Sprint 3.1 spec save** (`65c5bef`) — `docs/SPRINT_3_1_LEAD_AI_AGENT.md` saved verbatim from the user's message so a future session can read it as authoritative spec. Includes a fix-up note that the original migration index 0013 is taken; actual index will be 0022+ once Sprint 2.7 lands.
+- **G1** (`1c4283d`) Sentry activation — backend swallow obёртки + frontend error boundaries + 8 tests
+- **G2** (`03bf762`) Multi-step automation chains — Migration 0021 (additive `steps_json` JSONB column + `automation_step_runs` table) + handler refactor + Celery beat scheduler + 13 tests
+- **G3** SKIPPED — tg outbound dispatch (long-tail; templates with `channel='tg'` continue to stage `delivery_status='pending'` Activity rows)
+- **G4** SKIPPED — Enrichment → Celery + WebSocket (strand-on-failure already closed by G1; real-time UI defers to manager-demand)
+- **G5** (this commit) Sprint close — report, smoke checklist, brain rotation
+
+New modules in this sprint:
+- `apps/api/app/common/sentry_capture.py` — single capture chokepoint with lazy import + soft no-op
+- `apps/api/app/observability.py` — `init_sentry_if_dsn(settings)` extracted from main.py:lifespan for testability
+- `apps/api/app/automation_builder/...` — extended with `_dispatch_step`, `_compute_schedule_offsets`, `_resolved_chain`, `_validate_steps`, `execute_due_step_runs`, `list_step_runs_for_run`
+- `apps/web/lib/sentry-capture.ts` — runtime captureClientException helper
+- `apps/web/app/global-error.tsx` + `apps/web/app/(app)/error.tsx` — React error boundaries
+- `apps/api/alembic/versions/20260510_0021_automation_steps.py` — additive multi-step migration
+- `docs/SPRINT_2_7_SENTRY_MULTISTEP.md` + `docs/SMOKE_CHECKLIST_2_7.md`
+
+Migration delta: 0021 (additive `automations.steps_json JSONB NULL` + new `automation_step_runs` table with partial index `(scheduled_at) WHERE executed_at IS NULL`).
+
+Beat schedule delta: new entry `automation-step-scheduler` every 5 min.
+
+Test baseline (mock-only): **133 passing** (was 112; +8 G1 + +13 G2). 14 pre-existing fastapi-import failures unchanged. `pnpm typecheck` clean.
+
+Net-new dependencies: **0** in this PR. `sentry-sdk[fastapi]` was pre-pinned since 2.1 G10. `@sentry/nextjs` install is an operator step (see «Operator follow-on» below).
+
+ADR work: none new — Sprint 2.7 was implementation-shaped on top of existing patterns (ADR-009 package-per-domain, ADR-018 LLM provider abstraction, ADR-019 email lead-scoping).
+
+Operator follow-on (3 items, none blocking the merge):
+1. `cd /opt/drinkx-crm/apps/web && pnpm add @sentry/nextjs` — flips `lib/sentry.ts` from warn-once to live (~50KB minified bundle)
+2. Set `SENTRY_DSN` (backend) + `NEXT_PUBLIC_SENTRY_DSN` (frontend) in `/opt/drinkx-crm/infra/production/.env`; redeploy via `deploy.sh`
+3. Configure Sentry-side rate limits before noisy crons burn the 5k/month free tier
+
+### ⏸ NOT YET BUILT (after Sprint 2.7)
+- **Sprint 3.1 — Lead AI Agent** — see `docs/SPRINT_3_1_LEAD_AI_AGENT.md`. Background mode (Celery task watching for paused conversations + sales-methodology gaps → banner-recommendation) + Foreground mode (Sales Coach chat drawer with full lead context). Phase A blocks on user providing the artifact files (`lead-ai-agent-skill.md` + `product-foundation.md`).
+- **Sprint 2.8 long-tail** — Sprint 2.7 G3 + G4 carryovers (tg outbound, Enrichment Celery+WS); multi-clause condition UI; AmoCRM adapter; Telegram Business inbox + email send (gmail.send scope); Quote/КП builder; Knowledge Base CRUD UI; multi-step automation polish (dnd-kit reorder, pause-mid-chain UI, per-step retry).
+- **Phase 3** — Multi-tenancy (invite-flow + per-tenant routing for second client), MCP server, OCR визиток, pgvector
 
 ---
 
@@ -491,7 +531,7 @@ User-provided keys in `/opt/drinkx-crm/infra/production/.env`:
 - ✅ `BRAVE_API_KEY`
 - ⚠ `GEMINI_API_KEY` — not configured
 - ⚠ `DEEPSEEK_API_KEY` — not configured (intentional)
-- ⏸ Sentry DSNs — empty (file logs + journalctl + ScheduledJob audit table for now)
+- ⏸ Sentry DSNs — empty in production env. Sprint 2.7 G1 wired the init path (`app/observability.py:init_sentry_if_dsn` + `app/common/sentry_capture.py` + 4 cron-swallow obёртки + `_bg_run` failure capture); when the operator sets `SENTRY_DSN` + `NEXT_PUBLIC_SENTRY_DSN` and runs `pnpm add @sentry/nextjs`, telemetry activates without a code change. Until then, structlog + journalctl + ScheduledJob audit table remain the visibility layer.
 
 ---
 
@@ -538,19 +578,20 @@ Resolved this sprint:
 ---
 
 ## Next
-**Sprint 2.7 — Sentry activation + multi-step automations** is the
-main driver. Spec lives in `04_NEXT_SPRINT.md`. Activating Sentry
-(frontend `@sentry/nextjs` + backend DSN env vars) is the load-
-bearing infra step — it surfaces the cron-swallow and audit-log-
-swallow tech debt that the Sprint 2.6 stability audit flagged but
-couldn't fix without an error-reporting target.
+**Sprint 3.1 — Lead AI Agent** is the next product-shaped slice.
+Spec lives in `docs/SPRINT_3_1_LEAD_AI_AGENT.md` (saved during
+Sprint 2.7 G5 close). Branch `sprint/3.1-lead-ai-agent` to be cut
+from main after Sprint 2.7 PR #12 lands.
 
-Carryovers from 2.6 to fold into 2.7:
-- Sentry activation (G1 driver, carryover since 2.1 G10)
-- Multi-step automation chains (G2 — was 2.6 G2 skip)
-- Real tg / sms outbound dispatch (G3 — provider eval)
-- Enrichment → Celery + WebSocket (G4 — Phase G carryover)
-- pg_dump cron install on host (operator step open since 2.4 G5)
-- inbox/processor Celery dispatch retry path
+**Phase A is blocked on the user** — the spec references two
+artifact files (`docs/skills/lead-ai-agent-skill.md` and
+`docs/knowledge/agent/product-foundation.md`) that haven't been
+provided yet. The next Claude session for Sprint 3.1 should
+ask for them before starting Phase A.
 
-Active migrations on `sprint/2.6-outbound-email`: `0001..0020` (no new ones in 2.6). Next free index: `0021`.
+Carryovers from 2.7 deferred to Sprint 2.8+:
+- tg channel outbound dispatch (G3 carryover — Telegram Bot API + `lead.tg_chat_id` migration)
+- Enrichment → Celery + WebSocket (G4 carryover — when manager-facing real-time progress becomes a priority)
+- Multi-step automation polish: dnd-kit reorder in builder, pause-mid-chain UI, per-step retry on failure
+
+Active migrations on `sprint/2.7-sentry-multistep`: `0001..0021` (added 0021_automation_steps in G2). Next free index for Sprint 3.1: `0022`.
