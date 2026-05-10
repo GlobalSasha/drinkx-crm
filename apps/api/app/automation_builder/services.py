@@ -376,6 +376,13 @@ async def safe_evaluate_trigger(
             workspace_id=str(workspace_id),
             error=str(exc)[:200],
         )
+        from app.common.sentry_capture import capture
+        capture(
+            exc,
+            fingerprint=["automation-evaluate-trigger", trigger],
+            tags={"site": "automation.evaluate_trigger", "trigger": trigger},
+            extra={"workspace_id": str(workspace_id), "lead_id": str(lead.id)},
+        )
 
 
 # ---------------------------------------------------------------------------
