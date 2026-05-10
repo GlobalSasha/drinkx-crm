@@ -97,6 +97,23 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     lost_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
     ai_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
+    # Lead AI Agent memory (Sprint 3.1 Phase B). Stored as JSONB at the
+    # DB level — migration 0022 creates the column with `postgresql.JSONB`.
+    # SQLAlchemy's plain `JSON` here maps to the same JSONB on Postgres
+    # and stays compatible with the test-suite's sqlalchemy stub which
+    # only exposes `JSON` / `UUID` from `sqlalchemy.dialects.postgresql`
+    # (importing `JSONB` at module level breaks `test_audit.py`,
+    # `test_email_sender.py`, `test_automation_*.py` collection — those
+    # files predate this column). Schema of the dict is enforced by
+    # Pydantic models in `app/lead_agent/schemas.py` — at the Python
+    # level this is opaque.
+    agent_state: Mapped[dict] = mapped_column(
+        JSON,
+        nullable=False,
+        server_default=sa.text("'{}'::jsonb"),
+        default=dict,
+    )
+
     contacts: Mapped[list["Contact"]] = relationship(  # type: ignore[name-defined]
         back_populates="lead", cascade="all, delete-orphan"
     )

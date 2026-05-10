@@ -73,4 +73,11 @@ celery_app.conf.beat_schedule = {
         "task": "app.scheduled.jobs.automation_step_scheduler",
         "schedule": crontab(minute="*/5"),
     },
+    "lead-agent-scan-silence": {
+        # Sprint 3.1 Phase C — every 6 hours, refresh banners for
+        # quiet leads. Per-lead work is dispatched into the worker
+        # pool inside the task body, keeping the beat tick light.
+        "task": "app.scheduled.jobs.lead_agent_scan_silence",
+        "schedule": crontab(minute=0, hour="*/6"),
+    },
 }
