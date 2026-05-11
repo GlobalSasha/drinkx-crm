@@ -1196,7 +1196,7 @@ export interface CompanyCreate {
   notes?: string | null;
 }
 
-export interface CompanyUpdate extends Partial<CompanyCreate> {}
+export type CompanyUpdate = Partial<CompanyCreate>;
 
 export interface CompanyDuplicateCandidate {
   id: string;
