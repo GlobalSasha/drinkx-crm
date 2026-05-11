@@ -12,19 +12,21 @@ https://globalsasha.github.io/drinkx-crm-prototype/.
 Single source of truth for product decisions: **`docs/PRD-v2.0.md`** (consolidated PRD,
 988 lines, covers IA, all screens, AI architecture, data model, phases).
 
-Single source of truth for execution: **`AUTOPILOT.md`** at the repo root. Sequential
-roadmap with checkboxes. Always read this first, then continue from the first
-unchecked item.
+Single source of truth for execution: **`docs/brain/`** — start with
+`00_CURRENT_STATE.md` for where the codebase is, then `04_NEXT_SPRINT.md` for
+what to do next. (The old root-level `AUTOPILOT.md` has been archived to
+`docs/brain/AUTOPILOT_ARCHIVE_sprint1.md`.)
 
 ## How to operate in this repo
 
-1. Read `AUTOPILOT.md` at repo root before any work
+1. Read `docs/brain/00_CURRENT_STATE.md` for current state, then
+   `docs/brain/04_NEXT_SPRINT.md` for what to do next.
 2. Find the first `- [ ]` item under the current sprint
 3. Do that one item. Keep changes surgical
-4. Tick the checkbox in `AUTOPILOT.md` when done
+4. Tick the checkbox in `docs/brain/04_NEXT_SPRINT.md` when done
 5. Commit with a clear message — one logical change per commit
-6. If you uncover scope creep, write a new item into AUTOPILOT.md instead of expanding
-   the current one
+6. If you uncover scope creep, write a new item into `04_NEXT_SPRINT.md`
+   instead of expanding the current one
 
 ## Codebase shape
 
@@ -36,8 +38,10 @@ infra/
   docker/      # docker-compose for local dev (Postgres + Redis)
   supabase/    # SQL migrations
 docs/
-  PRD-v2.0.md  # consolidated product spec
-AUTOPILOT.md   # sequential roadmap with checkboxes
+  PRD-v2.0.md          # consolidated product spec
+  brain/
+    00_CURRENT_STATE.md  # snapshot of where the codebase is
+    04_NEXT_SPRINT.md    # current sprint spec + checkboxes
 CLAUDE.md      # this file
 ```
 
@@ -134,8 +138,8 @@ For backend changes: `python -m py_compile` on touched modules + `pytest`
 
 ## When you finish a unit of work
 
-1. Tick the AUTOPILOT.md checkbox
-2. Commit with a one-line summary that mentions the AUTOPILOT item id
+1. Tick the checkbox in `docs/brain/04_NEXT_SPRINT.md`
+2. Commit with a one-line summary that mentions the sprint gate (e.g. `G1`, `G2`)
 3. If tests pass, push
 4. If you blocked on something (env var, account, decision), write a `> [BLOCKED]`
    note under the item describing what you need from the human
@@ -144,6 +148,6 @@ For backend changes: `python -m py_compile` on touched modules + `pytest`
 
 - Prototype (live): https://globalsasha.github.io/drinkx-crm-prototype/
 - Prototype repo: https://github.com/GlobalSasha/drinkx-crm-prototype
-- Production repo: TBD (created in AUTOPILOT step 1.0.4)
+- Production repo: TBD
 - PRD: `docs/PRD-v2.0.md`
 - Source data: `~/Downloads/drinkx-client-map-v0.5-linkedin-industry-enriched/`

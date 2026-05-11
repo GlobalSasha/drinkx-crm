@@ -1,459 +1,796 @@
-# Sprint 3.3 — Companies + Global Search
+# Sprint 3.4 — Unified Inbox: Telegram · MAX · Телефония
 
-## Context
+**Статус:** 📋 SPEC (не начат)
+**После:** Sprint 3.3 Companies + Global Search ✅
+**Следующая свободная миграция:** **0025** (последняя в проде — `0024_contacts_workspace_id_not_null`)
 
-`company_name` is currently a plain text field on `leads`. This sprint makes `companies` a
-full account-layer above leads — the standard B2B CRM model.
+---
 
-**ADR-022** (record in `docs/brain/03_DECISIONS.md`):
+## Контекст: что уже есть
+
+Sprint 2.0 реализовал Gmail-интеграцию — пакет `app/inbox/` **уже существует в продакшне**:
+
+| Компонент | Статус |
+|---|---|
+| `app/inbox/` пакет | ✅ live |
+| `channel_connections` (migration 0008) | ✅ live |
+| `inbox_items` (migration 0009) | ✅ live |
+| Gmail sync (read-only, Celery 5 min) | ✅ live |
+| `/inbox` страница с AI-саджестами | ✅ live |
+| Email-активности в ленте лида | ✅ live |
+| **Gmail send** (отправка из CRM) | ⏸ не сделано |
+
+Gmail — **уже 1-й канал**. Sprint 3.4 добавляет каналы 2, 3, 4.
+
+---
+
+## Бизнес-цель
+
+Менеджер видит в карточке лида всю переписку — Gmail, Telegram, MAX, звонки —
+и отвечает/звонит, не выходя из CRM.
+
+---
+
+## ADR-023 — Расширение inbox: messenger-каналы отдельной таблицей
 
 ```
-Company = Account  (stable identity: name, INN, domain, contacts)
-Lead    = Deal/Opportunity  (working state: stage, segment, score, owner)
-
-company_name on leads  → snapshot/cache, NOT source of truth
-contacts.lead_id       → legacy/context for v1
-lead_contacts junction table → backlog Phase 2
-company_aliases              → backlog Phase 2
+Проблема:  inbox_items заточена под Gmail (gmail_message_id UNIQUE, triage-логика,
+           AI-suggestion chips). Telegram/MAX — это real-time чат, не email-очередь.
+Решение:   новая таблица inbox_messages для мессенджер-каналов и телефонии.
+           app/inbox/ расширяется адаптерами без переписывания.
+           Gmail остаётся на inbox_items; новые каналы — на inbox_messages.
+Последствия: единый InboxTab в LeadCard читает из обеих таблиц через
+             unified view / merge на уровне API.
 ```
 
 ---
 
-## G1 — Schema (Alembic migration)
+## Схема данных
 
-### New table `companies`
+### Новая таблица `inbox_messages` (migration 0025)
 
 ```sql
-CREATE TABLE companies (
+CREATE TABLE inbox_messages (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id    UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-  name            VARCHAR(255) NOT NULL,
-  normalized_name VARCHAR(255) NOT NULL,
-  legal_name      VARCHAR(255),
-  inn             VARCHAR(12),
-  kpp             VARCHAR(9),
-  domain          VARCHAR(255),
-  website         VARCHAR(255),
-  phone           VARCHAR(50),
-  email           VARCHAR(255),
-  city            VARCHAR(100),
-  address         TEXT,
-  primary_segment VARCHAR(50),
-  employee_range  VARCHAR(30),
-  notes           TEXT,
-  is_archived     BOOLEAN NOT NULL DEFAULT FALSE,
-  archived_at     TIMESTAMPTZ,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+  lead_id         UUID REFERENCES leads(id) ON DELETE SET NULL,
+  channel         VARCHAR(20) NOT NULL,   -- 'telegram' | 'max' | 'phone'
+  direction       VARCHAR(10) NOT NULL,   -- 'inbound' | 'outbound'
+  external_id     VARCHAR(255),
+  sender_id       VARCHAR(255),           -- tg chat_id / max user_id / phone номер
+  body            TEXT,
+  media_url       TEXT,                   -- запись звонка
+  call_duration   INTEGER,               -- секунды (только phone)
+  call_status     VARCHAR(20),           -- 'answered' | 'missed' | 'busy'
+  manager_user_id UUID REFERENCES users(id),
+  delivered_at    TIMESTAMPTZ,
+  read_at         TIMESTAMPTZ,
+  transcript      TEXT,                   -- G4b: транскрипт звонка
+  summary         TEXT,                   -- G4b: резюме MiMo
+  stt_provider    VARCHAR(20),           -- G4b: 'salute'|'yandex'|'whisper'
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE UNIQUE INDEX uq_inbox_msg_external
+  ON inbox_messages(channel, external_id)
+  WHERE external_id IS NOT NULL;
+
+CREATE INDEX ix_inbox_msg_lead    ON inbox_messages(lead_id, created_at DESC);
+CREATE INDEX ix_inbox_msg_sender  ON inbox_messages(channel, sender_id);
+CREATE INDEX ix_inbox_msg_unmatched ON inbox_messages(workspace_id)
+  WHERE lead_id IS NULL;
 ```
 
-### Alter existing tables
+> Примечание: колонки `transcript/summary/stt_provider` добавлены сразу в 0025,
+> чтобы не плодить отдельную миграцию в G4b. Если транскрипция временно отключена —
+> колонки просто остаются NULL.
+
+### Новые колонки в `leads` (migration 0026)
 
 ```sql
--- leads
-ALTER TABLE leads ADD COLUMN company_id UUID REFERENCES companies(id) ON DELETE SET NULL;
-
--- contacts: nullable first, NOT NULL set AFTER backfill in separate migration
-ALTER TABLE contacts ADD COLUMN workspace_id UUID REFERENCES workspaces(id);
-ALTER TABLE contacts ADD COLUMN company_id   UUID REFERENCES companies(id) ON DELETE SET NULL;
-```
-
-### Indexes
-
-```sql
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-
--- companies
-CREATE UNIQUE INDEX uq_companies_inn
-  ON companies(workspace_id, inn)
-  WHERE inn IS NOT NULL AND is_archived = false;
-
-CREATE INDEX idx_companies_workspace   ON companies(workspace_id);
-CREATE INDEX idx_companies_name_trgm   ON companies USING gin(name gin_trgm_ops);
-CREATE INDEX idx_companies_normalized  ON companies(workspace_id, normalized_name);
-CREATE INDEX idx_companies_domain      ON companies(workspace_id, domain) WHERE domain IS NOT NULL;
-
--- leads
-CREATE INDEX idx_leads_company_id      ON leads(company_id);
-CREATE INDEX idx_leads_name_trgm       ON leads USING gin(company_name gin_trgm_ops);
-
--- contacts
-CREATE INDEX idx_contacts_company_id   ON contacts(company_id);
-CREATE INDEX idx_contacts_workspace    ON contacts(workspace_id);
-CREATE INDEX idx_contacts_name_trgm    ON contacts USING gin(name gin_trgm_ops);
-CREATE INDEX idx_contacts_email        ON contacts(workspace_id, email) WHERE email IS NOT NULL;
-CREATE INDEX idx_contacts_phone        ON contacts(workspace_id, phone) WHERE phone IS NOT NULL;
+-- leads.tg_chat_id уже добавлен в Sprint 2.7 (migration 0022)
+-- Добавляем только MAX:
+ALTER TABLE leads ADD COLUMN max_user_id VARCHAR(100);
 ```
 
 ---
 
-## G2 — Backend helpers (`app/companies/utils.py`)
+## Структура расширения `app/inbox/`
 
-```python
-import re
+Существующий пакет расширяется — не переписывается:
 
-_ORG_FORMS = re.compile(
-    r'\b(ооо|пао|ао|зао|ип|нао|мсп|llc|ltd|inc|gmbh|s\.a)\b',
-    flags=re.IGNORECASE | re.UNICODE
-)
+```
+app/inbox/
+  # --- СУЩЕСТВУЮЩЕЕ (Gmail, не трогаем) ---
+  gmail_client.py      ✅
+  oauth.py             ✅
+  email_parser.py      ✅
+  matcher.py           ✅
+  processor.py         ✅
+  sync.py              ✅
+  services.py          ✅ (расширяется методами для новых каналов)
+  routers.py           ✅ (добавляем новые endpoint'ы)
+  models.py            ✅ (добавляем InboxMessage)
+  schemas.py           ✅ (добавляем новые схемы)
 
-def normalize_company_name(name: str) -> str:
-    s = name.lower().strip()
-    s = s.replace('«', '').replace('»', '').replace('"', '').replace("'", '')
-    s = _ORG_FORMS.sub('', s)
-    s = re.sub(r'\s+', ' ', s).strip()
-    return s
-
-def extract_domain(url: str | None) -> str | None:
-    if not url:
-        return None
-    from urllib.parse import urlparse
-    try:
-        parsed = urlparse(url if '://' in url else 'https://' + url)
-        host = parsed.hostname or ''
-        return host.removeprefix('www.').lower() or None
-    except Exception:
-        return None
+  # --- НОВОЕ (Telegram / MAX / Phone) ---
+  adapters/
+    __init__.py
+    base.py            — ChannelAdapter Protocol
+    telegram.py        — TelegramAdapter
+    max_messenger.py   — MaxAdapter
+    phone.py           — PhoneAdapter (Mango)
+  message_services.py  — MessageService (receive, send, match, list)
+  message_tasks.py     — Celery: async_send, post_receive_hook, transcribe_call
+  stt/
+    __init__.py
+    base.py            — SttProvider Protocol
+    salute.py
+    yandex.py
+    whisper.py
+    factory.py
 ```
 
-These helpers are called in `services.py` only. Never accept `normalized_name` or `domain`
-from the frontend.
+### Протокол адаптера (`adapters/base.py`)
+
+```python
+from typing import Protocol
+from app.inbox.schemas import WebhookPayload, OutboundMessage
+
+class ChannelAdapter(Protocol):
+    channel: str
+
+    async def parse_webhook(self, raw: dict) -> WebhookPayload: ...
+    async def send(self, msg: OutboundMessage) -> str: ...  # возвращает external_id
+```
 
 ---
 
-## G3 — Backend domain (`app/companies/`)
+## G1 — Schema + skeleton (~0.5 дня)
 
-Package structure (ADR-009 package-per-domain):
+- [ ] Migration 0025: `inbox_messages` (включая transcript/summary/stt_provider)
+- [ ] Migration 0026: `leads.max_user_id`
+- [ ] `InboxMessage` SQLAlchemy модель в `app/inbox/models.py`
+- [ ] `app/inbox/adapters/base.py` — протокол
+- [ ] `app/inbox/message_services.py` — скелет (receive / send / match / list)
+- [ ] `GET /api/leads/{id}/inbox` — объединяет inbox_messages + inbox_items (email)
+  по lead_id, сортировка по created_at ASC
+- [ ] `GET /api/inbox/unmatched/messages` — inbox_messages без lead_id
+
+Тесты: 3 mock (upsert dedup, match, unmatched).
+
+---
+
+## G2 — Telegram Business Bot (~2 дня)
+
+### Предусловия
+
+1. Telegram Premium аккаунт менеджера с включённым Telegram Business
+2. Бот создан через @BotFather; подключён в настройках Telegram Business как «бот для бизнеса»
+3. `TELEGRAM_BOT_TOKEN` и `TELEGRAM_WEBHOOK_SECRET` в `.env`
+
+### Входящие
+
 ```
-app/companies/
-  __init__.py
-  models.py
-  schemas.py
-  repositories.py
-  services.py
-  routers.py
-  merge.py
+Клиент пишет менеджеру → Telegram Business → наш webhook
+
+POST /api/webhooks/telegram
+  Header: X-Telegram-Bot-Api-Secret-Token: {TELEGRAM_WEBHOOK_SECRET}
+  Body: Telegram Update JSON
 ```
-
-### Creation logic — 409 Conflict protection
-
-**`services.py`:**
 
 ```python
-from sqlalchemy import func
-from app.leads.models import Lead
-
-def create_company(db, workspace_id, data, force=False):
-    normalized = normalize_company_name(data.name)
-
-    if not force:
-        candidates = db.query(
-            Company,
-            func.count(Lead.id).label('leads_count')
-        ).outerjoin(
-            Lead, Lead.company_id == Company.id
-        ).filter(
-            Company.workspace_id == workspace_id,
-            Company.normalized_name == normalized,
-            Company.is_archived == False
-        ).group_by(Company.id).all()
-
-        if candidates:
-            raise DuplicateCompanyWarning(candidates=candidates)
-
-    company = Company(
-        workspace_id=workspace_id,
-        name=data.name,
-        normalized_name=normalized,
-        domain=extract_domain(data.website),
-        # ... other fields from data
+# adapters/telegram.py
+async def parse_webhook(self, raw: dict) -> WebhookPayload:
+    msg = raw.get("message") or raw.get("business_message")
+    return WebhookPayload(
+        channel     = "telegram",
+        direction   = "inbound",
+        external_id = f"tg_{msg['message_id']}",
+        sender_id   = str(msg["chat"]["id"]),
+        body        = msg.get("text", ""),
     )
-    db.add(company)
-    db.commit()
-    return company
 ```
 
-**`routers.py`:**
+Сопоставление с лидом (в `message_services.match_logic`):
+
+1. `leads.tg_chat_id == sender_id`
+2. `leads.phone` нормализованный == номер (если клиент поделился)
+3. Нет совпадения → `lead_id = NULL` → unmatched
+
+После получения: запись в `inbox_messages` → Activity(`type='message', channel='telegram'`) → `lead_agent_refresh_suggestion(countdown=900)` если matched.
+
+### Исходящие
+
+```
+POST /api/leads/{id}/inbox/send
+  Body: { "channel": "telegram", "body": "текст" }
+
+→ TelegramAdapter.send()
+→ Telegram Bot API sendMessage / sendBusinessMessage
+→ InboxMessage(direction='outbound') + Activity
+```
+
+### Регистрация webhook (один раз, команда)
+
+```bash
+curl "https://api.telegram.org/bot{TOKEN}/setWebhook" \
+  -d url="https://crm.drinkx.tech/api/webhooks/telegram" \
+  -d secret_token="{TELEGRAM_WEBHOOK_SECRET}"
+```
+
+Тесты: 4 mock (parse_webhook, match by tg_chat_id, match by phone, unmatched).
+
+---
+
+## G3 — MAX Bot (~1.5 дня)
+
+### Предусловия
+
+1. Бот создан через @MasterBot в MAX
+2. `MAX_BOT_TOKEN` в `.env`
+
+MAX Bot API по структуре близок к Telegram Bot API.
+
+### Входящие
+
+```
+POST /api/webhooks/max
+
+# adapters/max_messenger.py
+async def parse_webhook(self, raw: dict) -> WebhookPayload:
+    msg     = raw.get("message", {})
+    user_id = str(msg.get("from", {}).get("userId", ""))
+    return WebhookPayload(
+        channel     = "max",
+        direction   = "inbound",
+        external_id = f"max_{msg.get('msgId')}",
+        sender_id   = user_id,
+        body        = msg.get("body", {}).get("text", ""),
+    )
+```
+
+Сопоставление: `leads.max_user_id` → `leads.phone` → unmatched.
+
+### Исходящие
 
 ```python
-@router.post("/", status_code=201)
-def create(payload: CompanyIn, force: bool = False, ...):
+# MAX Bot API
+POST https://botapi.max.ru/messages?access_token={MAX_BOT_TOKEN}
+Body: {
+  "recipient": { "userId": recipient_id },
+  "body": { "text": body_text }
+}
+```
+
+### Регистрация webhook (один раз)
+
+```bash
+curl "https://botapi.max.ru/subscriptions?access_token={MAX_BOT_TOKEN}" \
+  -X POST \
+  -d '{"url": "https://crm.drinkx.tech/api/webhooks/max"}'
+```
+
+Тесты: 3 mock (parse, match, send).
+
+---
+
+## G4 — IP-телефония Mango Office (~1 день)
+
+Телефония = **лог звонков** (автоматический) + **click-to-call** (кнопка в карточке).
+
+### Входящие события (webhook Mango → CRM)
+
+```
+POST /api/webhooks/phone
+Content-Type: application/x-www-form-urlencoded
+```
+
+```python
+# adapters/phone.py
+async def parse_webhook(self, raw: dict) -> WebhookPayload:
+    duration  = int(raw.get("call_duration", 0))
+    direction = "inbound" if raw.get("direction") == "from_client" else "outbound"
+    caller    = raw.get("from_number") if direction == "inbound" else raw.get("to_number")
+    body = f"Пропущенный звонок" if not duration else (
+        f"{'Входящий' if direction == 'inbound' else 'Исходящий'} звонок, "
+        f"{duration // 60}:{duration % 60:02d}"
+    )
+    return WebhookPayload(
+        channel       = "phone",
+        direction     = direction,
+        external_id   = raw.get("call_id"),
+        sender_id     = caller,
+        body          = body,
+        media_url     = raw.get("recording_url", ""),
+        call_duration = duration,
+        call_status   = "missed" if not duration else "answered",
+    )
+```
+
+Сопоставление: `normalize_phone(leads.phone) == normalize_phone(caller)`
+
+```python
+# normalize_phone: убрать +7/8, пробелы, скобки, дефисы → 10 цифр
+def normalize_phone(p: str) -> str:
+    digits = re.sub(r"\D", "", p or "")
+    if len(digits) == 11 and digits[0] in ("7", "8"):
+        digits = digits[1:]
+    return digits  # ожидаем 10 цифр
+```
+
+### Click-to-call
+
+```
+POST /api/leads/{id}/inbox/call
+Body: { "from_extension": "101" }  # внутренний номер менеджера
+
+→ POST https://app.mango-office.ru/vpbx/commands/callback
+  {
+    "vpbx_api_key": "...",
+    "sign": HMAC_SHA256(key + body),
+    "from": { "extension": "101" },
+    "to":   { "number": lead.phone }
+  }
+→ 200 { "status": "dialing" }
+```
+
+Mango пришлёт `call_end` webhook после завершения — запись попадёт в ленту автоматически.
+
+### Настройка в Mango (один раз)
+
+```
+Личный кабинет → Интеграции → Webhooks
+URL: https://crm.drinkx.tech/api/webhooks/phone
+События: call_end, missed_call
+```
+
+Тесты: 4 mock (call_end, missed_call, normalize_phone, click-to-call payload).
+
+---
+
+## G4b — Транскрипция и резюме звонка (~1.5 дня)
+
+Автоматически запускается после получения `call_end` с непустым `recording_url`.
+
+### Важное разграничение
+
+Два разных сервиса Сбера, которые работают вместе:
+
+| Сервис | Роль | Аналог в нашем стеке |
+|---|---|---|
+| **SaluteSpeech** | STT: аудио → текст | — (новый провайдер) |
+| **GigaChat** | LLM: текст → резюме | MiMo (уже есть) |
+
+Для резюме используем **MiMo Flash** — он уже в стеке. SaluteSpeech только для транскрипции.
+
+---
+
+### ADR-024 — SttProvider абстракция (по образцу ADR-018 для LLM)
+
+```
+Проблема:  разные STT-провайдеры (SaluteSpeech, Yandex SpeechKit, Whisper)
+           дают разное качество на русском; хочется переключаться без кода.
+Решение:   SttProvider Protocol + фабрика get_stt_provider().
+           Активный провайдер читается из STT_PROVIDER env.
+           Порядок предпочтений: salute > yandex > whisper.
+Последствия: смена провайдера = одна переменная окружения.
+```
+
+### Структура `app/inbox/stt/`
+
+```
+app/inbox/stt/
+  __init__.py
+  base.py        — SttProvider Protocol
+  salute.py      — SaluteSpeechProvider   ← рекомендуемый по умолчанию
+  yandex.py      — YandexSpeechKitProvider ← альтернатива
+  whisper.py     — WhisperProvider         ← fallback / тест
+  factory.py     — get_stt_provider()
+```
+
+### Протокол (`base.py`)
+
+```python
+from typing import Protocol
+
+class SttProvider(Protocol):
+    provider_name: str
+
+    async def transcribe(self, audio_bytes: bytes, language: str = "ru") -> str:
+        """Возвращает текст транскрипта."""
+        ...
+```
+
+### SaluteSpeech (`salute.py`)
+
+```python
+# Sber SaluteSpeech API
+# Docs: https://developers.sber.ru/docs/ru/salutespeech/recognition/rest/recognition-guide
+class SaluteSpeechProvider:
+    provider_name = "salute"
+
+    def __init__(self):
+        self.client_id     = settings.SALUTE_CLIENT_ID
+        self.client_secret = settings.SALUTE_CLIENT_SECRET
+        self._token: str | None = None
+        self._token_expires: float = 0
+
+    async def _get_token(self) -> str:
+        """OAuth2 токен, кешируется на 30 минут."""
+        if self._token and time.time() < self._token_expires:
+            return self._token
+        resp = await httpx.post(
+            "https://ngw.devices.sberbank.ru:9443/api/v2/oauth",
+            headers={"Authorization": f"Basic {self._b64_creds()}"},
+            data={"scope": "SALUTE_SPEECH_PERS"},
+        )
+        self._token = resp.json()["access_token"]
+        self._token_expires = time.time() + 1700  # ~28 мин
+        return self._token
+
+    async def transcribe(self, audio_bytes: bytes, language: str = "ru") -> str:
+        token = await self._get_token()
+        resp = await httpx.post(
+            "https://smartspeech.sber.ru/rest/v1/speech:recognize",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "audio/mpeg",  # mp3 от Mango
+            },
+            content=audio_bytes,
+            params={"language": language},
+            timeout=60,
+        )
+        return resp.json().get("result", [{}])[0].get("normalized_text", "")
+```
+
+### Yandex SpeechKit (`yandex.py`)
+
+```python
+# Yandex SpeechKit API — альтернатива, аналогичное качество для RU
+# Docs: https://yandex.cloud/ru/docs/speechkit/stt/
+class YandexSpeechKitProvider:
+    provider_name = "yandex"
+
+    async def transcribe(self, audio_bytes: bytes, language: str = "ru") -> str:
+        resp = await httpx.post(
+            "https://stt.api.cloud.yandex.net/speech/v1/stt:recognize",
+            headers={"Authorization": f"Api-Key {settings.YANDEX_STT_API_KEY}"},
+            content=audio_bytes,
+            params={"lang": language, "format": "mp3"},
+            timeout=60,
+        )
+        return resp.json().get("result", "")
+```
+
+### Фабрика (`factory.py`)
+
+```python
+def get_stt_provider() -> SttProvider:
+    provider = os.getenv("STT_PROVIDER", "salute")
+    match provider:
+        case "salute":  return SaluteSpeechProvider()
+        case "yandex":  return YandexSpeechKitProvider()
+        case "whisper": return WhisperProvider()
+        case _:         return SaluteSpeechProvider()
+```
+
+### Схема данных
+
+Колонки `transcript`, `summary`, `stt_provider` уже добавлены в migration 0025
+(вместе с `inbox_messages`). Дополнительной миграции не требуется.
+
+`stt_provider` — для отладки: видно, каким провайдером сделана транскрипция.
+
+### Celery task `transcribe_call`
+
+```python
+@celery_app.task(bind=True, max_retries=2)
+def transcribe_call(self, message_id: str) -> None:
+    msg = get_inbox_message(message_id)
+    if not msg or not msg.media_url or msg.call_status == "missed":
+        return
+
+    # Шаг 1: скачать аудио с Mango
+    audio_bytes = httpx.get(msg.media_url, timeout=30).content
+
+    # Шаг 2: STT через выбранный провайдер
+    stt = get_stt_provider()
     try:
-        return companies_service.create_company(db, workspace_id, payload, force=force)
-    except DuplicateCompanyWarning as e:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "error": "duplicate_warning",
-                "candidates": [
-                    {
-                        "id": str(c.Company.id),
-                        "name": c.Company.name,
-                        "inn": c.Company.inn,
-                        "leads_count": c.leads_count
-                    }
-                    for c in e.candidates
-                ]
-            }
+        transcript = asyncio.run(stt.transcribe(audio_bytes))
+    except Exception as exc:
+        logger.warning("STT failed (%s): %s", stt.provider_name, exc)
+        return  # не падаем — запись всё равно доступна по ссылке
+
+    # Шаг 3: MiMo Flash → резюме (уже в стеке)
+    summary = complete_with_fallback(
+        task_type=TaskType.prefilter,
+        prompt=(
+            "Ниже транскрипт телефонного разговора менеджера с клиентом DrinkX. "
+            "Напиши резюме в 2-3 предложениях: цель звонка, что спросил клиент, "
+            "о чём договорились, следующий шаг.\n\n"
+            f"Транскрипт:\n{transcript[:3000]}"
+        ),
+        max_tokens=200,
+    )
+
+    # Шаг 4: сохранить
+    update_inbox_message(
+        message_id,
+        transcript=transcript,
+        summary=summary,
+        stt_provider=stt.provider_name,
+    )
+
+    # Обновить Activity.body — в ленте лида будет резюме, а не «Звонок 4:12»
+    dur = msg.call_duration or 0
+    update_activity_body(
+        ref_id=message_id,
+        body=f"📞 Звонок {dur // 60}:{dur % 60:02d} · {summary}",
+    )
+
+    # Триггер Lead Agent с новым контекстом
+    if msg.lead_id:
+        lead_agent_refresh_suggestion.apply_async(
+            args=[str(msg.lead_id)], countdown=60
         )
 ```
 
-### Sync rule for `company_name`
+### Диспетчеризация
 
-- On `PATCH /companies/{id}` name change → `UPDATE leads SET company_name = :new_name WHERE company_id = :id AND is_archived = false`
-- On lead creation with `company_id` → copy `company.name` into `leads.company_name`
-- Direct edit of `leads.company_name` via API is only allowed when `company_id IS NULL`
-
----
-
-## G4 — API endpoints
-
-```
-GET    /api/companies                          list (filters: city, primary_segment, is_archived)
-GET    /api/companies/{id}                     card: data + leads + contacts + last 20 activities
-POST   /api/companies                          create (with duplicate_warning / force logic)
-PATCH  /api/companies/{id}                     update
-DELETE /api/companies/{id}                     soft archive
-POST   /api/companies/{source_id}/merge-into/{target_id}
-```
-
-### Merge logic (`merge.py`)
-
-1. If both `source.inn` and `target.inn` are set and differ → `409 { "code": "inn_conflict" }` (requires `?force=true`)
-2. If `target.inn IS NULL` and `source.inn IS NOT NULL` → transfer INN to target
-3. Move leads — protect historical records:
-
-```sql
-UPDATE leads l
-SET company_id   = :target_id,
-    company_name = CASE
-        WHEN l.is_archived = false
-         AND NOT EXISTS (
-             SELECT 1 FROM stages s
-             WHERE s.id = l.stage_id
-               AND (s.is_won = true OR s.is_lost = true)
-         )
-        THEN :target_name
-        ELSE l.company_name
-    END
-WHERE l.company_id = :source_id;
-```
-
-4. `UPDATE contacts SET company_id = :target_id WHERE company_id = :source_id`
-5. `source.is_archived = true`, `source.archived_at = now()`
-6. Write `company.merge` to audit_log with payload `{source_id, target_id}`
-
----
-
-## G5 — Global Search (`app/search/`)
-
-**Endpoint:** `GET /api/search?q=текст&limit=20`
-
-Fork query by length in `app/search/repositories.py`:
+В `message_services.receive()` после сохранения `call_end`:
 
 ```python
-def search(db, workspace_id, q, limit=20):
-    q = q.strip()
-    if len(q) < 3:
-        return _search_ilike(db, workspace_id, q, limit)
-    else:
-        return _search_trgm(db, workspace_id, q, limit)
+if payload.channel == "phone" and payload.media_url and payload.call_status == "answered":
+    transcribe_call.apply_async(args=[str(message.id)], countdown=30)
+    # countdown=30 — даём Mango время финализировать файл записи
 ```
 
-- `_search_ilike` — `ILIKE '%q%'` only, exact match on INN/email/phone. No `similarity()`, no `%` trigram operator.
-- `_search_trgm` — full CTE with `similarity()` and ranked UNION:
+### Стоимость (оценка)
 
-```sql
-WITH query AS (
-  SELECT :wid::uuid AS workspace_id, trim(:q) AS q, '%' || trim(:q) || '%' AS q_like
-)
-SELECT * FROM (
+| Провайдер | Цена/мин | Звонок 5 мин | 50 звонков/день |
+|---|---|---|---|
+| SaluteSpeech | ~₽1.5–2 | ~₽8–10 | ~₽400–500/день |
+| Yandex SpeechKit | ~$0.02 | ~$0.10 | ~$5/день |
+| + MiMo Flash резюме | ~$0.001 | — | ~$0.05/день |
 
-  SELECT 'company' AS type, c.id, c.name AS title,
-    COALESCE('ИНН: ' || c.inn, c.city, '') AS subtitle,
-    NULL::uuid AS lead_id,
-    '/companies/' || c.id AS url,
-    GREATEST(similarity(c.name, q.q), similarity(COALESCE(c.inn,''), q.q)) AS rank
-  FROM companies c, query q
-  WHERE c.workspace_id = q.workspace_id AND c.is_archived = false
-    AND (c.name % q.q OR c.inn ILIKE q.q_like OR c.website ILIKE q.q_like)
+Yandex SpeechKit дешевле и с долларовым биллингом. SaluteSpeech — рублёвый,
+лучше для компаний с требованием хранить данные в РФ.
 
-  UNION ALL
+### Как выглядит в карточке лида
 
-  SELECT 'lead' AS type, l.id, l.company_name AS title,
-    s.name AS subtitle, l.id AS lead_id,
-    '/leads/' || l.id AS url,
-    similarity(l.company_name, q.q) AS rank
-  FROM leads l
-  LEFT JOIN stages s ON s.id = l.stage_id, query q
-  WHERE l.workspace_id = q.workspace_id
-    AND (l.company_name % q.q OR l.email ILIKE q.q_like OR l.phone ILIKE q.q_like)
-
-  UNION ALL
-
-  SELECT 'contact' AS type, ct.id, ct.name AS title,
-    COALESCE(ct.email, ct.phone, '') AS subtitle,
-    ct.lead_id,
-    CASE
-      WHEN ct.lead_id IS NOT NULL    THEN '/leads/' || ct.lead_id
-      WHEN ct.company_id IS NOT NULL THEN '/companies/' || ct.company_id
-      ELSE '/contacts/' || ct.id
-    END AS url,
-    GREATEST(
-      similarity(ct.name, q.q),
-      similarity(COALESCE(ct.email,''), q.q),
-      similarity(COALESCE(ct.phone,''), q.q)
-    ) AS rank
-  FROM contacts ct, query q
-  WHERE ct.workspace_id = q.workspace_id
-    AND (ct.name % q.q OR ct.email ILIKE q.q_like OR ct.phone ILIKE q.q_like)
-
-) results
-ORDER BY rank DESC
-LIMIT :limit;
 ```
+📞 Входящий звонок, 4:12   Сегодня 11:42
+────────────────────────────────────────────────────────
+Клиент уточнял условия пилота. Спросил про рассрочку
+на 6 месяцев. Менеджер пообещал выслать КП до пятницы.
+
+[▶ Запись]  [📄 Показать транскрипт ▾]
+
+▾ Транскрипт (SaluteSpeech)
+  Менеджер: Добрый день, Андрей...
+  Клиент: Да, добрый. Хотел уточнить...
+  ...
+```
+
+### ENV-переменные (новые)
+
+```env
+STT_PROVIDER=salute          # salute | yandex | whisper
+
+# SaluteSpeech (если STT_PROVIDER=salute)
+SALUTE_CLIENT_ID=
+SALUTE_CLIENT_SECRET=
+
+# Yandex SpeechKit (если STT_PROVIDER=yandex)
+YANDEX_STT_API_KEY=
+```
+
+Тесты: 4 mock (salute transcribe, yandex transcribe, missed call skip, summary generation).
 
 ---
 
-## G6 — Backfill script (`scripts/backfill_companies.py`)
+## G5 — Gmail Send (исходящие письма) (~1 день)
 
-Run manually after G1 migration. NOT part of Alembic. Deduplicate by `normalized_name`, not raw `company_name`.
+Gmail-интеграция уже читает почту. Добавляем **отправку** из карточки лида.
 
-```python
-from app.companies.utils import normalize_company_name, extract_domain
+```
+POST /api/leads/{id}/inbox/send
+Body: { "channel": "email", "body": "текст", "subject": "Тема" }
 
-rows = db.execute("""
-    SELECT workspace_id, company_name, segment, website, city
-    FROM leads
-    WHERE company_name IS NOT NULL AND company_name != ''
-""")
-
-seen = {}  # (workspace_id, normalized_name) -> company_id
-
-for row in rows:
-    key = (row.workspace_id, normalize_company_name(row.company_name))
-    if key not in seen:
-        company = insert_company(
-            workspace_id=row.workspace_id,
-            name=row.company_name,          # keep original casing from first occurrence
-            normalized_name=key[1],
-            domain=extract_domain(row.website),
-            primary_segment=row.segment,
-            city=row.city
-        )
-        seen[key] = company.id
-
-# Step 2: link leads
-db.execute("""
-    UPDATE leads l SET company_id = mapping.company_id
-    FROM (VALUES ...) AS mapping(company_name, workspace_id, company_id)
-    WHERE l.company_name = mapping.company_name
-      AND l.workspace_id = mapping.workspace_id
-""")
-
-# Step 3: backfill contacts.workspace_id
-db.execute("""
-    UPDATE contacts ct
-    SET workspace_id = l.workspace_id
-    FROM leads l
-    WHERE ct.lead_id = l.id AND ct.workspace_id IS NULL
-""")
-
-# Step 4: backfill contacts.company_id
-db.execute("""
-    UPDATE contacts ct
-    SET company_id = l.company_id
-    FROM leads l
-    WHERE ct.lead_id = l.id AND l.company_id IS NOT NULL
-""")
-
-# Step 5: print report
-print("Companies created:", ...)
-print("Leads linked:", ...)
-print("Contacts linked:", ...)
-print("Merge candidates (same normalized_name, different id):", ...)
-
-# Acceptance check
-assert db.execute("SELECT count(*) FROM contacts WHERE workspace_id IS NULL").scalar() == 0
+→ gmail_client.send_message(to=lead.email, subject=..., body=...)
+→ Activity(type='email', direction='outbound')
+→ InboxItem или прямой Activity без inbox_items (обсудить)
 ```
 
-After successful backfill, run separate Alembic migration:
-```sql
-ALTER TABLE contacts ALTER COLUMN workspace_id SET NOT NULL;
-```
+Требует: пользователь подключил Gmail с `gmail.send` scope.
+
+Если scope ещё не запрошен — при `Подключить Gmail` запросить оба scope сразу:
+`gmail.readonly` + `gmail.send`.
+
+Существующие подключения без `send` scope → inline-уведомление «Переподключите Gmail для отправки».
+
+Тесты: 2 mock (send success, missing scope → 403).
 
 ---
 
-## G7 — Frontend
+## G6 — Frontend: InboxTab в LeadCard (~2 дня)
 
-### Global Search — `Cmd+K`
+Новый 6-й таб «Переписка» в карточке лида (существующие 5: Info / Activities / Contacts / AI Brief / Score).
 
-- `components/search/GlobalSearch.tsx` — overlay, debounce 200ms
-- Hotkey: `Cmd+K` / `Ctrl+K`
-- Group results by type: Компании / Лиды / Контакты
-- Click → navigate to `url` from API response
-
-### Company Card — `/companies/[id]`
-
-- Inline-editable company data
-- Associated leads (table: stage, amount, manager)
-- Associated contacts
-- Last 20 activities aggregated from associated leads (no new table — query via leads)
-- Button: «Создать лид по этой компании»
-- Button: «Объединить дубль» (admin only) — search for merge target
-
-### Lead creation — company autocomplete
-
-- Replace text input with autocomplete field
-- Search via `GET /api/search?q=&limit=10` (type=company only)
-- Last item: «Создать новую: {text}»
-- On select → `company_id` in payload, `company_name` filled automatically from company
-
-### Duplicate warning modal flow
+### Wireframe
 
 ```
-POST /api/companies  (no force flag)
-        ↓
-  201 → done
-        ↓
-  409 duplicate_warning →
-      show modal: «Похожая компания: {name} ({leads_count} сделки).
-                   Использовать или создать новую?»
-            ↓                            ↓
-  «Использовать»               «Создать новую»
-  use candidates[0].id         POST /api/companies?force=true → 201
-  DB untouched
+┌─────────────────────────────────────────────────────────┐
+│  [Все▼]  [Gmail]  [Telegram]  [MAX]  [Телефон]          │
+│                                      [+ Написать ▾]     │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  ✉  Пт 14:32                            ВХОДЯЩИЙ       │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │ Re: Демо по DrinkX                                │  │
+│  │ Спасибо, буду на демо в пятницу в 11:00           │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                         │
+│  📱 Сб 10:15                            ВХОДЯЩИЙ       │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │ Telegram                                          │  │
+│  │ Добрый день! Подскажите — есть рассрочка?         │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                         │
+│  📞 Сб 11:42                        ВХОДЯЩИЙ ЗВОНОК    │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │ Входящий звонок, 4:12   [▶ Запись]                │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                         │
+├─────────────────────────────────────────────────────────┤
+│  Ответить в: [Telegram ▾]                               │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │ Написать сообщение...                             │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                          [Отправить]    │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### What NOT to build in this sprint
+### API
 
-- Company-level AI Brief
-- Company-level tasks / activities (separate table)
-- `/companies` list page — only card via direct link or Cmd+K result
+`GET /api/leads/{id}/inbox` — объединяет inbox_items (email) + inbox_messages (tg/max/phone):
+
+```json
+{
+  "messages": [
+    { "channel": "email",    "direction": "inbound",  "body": "...", "subject": "...", "created_at": "..." },
+    { "channel": "telegram", "direction": "inbound",  "body": "...", "created_at": "..." },
+    { "channel": "phone",    "direction": "inbound",  "call_duration": 252, "media_url": "...", "created_at": "..." }
+  ],
+  "channels_linked": {
+    "email":    { "linked": true,  "address": "client@example.com" },
+    "telegram": { "linked": true,  "chat_id": "123456" },
+    "max":      { "linked": false, "user_id": null },
+    "phone":    { "linked": true,  "number": "+79161234567" }
+  }
+}
+```
+
+### Компоненты
+
+```
+apps/web/components/lead/InboxTab.tsx        — основной таб
+apps/web/components/lead/InboxMessage.tsx    — одно сообщение (channel badge)
+apps/web/components/lead/InboxComposer.tsx   — поле ввода + выбор канала
+apps/web/hooks/useLeadInbox.ts               — TanStack Query: fetch + send + 10s poll
+```
+
+Если канал не привязан → composer показывает: «Укажите Telegram chat ID в профиле лида».
+
+### Click-to-call
+
+Кнопка 📞 рядом с номером телефона в Info-табе → `POST /api/leads/{id}/inbox/call`.
+
+---
+
+## G7 — Unmatched messages (~0.5 дня)
+
+Входящие без `lead_id` — `/inbox` страница уже существует (для Gmail).
+Добавляем секцию «Мессенджеры» рядом с существующей секцией email.
+
+```
+PATCH /api/inbox/messages/{id}/assign
+Body: { "lead_id": "..." }
+```
+
+После назначения: сообщение исчезает из unmatched, появляется в InboxTab лида.
+
+---
+
+## G8 — Sprint close (~0.5 дня)
+
+- `docs/SPRINT_3_4_INBOX_CHANNELS_REPORT.md`
+- Brain rotation (00 + 02 + 04)
+- Smoke: все 4 webhook endpoint'а, отправка из CRM, запись звонка в ленте
+
+---
+
+## ENV-переменные (новые)
+
+```env
+# Telegram
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_WEBHOOK_SECRET=
+
+# MAX
+MAX_BOT_TOKEN=
+MAX_WEBHOOK_SECRET=
+
+# Mango
+MANGO_API_KEY=
+MANGO_API_SALT=
+
+# STT (G4b)
+STT_PROVIDER=salute          # salute | yandex | whisper
+SALUTE_CLIENT_ID=
+SALUTE_CLIENT_SECRET=
+YANDEX_STT_API_KEY=
+```
+
+Добавить в `/opt/drinkx-crm/infra/production/.env` вручную.
+
+---
+
+## Риски
+
+| Риск | Уровень | Митигация |
+|---|---|---|
+| MAX Bot API молодой, документация меняется | Средний | Тонкий адаптер, парсим raw dict без жёстких ключей |
+| Mango шлёт дубли webhook при сетевом сбое | Низкий | UNIQUE INDEX (channel, external_id) — dedup на БД |
+| Записи звонков Mango хранятся ограниченно | Средний | Сохраняем `recording_url`; предупредить менеджеров |
+| `leads.phone` в разных форматах | Средний | `normalize_phone()` — убираем +7/8, пробелы, скобки |
+| Gmail `send` scope у существующих юзеров отсутствует | Низкий | Inline-предложение переподключить Gmail |
+| Whisper не справляется с фоновым шумом / тихим голосом | Низкий | Сохраняем transcript как есть; резюме MiMo сглаживает артефакты |
+| Запись Mango недоступна сразу после `call_end` | Низкий | `countdown=30` в Celery task перед скачиванием |
 
 ---
 
 ## Acceptance criteria
 
-- [ ] `SELECT * FROM companies LIMIT 10` returns readable records without frontend
-- [ ] `SELECT count(*) FROM contacts WHERE workspace_id IS NULL` = 0 after backfill
-- [ ] `SELECT count(*) FROM leads WHERE company_name IS NOT NULL AND company_id IS NULL` = 0 after backfill
-- [ ] `GET /api/search?q=` returns companies + leads + contacts with correct rank order
-- [ ] Search by INN returns exact match
-- [ ] Search with 2-character query does not crash and does not return noise
-- [ ] `POST /api/companies` with duplicate normalized_name returns 409 (not 500)
-- [ ] `POST /api/companies?force=true` creates company despite duplicate warning
-- [ ] Merge with different INNs returns 409 `inn_conflict` without `?force=true`
-- [ ] After merge: all source leads have `company_id = target_id`
-- [ ] After merge: closed/won/lost leads keep original `company_name` snapshot
-- [ ] `pnpm typecheck` clean, all existing tests green
+- [ ] `GET /api/leads/{id}/inbox` возвращает email + tg + max + phone в хронологии
+- [ ] Входящий Telegram → `inbox_messages` + Activity в ленте
+- [ ] Входящий MAX → то же
+- [ ] Mango `call_end` → `inbox_messages` с duration + recording_url
+- [ ] Пропущенный звонок → `call_status = 'missed'`, транскрипция не запускается
+- [ ] Состоявшийся звонок → Celery task запускает транскрипцию через 30 сек
+- [ ] После транскрипции: `inbox_messages.transcript` и `.summary` заполнены
+- [ ] Activity в ленте лида показывает резюме звонка (не просто «Звонок 4:12»)
+- [ ] Кнопка «Показать транскрипт» разворачивает полный текст
+- [ ] Lead Agent получает контекст звонка через 60 сек после транскрипции
+- [ ] `POST /api/leads/{id}/inbox/send` (telegram) — доставляет сообщение
+- [ ] `POST /api/leads/{id}/inbox/send` (max) — доставляет сообщение
+- [ ] `POST /api/leads/{id}/inbox/send` (email) — отправляет через Gmail
+- [ ] `POST /api/leads/{id}/inbox/call` — инициирует звонок через Mango
+- [ ] Дублирующий webhook не создаёт дубль записи
+- [ ] Нематченное сообщение → `/inbox` unmatched секция
+- [ ] InboxTab рендерит все 4 канала с фильтром по каналу
+- [ ] `pnpm typecheck` clean, все существующие тесты зелёные
 
 ---
 
-## NOT in scope (backlog)
+## Оценка
 
-- `company_aliases` table — Phase 2
-- `lead_contacts` junction table — Phase 2
-- `/companies` list page — next sprint after card is live
-- Company-level AI Brief — Phase 2
+| Gate | Дней |
+|---|---|
+| G1 Schema + skeleton | 0.5 |
+| G2 Telegram | 2.0 |
+| G3 MAX | 1.5 |
+| G4 Mango | 1.0 |
+| G5 Gmail Send | 1.0 |
+| G6 InboxTab frontend | 2.0 |
+| G4b Транскрипция + резюме | 1.5 |
+| G7 Unmatched | 0.5 |
+| G8 Close | 0.5 |
+| **Итого** | **~10.5 дней** |
+
+**MVP-версия (5 дней):** только Telegram + звонки (без MAX и Gmail Send).
+G2 + G4 + G6 (только Telegram/Phone в composer) + G1/G7/G8.
+
+**MVP-версия (~6 дней):** Telegram + звонки + транскрипция (без MAX и Gmail Send).
+Gates: G1 + G2 + G4 + G4b + G6 (только Telegram/Phone в UI) + G7 + G8.
