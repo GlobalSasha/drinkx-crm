@@ -103,6 +103,61 @@ async def invite_user_endpoint(
     return UserInviteOut.model_validate(invite)
 
 
+@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user_endpoint(
+    user_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(require_admin)] = ...,
+) -> None:
+    try:
+        snap = await svc.delete_user(
+            db,
+            target_user_id=user_id,
+            actor_user_id=user.id,
+            workspace_id=user.workspace_id,
+        )
+    except svc.CannotDeleteSelf as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "cannot_delete_self",
+                "message": "Нельзя удалить себя.",
+            },
+        ) from exc
+    except svc.UserNotFound as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="пользователь не найден",
+        ) from exc
+    except svc.LastAdminRefusal as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "last_admin",
+                "message": (
+                    "Это последний администратор в рабочем пространстве — "
+                    "сначала повысьте кого-то ещё до admin."
+                ),
+            },
+        ) from exc
+
+    await log_audit_event(
+        db,
+        workspace_id=user.workspace_id,
+        user_id=user.id,
+        action="user.delete",
+        entity_type="user",
+        entity_id=user_id,
+        delta={
+            "email": snap.email,
+            "name": snap.name,
+            "role": snap.role,
+            "freed_leads": snap.freed_leads,
+        },
+    )
+    await db.commit()
+
+
 @router.patch("/{user_id}/role", response_model=UserListItemOut)
 async def change_role_endpoint(
     user_id: uuid.UUID,

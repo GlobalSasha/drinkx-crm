@@ -57,6 +57,26 @@ export function useInviteUser() {
  * to render the «promote someone else first» modal. Same pattern
  * as Sprint 2.3 PipelineHasLeads / PipelineIsDefault.
  */
+/**
+ * DELETE /api/users/{id} — admin only. Returns 204; the deleted user's
+ * active leads go back to the pool.
+ *
+ * Structured 400 detail shapes the caller checks:
+ *   - { code: "cannot_delete_self" }
+ *   - { code: "last_admin" }
+ */
+export function useDeleteUser() {
+  const qc = useQueryClient();
+  return useMutation<void, ApiError, string>({
+    mutationFn: (id) => api.delete<void>(`/users/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["users"] });
+      qc.invalidateQueries({ queryKey: ["team-stats"] });
+      qc.invalidateQueries({ queryKey: ["leads-pool"] });
+    },
+  });
+}
+
 export function useChangeUserRole() {
   const qc = useQueryClient();
   return useMutation<

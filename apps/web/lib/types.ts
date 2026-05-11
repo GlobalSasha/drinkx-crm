@@ -858,6 +858,61 @@ export interface UserInviteUpstreamError {
   upstream: string;
 }
 
+// Structured 400 detail emitted by DELETE /api/users/{id} when the
+// admin tries to delete themselves.
+export interface UserDeleteSelfConflict {
+  code: "cannot_delete_self";
+  message: string;
+}
+
+// ---- Team stats (Sprint 3.4 G1) ----
+
+export type TeamPeriod = "today" | "week" | "month";
+
+export interface TeamStatsCounts {
+  kp_sent: number;
+  leads_taken_from_pool: number;
+  leads_moved: number;
+  tasks_completed: number;
+}
+
+export interface TeamManagerStats {
+  user_id: string;
+  name: string;
+  email: string;
+  avatar_url: string | null;
+  role: UserRole | string;
+  stats: TeamStatsCounts;
+  last_active_at: string | null;
+}
+
+export interface TeamStatsOut {
+  period: TeamPeriod;
+  from: string;
+  to: string;
+  managers: TeamManagerStats[];
+}
+
+export interface TeamDailyRow {
+  date: string;
+  kp_sent: number;
+  leads_taken_from_pool: number;
+  leads_moved: number;
+  tasks_completed: number;
+}
+
+export interface ManagerStatsOut {
+  user_id: string;
+  name: string;
+  email: string;
+  role: UserRole | string;
+  period: TeamPeriod;
+  from: string;
+  to: string;
+  stats: TeamStatsCounts;
+  daily: TeamDailyRow[];
+}
+
 // ---- Settings → Каналы (Sprint 2.4 G2) ----
 
 export interface GmailChannelOut {

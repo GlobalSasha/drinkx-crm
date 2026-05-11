@@ -50,6 +50,22 @@ class InviteSendFailed(Exception):
     invite stays in `user_invites` table; admin can retry."""
 
 
+class CannotDeleteSelf(Exception):
+    """400 — admin can't delete their own user row."""
+
+
+class DeleteResult:
+    """Container for delete_user() so the router can audit-log + return
+    a structured response. `freed_leads` is how many active leads
+    were reassigned back to the pool."""
+
+    def __init__(self, *, email: str, name: str, role: str, freed_leads: int):
+        self.email = email
+        self.name = name
+        self.role = role
+        self.freed_leads = freed_leads
+
+
 # ---------------------------------------------------------------------------
 # Reads
 # ---------------------------------------------------------------------------
@@ -146,3 +162,53 @@ async def change_role(
             raise LastAdminRefusal()
 
     return await repo.update_role(session, user=user, role=new_role)
+
+
+async def delete_user(
+    session: AsyncSession,
+    *,
+    target_user_id: uuid.UUID,
+    actor_user_id: uuid.UUID,
+    workspace_id: uuid.UUID,
+) -> DeleteResult:
+    """Remove a user from the workspace.
+
+    Guards:
+      - cannot delete yourself  → CannotDeleteSelf
+      - cannot delete last admin → LastAdminRefusal
+      - target must exist in workspace → UserNotFound
+
+    Side effect: any active (non-archived) lead currently assigned to
+    the target is returned to the pool. Historical activities and
+    audit_log rows authored by them stay in place (FK SET NULL on
+    delete) — the audit trail must survive the personnel change.
+    Caller commits.
+    """
+    if target_user_id == actor_user_id:
+        raise CannotDeleteSelf()
+
+    user = await repo.get_by_id(
+        session, user_id=target_user_id, workspace_id=workspace_id
+    )
+    if user is None:
+        raise UserNotFound(str(target_user_id))
+
+    if user.role == "admin":
+        admin_count = await repo.count_admins(
+            session, workspace_id=workspace_id
+        )
+        if admin_count <= 1:
+            raise LastAdminRefusal()
+
+    snapshot = DeleteResult(
+        email=user.email,
+        name=user.name,
+        role=user.role,
+        freed_leads=await repo.return_leads_to_pool(
+            session,
+            user_id=target_user_id,
+            workspace_id=workspace_id,
+        ),
+    )
+    await repo.delete_user_row(session, user=user)
+    return snapshot
