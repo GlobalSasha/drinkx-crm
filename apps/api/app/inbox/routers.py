@@ -21,6 +21,8 @@ from app.inbox import services as inbox_services
 from app.inbox.crypto import encrypt_credentials
 from app.inbox.models import ChannelConnection
 from app.inbox.schemas import (
+    InboxCallIn,
+    InboxCallOut,
     InboxConfirmIn,
     InboxCountOut,
     InboxFeedOut,
@@ -314,6 +316,43 @@ async def lead_inbox_feed(
         db,
         workspace_id=user.workspace_id,
         lead_id=lead_id,
+    )
+
+
+@lead_inbox_router.post("/call", response_model=InboxCallOut)
+async def lead_inbox_call(
+    lead_id: UUID,
+    payload: InboxCallIn,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> InboxCallOut:
+    """Click-to-call via Mango — asks the PBX to bridge the manager's
+    extension with the lead's phone number. The actual call log lands
+    via the inbound `call_end` webhook minutes later.
+    """
+    try:
+        result = await message_services.place_call(
+            db,
+            workspace_id=user.workspace_id,
+            lead_id=lead_id,
+            from_extension=payload.from_extension,
+            manager_user_id=user.id,
+        )
+    except message_services.InboxMessageNotFound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="lead_not_found"
+        )
+    except message_services.InboxMessageBadRequest as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        )
+    except message_services.InboxSendError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
+        )
+    return InboxCallOut(
+        status=str(result.get("status", "dialing")),
+        detail=result if isinstance(result, dict) else None,
     )
 
 

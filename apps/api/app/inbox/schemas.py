@@ -152,3 +152,15 @@ class InboxSendIn(BaseModel):
     channel: str
     body: str
     subject: str | None = None  # email only
+
+
+class InboxCallIn(BaseModel):
+    """POST /leads/{id}/inbox/call body — click-to-call via Mango."""
+    from_extension: str
+
+
+class InboxCallOut(BaseModel):
+    """Mango's response after we asked it to bridge the call. Schema is
+    intentionally loose — Mango echoes various fields by version."""
+    status: str
+    detail: dict | None = None

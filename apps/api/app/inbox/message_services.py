@@ -220,6 +220,16 @@ async def receive(
         if payload.direction == "inbound":
             _enqueue_lead_agent_refresh(lead_id, countdown=900)
 
+    # Phone calls that landed with a recording → kick the transcription
+    # job (G4b). Missed calls and recording-less rows skip this — there
+    # is nothing to transcribe.
+    if (
+        payload.channel == "phone"
+        and payload.call_status == "answered"
+        and payload.media_url
+    ):
+        _enqueue_transcribe(msg.id, countdown=30)
+
     log.info(
         "inbox.message.received",
         channel=payload.channel,
@@ -242,6 +252,28 @@ def _enqueue_lead_agent_refresh(lead_id: UUID, *, countdown: int) -> None:
         log.warning(
             "inbox.message.lead_agent_refresh_enqueue_failed",
             lead_id=str(lead_id),
+            error=str(exc)[:200],
+        )
+
+
+def _enqueue_transcribe(message_id: UUID, *, countdown: int) -> None:
+    """Schedule G4b STT on a freshly recorded call. Mango finalizes the
+    recording file a few seconds after `call_end` — the countdown
+    gives the URL time to become downloadable before the worker hits
+    it.
+    """
+    try:
+        from app.scheduled.celery_app import celery_app
+
+        celery_app.send_task(
+            "app.scheduled.jobs.transcribe_call",
+            args=[str(message_id)],
+            countdown=countdown,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning(
+            "inbox.message.transcribe_enqueue_failed",
+            message_id=str(message_id),
             error=str(exc)[:200],
         )
 
@@ -351,6 +383,59 @@ async def send(
         external_id=external_id,
     )
     return msg
+
+
+# ---------------------------------------------------------------------------
+# Phone — click-to-call (G4)
+# ---------------------------------------------------------------------------
+
+async def place_call(
+    session: AsyncSession,
+    *,
+    workspace_id: UUID,
+    lead_id: UUID,
+    from_extension: str,
+    manager_user_id: UUID | None = None,
+) -> dict:
+    """Click-to-call: ask Mango to bridge the manager's extension with
+    the lead's phone. The canonical InboxMessage row arrives back via
+    the `call_end` webhook a few minutes later, so this function does
+    NOT write to `inbox_messages` — only logs the dispatch and returns
+    Mango's response.
+
+    Raises `InboxMessageNotFound` if the lead is missing,
+    `InboxMessageBadRequest` if the lead has no phone,
+    `InboxSendError` for Mango failures (wraps `MangoCallError`).
+    """
+    res = await session.execute(
+        select(Lead)
+        .where(Lead.id == lead_id)
+        .where(Lead.workspace_id == workspace_id)
+    )
+    lead = res.scalar_one_or_none()
+    if lead is None:
+        raise InboxMessageNotFound(str(lead_id))
+    if not lead.phone:
+        raise InboxMessageBadRequest("recipient_not_set:phone")
+
+    from app.inbox.adapters.phone import PhoneAdapter
+
+    adapter = PhoneAdapter()
+    try:
+        result = await adapter.initiate_call(
+            from_extension=str(from_extension),
+            to_number=str(lead.phone),
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise InboxSendError(str(exc)) from exc
+
+    log.info(
+        "inbox.phone.call.initiated",
+        lead_id=str(lead_id),
+        from_extension=from_extension,
+        manager_user_id=str(manager_user_id) if manager_user_id else None,
+    )
+    return result
 
 
 # ---------------------------------------------------------------------------

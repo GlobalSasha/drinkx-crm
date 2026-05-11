@@ -311,7 +311,29 @@ curl "https://botapi.max.ru/subscriptions?access_token={MAX_BOT_TOKEN}" \
 
 ---
 
-## G4 — IP-телефония Mango Office (~1 день)
+## G4 — IP-телефония Mango Office (~1 день) ✅
+
+- [x] `app/inbox/adapters/phone.py` — `PhoneAdapter`: parse_webhook
+  (call_end / missed_call, direction normalize, status='answered'/'missed',
+  RU body lines), `initiate_call` (HMAC `sign = sha256(api_key + json + api_salt)`)
+- [x] `compute_sign` helper (pinned by unit test) — единая точка правки
+  под будущие версии Mango API
+- [x] `POST /api/webhooks/phone` — form-encoded, validates `sign` over the
+  `json` field if `MANGO_API_SALT` set, иначе принимает unsigned
+  (dev-режим, лог-once warning)
+- [x] `message_services.place_call` — НЕ пишет в `inbox_messages`
+  (canonical row приходит через `call_end` webhook); возвращает Mango response
+- [x] `POST /leads/{lead_id}/inbox/call` (`{from_extension}`) — 404/400/502/200
+- [x] `receive` диспатчит `app.scheduled.jobs.transcribe_call` через 30 сек
+  для `channel='phone'` + `call_status='answered'` + `media_url` (G4b наполнит)
+- [x] env: `MANGO_API_KEY`, `MANGO_API_SALT`, `MANGO_API_BASE`
+
+Тесты — 14 mock в `test_inbox_phone.py` (answered/missed/outbound parse,
+duration-inferred status, compute_sign formula, initiate happy/no-config/bad-status,
+place_call happy/no-phone/wraps-errors, transcribe dispatch yes/no on
+answered+media / missed / answered-no-media). Все зелёные.
+
+### G4 — оригинальный спек (для справки)
 
 Телефония = **лог звонков** (автоматический) + **click-to-call** (кнопка в карточке).
 

@@ -121,6 +121,20 @@ class Settings(BaseSettings):
     telegram_webhook_secret: str = ""
     default_workspace_id: str = ""
 
+    # Mango Office VPBX (Sprint 3.4 G4).
+    # `mango_api_key` is the vpbx_api_key issued in the Mango personal
+    # cabinet; `mango_api_salt` is the matching secret used to compute
+    # the `sign` field that authenticates BOTH outbound commands and
+    # inbound webhook events. Mango's signing formula is
+    #   sign = sha256(vpbx_api_key + json + api_salt)
+    # where `json` is the literal JSON command body for outbound,
+    # or — for inbound webhooks — the serialized event payload.
+    # Leave the salt empty in dev; the webhook then accepts unsigned
+    # payloads and logs a startup-once warning.
+    mango_api_key: str = ""
+    mango_api_salt: str = ""
+    mango_api_base: str = "https://app.mango-office.ru"
+
 
 @lru_cache
 def get_settings() -> Settings:

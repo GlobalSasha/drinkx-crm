@@ -11,6 +11,22 @@ webhook delivers either:
 
 Both shapes carry the same essentials (text + chat id + message id);
 this adapter normalizes them into a `WebhookPayload`.
+
+TODO(sprint-3.5, per-manager bots):
+    Right now there is exactly one Telegram bot per CRM installation
+    (`TELEGRAM_BOT_TOKEN` in env). Each manager will eventually attach
+    their own bot via Settings → channels, the same way Gmail is
+    connected today. Migration path:
+      1. Store token + secret per (workspace_id, user_id) in
+         `channel_connections` (channel_type='telegram'), reusing the
+         encrypted-credentials path from app.inbox.crypto.
+      2. Webhook URL becomes `/api/webhooks/telegram/{connection_id}`
+         so each bot's traffic routes to the right manager.
+      3. `_resolve_workspace_id` falls away — workspace + manager are
+         read from the ChannelConnection row matched by the URL.
+      4. `TelegramAdapter` takes a ChannelConnection in __init__ and
+         pulls the token from there; `DEFAULT_WORKSPACE_ID` retires.
+    Until then, the single-bot path here is the MVP.
 """
 from __future__ import annotations
 

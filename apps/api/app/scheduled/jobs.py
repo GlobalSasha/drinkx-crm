@@ -128,6 +128,19 @@ def lead_agent_refresh_suggestion(lead_id: str) -> dict:
     return asyncio.run(refresh_suggestion_async(UUID(lead_id)))
 
 
+@celery_app.task(name="app.scheduled.jobs.transcribe_call", bind=True, max_retries=2)
+def transcribe_call(self, message_id: str) -> dict:
+    """Sprint 3.4 G4 — Celery wrapper for call recording transcription.
+
+    Async core lives in `app.inbox.message_tasks.transcribe_call_async`.
+    G4 ships a stub that just records the dispatch; G4b adds the real
+    SaluteSpeech + MiMo summary pipeline.
+    """
+    from app.inbox.message_tasks import transcribe_call_async
+
+    return asyncio.run(transcribe_call_async(UUID(message_id)))
+
+
 @celery_app.task(name="app.scheduled.jobs.lead_agent_scan_silence")
 def lead_agent_scan_silence() -> dict:
     """Sprint 3.1 Phase C — beat task. Every 6 hours scan active leads
