@@ -4,47 +4,37 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
+  ArrowRight,
   ChevronDown,
   Loader2,
   AlertTriangle,
   CheckCircle2,
   XCircle,
+  Send,
+  Lock,
+  Trash2,
 } from "lucide-react";
 import { useLead, useUpdateLead } from "@/lib/hooks/use-lead";
 import { usePipelines, DEFAULT_STAGES } from "@/lib/hooks/use-pipelines";
 import { useMoveStage, useUnclaimLead } from "@/lib/hooks/use-leads";
 import { useMe } from "@/lib/hooks/use-me";
 import type { Stage } from "@/lib/types";
-import { dealTypeLabel, priorityLabel } from "@/lib/i18n";
-import { DealTab } from "./DealTab";
-import { ContactsTab } from "./ContactsTab";
-import { ScoringTab } from "./ScoringTab";
 import { ActivityTab } from "./ActivityTab";
-import { PilotTab } from "./PilotTab";
-import { AIBriefTab } from "./AIBriefTab";
+import { DealAndAITab } from "./DealAndAITab";
+import { ContactsTab } from "./ContactsTab";
 import { FollowupsRail } from "./FollowupsRail";
 import { CustomFieldsPanel } from "./CustomFieldsPanel";
+import { ScoreCard } from "./ScoreCard";
+import { ResearchGapsCard } from "./ResearchGapsCard";
 import { GateModal } from "./GateModal";
 import { LostModal } from "./LostModal";
 import { TransferModal } from "./TransferModal";
+import { CloseModal } from "./CloseModal";
+import { DeleteConfirmModal } from "./DeleteConfirmModal";
 import { AgentBanner } from "./AgentBanner";
 import { SalesCoachDrawer } from "./SalesCoachDrawer";
 import { priorityChip } from "@/lib/ui/priority";
 import { C } from "@/lib/design-system";
-
-function scoreChipClass(score: number | null | undefined): string {
-  if (score == null) return "bg-brand-panel text-brand-muted";
-  if (score >= 80) return "bg-brand-soft text-brand-accent-text";
-  if (score >= 60) return "bg-warning/10 text-warning";
-  return "bg-brand-panel text-brand-muted";
-}
-
-function fitChipClass(fit: number | null | undefined): string {
-  if (fit == null) return "bg-brand-panel text-brand-muted";
-  if (fit >= 8) return "bg-brand-soft text-brand-accent-text";
-  if (fit >= 5) return "bg-warning/10 text-warning";
-  return "bg-brand-panel text-brand-muted";
-}
 
 function formatWonLostDate(iso: string | null | undefined): string {
   if (!iso) return "";
@@ -59,15 +49,12 @@ function formatWonLostDate(iso: string | null | undefined): string {
   }
 }
 
-type TabKey = "deal" | "ai-brief" | "contacts" | "scoring" | "activity" | "pilot";
+type TabKey = "activity" | "deal-ai" | "contacts";
 
 const TABS: { key: TabKey; label: string }[] = [
-  { key: "deal",     label: "Сделка" },
-  { key: "ai-brief", label: "AI Бриф" },
-  { key: "contacts", label: "Контакты" },
-  { key: "scoring",  label: "Оценка" },
   { key: "activity", label: "Активность" },
-  { key: "pilot",    label: "Пилот" },
+  { key: "deal-ai", label: "Сделка и AI" },
+  { key: "contacts", label: "Контакты" },
 ];
 
 interface Props {
@@ -83,9 +70,6 @@ export function LeadCard({ leadId }: Props) {
   const me = useMe().data;
   const router = useRouter();
 
-  // `?tab=activity` (and friends) seeds the initial tab when arriving
-  // from a deep-link. Only honored once on mount — explicit clicks
-  // afterwards drive the state, not the URL.
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
   const initialTab: TabKey = TABS.some((t) => t.key === tabParam)
@@ -98,12 +82,13 @@ export function LeadCard({ leadId }: Props) {
   const [gateTarget, setGateTarget] = useState<Stage | null>(null);
   const [lostStage, setLostStage] = useState<Stage | null>(null);
   const [transferOpen, setTransferOpen] = useState(false);
+  const [closeOpen, setCloseOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [coachOpen, setCoachOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-  // Get stages from pipelines or fallback
   const stages: Stage[] =
     pipelinesQuery.data?.[0]?.stages ??
     DEFAULT_STAGES.map((s, i) => ({
@@ -112,15 +97,8 @@ export function LeadCard({ leadId }: Props) {
       pipeline_id: "default",
     }));
 
-  // Find current stage for this lead
   const currentStage = stages.find((s) => s.id === lead?.stage_id);
-  // Fallback: match by first stage if no id match (fallback IDs)
   const displayStage = currentStage ?? stages[0];
-
-  const showPilotTab = displayStage ? displayStage.position >= 8 : false;
-  const visibleTabs = TABS.filter(
-    (t) => t.key !== "pilot" || showPilotTab
-  );
 
   function showToast(msg: string) {
     setToast(msg);
@@ -145,30 +123,13 @@ export function LeadCard({ leadId }: Props) {
   function handleStageSelect(stage: Stage) {
     setStageDropdownOpen(false);
     if (!lead) return;
-    // Check if target stage has gate criteria
     const hasCriteria =
-      (stage.gate_criteria_json?.length ?? 0) > 0 ||
-      stage.position > 0;
+      (stage.gate_criteria_json?.length ?? 0) > 0 || stage.position > 0;
     if (hasCriteria) {
       setGateTarget(stage);
     } else {
       moveStage.mutate({ leadId, body: { stage_id: stage.id } });
     }
-  }
-
-  function handleWon() {
-    const wonStage = stages.find((s) => s.is_won);
-    if (!wonStage || !lead) return;
-    moveStage.mutate({ leadId, body: { stage_id: wonStage.id } });
-  }
-
-  function handleLost() {
-    // Sprint 2.6 G3: open the styled `LostModal` instead of the
-    // legacy `window.confirm` + `window.prompt` pair. The modal owns
-    // the mutation; success closes it via `onSuccess`.
-    const lost = stages.find((s) => s.is_lost);
-    if (!lost || !lead) return;
-    setLostStage(lost);
   }
 
   function handleReturnToPool() {
@@ -201,30 +162,30 @@ export function LeadCard({ leadId }: Props) {
   const isWon = !!displayStage?.is_won;
   const isLost = !!displayStage?.is_lost;
   const closedAt = isWon ? lead.won_at : isLost ? lead.lost_at : null;
+  const isClosed = isWon || isLost;
+  const wonStage = stages.find((s) => s.is_won) ?? null;
+  const lostStageRef = stages.find((s) => s.is_lost) ?? null;
 
-  // Priority A pops with the solid brand accent — see PipelineLeadCard
-  // for the same convention.
   const priorityClass =
     lead.priority === "A"
-      ? "bg-brand-accent text-white"
+      ? "bg-warning text-white"
       : priorityChip(lead.priority);
 
   return (
     <div className="font-sans min-h-screen bg-canvas flex flex-col">
-      {/* Sticky header */}
+      {/* Sticky header — 2 rows per spec */}
       <header className="sticky top-0 z-20 bg-white border-b border-brand-border">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3">
-          <div className="flex flex-wrap items-start gap-3 sm:gap-4">
-            {/* Back */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-3 pb-2">
+          {/* Row 1: back + company name + action buttons */}
+          <div className="flex items-start gap-3">
             <Link
               href="/pipeline"
-              className="mt-1 p-1.5 rounded-full text-brand-muted transition-colors shrink-0"
+              className="mt-1 p-1.5 rounded-full text-brand-muted hover:bg-brand-panel transition-colors shrink-0"
               aria-label="Назад"
             >
               <ArrowLeft size={18} />
             </Link>
 
-            {/* Company name — editable */}
             <div className="flex-1 min-w-0">
               {editingName ? (
                 <input
@@ -236,182 +197,140 @@ export function LeadCard({ leadId }: Props) {
                     if (e.key === "Enter") commitName();
                     if (e.key === "Escape") setEditingName(false);
                   }}
-                  className={`${C.cardTitle} font-bold tracking-tight ${C.color.text} bg-transparent border-b-2 border-brand-accent outline-none w-full`}
+                  className="text-[22px] font-medium tracking-tight text-ink bg-transparent border-b-2 border-brand-accent outline-none w-full"
+                  style={{ lineHeight: "1.2" }}
                 />
               ) : (
                 <h1
                   onClick={startEditName}
-                  className={`${C.cardTitle} font-bold tracking-tight ${C.color.text} cursor-text transition-colors truncate`}
+                  className="text-[22px] font-medium tracking-tight text-ink cursor-text hover:text-brand-accent-text transition-colors truncate"
+                  style={{ lineHeight: "1.2" }}
                   title="Нажмите для редактирования"
                 >
                   {lead.company_name}
                 </h1>
               )}
-
-              {/* Status chips row */}
-              <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                {/* Stage chip */}
-                <span
-                  className={`${C.bodyXs} font-semibold px-2.5 py-1 rounded-full text-white`}
-                  style={{ backgroundColor: displayStage?.color ?? "#a1a1a6" }}
-                >
-                  {displayStage?.name ?? "—"}
-                </span>
-
-                {/* Priority */}
-                {lead.priority && (
-                  <span
-                    className={`${C.bodyXs} font-semibold px-2.5 py-0.5 rounded-full ${priorityClass}`}
-                  >
-                    {priorityLabel(lead.priority)}
-                  </span>
-                )}
-
-                {/* Deal type */}
-                {lead.deal_type && (
-                  <span className={`${C.bodyXs} ${C.color.mutedLight} bg-brand-panel px-2.5 py-0.5 rounded-full`}>
-                    {dealTypeLabel(lead.deal_type)}
-                  </span>
-                )}
-
-                {/* Source — Sprint 2.2 G4. Surfaces provenance
-                    (form:slug, import:bitrix, manual…) so the manager
-                    sees at a glance how the lead landed. */}
-                {lead.source && (
-                  <span
-                    className={`${C.bodyXs} ${C.color.mutedLight} bg-brand-panel px-2.5 py-0.5 rounded-full font-mono truncate max-w-[180px]`}
-                    title={`Источник: ${lead.source}`}
-                  >
-                    {lead.source}
-                  </span>
-                )}
-
-                {/* Score */}
-                <span
-                  className={`font-mono ${C.bodyXs} font-semibold px-2.5 py-0.5 rounded-full tabular-nums ${scoreChipClass(lead.score)}`}
-                  title="0–100, weighted scoring"
-                >
-                  {lead.score ?? "—"}/100
-                </span>
-
-                {/* fit_score */}
-                {lead.fit_score != null && (
-                  <span
-                    className={`font-mono ${C.bodyXs} font-semibold px-2.5 py-0.5 rounded-full tabular-nums ${fitChipClass(Number(lead.fit_score))}`}
-                    title="AI fit_score, 0–10"
-                  >
-                    AI {lead.fit_score}/10
-                  </span>
-                )}
-
-                {/* Rotting */}
-                {(lead.is_rotting_stage || lead.is_rotting_next_step) && (
-                  <span className={`flex items-center gap-1 ${C.bodyXs} text-warning`}>
-                    <AlertTriangle size={12} />
-                    Протухает
-                  </span>
-                )}
-              </div>
             </div>
 
-            {/* Right actions — wraps onto a second line on narrow viewports */}
-            <div className="flex flex-wrap items-center gap-2 mt-1 w-full sm:w-auto sm:shrink-0">
-              {/* Return to pool — only visible when the current user
-                  owns the lead. Backend rejects with 403 otherwise, but
-                  hiding the button avoids surfacing that error. */}
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
               {lead.assigned_to === me?.id && (
                 <button
+                  type="button"
                   onClick={handleReturnToPool}
                   disabled={unclaim.isPending}
-                  className={`px-4 py-1.5 ${C.btnLg} font-semibold ${C.button.ghost} disabled:opacity-40 disabled:cursor-not-allowed transition-opacity`}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${C.btnLg} font-semibold ${C.button.ghost} disabled:opacity-40 transition-opacity`}
                 >
                   Вернуть в базу
                 </button>
               )}
-
-              {/* Transfer */}
               <button
+                type="button"
                 onClick={() => setTransferOpen(true)}
-                className={`px-4 py-1.5 ${C.btnLg} font-semibold ${C.button.ghost} transition-opacity`}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${C.btnLg} font-semibold ${C.button.ghost} transition-opacity`}
               >
+                <Send size={13} />
                 Передать
               </button>
-
-              {/* Won */}
               <button
-                onClick={handleWon}
-                disabled={moveStage.isPending || isWon}
-                className={`px-4 py-1.5 ${C.btnLg} font-semibold bg-success text-white rounded-full disabled:opacity-40 disabled:cursor-not-allowed transition-opacity`}
+                type="button"
+                onClick={() => setCloseOpen(true)}
+                disabled={isClosed}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${C.btnLg} font-semibold ${C.button.ghost} disabled:opacity-40 disabled:cursor-not-allowed transition-opacity`}
               >
-                Выиграна
+                <Lock size={13} />
+                Закрыто
               </button>
-
-              {/* Lost */}
               <button
-                onClick={handleLost}
-                disabled={moveStage.isPending || isLost}
-                className={`px-4 py-1.5 ${C.btnLg} font-semibold bg-rose text-white rounded-full disabled:opacity-40 disabled:cursor-not-allowed transition-opacity`}
+                type="button"
+                onClick={() => setDeleteOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-rose hover:bg-rose/10 rounded-full transition-colors"
               >
-                Проиграна
+                <Trash2 size={13} />
+                Удалить
               </button>
-
-              {/* Move stage dropdown */}
-              <div className="relative">
-                <button
-                  onClick={() => setStageDropdownOpen((v) => !v)}
-                  className={`flex items-center gap-1.5 px-4 py-1.5 ${C.btnLg} font-semibold bg-brand-primary text-white rounded-full transition-opacity`}
-                >
-                  Сменить стадию
-                  <ChevronDown size={13} />
-                </button>
-                {stageDropdownOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setStageDropdownOpen(false)}
-                    />
-                    <div className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-brand-border rounded-2xl z-20 overflow-hidden">
-                      {stages
-                        .filter((s) => !s.is_won && !s.is_lost)
-                        .map((stage) => (
-                          <button
-                            key={stage.id}
-                            onClick={() => handleStageSelect(stage)}
-                            className={`flex items-center gap-2.5 w-full px-4 py-2.5 ${C.bodySm} text-left transition-colors ${
-                              stage.id === lead.stage_id ? "bg-brand-bg" : ""
-                            }`}
-                          >
-                            <span
-                              className="w-2 h-2 rounded-full shrink-0"
-                              style={{ backgroundColor: stage.color }}
-                            />
-                            <span
-                              className={
-                                stage.id === lead.stage_id
-                                  ? `font-semibold ${C.color.text}`
-                                  : `${C.color.text}`
-                              }
-                            >
-                              {stage.name}
-                            </span>
-                          </button>
-                        ))}
-                    </div>
-                  </>
-                )}
-              </div>
             </div>
           </div>
 
-          {/* Won / Lost banner — only shown after the lead has actually
-              entered a terminal stage. Sits between chips/actions and the
-              tab switcher so it can't be missed. */}
+          {/* Row 2: badges */}
+          <div className="flex flex-wrap items-center gap-2 mt-3 ml-9">
+            <button
+              type="button"
+              onClick={() => setStageDropdownOpen((v) => !v)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-semibold text-white text-xs bg-brand-primary hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: displayStage?.color ?? "#3b82f6" }}
+            >
+              <ArrowRight size={11} />
+              {displayStage?.name ?? "—"}
+              <ChevronDown size={11} />
+            </button>
+
+            {stageDropdownOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setStageDropdownOpen(false)}
+                />
+                <div className="absolute left-12 mt-9 w-56 bg-white border border-brand-border rounded-2xl z-20 overflow-hidden shadow-soft">
+                  {stages
+                    .filter((s) => !s.is_won && !s.is_lost)
+                    .map((stage) => (
+                      <button
+                        key={stage.id}
+                        type="button"
+                        onClick={() => handleStageSelect(stage)}
+                        className={`flex items-center gap-2.5 w-full px-4 py-2.5 ${C.bodySm} text-left transition-colors hover:bg-brand-panel ${
+                          stage.id === lead.stage_id ? "bg-brand-bg" : ""
+                        }`}
+                      >
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ backgroundColor: stage.color }}
+                        />
+                        <span
+                          className={
+                            stage.id === lead.stage_id
+                              ? `font-semibold ${C.color.text}`
+                              : `${C.color.text}`
+                          }
+                        >
+                          {stage.name}
+                        </span>
+                      </button>
+                    ))}
+                </div>
+              </>
+            )}
+
+            <span className="w-px h-4 bg-brand-border" aria-hidden="true" />
+
+            {lead.priority && (
+              <span
+                className={`${C.bodyXs} font-semibold px-2 py-0.5 rounded-full ${priorityClass}`}
+              >
+                {lead.priority}
+              </span>
+            )}
+
+            {lead.segment && (
+              <span
+                className={`${C.bodyXs} ${C.color.muted} bg-brand-panel px-2 py-0.5 rounded-full`}
+              >
+                {lead.segment}
+              </span>
+            )}
+
+            {(lead.is_rotting_stage || lead.is_rotting_next_step) && (
+              <span className={`flex items-center gap-1 ${C.bodyXs} text-warning`}>
+                <AlertTriangle size={11} />
+                Протухает
+              </span>
+            )}
+          </div>
+
           {(isWon || isLost) && (
             <div
-              className={`mt-3 flex items-center gap-2 px-3 py-2 rounded-2xl ${C.bodyXs} font-semibold ${
-                isWon
-                  ? "bg-success/10 text-success"
-                  : "bg-rose/10 text-rose"
+              className={`mt-3 ml-9 flex items-center gap-2 px-3 py-2 rounded-2xl ${C.bodyXs} font-semibold ${
+                isWon ? "bg-success/10 text-success" : "bg-rose/10 text-rose"
               }`}
             >
               {isWon ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
@@ -423,7 +342,7 @@ export function LeadCard({ leadId }: Props) {
             </div>
           )}
 
-          {/* Tab switcher — <select> on mobile, horizontal strip on sm+ */}
+          {/* Tab switcher */}
           <div className="sm:hidden mt-4">
             <label className="sr-only" htmlFor="lead-tab-select">Раздел</label>
             <select
@@ -432,15 +351,16 @@ export function LeadCard({ leadId }: Props) {
               onChange={(e) => setActiveTab(e.target.value as TabKey)}
               className={`w-full px-4 py-2.5 ${C.bodySm} font-semibold bg-white border border-brand-border rounded-full outline-none focus:border-brand-accent transition-colors ${C.color.text}`}
             >
-              {visibleTabs.map((tab) => (
+              {TABS.map((tab) => (
                 <option key={tab.key} value={tab.key}>{tab.label}</option>
               ))}
             </select>
           </div>
           <div className="hidden sm:flex gap-0 mt-4 border-b border-brand-border -mb-px overflow-x-auto">
-            {visibleTabs.map((tab) => (
+            {TABS.map((tab) => (
               <button
                 key={tab.key}
+                type="button"
                 onClick={() => setActiveTab(tab.key)}
                 className={`px-4 py-2.5 ${C.bodySm} font-semibold border-b-2 transition-all whitespace-nowrap ${
                   activeTab === tab.key
@@ -455,58 +375,38 @@ export function LeadCard({ leadId }: Props) {
         </div>
       </header>
 
-      {/* Sprint 3.1 Phase D — Lead AI Agent banner. Renders between
-          header and tabs/body so it's always visible without
-          scrolling. The component itself decides whether to render
-          based on `agent_state.suggestion`. */}
       <AgentBanner leadId={lead.id} onCoachOpen={() => setCoachOpen(true)} />
 
-      {/* Body
-          Two-column grid: fixed 296px rail (Follow-ups) + flex-1 main column.
-          items-start keeps both columns top-aligned regardless of content height.
-          gap-6 (24px) between columns matches the design spec.
-          KB rail panel removed (Option a): no frontend data flows into it yet;
-          KB matches will surface as chips inside the AI Brief result body (Phase G). */}
+      {/* Main body — main column LEFT, right column 296px on desktop */}
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-4 sm:py-6">
-        {/* Single column on < md (rail stacks ABOVE tab body so the user
-            sees follow-ups first); side-by-side on md+. min-w-0 on the
-            main column lets long content (tables, AI Brief paragraphs)
-            wrap instead of forcing horizontal scroll. */}
         <div className="flex flex-col md:flex-row md:items-start md:gap-6 gap-4">
-          {/* Rail — 296px fixed on desktop, full-width strip on mobile */}
-          <div className="w-full md:w-[296px] md:shrink-0 flex flex-col gap-4">
-            <FollowupsRail leadId={lead.id} />
-            {/* Sprint 2.6 G4 — workspace custom-attribute values rendered
-                inline below the follow-ups rail. Section renders nothing
-                when the workspace has no definitions. */}
-            <CustomFieldsPanel leadId={lead.id} />
+          {/* Tab body (main) */}
+          <div className="flex-1 min-w-0 order-2 md:order-1">
+            {activeTab === "activity" && <ActivityTab leadId={lead.id} lead={lead} />}
+            {activeTab === "deal-ai" && <DealAndAITab lead={lead} />}
+            {activeTab === "contacts" && <ContactsTab lead={lead} />}
           </div>
 
-          {/* Tab body */}
-          <div className="flex-1 min-w-0">
-            {activeTab === "deal" && <DealTab lead={lead} />}
-            {activeTab === "ai-brief" && <AIBriefTab leadId={lead.id} />}
-            {activeTab === "contacts" && <ContactsTab lead={lead} />}
-            {activeTab === "scoring" && <ScoringTab lead={lead} />}
-            {activeTab === "activity" && <ActivityTab leadId={lead.id} lead={lead} />}
-            {activeTab === "pilot" && showPilotTab && <PilotTab lead={lead} />}
-          </div>
+          {/* Right column */}
+          <aside className="w-full md:w-[296px] md:shrink-0 flex flex-col gap-4 order-1 md:order-2">
+            <FollowupsRail leadId={lead.id} />
+            <ScoreCard lead={lead} />
+            <ResearchGapsCard lead={lead} />
+            <CustomFieldsPanel leadId={lead.id} />
+          </aside>
         </div>
       </main>
 
-      {/* Gate modal */}
+      {/* Modals */}
       {gateTarget && (
         <GateModal
           leadId={lead.id}
           targetStage={gateTarget}
           onClose={() => setGateTarget(null)}
-          onSuccess={() => {
-            setGateTarget(null);
-          }}
+          onSuccess={() => setGateTarget(null)}
         />
       )}
 
-      {/* Transfer modal */}
       {transferOpen && (
         <TransferModal
           leadId={lead.id}
@@ -516,8 +416,17 @@ export function LeadCard({ leadId }: Props) {
         />
       )}
 
-      {/* Sprint 2.6 G3: Lost-confirmation modal — replaces the prior
-          window.confirm + window.prompt pair. */}
+      {closeOpen && (
+        <CloseModal
+          leadId={lead.id}
+          wonStage={wonStage}
+          lostStage={lostStageRef}
+          onClose={() => setCloseOpen(false)}
+          onSuccess={() => showToast("Сделка отмечена выигранной")}
+          onLostFlow={() => setLostStage(lostStageRef)}
+        />
+      )}
+
       {lostStage && (
         <LostModal
           leadId={lead.id}
@@ -528,8 +437,15 @@ export function LeadCard({ leadId }: Props) {
         />
       )}
 
-      {/* Sprint 3.1 Phase D — Sales Coach drawer + FAB.
-          FAB sits bottom-right and toggles the slide-over chat. */}
+      {deleteOpen && (
+        <DeleteConfirmModal
+          leadId={lead.id}
+          companyName={lead.company_name}
+          onClose={() => setDeleteOpen(false)}
+        />
+      )}
+
+      {/* Sales Coach FAB */}
       <button
         type="button"
         onClick={() => setCoachOpen(true)}
@@ -545,7 +461,6 @@ export function LeadCard({ leadId }: Props) {
         onClose={() => setCoachOpen(false)}
       />
 
-      {/* Toast */}
       {toast && (
         <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 bg-brand-primary text-white ${C.bodySm} font-semibold px-5 py-2.5 rounded-full z-50 transition-all`}>
           {toast}

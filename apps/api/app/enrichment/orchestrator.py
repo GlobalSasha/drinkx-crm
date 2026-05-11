@@ -572,8 +572,37 @@ def _parse_research_output(text: str) -> tuple[ResearchOutput, bool]:
 # Public entry point
 # ---------------------------------------------------------------------------
 
-async def run_enrichment(*, db: AsyncSession, run_id: UUID) -> None:
+def _merge_append_only(existing: dict, incoming: dict) -> dict:
+    """Append-only merge: keep every key from `existing` that has a truthy
+    value; fill missing/empty keys from `incoming`.
+
+    Used by enrichment `mode='append'` — manager presses «Дополнить» and
+    expects the existing brief to stay intact, with AI filling holes only.
+
+    Truthy = non-empty string, non-empty list, non-zero number, etc.
+    Falsy = `""`, `[]`, `{}`, `0`, `0.0`, `None`. Note: `0` is treated as
+    empty so `fit_score=0.0` defaults can be overwritten by real values.
+    """
+    merged = dict(existing)
+    for key, new_val in incoming.items():
+        cur = merged.get(key)
+        if not cur:
+            merged[key] = new_val
+    return merged
+
+
+async def run_enrichment(
+    *,
+    db: AsyncSession,
+    run_id: UUID,
+    mode: str = "full",
+) -> None:
     """Execute Research Agent pipeline for the EnrichmentRun row identified by run_id.
+
+    `mode`:
+      - "full" (default): overwrite `lead.ai_data` with the new ResearchOutput dump.
+      - "append": merge into existing `lead.ai_data` — fill only empty keys,
+        keep populated ones intact.
 
     Idempotent: callers can re-run; this updates the same row.
     Never raises — all failures are written to the run row as status=failed.
@@ -698,9 +727,19 @@ async def run_enrichment(*, db: AsyncSession, run_id: UUID) -> None:
         # --- Step 6: Persist ---
         duration_ms = int((time.perf_counter() - wall_start) * 1000)
 
-        lead.ai_data = research_output.model_dump()
+        new_dump = research_output.model_dump()
+        if mode == "append" and lead.ai_data:
+            lead.ai_data = _merge_append_only(lead.ai_data, new_dump)
+            bound_log.info(
+                "enrichment.merged_append",
+                filled=[k for k in new_dump if not (lead.ai_data.get(k) is new_dump.get(k))],
+            )
+        else:
+            lead.ai_data = new_dump
         if research_output.fit_score and research_output.fit_score > 0:
-            lead.fit_score = research_output.fit_score
+            # Append mode: only fill if column is null/zero — matches semantics.
+            if mode != "append" or not lead.fit_score:
+                lead.fit_score = research_output.fit_score
 
         # Focused second LLM call — extract named people from the raw sources.
         # Separate from the main synthesis because MiMo was truncating
