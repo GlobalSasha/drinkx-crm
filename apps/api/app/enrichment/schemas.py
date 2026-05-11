@@ -75,6 +75,13 @@ class ResearchOutput(BaseModel):
     notes: str = ""
     score_rationale: str = Field(default="", description="2-3 предложения: почему именно такой fit_score (ссылки на конкретные сигналы из источников)")
 
+    # Sprint Lead Card Redesign — extended fields. Carried by the prototype
+    # import shape and surfaced in the redesigned Lead Card. Defaults make
+    # them safe to omit from the synthesis prompt.
+    scale_signals: str = Field(default="", description="Network scale + geography + formats, concatenated")
+    drinkx_fit_score: int = Field(default=5, ge=0, le=10, description="Per-criterion DrinkX fit (0–10, distinct from the Pydantic 0–10 fit_score float)")
+    research_gaps: str = Field(default="", description="What the agent could not find — separate from risk_signals semantically")
+
     @field_validator("formats", "coffee_signals", mode="before")
     @classmethod
     def _coerce_to_list(cls, v):

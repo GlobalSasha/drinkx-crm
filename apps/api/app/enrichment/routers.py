@@ -1,7 +1,7 @@
 """Enrichment REST endpoints."""
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
@@ -22,8 +22,10 @@ from app.leads.services import LeadNotFound
 
 router = APIRouter(prefix="/leads/{lead_id}/enrichment", tags=["enrichment"])
 
+EnrichmentMode = Literal["full", "append"]
 
-async def _bg_run(run_id: UUID) -> None:
+
+async def _bg_run(run_id: UUID, mode: EnrichmentMode = "full") -> None:
     """Background task: open a per-task DB engine + session and run the
     orchestrator. NullPool mirrors the Sprint 1.4 pattern (see
     app/scheduled/jobs.py) — a long-running BG task shouldn't hold a
@@ -52,7 +54,7 @@ async def _bg_run(run_id: UUID) -> None:
     try:
         try:
             async with factory() as session:
-                await run_enrichment(db=session, run_id=run_id)
+                await run_enrichment(db=session, run_id=run_id, mode=mode)
         except Exception as exc:
             from app.common.sentry_capture import capture
             capture(
@@ -96,6 +98,10 @@ async def trigger(
     background: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(current_user)],
+    mode: EnrichmentMode = Query(
+        "full",
+        description="'full' overwrites lead.ai_data; 'append' merges only into empty keys.",
+    ),
 ) -> EnrichmentTriggerOut:
     """Trigger enrichment for a lead. Returns 202 immediately; runs in background."""
     try:
@@ -124,7 +130,7 @@ async def trigger(
         )
 
     await db.commit()
-    background.add_task(_bg_run, run.id)
+    background.add_task(_bg_run, run.id, mode)
     return EnrichmentTriggerOut(enrichment_run_id=run.id, status=run.status)
 
 

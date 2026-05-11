@@ -36,3 +36,14 @@ export function useUpdateLead(id: string) {
     },
   });
 }
+
+export function useDeleteLead(id: string) {
+  const qc = useQueryClient();
+  return useMutation<void, ApiError, void>({
+    mutationFn: () => api.delete<void>(`/leads/${id}`),
+    onSuccess: () => {
+      qc.removeQueries({ queryKey: ["lead", id] });
+      qc.invalidateQueries({ queryKey: ["leads"] });
+    },
+  });
+}

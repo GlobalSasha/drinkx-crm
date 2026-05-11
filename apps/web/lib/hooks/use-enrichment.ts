@@ -16,10 +16,17 @@ export function useLatestEnrichment(leadId: string | null | undefined) {
   });
 }
 
+export type EnrichmentMode = "full" | "append";
+
 export function useTriggerEnrichment(leadId: string) {
   const qc = useQueryClient();
-  return useMutation<EnrichmentTriggerResponse, ApiError>({
-    mutationFn: () => api.post<EnrichmentTriggerResponse>(`/leads/${leadId}/enrichment`),
+  return useMutation<EnrichmentTriggerResponse, ApiError, EnrichmentMode | void>({
+    mutationFn: (mode) => {
+      const m = mode ?? "full";
+      return api.post<EnrichmentTriggerResponse>(
+        `/leads/${leadId}/enrichment?mode=${m}`,
+      );
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["enrichment", leadId, "latest"] });
       qc.invalidateQueries({ queryKey: ["lead", leadId] });
