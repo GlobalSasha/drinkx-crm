@@ -97,6 +97,11 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     lost_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
     ai_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
+    # Messenger identifiers (Sprint 3.4). Used to match inbound Telegram /
+    # MAX webhooks back to an existing Lead before falling back to phone.
+    tg_chat_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    max_user_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
     # Lead AI Agent memory (Sprint 3.1 Phase B). Stored as JSONB at the
     # DB level — migration 0022 creates the column with `postgresql.JSONB`.
     # SQLAlchemy's plain `JSON` here maps to the same JSONB on Postgres

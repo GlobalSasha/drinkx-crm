@@ -1,8 +1,10 @@
-"""Inbox ORM models — Sprint 2.0.
+"""Inbox ORM models — Sprint 2.0 + Sprint 3.4.
 
 ChannelConnection: per-(workspace, user, channel_type) OAuth credentials.
 InboxItem: a Gmail message with no high-confidence lead match — pending
 human review (Group 3 / Group 4).
+InboxMessage (Sprint 3.4): real-time channels (telegram / max / phone).
+Stored separately from InboxItem per ADR-023.
 """
 from __future__ import annotations
 
@@ -10,7 +12,7 @@ import uuid
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import DateTime, ForeignKey, Index, JSON, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, JSON, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -116,6 +118,80 @@ class InboxItem(Base, UUIDPrimaryKeyMixin):
         String(20), default="pending", server_default="pending", nullable=False
     )
     suggested_action: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class MessageChannel(str, Enum):
+    telegram = "telegram"
+    max = "max"
+    phone = "phone"
+
+
+class MessageDirection(str, Enum):
+    inbound = "inbound"
+    outbound = "outbound"
+
+
+class CallStatus(str, Enum):
+    answered = "answered"
+    missed = "missed"
+    busy = "busy"
+
+
+class InboxMessage(Base, UUIDPrimaryKeyMixin):
+    """A messenger or phone-channel record — Sprint 3.4.
+
+    Unlike InboxItem (Gmail), these rows are NOT triage queue entries —
+    they're the canonical chat / call log. `lead_id IS NULL` means the
+    inbound message did not match any Lead and is waiting in the
+    `/inbox` unmatched list.
+
+    Dedup: `(channel, external_id)` UNIQUE WHERE external_id IS NOT NULL.
+    """
+    __tablename__ = "inbox_messages"
+    __table_args__ = (
+        Index(
+            "ix_inbox_msg_lead",
+            "lead_id",
+            "created_at",
+        ),
+        Index("ix_inbox_msg_sender", "channel", "sender_id"),
+    )
+
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    lead_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("leads.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    channel: Mapped[str] = mapped_column(String(20), nullable=False)
+    direction: Mapped[str] = mapped_column(String(10), nullable=False)
+    external_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    sender_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    media_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    call_duration: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    call_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    manager_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    delivered_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    read_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    stt_provider: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

@@ -122,8 +122,12 @@ def create_app() -> FastAPI:
     from app.audit.routers import router as audit_router
     app.include_router(audit_router)
 
-    from app.inbox.routers import router as inbox_router
+    from app.inbox.routers import (
+        lead_inbox_router,
+        router as inbox_router,
+    )
     app.include_router(inbox_router)
+    app.include_router(lead_inbox_router)
 
     from app.import_export.routers import (
         export_router as import_export_export_router,

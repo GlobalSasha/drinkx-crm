@@ -15,6 +15,7 @@ from app.auth.dependencies import current_user
 from app.auth.models import User
 from app.config import get_settings
 from app.db import get_db
+from app.inbox import message_services
 from app.inbox import oauth as oauth_helpers
 from app.inbox import services as inbox_services
 from app.inbox.crypto import encrypt_credentials
@@ -22,8 +23,12 @@ from app.inbox.models import ChannelConnection
 from app.inbox.schemas import (
     InboxConfirmIn,
     InboxCountOut,
+    InboxFeedOut,
     InboxItemOut,
+    InboxMessageAssignIn,
+    InboxMessageOut,
     InboxPageOut,
+    InboxUnmatchedMessagesOut,
 )
 
 log = structlog.get_logger()
@@ -233,3 +238,79 @@ async def dismiss_inbox_item(
     except inbox_services.InboxItemNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
     return InboxItemOut.model_validate(item)
+
+
+# ---------------------------------------------------------------------------
+# Sprint 3.4 G1 — messenger / phone inbox
+# ---------------------------------------------------------------------------
+
+@router.get("/unmatched/messages", response_model=InboxUnmatchedMessagesOut)
+async def list_unmatched_messages(
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=200)] = 50,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> InboxUnmatchedMessagesOut:
+    """Inbox messages (tg / max / phone) with no matched lead."""
+    items, total = await message_services.list_unmatched_messages(
+        db,
+        workspace_id=user.workspace_id,
+        page=page,
+        page_size=page_size,
+    )
+    return InboxUnmatchedMessagesOut(
+        items=[InboxMessageOut.model_validate(m) for m in items],
+        total=total,
+    )
+
+
+@router.patch("/messages/{message_id}/assign", response_model=InboxMessageOut)
+async def assign_unmatched_message(
+    message_id: UUID,
+    payload: InboxMessageAssignIn,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> InboxMessageOut:
+    try:
+        msg = await message_services.assign(
+            db,
+            workspace_id=user.workspace_id,
+            message_id=message_id,
+            lead_id=payload.lead_id,
+        )
+    except message_services.InboxMessageNotFound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="not_found"
+        )
+    except message_services.InboxMessageBadRequest as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        )
+    return InboxMessageOut.model_validate(msg)
+
+
+# ---------------------------------------------------------------------------
+# Sprint 3.4 G1 — lead-scoped merged inbox feed
+#
+# Mounted under `/leads/{lead_id}/inbox` to match the existing lead-scoped
+# convention (cf. app.contacts.routers, app.leads.routers). The leads
+# router prefix is `/leads`, so this sub-router fits naturally next to it.
+# ---------------------------------------------------------------------------
+
+lead_inbox_router = APIRouter(
+    prefix="/leads/{lead_id}/inbox", tags=["inbox"]
+)
+
+
+@lead_inbox_router.get("", response_model=InboxFeedOut)
+async def lead_inbox_feed(
+    lead_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> InboxFeedOut:
+    """Merged feed: email (inbox_items) + messenger/phone (inbox_messages)."""
+    return await message_services.list_for_lead(
+        db,
+        workspace_id=user.workspace_id,
+        lead_id=lead_id,
+    )

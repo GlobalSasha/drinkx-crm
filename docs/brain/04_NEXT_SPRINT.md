@@ -87,10 +87,19 @@ CREATE INDEX ix_inbox_msg_unmatched ON inbox_messages(workspace_id)
 
 ### Новые колонки в `leads` (migration 0026)
 
+> **Поправка:** изначальный спек утверждал, что `tg_chat_id` уже добавлен
+> в Sprint 2.7 (migration 0022). На деле 0022 = `lead_agent_state`, и
+> колонки `tg_chat_id` в схеме `leads` не существует. Добавляем обе
+> колонки сразу в 0026.
+
 ```sql
--- leads.tg_chat_id уже добавлен в Sprint 2.7 (migration 0022)
--- Добавляем только MAX:
+ALTER TABLE leads ADD COLUMN tg_chat_id  VARCHAR(100);
 ALTER TABLE leads ADD COLUMN max_user_id VARCHAR(100);
+
+CREATE INDEX idx_leads_tg_chat_id  ON leads (workspace_id, tg_chat_id)
+  WHERE tg_chat_id IS NOT NULL;
+CREATE INDEX idx_leads_max_user_id ON leads (workspace_id, max_user_id)
+  WHERE max_user_id IS NOT NULL;
 ```
 
 ---
@@ -146,18 +155,26 @@ class ChannelAdapter(Protocol):
 
 ---
 
-## G1 — Schema + skeleton (~0.5 дня)
+## G1 — Schema + skeleton (~0.5 дня) ✅
 
-- [ ] Migration 0025: `inbox_messages` (включая transcript/summary/stt_provider)
-- [ ] Migration 0026: `leads.max_user_id`
-- [ ] `InboxMessage` SQLAlchemy модель в `app/inbox/models.py`
-- [ ] `app/inbox/adapters/base.py` — протокол
-- [ ] `app/inbox/message_services.py` — скелет (receive / send / match / list)
-- [ ] `GET /api/leads/{id}/inbox` — объединяет inbox_messages + inbox_items (email)
-  по lead_id, сортировка по created_at ASC
-- [ ] `GET /api/inbox/unmatched/messages` — inbox_messages без lead_id
+- [x] Migration 0025: `inbox_messages` (включая transcript/summary/stt_provider)
+- [x] Migration 0026: `leads.tg_chat_id` + `leads.max_user_id` (обе колонки сразу)
+- [x] `InboxMessage` SQLAlchemy модель в `app/inbox/models.py`
+- [x] `app/inbox/adapters/base.py` — протокол
+- [x] `app/inbox/message_services.py` — скелет (receive / match / list / assign;
+  `send` поднимает `NotImplementedError` до G2/G3/G4)
+- [x] `GET /leads/{lead_id}/inbox` — объединяет inbox_messages + (email
+  через Activity, заполняется в G5)
+- [x] `GET /api/inbox/unmatched/messages` — inbox_messages без lead_id
+- [x] `PATCH /api/inbox/messages/{id}/assign` — назначить lead
 
-Тесты: 3 mock (upsert dedup, match, unmatched).
+Тесты: 4 mock (normalize_phone, match by tg_chat_id, receive dedup,
+receive unmatched) — все зелёные.
+
+> **Замечание:** на момент работы G1 на main валит 1 предсуществующий
+> тест `test_inbox_matcher.py::test_processor_creates_activity_on_high_confidence_match`
+> (processor.py и тест байт-в-байт совпадают с pre-Sprint-3.4 main —
+> регрессия не связана с этим спринтом). Чинить отдельным фиксом.
 
 ---
 
