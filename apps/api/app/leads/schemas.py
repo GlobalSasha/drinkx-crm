@@ -35,6 +35,10 @@ class LeadCreate(LeadBase):
 
     pipeline_id: UUID | None = None
     stage_id: UUID | None = None
+    # Sprint 3.3 — optional company link. When set, the service copies
+    # `companies.name` into `leads.company_name` so the snapshot stays
+    # correct from creation onward.
+    company_id: UUID | None = None
 
 
 class LeadUpdate(BaseModel):

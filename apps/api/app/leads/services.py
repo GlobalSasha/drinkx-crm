@@ -93,6 +93,18 @@ async def create_lead(
         if first is not None:
             data["pipeline_id"], data["stage_id"] = first
 
+    # Sprint 3.3 — when payload carries `company_id`, replace
+    # `company_name` with the authoritative `companies.name` so the
+    # snapshot is correct from t=0 (ADR-022).
+    if data.get("company_id") is not None:
+        from app.companies.repositories import get_by_id as _get_company
+
+        company = await _get_company(
+            db, workspace_id=workspace_id, company_id=data["company_id"]
+        )
+        if company is not None:
+            data["company_name"] = company.name
+
     lead = await repo.create_lead(
         db,
         workspace_id,
@@ -136,6 +148,12 @@ async def list_pool(
     return await repo.list_pool(db, workspace_id, **filters)
 
 
+class CompanyNameLocked(Exception):
+    """Sprint 3.3: direct edit of `company_name` is rejected when the
+    lead is linked to a company. The frontend renames via PATCH
+    /companies/{id} instead, which then propagates to active leads."""
+
+
 async def update_lead(
     db: AsyncSession,
     workspace_id: uuid.UUID,
@@ -147,6 +165,10 @@ async def update_lead(
         raise LeadNotFound(lead_id)
     _validate_enum_fields(payload.priority, payload.deal_type)
     patch = payload.model_dump(exclude_unset=True)
+    # ADR-022 sync rule: company_name is a snapshot; rename a linked
+    # lead's name only via the company-rename code path.
+    if "company_name" in patch and lead.company_id is not None:
+        raise CompanyNameLocked()
     return await repo.update_lead(db, lead, patch)
 
 

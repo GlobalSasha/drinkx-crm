@@ -146,6 +146,14 @@ async def update_lead(
         lead = await services.update_lead(db, user.workspace_id, lead_id, payload)
     except LeadNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+    except services.CompanyNameLocked:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "company_name_locked",
+                "message": "Лид связан с компанией. Переименуйте компанию — имя обновится автоматически.",
+            },
+        )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     await db.commit()
