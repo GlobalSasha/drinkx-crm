@@ -407,7 +407,30 @@ URL: https://crm.drinkx.tech/api/webhooks/phone
 
 ---
 
-## G4b — Транскрипция и резюме звонка (~1.5 дня)
+## G4b — Транскрипция и резюме звонка (~1.5 дня) ✅
+
+- [x] `app/inbox/stt/base.py` — `SttProvider` Protocol + `SttError`
+- [x] `app/inbox/stt/salute.py` — `SaluteSpeechProvider`: OAuth2
+  токен с in-memory кешем на 1700 сек (28 мин), STT через
+  `smartspeech.sber.ru/rest/v1/speech:recognize` (audio/mpeg), толерантный
+  парсинг ответа (молчание → "" вместо exception)
+- [x] `app/inbox/stt/whisper.py` — placeholder
+- [x] `app/inbox/stt/factory.py` — `get_stt_provider()` по env
+- [x] `app/inbox/message_tasks.transcribe_call_async` — orchestrator:
+  download audio → STT → MiMo summary (`TaskType.prefilter`,
+  `max_tokens=200`) → UPDATE `inbox_messages.transcript/summary/stt_provider`
+  → обновляет Activity.body на «📞 Звонок M:SS · {summary}»
+  → ставит `lead_agent_refresh_suggestion(countdown=60)` для matched
+- [x] Resilient: любая ошибка отдельного шага (audio download, STT,
+  summary) НЕ роняет — записывает что есть и возвращает status-код
+- [x] env: `STT_PROVIDER` (default `salute`), `SALUTE_CLIENT_ID`,
+  `SALUTE_CLIENT_SECRET`, `SALUTE_SCOPE` (default `SALUTE_SPEECH_PERS`)
+
+Тесты — 9 mock в `test_inbox_transcribe.py` (factory default + fallback,
+salute token caching + oauth failure + silent audio + missing creds,
+orchestrator happy path + missed-call skip + STT failure persists provider).
+
+### G4b — оригинальный спек (для справки)
 
 Автоматически запускается после получения `call_end` с непустым `recording_url`.
 

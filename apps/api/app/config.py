@@ -135,6 +135,18 @@ class Settings(BaseSettings):
     mango_api_salt: str = ""
     mango_api_base: str = "https://app.mango-office.ru"
 
+    # STT (Sprint 3.4 G4b — call transcription).
+    # `stt_provider` selects the implementation: 'salute' (default,
+    # Sber SaluteSpeech), 'yandex' (Yandex SpeechKit, not shipped in
+    # the MVP), or 'whisper' (placeholder for future on-prem use).
+    # SaluteSpeech uses OAuth2 — `salute_client_id` + `salute_client_secret`
+    # are the credential pair from the Sber developer cabinet (the
+    # value passed to Basic-auth is base64(client_id:client_secret)).
+    stt_provider: str = "salute"
+    salute_client_id: str = ""
+    salute_client_secret: str = ""
+    salute_scope: str = "SALUTE_SPEECH_PERS"
+
 
 @lru_cache
 def get_settings() -> Settings:
