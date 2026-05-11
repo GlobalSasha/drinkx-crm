@@ -64,6 +64,40 @@ async def update_role(
     return user
 
 
+async def return_leads_to_pool(
+    db: AsyncSession, *, user_id: uuid.UUID, workspace_id: uuid.UUID
+) -> int:
+    """Reassign all active (non-archived) leads owned by user_id back
+    to the pool. Returns rows-affected so the caller can show
+    «N лидов возвращены в пул». Caller commits.
+    """
+    from sqlalchemy import update
+    from app.leads.models import Lead
+
+    result = await db.execute(
+        update(Lead)
+        .where(
+            Lead.workspace_id == workspace_id,
+            Lead.assigned_to == user_id,
+            Lead.archived_at.is_(None),
+        )
+        .values(assignment_status="pool", assigned_to=None)
+        .execution_options(synchronize_session=False)
+    )
+    return int(result.rowcount or 0)
+
+
+async def delete_user_row(db: AsyncSession, *, user: User) -> None:
+    """Delete the User row. Caller commits.
+
+    Activities and audit_log rows authored by the user stay — their
+    user_id FKs are ON DELETE SET NULL on those tables, so history
+    survives.
+    """
+    await db.delete(user)
+    await db.flush()
+
+
 # ---------------------------------------------------------------------------
 # Invites
 # ---------------------------------------------------------------------------

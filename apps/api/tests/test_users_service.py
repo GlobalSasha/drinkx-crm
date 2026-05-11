@@ -422,6 +422,113 @@ async def test_invite_user_rejects_invalid_role():
 
 
 # ===========================================================================
+# delete_user — Sprint 3.4 G2
+# ===========================================================================
+
+@pytest.mark.asyncio
+async def test_delete_user_refuses_self_delete():
+    db = AsyncMock()
+    me = uuid.uuid4()
+
+    with pytest.raises(svc.CannotDeleteSelf):
+        await svc.delete_user(
+            db,
+            target_user_id=me,
+            actor_user_id=me,
+            workspace_id=WS,
+        )
+
+
+@pytest.mark.asyncio
+async def test_delete_user_refuses_last_admin():
+    """Same defensive guard as role demotion: don't let the workspace
+    end up with zero admins via a delete."""
+    db = AsyncMock()
+    target = _make_user(role="admin")
+    actor_id = uuid.uuid4()
+
+    async def fake_get(_db, *, user_id, workspace_id):
+        return target
+
+    async def fake_count_admins(_db, *, workspace_id):
+        return 1  # only one admin in the workspace
+
+    with patch(
+        "app.users.repositories.get_by_id", new=fake_get,
+    ), patch(
+        "app.users.repositories.count_admins", new=fake_count_admins,
+    ):
+        with pytest.raises(svc.LastAdminRefusal):
+            await svc.delete_user(
+                db,
+                target_user_id=target.id,
+                actor_user_id=actor_id,
+                workspace_id=WS,
+            )
+
+
+@pytest.mark.asyncio
+async def test_delete_user_returns_leads_to_pool_and_deletes_row():
+    """Happy path: an active lead owned by the deleted user gets
+    reassigned to the pool, then the User row is deleted."""
+    db = AsyncMock()
+    target = _make_user(role="manager", email="m@x.io")
+    actor_id = uuid.uuid4()
+
+    return_calls: list[dict] = []
+    delete_calls: list[dict] = []
+
+    async def fake_get(_db, *, user_id, workspace_id):
+        return target
+
+    async def fake_return(_db, *, user_id, workspace_id):
+        return_calls.append({"user_id": user_id, "workspace_id": workspace_id})
+        return 3
+
+    async def fake_delete(_db, *, user):
+        delete_calls.append({"user": user})
+
+    with patch(
+        "app.users.repositories.get_by_id", new=fake_get,
+    ), patch(
+        "app.users.repositories.return_leads_to_pool", new=fake_return,
+    ), patch(
+        "app.users.repositories.delete_user_row", new=fake_delete,
+    ):
+        result = await svc.delete_user(
+            db,
+            target_user_id=target.id,
+            actor_user_id=actor_id,
+            workspace_id=WS,
+        )
+
+    assert result.email == "m@x.io"
+    assert result.role == "manager"
+    assert result.freed_leads == 3
+    assert len(return_calls) == 1
+    assert return_calls[0]["user_id"] == target.id
+    assert len(delete_calls) == 1
+    assert delete_calls[0]["user"] is target
+
+
+@pytest.mark.asyncio
+async def test_delete_user_404_when_target_missing():
+    db = AsyncMock()
+
+    async def fake_get(_db, *, user_id, workspace_id):
+        return None
+
+    with patch("app.users.repositories.get_by_id", new=fake_get):
+        with pytest.raises(svc.UserNotFound):
+            await svc.delete_user(
+                db,
+                target_user_id=uuid.uuid4(),
+                actor_user_id=uuid.uuid4(),
+                workspace_id=WS,
+            )
+
+
+# ===========================================================================
 # 9. diff_engine carryover — no longer reads pipelines.is_default
 # ===========================================================================
 

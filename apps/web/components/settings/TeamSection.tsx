@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 // TeamSection — Sprint 2.4 G1.
 //
 // Renders the workspace's users + pending invites as a single table.
@@ -8,12 +9,13 @@
 //   - 502 {code: invite_send_failed}  → «retry later»
 //   - 409 {code: last_admin}         → «promote someone else first»
 import { useState } from "react";
-import { Loader2, Mail, Plus, Shield, UserCircle2, X } from "lucide-react";
+import { Loader2, Mail, Plus, Shield, Trash2, UserCircle2, X } from "lucide-react";
 
 import { ApiError } from "@/lib/api-client";
 import { useMe } from "@/lib/hooks/use-me";
 import {
   useChangeUserRole,
+  useDeleteUser,
   useInviteUser,
   useUserInvites,
   useUsers,
@@ -50,12 +52,49 @@ export function TeamSection() {
   const invitesQuery = useUserInvites();
 
   const isAdmin = meQuery.data?.role === "admin";
+  const isAdminOrHead = isAdmin || meQuery.data?.role === "head";
   const users = usersQuery.data?.items ?? [];
   const invites = invitesQuery.data ?? [];
   // Show pending invites only — accepted ones already have a User row.
   const pendingInvites = invites.filter((i) => !i.accepted_at);
 
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<UserListItemOut | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const del = useDeleteUser();
+
+  function performDelete() {
+    if (!deleteTarget) return;
+    setDeleteError(null);
+    del.mutate(deleteTarget.id, {
+      onSuccess: () => {
+        setDeleteTarget(null);
+      },
+      onError: (err: ApiError) => {
+        const detail =
+          err.body && typeof err.body === "object"
+            ? (err.body as { detail?: unknown }).detail
+            : null;
+        const code =
+          detail && typeof detail === "object" && "code" in (detail as object)
+            ? (detail as { code: string }).code
+            : null;
+        if (code === "cannot_delete_self") {
+          setDeleteError("Нельзя удалить себя.");
+        } else if (code === "last_admin") {
+          setDeleteError(
+            "Нельзя удалить последнего администратора — сначала повысьте кого-то ещё.",
+          );
+        } else {
+          setDeleteError(
+            typeof detail === "string"
+              ? detail
+              : "Не удалось удалить пользователя.",
+          );
+        }
+      },
+    });
+  }
 
   if (usersQuery.isLoading) {
     return (
@@ -83,15 +122,26 @@ export function TeamSection() {
             новых членов и менять роли.
           </p>
         </div>
-        {isAdmin && (
-          <button
-            onClick={() => setInviteOpen(true)}
-            className="inline-flex items-center gap-1.5 bg-ink text-white rounded-pill px-4 py-2 text-sm font-semibold hover:bg-ink/90 active:scale-[0.98] transition-all duration-300"
-          >
-            <Plus size={14} />
-            Пригласить
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {isAdminOrHead && (
+            <Link
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              href={"/team" as any}
+              className="inline-flex items-center gap-1.5 text-xs font-mono uppercase tracking-[0.12em] text-muted-2 hover:text-ink transition-colors"
+            >
+              Дашборд →
+            </Link>
+          )}
+          {isAdmin && (
+            <button
+              onClick={() => setInviteOpen(true)}
+              className="inline-flex items-center gap-1.5 bg-ink text-white rounded-pill px-4 py-2 text-sm font-semibold hover:bg-ink/90 active:scale-[0.98] transition-all duration-300"
+            >
+              <Plus size={14} />
+              Пригласить
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Users table */}
@@ -108,12 +158,17 @@ export function TeamSection() {
               <th className="px-4 py-2.5 font-mono uppercase tracking-[0.2em] text-[10px] text-muted-3 font-semibold w-[150px]">
                 Последний вход
               </th>
+              {isAdmin && (
+                <th className="px-4 py-2.5 font-mono uppercase tracking-[0.2em] text-[10px] text-muted-3 font-semibold w-[60px]">
+                  {/* actions */}
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
             {users.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-4 py-12 text-center">
+                <td colSpan={isAdmin ? 4 : 3} className="px-4 py-12 text-center">
                   <p className="text-sm text-muted-2">
                     Пользователей нет — это аномалия, как минимум вы
                     должны быть в списке.
@@ -126,6 +181,11 @@ export function TeamSection() {
                 key={u.id}
                 user={u}
                 editableRole={isAdmin && u.id !== meQuery.data?.id}
+                canDelete={isAdmin && u.id !== meQuery.data?.id}
+                onRequestDelete={(target) => {
+                  setDeleteError(null);
+                  setDeleteTarget(target);
+                }}
               />
             ))}
           </tbody>
@@ -184,6 +244,18 @@ export function TeamSection() {
       )}
 
       <InviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
+      {deleteTarget && (
+        <DeleteUserModal
+          name={deleteTarget.name || deleteTarget.email}
+          busy={del.isPending}
+          error={deleteError}
+          onCancel={() => {
+            setDeleteTarget(null);
+            setDeleteError(null);
+          }}
+          onConfirm={performDelete}
+        />
+      )}
     </div>
   );
 }
@@ -195,9 +267,13 @@ export function TeamSection() {
 function UserRow({
   user,
   editableRole,
+  canDelete,
+  onRequestDelete,
 }: {
   user: UserListItemOut;
   editableRole: boolean;
+  canDelete: boolean;
+  onRequestDelete: (u: UserListItemOut) => void;
 }) {
   const change = useChangeUserRole();
   const [error, setError] = useState<string | null>(null);
@@ -294,7 +370,76 @@ function UserRow({
           {relativeTime(user.last_login_at)}
         </span>
       </td>
+      {canDelete && (
+        <td className="px-4 py-3 align-middle text-right">
+          <button
+            type="button"
+            onClick={() => onRequestDelete(user)}
+            className="p-1.5 text-muted-3 hover:text-rose hover:bg-rose/5 rounded-lg transition-colors"
+            aria-label="Удалить пользователя"
+            title="Удалить"
+          >
+            <Trash2 size={14} />
+          </button>
+        </td>
+      )}
     </tr>
+  );
+}
+
+function DeleteUserModal({
+  name,
+  busy,
+  error,
+  onConfirm,
+  onCancel,
+}: {
+  name: string;
+  busy: boolean;
+  error: string | null;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="bg-white rounded-2xl shadow-soft max-w-md w-full p-6">
+        <h3 className="text-base font-extrabold text-ink mb-2">
+          Удалить {name}?
+        </h3>
+        <p className="text-sm text-muted-2 mb-5">
+          Все его активные лиды вернутся в пул. История активности и
+          аудит-лог сохранятся.
+        </p>
+        {error && (
+          <p className="text-xs text-rose mb-3 bg-rose/5 rounded-lg px-3 py-2">
+            {error}
+          </p>
+        )}
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="px-3 py-2 text-sm text-muted hover:bg-canvas/80 rounded-pill transition-colors disabled:opacity-40"
+          >
+            Отмена
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy}
+            className="px-4 py-2 text-sm font-semibold text-white bg-rose hover:bg-rose/90 rounded-pill transition-colors disabled:opacity-40 inline-flex items-center gap-1.5"
+          >
+            {busy && <Loader2 size={13} className="animate-spin" />}
+            Удалить
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

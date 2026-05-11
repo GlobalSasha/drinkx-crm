@@ -5,7 +5,8 @@
 // Only «Воронки» is live in v1; the rest are roadmap stubs (per the
 // G3 spec: «Скоро» for Phase 2.4+). Read access is open to all roles;
 // PipelinesSection internally gates write actions on useMe().role.
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   BellRing,
   Bot,
@@ -60,7 +61,35 @@ const SECTIONS: SectionDef[] = [
 ];
 
 export default function SettingsPage() {
-  const [active, setActive] = useState<SectionKey>("pipelines");
+  // useSearchParams must be inside a Suspense boundary per Next 15
+  // App Router rules (build fails otherwise on prerender).
+  return (
+    <Suspense fallback={null}>
+      <SettingsPageInner />
+    </Suspense>
+  );
+}
+
+function SettingsPageInner() {
+  const params = useSearchParams();
+  const initialSection = ((): SectionKey => {
+    const raw = params?.get("section") ?? null;
+    const liveKeys = SECTIONS.filter((s) => s.ready).map((s) => s.key);
+    if (raw && (liveKeys as string[]).includes(raw)) {
+      return raw as SectionKey;
+    }
+    return "pipelines";
+  })();
+  const [active, setActive] = useState<SectionKey>(initialSection);
+
+  // Sync when ?section=… changes via Link navigation.
+  useEffect(() => {
+    const raw = params?.get("section") ?? null;
+    const liveKeys = SECTIONS.filter((s) => s.ready).map((s) => s.key);
+    if (raw && (liveKeys as string[]).includes(raw)) {
+      setActive(raw as SectionKey);
+    }
+  }, [params]);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">

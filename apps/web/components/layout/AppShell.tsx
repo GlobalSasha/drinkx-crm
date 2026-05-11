@@ -52,10 +52,7 @@ interface DisabledNavItem {
   icon: React.ReactNode;
 }
 
-const DISABLED_ITEMS: DisabledNavItem[] = [
-  { id: "knowledge", label: "База знаний", icon: <BookOpen size={18} /> },
-  { id: "team",      label: "Команда",     icon: <Users size={18} /> },
-];
+const DISABLED_ITEMS: DisabledNavItem[] = [];
 
 // Shared row geometry. The pill animates over these — keep paddings and
 // gaps consistent across all rows so the pill height stays stable.
@@ -111,6 +108,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       base.push({ id: "forms",       label: "Формы",         href: "/forms",       icon: <ClipboardList size={18} /> });
       base.push({ id: "automations", label: "Автоматизации", href: "/automations", icon: <Workflow size={18} /> });
     }
+    base.push({
+      id: "team",
+      label: "Команда",
+      href: isAdminOrHead ? "/team" : "/settings?section=team",
+      icon: <Users size={18} />,
+    });
+    base.push({ id: "knowledge", label: "База знаний", href: "/knowledge", icon: <BookOpen size={18} /> });
     if (isAdmin) {
       base.push({ id: "audit", label: "Журнал", href: "/audit", icon: <History size={18} /> });
     }

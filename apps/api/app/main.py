@@ -162,6 +162,9 @@ def create_app() -> FastAPI:
     from app.search.routers import router as search_router
     app.include_router(search_router)
 
+    from app.team.routers import router as team_router
+    app.include_router(team_router)
+
     return app
 
 
