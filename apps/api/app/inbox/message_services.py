@@ -1,17 +1,20 @@
-"""Messenger / phone inbox services — Sprint 3.4 G1 skeleton.
+"""Messenger / phone inbox services — Sprint 3.4 G1 skeleton, G2 expand.
 
 This module mediates between channel adapters and the `inbox_messages`
-table. The G1 surface:
+table. The surface:
 
   * `normalize_phone`            — pure utility for E.164-ish numbers.
   * `match_lead`                 — webhook payload → Lead.id or None.
   * `receive`                    — idempotent upsert from webhook payload.
+                                   Also writes an Activity row when matched
+                                   and schedules a Lead Agent refresh on
+                                   matched inbound messages.
+  * `send`                       — outbound: dispatch via channel adapter,
+                                   persist InboxMessage (direction=outbound)
+                                   and a matching Activity.
   * `list_for_lead`              — merged feed (inbox_items + inbox_messages).
   * `list_unmatched_messages`    — InboxMessage rows with lead_id IS NULL.
   * `assign`                     — set inbox_messages.lead_id (PATCH).
-
-Sending lives behind `send` but is stubbed in G1 — the channel-specific
-adapters (G2 / G3 / G4) implement the wire calls.
 """
 from __future__ import annotations
 
@@ -22,6 +25,7 @@ import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.activity.models import Activity
 from app.inbox.models import InboxItem, InboxMessage
 from app.inbox.schemas import (
     InboxFeedChannelLink,
@@ -41,6 +45,25 @@ class InboxMessageNotFound(Exception):
 
 class InboxMessageBadRequest(Exception):
     pass
+
+
+class InboxSendError(Exception):
+    """Adapter-side failure surfaced from `send`. The message is a
+    stable error code (`telegram_status_400`, `recipient_not_set`,
+    ...) safe to expose to the UI as `detail`."""
+
+
+# `Activity.type` is a String column, not a DB enum, so we are free
+# to coin new strings here without a migration. Keep them tight.
+_ACTIVITY_TYPE_BY_CHANNEL = {
+    "telegram": "tg",
+    "max": "max",
+    "phone": "phone",
+}
+
+
+def _activity_type_for(channel: str) -> str:
+    return _ACTIVITY_TYPE_BY_CHANNEL.get(channel, "system")
 
 
 # ---------------------------------------------------------------------------
@@ -174,6 +197,29 @@ async def receive(
     )
     session.add(msg)
     await session.flush()
+
+    # Matched inbound — fan out side effects (Activity + Lead Agent kick).
+    # Outbound rows are written by `send` which records its own Activity
+    # so the manager's action shows up immediately.
+    if lead_id is not None:
+        session.add(
+            Activity(
+                lead_id=lead_id,
+                user_id=None,  # inbound — no manager attribution
+                type=_activity_type_for(payload.channel),
+                channel=payload.channel,
+                direction=payload.direction,
+                body=payload.body,
+                from_identifier=payload.sender_id,
+                payload_json={
+                    "inbox_message_id": str(msg.id),
+                    "external_id": payload.external_id,
+                },
+            )
+        )
+        if payload.direction == "inbound":
+            _enqueue_lead_agent_refresh(lead_id, countdown=900)
+
     log.info(
         "inbox.message.received",
         channel=payload.channel,
@@ -184,24 +230,127 @@ async def receive(
     return msg, True
 
 
+def _enqueue_lead_agent_refresh(lead_id: UUID, *, countdown: int) -> None:
+    """Best-effort dispatch — broker hiccups must not break the webhook."""
+    try:
+        from app.scheduled.jobs import lead_agent_refresh_suggestion
+
+        lead_agent_refresh_suggestion.apply_async(
+            args=[str(lead_id)], countdown=countdown
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning(
+            "inbox.message.lead_agent_refresh_enqueue_failed",
+            lead_id=str(lead_id),
+            error=str(exc)[:200],
+        )
+
+
 # ---------------------------------------------------------------------------
-# Send (G1 stub — wired up in G2/G3/G4)
+# Send (G2 Telegram; G3 MAX; G4 phone)
 # ---------------------------------------------------------------------------
+
+def _get_adapter(channel: str):
+    """Pick the channel adapter. Imports are lazy so the webhook /
+    config code-paths don't load a stack we don't use."""
+    if channel == "telegram":
+        from app.inbox.adapters.telegram import TelegramAdapter
+
+        return TelegramAdapter()
+    raise InboxSendError(f"channel_not_supported:{channel}")
+
+
+def _recipient_for_lead(lead: Lead, channel: str) -> str | None:
+    if channel == "telegram":
+        return lead.tg_chat_id
+    if channel == "max":
+        return lead.max_user_id
+    if channel == "phone":
+        return lead.phone
+    return None
+
 
 async def send(
     session: AsyncSession,
     *,
     workspace_id: UUID,
-    msg: OutboundMessage,
+    lead_id: UUID,
+    channel: str,
+    body: str,
+    manager_user_id: UUID | None = None,
 ) -> InboxMessage:
-    """Dispatch via the channel adapter, persist as outbound row.
-
-    G1 leaves this as a stub — the adapters and the workspace-level
-    credentials lookup land in G2 (Telegram), G3 (MAX), G4 (Phone).
+    """Send a message on `channel` to the lead's address for that
+    channel. Persists an outbound InboxMessage + Activity. Raises
+    `InboxMessageNotFound` if the lead is missing,
+    `InboxMessageBadRequest` if the recipient address isn't set, and
+    `InboxSendError` for adapter failures.
     """
-    raise NotImplementedError(
-        f"send for channel '{msg.channel}' is wired up in G2/G3/G4"
+    res = await session.execute(
+        select(Lead)
+        .where(Lead.id == lead_id)
+        .where(Lead.workspace_id == workspace_id)
     )
+    lead = res.scalar_one_or_none()
+    if lead is None:
+        raise InboxMessageNotFound(str(lead_id))
+
+    recipient = _recipient_for_lead(lead, channel)
+    if not recipient:
+        raise InboxMessageBadRequest(f"recipient_not_set:{channel}")
+
+    adapter = _get_adapter(channel)
+    try:
+        external_id = await adapter.send(
+            OutboundMessage(
+                channel=channel,
+                recipient_id=str(recipient),
+                body=body,
+                lead_id=lead_id,
+            )
+        )
+    except Exception as exc:  # noqa: BLE001
+        # Adapter raises its own typed errors (e.g. TelegramSendError)
+        # — wrap to a stable user-facing code so the UI doesn't depend
+        # on provider class names.
+        raise InboxSendError(str(exc)) from exc
+
+    msg = InboxMessage(
+        workspace_id=workspace_id,
+        lead_id=lead_id,
+        channel=channel,
+        direction="outbound",
+        external_id=external_id,
+        sender_id=str(recipient),
+        body=body,
+        manager_user_id=manager_user_id,
+    )
+    session.add(msg)
+    await session.flush()
+
+    session.add(
+        Activity(
+            lead_id=lead_id,
+            user_id=manager_user_id,
+            type=_activity_type_for(channel),
+            channel=channel,
+            direction="outbound",
+            body=body,
+            to_identifier=str(recipient),
+            payload_json={
+                "inbox_message_id": str(msg.id),
+                "external_id": external_id,
+            },
+        )
+    )
+    await session.commit()
+    await session.refresh(msg)
+    log.info(
+        "inbox.message.sent",
+        channel=channel,
+        lead_id=str(lead_id),
+        external_id=external_id,
+    )
+    return msg
 
 
 # ---------------------------------------------------------------------------

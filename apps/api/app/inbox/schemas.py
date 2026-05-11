@@ -141,3 +141,14 @@ class InboxUnmatchedMessagesOut(BaseModel):
 
 class InboxMessageAssignIn(BaseModel):
     lead_id: UUID
+
+
+class InboxSendIn(BaseModel):
+    """POST /leads/{id}/inbox/send body.
+
+    `channel` 'email' is reserved for G5 — until then the service
+    rejects it with `channel_not_supported`.
+    """
+    channel: str
+    body: str
+    subject: str | None = None  # email only

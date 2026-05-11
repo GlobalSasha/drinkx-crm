@@ -178,7 +178,26 @@ receive unmatched) — все зелёные.
 
 ---
 
-## G2 — Telegram Business Bot (~2 дня)
+## G2 — Telegram Business Bot (~2 дня) ✅
+
+- [x] `app/inbox/adapters/telegram.py` — `TelegramAdapter` (parse_webhook
+  для `message` и `business_message`, send через Bot API `sendMessage`)
+- [x] `app/inbox/webhooks.py` — `POST /api/webhooks/telegram` с проверкой
+  `X-Telegram-Bot-Api-Secret-Token` (constant-time compare)
+- [x] `message_services.receive` теперь пишет Activity + Lead Agent
+  refresh при matched inbound
+- [x] `message_services.send` — outbound через адаптер, persists
+  InboxMessage + Activity (direction='outbound')
+- [x] `POST /leads/{lead_id}/inbox/send` (channel='telegram')
+- [x] env: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, опциональный
+  `DEFAULT_WORKSPACE_ID` (для роутинга unmatched в multi-tenant сетапе)
+
+Тесты — 11 mock (parse direct / business / no-text, adapter send happy /
+no token / bad status, send service happy / no recipient / adapter
+error, receive matched → Activity + agent refresh, receive unmatched).
+Все зелёные.
+
+### G2 — оригинальный спек (для справки)
 
 ### Предусловия
 

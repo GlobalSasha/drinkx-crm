@@ -1,103 +1,25 @@
 """Tests for app.inbox.message_services — Sprint 3.4 G1.
 
-Mock-only: SQLAlchemy is stubbed at import time so no Postgres / network
-access is required. Mirrors the harness in test_inbox_services.py.
+Pure unit tests: the AsyncSession is a MagicMock-driven AsyncMock so no
+Postgres / network is touched. Real SQLAlchemy is used (constructing
+ORM instances without a bound session is fine).
 """
 from __future__ import annotations
 
-import sys
 import uuid
-from types import ModuleType
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+import app.inbox.message_services as msg_svc
+from app.inbox.schemas import WebhookPayload
 
-# ---------------------------------------------------------------------------
-# Stub sqlalchemy before any ORM imports
-# ---------------------------------------------------------------------------
-
-def _stub_sqlalchemy() -> None:
-    if "sqlalchemy" in sys.modules:
-        return
-
-    class _Callable:
-        def __init__(self, *a, **kw): pass
-        def __call__(self, *a, **kw): return _Callable()
-        def __class_getitem__(cls, item): return cls
-        def __getitem__(self, key): return _Callable()
-        def __getattr__(self, name): return _Callable()
-        def __eq__(self, other): return True
-        def __ne__(self, other): return True
-        def __lt__(self, other): return _Callable()
-        def __le__(self, other): return _Callable()
-        def __gt__(self, other): return _Callable()
-        def __ge__(self, other): return _Callable()
-
-    sa = ModuleType("sqlalchemy")
-    for name in (
-        "Column", "ForeignKey", "Integer", "String", "Text", "JSON",
-        "Numeric", "DateTime", "Boolean", "Index", "select",
-        "desc", "false", "UniqueConstraint", "text", "nullslast",
-        "asc", "or_", "and_", "update", "delete", "cast", "literal",
-        "Date",
-    ):
-        setattr(sa, name, _Callable)
-
-    class _Func:
-        def __getattr__(self, name):
-            return _Callable
-
-    sa.func = _Func()
-
-    sa_ext = ModuleType("sqlalchemy.ext")
-    sa_async = ModuleType("sqlalchemy.ext.asyncio")
-    sa_dialects = ModuleType("sqlalchemy.dialects")
-    sa_pg = ModuleType("sqlalchemy.dialects.postgresql")
-    sa_orm = ModuleType("sqlalchemy.orm")
-
-    class _Mapped:
-        def __class_getitem__(cls, item): return cls
-        def __getitem__(self, key): return _Callable()
-
-    class _DeclarativeBase:
-        metadata = MagicMock()
-
-    sa_orm.DeclarativeBase = _DeclarativeBase
-    sa_orm.Mapped = _Mapped
-    sa_orm.mapped_column = lambda *a, **kw: _Callable()
-    sa_orm.relationship = _Callable()
-    sa_orm.selectinload = _Callable()
-    sa_orm.joinedload = _Callable()
-
-    sa_pg.UUID = _Callable
-    sa_pg.JSON = _Callable
-
-    sa_async.AsyncSession = object
-    sa_async.async_sessionmaker = _Callable
-    sa_async.create_async_engine = _Callable
-    sa_async.AsyncEngine = object
-
-    sys.modules["sqlalchemy"] = sa
-    sys.modules["sqlalchemy.ext"] = sa_ext
-    sys.modules["sqlalchemy.ext.asyncio"] = sa_async
-    sys.modules["sqlalchemy.dialects"] = sa_dialects
-    sys.modules["sqlalchemy.dialects.postgresql"] = sa_pg
-    sys.modules["sqlalchemy.orm"] = sa_orm
-
-    if "asyncpg" not in sys.modules:
-        sys.modules["asyncpg"] = ModuleType("asyncpg")
-
-
-_stub_sqlalchemy()
-
-
-# ---------------------------------------------------------------------------
-# Imports after stubbing
-# ---------------------------------------------------------------------------
-
-import app.inbox.message_services as msg_svc  # noqa: E402
-from app.inbox.schemas import WebhookPayload  # noqa: E402
+# Trigger ORM mapper configuration — Lead has string-referenced
+# relationships (Contact / Followup / Activity); they must be importable
+# before any `select(InboxMessage)` or other ORM query is built.
+from app.contacts.models import Contact  # noqa: F401
+from app.followups.models import Followup  # noqa: F401
+from app.activity.models import Activity  # noqa: F401
 
 WS = uuid.uuid4()
 
@@ -228,15 +150,6 @@ async def test_receive_creates_unmatched_when_no_lead():
     added: list[object] = []
     db.add = MagicMock(side_effect=added.append)
 
-    class _InboxMessageSpy:
-        # Class-level columns referenced inside the dedup query
-        channel = MagicMock()
-        external_id = MagicMock()
-
-        def __init__(self, **kw):
-            for k, v in kw.items():
-                setattr(self, k, v)
-
     payload = WebhookPayload(
         channel="max",
         direction="inbound",
@@ -245,12 +158,12 @@ async def test_receive_creates_unmatched_when_no_lead():
         body="первое сообщение",
     )
 
-    with patch.object(msg_svc, "InboxMessage", _InboxMessageSpy):
-        msg, created = await msg_svc.receive(
-            db, workspace_id=WS, payload=payload
-        )
+    msg, created = await msg_svc.receive(
+        db, workspace_id=WS, payload=payload
+    )
 
     assert created is True
+    # Only the InboxMessage row — no Activity because lead_id is None
     assert len(added) == 1
     new_row = added[0]
     assert new_row.channel == "max"

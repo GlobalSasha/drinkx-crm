@@ -107,6 +107,20 @@ class Settings(BaseSettings):
     # for any human + a small testing buffer; bots get throttled at 11.
     form_rate_limit_per_minute: int = 10
 
+    # Sprint 3.4 — Unified Inbox: messenger + phone channels.
+    #
+    # Telegram Business Bot. One bot per CRM installation (single-tenant
+    # for now). Webhook URL is registered once via
+    #   curl https://api.telegram.org/bot${TOKEN}/setWebhook \
+    #     -d url=${API_BASE}/api/webhooks/telegram \
+    #     -d secret_token=${SECRET}
+    # `default_workspace_id` is used when an unmatched inbound message
+    # arrives — we need a workspace to anchor it to. Leave empty in
+    # single-workspace deployments (we'll fall back to the only row).
+    telegram_bot_token: str = ""
+    telegram_webhook_secret: str = ""
+    default_workspace_id: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

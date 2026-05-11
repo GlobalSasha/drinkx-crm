@@ -28,6 +28,7 @@ from app.inbox.schemas import (
     InboxMessageAssignIn,
     InboxMessageOut,
     InboxPageOut,
+    InboxSendIn,
     InboxUnmatchedMessagesOut,
 )
 
@@ -314,3 +315,39 @@ async def lead_inbox_feed(
         workspace_id=user.workspace_id,
         lead_id=lead_id,
     )
+
+
+@lead_inbox_router.post("/send", response_model=InboxMessageOut)
+async def lead_inbox_send(
+    lead_id: UUID,
+    payload: InboxSendIn,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> InboxMessageOut:
+    """Send a message from the lead card.
+
+    Sprint 3.4 G2: telegram. G3: max. G4: phone (click-to-call gets
+    its own endpoint). G5: email (Gmail send).
+    """
+    try:
+        msg = await message_services.send(
+            db,
+            workspace_id=user.workspace_id,
+            lead_id=lead_id,
+            channel=payload.channel,
+            body=payload.body,
+            manager_user_id=user.id,
+        )
+    except message_services.InboxMessageNotFound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="lead_not_found"
+        )
+    except message_services.InboxMessageBadRequest as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        )
+    except message_services.InboxSendError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
+        )
+    return InboxMessageOut.model_validate(msg)

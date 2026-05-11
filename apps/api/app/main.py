@@ -129,6 +129,9 @@ def create_app() -> FastAPI:
     app.include_router(inbox_router)
     app.include_router(lead_inbox_router)
 
+    from app.inbox.webhooks import webhooks_router
+    app.include_router(webhooks_router)
+
     from app.import_export.routers import (
         export_router as import_export_export_router,
         router as import_export_router,
