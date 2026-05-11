@@ -22,6 +22,7 @@
 | ADR-018 | MiMo (Xiaomi) is primary LLM; chain MiMo → Anthropic → Gemini → DeepSeek | ✅ |
 | ADR-019 | Email ownership model — lead-scoped, not manager-scoped | ✅ |
 | ADR-020 | Widen `alembic_version.version_num` to VARCHAR(255) before each migration | ✅ |
+| ADR-022 | Company = Account; Lead = Deal/Opportunity. `leads.company_name` is a snapshot, not source of truth | ✅ |
 
 ---
 
@@ -364,3 +365,57 @@ What this does NOT do:
   manager; only the first-ever user is admin. The admin can
   promote others manually via `/settings → Команда` once that lands
   in Sprint 2.4 G1.
+
+## ADR-022 Company = Account, Lead = Deal/Opportunity
+
+**Decision.** Adopt the standard B2B CRM account-layer model:
+`companies` is the stable identity (name, INN, domain, contacts);
+`leads` is the working state (stage, segment, score, owner). One
+company can have many leads; closing a lead doesn't touch the
+company.
+
+**`leads.company_name` is a snapshot/cache, not source of truth.**
+Renames flow one direction: PATCH /companies/{id} → propagate to
+`leads.company_name` for ACTIVE leads only (closed/won/lost and
+archived leads keep their historical snapshot). Direct edit of
+`leads.company_name` via PATCH /leads/{id} is REJECTED with 409
+`company_name_locked` when `lead.company_id IS NOT NULL`.
+
+**Dedup is by `normalized_name`,** computed in
+`app/companies/utils.py:normalize_company_name`: lowercase + strip
+quotes + strip RU/EN org-forms (ООО / ПАО / LLC / GmbH / …) +
+collapse whitespace. `normalized_name` is never accepted from the
+frontend.
+
+**Creation = duplicate-warning protocol.** POST /api/companies
+returns 409 with `error: "duplicate_warning"` + candidates list
+(including `leads_count`) when an active company has the same
+`normalized_name`. Client may retry with `?force=true` after the
+manager confirms.
+
+**Merge.** POST /api/companies/{source}/merge-into/{target}:
+- 409 `inn_conflict` when source.inn != target.inn (override with
+  `?force=true`).
+- Active non-terminal leads inherit `target.name`; closed/won/lost
+  and archived leads keep their snapshot. (The spec said
+  `is_archived = false`; the actual lead column is `archived_at` —
+  implementation uses `archived_at IS NULL`.)
+- Contacts re-point at `target`.
+- Source archived, audit `company.merge` row written.
+
+**Backlog (Phase 2):**
+- `lead_contacts` junction table (today: one-to-many via
+  `contacts.lead_id` only).
+- `company_aliases` table.
+- Company-level AI Brief.
+- Company-level tasks (separate from lead activities).
+
+**Migration index.** 0023_companies + 0024_contacts_workspace_id_not_null.
+Operator runs `scripts/backfill_companies.py --apply` between the
+two — the second migration's defensive check refuses to run when
+any `contacts.workspace_id IS NULL`.
+
+**pg_trgm.** Sprint 3.3 turns on `CREATE EXTENSION IF NOT EXISTS pg_trgm`
+so `app/search/` can use `similarity()` + the `%` operator on
+companies/leads/contacts name columns. Short queries (len < 3)
+fork into `_search_ilike` to avoid noise.

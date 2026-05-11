@@ -135,6 +135,10 @@ export interface LeadCreate {
   priority?: Priority | null;
   pipeline_id?: string | null;
   stage_id?: string | null;
+  // Sprint 3.3: optional company link. Backend copies
+  // `companies.name` → `leads.company_name` when set, so the snapshot
+  // stays in sync from the start.
+  company_id?: string | null;
 }
 
 export interface LeadUpdate {
@@ -1114,4 +1118,118 @@ export interface AgentChatRequest {
 export interface AgentChatResponse {
   reply: string;
   updated_history: AgentChatMessage[];
+}
+
+// ---------------------------------------------------------------------------
+// Sprint 3.3 — Companies + Global Search
+// ---------------------------------------------------------------------------
+
+export interface CompanyOut {
+  id: string;
+  workspace_id: string;
+  name: string;
+  normalized_name: string;
+  legal_name: string | null;
+  inn: string | null;
+  kpp: string | null;
+  domain: string | null;
+  website: string | null;
+  phone: string | null;
+  email: string | null;
+  city: string | null;
+  address: string | null;
+  primary_segment: string | null;
+  employee_range: string | null;
+  notes: string | null;
+  is_archived: boolean;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompanyLeadSummary {
+  id: string;
+  company_name: string;
+  stage_id: string | null;
+  score: number;
+  fit_score: number | null;
+  assigned_to: string | null;
+  created_at: string;
+}
+
+export interface CompanyContactSummary {
+  id: string;
+  name: string;
+  title: string | null;
+  email: string | null;
+  phone: string | null;
+  lead_id: string;
+}
+
+export interface CompanyActivitySummary {
+  id: string;
+  lead_id: string;
+  type: string;
+  subject: string | null;
+  body: string | null;
+  created_at: string;
+}
+
+export interface CompanyCardOut extends CompanyOut {
+  leads: CompanyLeadSummary[];
+  contacts: CompanyContactSummary[];
+  recent_activities: CompanyActivitySummary[];
+}
+
+export interface CompanyCreate {
+  name: string;
+  legal_name?: string | null;
+  inn?: string | null;
+  kpp?: string | null;
+  website?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  city?: string | null;
+  address?: string | null;
+  primary_segment?: string | null;
+  employee_range?: string | null;
+  notes?: string | null;
+}
+
+export interface CompanyUpdate extends Partial<CompanyCreate> {}
+
+export interface CompanyDuplicateCandidate {
+  id: string;
+  name: string;
+  inn: string | null;
+  leads_count: number;
+}
+
+export interface DuplicateWarningResponse {
+  error: "duplicate_warning";
+  candidates: CompanyDuplicateCandidate[];
+}
+
+export interface CompanyListOut {
+  items: CompanyOut[];
+  total: number;
+}
+
+export type SearchHitType = "company" | "lead" | "contact";
+
+export interface SearchHit {
+  type: SearchHitType;
+  id: string;
+  title: string;
+  subtitle: string | null;
+  lead_id: string | null;
+  url: string;
+  rank: number | null;
+}
+
+export interface SearchResponse {
+  items: SearchHit[];
+  total: number;
+  query: string;
+  mode: "ilike" | "trgm" | "empty";
 }

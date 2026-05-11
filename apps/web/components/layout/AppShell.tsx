@@ -27,6 +27,10 @@ import {
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { User } from "@supabase/supabase-js";
 import { NotificationsDrawer } from "@/components/notifications/NotificationsDrawer";
+import {
+  GlobalSearch,
+  useGlobalSearchHotkey,
+} from "@/components/search/GlobalSearch";
 import { useNotificationsBadge } from "@/lib/hooks/use-notifications";
 import { useInboxCount } from "@/lib/hooks/use-inbox";
 import { useMe } from "@/lib/hooks/use-me";
@@ -63,6 +67,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [notifOpen, setNotifOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  useGlobalSearchHotkey(() => setSearchOpen(true));
   const { data: badge } = useNotificationsBadge();
   const unreadCount = badge?.unread ?? 0;
   const { data: inboxCount } = useInboxCount();
@@ -393,6 +399,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Notifications drawer */}
       <NotificationsDrawer open={notifOpen} onClose={() => setNotifOpen(false)} />
+
+      {/* Global search — Cmd+K */}
+      <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }

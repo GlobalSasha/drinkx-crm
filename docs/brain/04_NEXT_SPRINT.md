@@ -1,106 +1,459 @@
-# Next Sprint: Phase 3 Sprint 3.2 — Lead AI Agent polish
+# Sprint 3.3 — Companies + Global Search
 
-Status: **READY TO PLAN** (Sprint 3.1 closed and deployed 2026-05-10)
-Branch: `sprint/3.2-lead-agent-polish` (cut from main after this brain rotation lands)
-Authoritative report from 3.1: [`docs/SPRINT_3_1_LEAD_AI_AGENT_REPORT.md`](../SPRINT_3_1_LEAD_AI_AGENT_REPORT.md)
+## Context
 
-## Goal
+`company_name` is currently a plain text field on `leads`. This sprint makes `companies` a
+full account-layer above leads — the standard B2B CRM model.
 
-Close the gap between the agent skill spec and what shipped in v1.
-Sprint 3.1 deliberately parked five items as out-of-scope to keep
-the surface small; 3.2 picks them up once managers have actually
-used the banner + chat in production.
+**ADR-022** (record in `docs/brain/03_DECISIONS.md`):
 
-## Read before starting
+```
+Company = Account  (stable identity: name, INN, domain, contacts)
+Lead    = Deal/Opportunity  (working state: stage, segment, score, owner)
 
-- `docs/SPRINT_3_1_LEAD_AI_AGENT_REPORT.md` — closure report from 3.1
-- `apps/api/knowledge/agent/lead-ai-agent-skill.md` — agent behaviour, especially §11 «Special scenarios» (the «менеджер игнорирует советы» branch is documented but unwired)
-- `apps/api/app/lead_agent/runner.py` — current `get_suggestion` + `chat` shapes
-- `apps/api/app/lead_agent/schemas.py` — current `AgentSuggestion` shape (no `id` yet)
-- `apps/web/components/lead-card/AgentBanner.tsx` — current dismiss is session-only
-- `apps/web/components/lead-card/SalesCoachDrawer.tsx` — current chat is sync POST
+company_name on leads  → snapshot/cache, NOT source of truth
+contacts.lead_id       → legacy/context for v1
+lead_contacts junction table → backlog Phase 2
+company_aliases              → backlog Phase 2
+```
 
-## Scope
+---
 
-### Allowed (5 features)
+## G1 — Schema (Alembic migration)
 
-#### G1 — Per-suggestion id + persistent dismiss (~0.5 day)
-- Backend: `runner.get_suggestion` generates `suggestion.id = uuid4()`. Stored verbatim in `agent_state['suggestion']['id']`.
-- New `agent_state['dismissed_suggestion_ids']: list[str]` (cap at 50, FIFO eviction). When the GET endpoint sees `suggestion.id in dismissed_suggestion_ids`, it returns `{"suggestion": null}` (banner stays hidden).
-- Frontend: dismiss button POSTs to a new `/leads/{id}/agent/suggestion/dismiss` endpoint with `{suggestion_id}`. Optimistically hides the banner client-side.
-- No DB migration — `agent_state` is opaque JSONB.
+### New table `companies`
 
-#### G2 — Manager rating + adaptive tone (~1 day)
-- Backend: new endpoint `POST /leads/{id}/agent/suggestion/rate` with `{suggestion_id, vote: "up" | "down"}`. Appends to `agent_state['suggestions_log']` (already documented in the skill).
-- Runner adapts: when the last 3 logged suggestions for the lead have `rating == "down"`, prepend a one-line tone-softening directive to the system prompt («Этот менеджер часто отказывается от рекомендаций — будь короче и менее настойчив»).
-- Frontend: thumbs up / thumbs down buttons in the banner footer next to the confidence badge.
+```sql
+CREATE TABLE companies (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id    UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  name            VARCHAR(255) NOT NULL,
+  normalized_name VARCHAR(255) NOT NULL,
+  legal_name      VARCHAR(255),
+  inn             VARCHAR(12),
+  kpp             VARCHAR(9),
+  domain          VARCHAR(255),
+  website         VARCHAR(255),
+  phone           VARCHAR(50),
+  email           VARCHAR(255),
+  city            VARCHAR(100),
+  address         TEXT,
+  primary_segment VARCHAR(50),
+  employee_range  VARCHAR(30),
+  notes           TEXT,
+  is_archived     BOOLEAN NOT NULL DEFAULT FALSE,
+  archived_at     TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
 
-#### G3 — SPIN-analysis of inbound emails through LLM (~1 day)
-- The current pattern-match heuristic in `runner.get_suggestion` only catches obvious silence + stage gaps. For new inbound emails (the Phase E `countdown=900` path), the agent should LLM-analyse the email body to extract: did the client name an objection? a new stakeholder? urgency?
-- New helper `_analyse_inbound(email_body)` in `runner.py` — focused second Flash call returning `{objection: str, urgency: str, new_stakeholder: str}`. Mirrors `_extract_contacts_from_sources` in enrichment for shape.
-- The result goes into `agent_state['inbound_signals'][activity_id]` so subsequent suggestion runs can read it without re-hitting the LLM.
+### Alter existing tables
 
-#### G4 — Chat streaming via SSE (~1.5 days)
-- Replace the sync POST in `routers.py:lead_chat` with SSE response (`StreamingResponse` + `text/event-stream`).
-- Update `runner.chat` to yield tokens as they arrive from MiMo Pro (the OpenAI-compatible API supports `stream=true`).
-- Frontend: replace the current `useMutation` with an `EventSource` reader; append tokens to the in-progress assistant message.
-- WebSocket alternative deferred — SSE is simpler and runs through nginx without extra config.
+```sql
+-- leads
+ALTER TABLE leads ADD COLUMN company_id UUID REFERENCES companies(id) ON DELETE SET NULL;
 
-#### G5 — Sprint close (~0.5 day)
-- Sprint report `docs/SPRINT_3_2_LEAD_AGENT_POLISH_REPORT.md`
-- Brain rotation (00 + 02 + 04)
-- Smoke checklist additions
+-- contacts: nullable first, NOT NULL set AFTER backfill in separate migration
+ALTER TABLE contacts ADD COLUMN workspace_id UUID REFERENCES workspaces(id);
+ALTER TABLE contacts ADD COLUMN company_id   UUID REFERENCES companies(id) ON DELETE SET NULL;
+```
 
-### Out of scope (parked for Sprint 3.3+)
+### Indexes
 
-- **Telegram-notification of recommendations** — pairs naturally with Sprint 2.8 G3 carryover (tg outbound dispatch). Move when 2.8 is in scope.
-- **Multi-agent coordination** (per-channel agents) — premature; v1 single agent is enough until customer feedback says otherwise.
-- **Voice input for chat** — Phase 4 territory.
-- **Batch suggestions** — show «top 10 leads needing attention» on `/today`. Would need a new `/me/agent-priorities` endpoint and is more reporting than agent work; defer.
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
-### Carryovers from Sprint 2.7 + 2.8 still parked
+-- companies
+CREATE UNIQUE INDEX uq_companies_inn
+  ON companies(workspace_id, inn)
+  WHERE inn IS NOT NULL AND is_archived = false;
 
-These haven't moved — `docs/brain/02_ROADMAP.md` Sprint 2.8 long-tail covers them:
+CREATE INDEX idx_companies_workspace   ON companies(workspace_id);
+CREATE INDEX idx_companies_name_trgm   ON companies USING gin(name gin_trgm_ops);
+CREATE INDEX idx_companies_normalized  ON companies(workspace_id, normalized_name);
+CREATE INDEX idx_companies_domain      ON companies(workspace_id, domain) WHERE domain IS NOT NULL;
 
-- tg channel outbound dispatch (Sprint 2.7 G3 deferral)
-- Enrichment → Celery + WebSocket (Sprint 2.7 G4 deferral)
-- Multi-step automation polish (dnd-kit reorder, pause-mid-chain UI, per-step retry)
-- AmoCRM adapter
-- Telegram Business inbox + `gmail.send` scope
-- Quote / КП builder
-- Knowledge Base CRUD UI
-- Multi-clause condition UI in Automation Builder
-- Sentry DSNs activation (operator step open since 2.7 G1)
-- `pnpm add @sentry/nextjs` on prod (operator step)
+-- leads
+CREATE INDEX idx_leads_company_id      ON leads(company_id);
+CREATE INDEX idx_leads_name_trgm       ON leads USING gin(company_name gin_trgm_ops);
 
-## Risks
+-- contacts
+CREATE INDEX idx_contacts_company_id   ON contacts(company_id);
+CREATE INDEX idx_contacts_workspace    ON contacts(workspace_id);
+CREATE INDEX idx_contacts_name_trgm    ON contacts USING gin(name gin_trgm_ops);
+CREATE INDEX idx_contacts_email        ON contacts(workspace_id, email) WHERE email IS NOT NULL;
+CREATE INDEX idx_contacts_phone        ON contacts(workspace_id, phone) WHERE phone IS NOT NULL;
+```
 
-| Risk | Probability | Mitigation |
-|---|---|---|
-| `agent_state` JSON grows unboundedly | Medium | G1 caps `dismissed_suggestion_ids` at 50 with FIFO eviction; G2 caps `suggestions_log` at 100 |
-| LLM streaming on MiMo Pro is unreliable | Medium | Fall back to non-streaming response if first chunk doesn't arrive within 3s |
-| Adaptive tone (G2) feels jarring to managers | Low | Single-line directive that's easy to roll back; instrument with structlog so we can audit when it triggers |
-| Per-suggestion id breaks existing rows | Low | Migration not needed; old rows without `id` get a new id on next refresh |
+---
 
-## Done definition
+## G2 — Backend helpers (`app/companies/utils.py`)
 
-- All 5 G items shipped + tested + deployed
-- Per-suggestion dismiss survives page reload
-- Adaptive tone fires after 3 down-votes in a row (verifiable from worker logs)
-- New inbound emails populate `agent_state['inbound_signals']` within 15 min of arrival
-- Chat responses stream token-by-token instead of arriving all at once
-- Sprint report written, brain rotation complete
+```python
+import re
 
-## Active migrations on `main` after Sprint 3.1
+_ORG_FORMS = re.compile(
+    r'\b(ооо|пао|ао|зао|ип|нао|мсп|llc|ltd|inc|gmbh|s\.a)\b',
+    flags=re.IGNORECASE | re.UNICODE
+)
 
-`0001..0022` — Sprint 3.1 G2 added `0022_lead_agent_state`. Sprint 3.2 should NOT need a new migration — `agent_state` is opaque JSONB. If a 3.2 feature does need one, the next free index is `0023`.
+def normalize_company_name(name: str) -> str:
+    s = name.lower().strip()
+    s = s.replace('«', '').replace('»', '').replace('"', '').replace("'", '')
+    s = _ORG_FORMS.sub('', s)
+    s = re.sub(r'\s+', ' ', s).strip()
+    return s
 
-## Stop conditions — post-deploy smoke checklist
+def extract_domain(url: str | None) -> str | None:
+    if not url:
+        return None
+    from urllib.parse import urlparse
+    try:
+        parsed = urlparse(url if '://' in url else 'https://' + url)
+        host = parsed.hostname or ''
+        return host.removeprefix('www.').lower() or None
+    except Exception:
+        return None
+```
 
-Update `docs/SMOKE_CHECKLIST_3_2.md` with:
-- [ ] Dismiss a suggestion → reload page → banner stays hidden
-- [ ] Force refresh from worker → new suggestion appears with new `id`, banner re-shows
-- [ ] Rate a suggestion thumbs-down 3× in a row on the same lead → next suggestion's prompt has the softening directive (verifiable by inspecting worker structlog at `lead_agent.suggestion.adaptive_tone`)
-- [ ] Send an inbound email mentioning a new objection → 15 min later, `agent_state['inbound_signals']` populated for that activity
-- [ ] Open Sales Coach → ask a long-form question → tokens stream in incrementally rather than arriving all at once
-- [ ] Existing 3.1 + 2.7 smoke checks still pass
+These helpers are called in `services.py` only. Never accept `normalized_name` or `domain`
+from the frontend.
+
+---
+
+## G3 — Backend domain (`app/companies/`)
+
+Package structure (ADR-009 package-per-domain):
+```
+app/companies/
+  __init__.py
+  models.py
+  schemas.py
+  repositories.py
+  services.py
+  routers.py
+  merge.py
+```
+
+### Creation logic — 409 Conflict protection
+
+**`services.py`:**
+
+```python
+from sqlalchemy import func
+from app.leads.models import Lead
+
+def create_company(db, workspace_id, data, force=False):
+    normalized = normalize_company_name(data.name)
+
+    if not force:
+        candidates = db.query(
+            Company,
+            func.count(Lead.id).label('leads_count')
+        ).outerjoin(
+            Lead, Lead.company_id == Company.id
+        ).filter(
+            Company.workspace_id == workspace_id,
+            Company.normalized_name == normalized,
+            Company.is_archived == False
+        ).group_by(Company.id).all()
+
+        if candidates:
+            raise DuplicateCompanyWarning(candidates=candidates)
+
+    company = Company(
+        workspace_id=workspace_id,
+        name=data.name,
+        normalized_name=normalized,
+        domain=extract_domain(data.website),
+        # ... other fields from data
+    )
+    db.add(company)
+    db.commit()
+    return company
+```
+
+**`routers.py`:**
+
+```python
+@router.post("/", status_code=201)
+def create(payload: CompanyIn, force: bool = False, ...):
+    try:
+        return companies_service.create_company(db, workspace_id, payload, force=force)
+    except DuplicateCompanyWarning as e:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "duplicate_warning",
+                "candidates": [
+                    {
+                        "id": str(c.Company.id),
+                        "name": c.Company.name,
+                        "inn": c.Company.inn,
+                        "leads_count": c.leads_count
+                    }
+                    for c in e.candidates
+                ]
+            }
+        )
+```
+
+### Sync rule for `company_name`
+
+- On `PATCH /companies/{id}` name change → `UPDATE leads SET company_name = :new_name WHERE company_id = :id AND is_archived = false`
+- On lead creation with `company_id` → copy `company.name` into `leads.company_name`
+- Direct edit of `leads.company_name` via API is only allowed when `company_id IS NULL`
+
+---
+
+## G4 — API endpoints
+
+```
+GET    /api/companies                          list (filters: city, primary_segment, is_archived)
+GET    /api/companies/{id}                     card: data + leads + contacts + last 20 activities
+POST   /api/companies                          create (with duplicate_warning / force logic)
+PATCH  /api/companies/{id}                     update
+DELETE /api/companies/{id}                     soft archive
+POST   /api/companies/{source_id}/merge-into/{target_id}
+```
+
+### Merge logic (`merge.py`)
+
+1. If both `source.inn` and `target.inn` are set and differ → `409 { "code": "inn_conflict" }` (requires `?force=true`)
+2. If `target.inn IS NULL` and `source.inn IS NOT NULL` → transfer INN to target
+3. Move leads — protect historical records:
+
+```sql
+UPDATE leads l
+SET company_id   = :target_id,
+    company_name = CASE
+        WHEN l.is_archived = false
+         AND NOT EXISTS (
+             SELECT 1 FROM stages s
+             WHERE s.id = l.stage_id
+               AND (s.is_won = true OR s.is_lost = true)
+         )
+        THEN :target_name
+        ELSE l.company_name
+    END
+WHERE l.company_id = :source_id;
+```
+
+4. `UPDATE contacts SET company_id = :target_id WHERE company_id = :source_id`
+5. `source.is_archived = true`, `source.archived_at = now()`
+6. Write `company.merge` to audit_log with payload `{source_id, target_id}`
+
+---
+
+## G5 — Global Search (`app/search/`)
+
+**Endpoint:** `GET /api/search?q=текст&limit=20`
+
+Fork query by length in `app/search/repositories.py`:
+
+```python
+def search(db, workspace_id, q, limit=20):
+    q = q.strip()
+    if len(q) < 3:
+        return _search_ilike(db, workspace_id, q, limit)
+    else:
+        return _search_trgm(db, workspace_id, q, limit)
+```
+
+- `_search_ilike` — `ILIKE '%q%'` only, exact match on INN/email/phone. No `similarity()`, no `%` trigram operator.
+- `_search_trgm` — full CTE with `similarity()` and ranked UNION:
+
+```sql
+WITH query AS (
+  SELECT :wid::uuid AS workspace_id, trim(:q) AS q, '%' || trim(:q) || '%' AS q_like
+)
+SELECT * FROM (
+
+  SELECT 'company' AS type, c.id, c.name AS title,
+    COALESCE('ИНН: ' || c.inn, c.city, '') AS subtitle,
+    NULL::uuid AS lead_id,
+    '/companies/' || c.id AS url,
+    GREATEST(similarity(c.name, q.q), similarity(COALESCE(c.inn,''), q.q)) AS rank
+  FROM companies c, query q
+  WHERE c.workspace_id = q.workspace_id AND c.is_archived = false
+    AND (c.name % q.q OR c.inn ILIKE q.q_like OR c.website ILIKE q.q_like)
+
+  UNION ALL
+
+  SELECT 'lead' AS type, l.id, l.company_name AS title,
+    s.name AS subtitle, l.id AS lead_id,
+    '/leads/' || l.id AS url,
+    similarity(l.company_name, q.q) AS rank
+  FROM leads l
+  LEFT JOIN stages s ON s.id = l.stage_id, query q
+  WHERE l.workspace_id = q.workspace_id
+    AND (l.company_name % q.q OR l.email ILIKE q.q_like OR l.phone ILIKE q.q_like)
+
+  UNION ALL
+
+  SELECT 'contact' AS type, ct.id, ct.name AS title,
+    COALESCE(ct.email, ct.phone, '') AS subtitle,
+    ct.lead_id,
+    CASE
+      WHEN ct.lead_id IS NOT NULL    THEN '/leads/' || ct.lead_id
+      WHEN ct.company_id IS NOT NULL THEN '/companies/' || ct.company_id
+      ELSE '/contacts/' || ct.id
+    END AS url,
+    GREATEST(
+      similarity(ct.name, q.q),
+      similarity(COALESCE(ct.email,''), q.q),
+      similarity(COALESCE(ct.phone,''), q.q)
+    ) AS rank
+  FROM contacts ct, query q
+  WHERE ct.workspace_id = q.workspace_id
+    AND (ct.name % q.q OR ct.email ILIKE q.q_like OR ct.phone ILIKE q.q_like)
+
+) results
+ORDER BY rank DESC
+LIMIT :limit;
+```
+
+---
+
+## G6 — Backfill script (`scripts/backfill_companies.py`)
+
+Run manually after G1 migration. NOT part of Alembic. Deduplicate by `normalized_name`, not raw `company_name`.
+
+```python
+from app.companies.utils import normalize_company_name, extract_domain
+
+rows = db.execute("""
+    SELECT workspace_id, company_name, segment, website, city
+    FROM leads
+    WHERE company_name IS NOT NULL AND company_name != ''
+""")
+
+seen = {}  # (workspace_id, normalized_name) -> company_id
+
+for row in rows:
+    key = (row.workspace_id, normalize_company_name(row.company_name))
+    if key not in seen:
+        company = insert_company(
+            workspace_id=row.workspace_id,
+            name=row.company_name,          # keep original casing from first occurrence
+            normalized_name=key[1],
+            domain=extract_domain(row.website),
+            primary_segment=row.segment,
+            city=row.city
+        )
+        seen[key] = company.id
+
+# Step 2: link leads
+db.execute("""
+    UPDATE leads l SET company_id = mapping.company_id
+    FROM (VALUES ...) AS mapping(company_name, workspace_id, company_id)
+    WHERE l.company_name = mapping.company_name
+      AND l.workspace_id = mapping.workspace_id
+""")
+
+# Step 3: backfill contacts.workspace_id
+db.execute("""
+    UPDATE contacts ct
+    SET workspace_id = l.workspace_id
+    FROM leads l
+    WHERE ct.lead_id = l.id AND ct.workspace_id IS NULL
+""")
+
+# Step 4: backfill contacts.company_id
+db.execute("""
+    UPDATE contacts ct
+    SET company_id = l.company_id
+    FROM leads l
+    WHERE ct.lead_id = l.id AND l.company_id IS NOT NULL
+""")
+
+# Step 5: print report
+print("Companies created:", ...)
+print("Leads linked:", ...)
+print("Contacts linked:", ...)
+print("Merge candidates (same normalized_name, different id):", ...)
+
+# Acceptance check
+assert db.execute("SELECT count(*) FROM contacts WHERE workspace_id IS NULL").scalar() == 0
+```
+
+After successful backfill, run separate Alembic migration:
+```sql
+ALTER TABLE contacts ALTER COLUMN workspace_id SET NOT NULL;
+```
+
+---
+
+## G7 — Frontend
+
+### Global Search — `Cmd+K`
+
+- `components/search/GlobalSearch.tsx` — overlay, debounce 200ms
+- Hotkey: `Cmd+K` / `Ctrl+K`
+- Group results by type: Компании / Лиды / Контакты
+- Click → navigate to `url` from API response
+
+### Company Card — `/companies/[id]`
+
+- Inline-editable company data
+- Associated leads (table: stage, amount, manager)
+- Associated contacts
+- Last 20 activities aggregated from associated leads (no new table — query via leads)
+- Button: «Создать лид по этой компании»
+- Button: «Объединить дубль» (admin only) — search for merge target
+
+### Lead creation — company autocomplete
+
+- Replace text input with autocomplete field
+- Search via `GET /api/search?q=&limit=10` (type=company only)
+- Last item: «Создать новую: {text}»
+- On select → `company_id` in payload, `company_name` filled automatically from company
+
+### Duplicate warning modal flow
+
+```
+POST /api/companies  (no force flag)
+        ↓
+  201 → done
+        ↓
+  409 duplicate_warning →
+      show modal: «Похожая компания: {name} ({leads_count} сделки).
+                   Использовать или создать новую?»
+            ↓                            ↓
+  «Использовать»               «Создать новую»
+  use candidates[0].id         POST /api/companies?force=true → 201
+  DB untouched
+```
+
+### What NOT to build in this sprint
+
+- Company-level AI Brief
+- Company-level tasks / activities (separate table)
+- `/companies` list page — only card via direct link or Cmd+K result
+
+---
+
+## Acceptance criteria
+
+- [ ] `SELECT * FROM companies LIMIT 10` returns readable records without frontend
+- [ ] `SELECT count(*) FROM contacts WHERE workspace_id IS NULL` = 0 after backfill
+- [ ] `SELECT count(*) FROM leads WHERE company_name IS NOT NULL AND company_id IS NULL` = 0 after backfill
+- [ ] `GET /api/search?q=` returns companies + leads + contacts with correct rank order
+- [ ] Search by INN returns exact match
+- [ ] Search with 2-character query does not crash and does not return noise
+- [ ] `POST /api/companies` with duplicate normalized_name returns 409 (not 500)
+- [ ] `POST /api/companies?force=true` creates company despite duplicate warning
+- [ ] Merge with different INNs returns 409 `inn_conflict` without `?force=true`
+- [ ] After merge: all source leads have `company_id = target_id`
+- [ ] After merge: closed/won/lost leads keep original `company_name` snapshot
+- [ ] `pnpm typecheck` clean, all existing tests green
+
+---
+
+## NOT in scope (backlog)
+
+- `company_aliases` table — Phase 2
+- `lead_contacts` junction table — Phase 2
+- `/companies` list page — next sprint after card is live
+- Company-level AI Brief — Phase 2

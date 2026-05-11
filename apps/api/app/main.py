@@ -156,6 +156,12 @@ def create_app() -> FastAPI:
     from app.lead_agent.routers import router as lead_agent_router
     app.include_router(lead_agent_router)
 
+    from app.companies.routers import router as companies_router
+    app.include_router(companies_router)
+
+    from app.search.routers import router as search_router
+    app.include_router(search_router)
+
     return app
 
 
