@@ -22,6 +22,7 @@ import type { Stage } from "@/lib/types";
 import { ActivityTab } from "./ActivityTab";
 import { DealAndAITab } from "./DealAndAITab";
 import { ContactsTab } from "./ContactsTab";
+import { InboxTab } from "./InboxTab";
 import { FollowupsRail } from "./FollowupsRail";
 import { CustomFieldsPanel } from "./CustomFieldsPanel";
 import { ScoreCard } from "./ScoreCard";
@@ -49,12 +50,13 @@ function formatWonLostDate(iso: string | null | undefined): string {
   }
 }
 
-type TabKey = "activity" | "deal-ai" | "contacts";
+type TabKey = "activity" | "deal-ai" | "contacts" | "inbox";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "activity", label: "Активность" },
   { key: "deal-ai", label: "Сделка и AI" },
   { key: "contacts", label: "Контакты" },
+  { key: "inbox", label: "Переписка" },
 ];
 
 interface Props {
@@ -385,6 +387,7 @@ export function LeadCard({ leadId }: Props) {
             {activeTab === "activity" && <ActivityTab leadId={lead.id} lead={lead} />}
             {activeTab === "deal-ai" && <DealAndAITab lead={lead} />}
             {activeTab === "contacts" && <ContactsTab lead={lead} />}
+            {activeTab === "inbox" && <InboxTab lead={lead} />}
           </div>
 
           {/* Right column */}

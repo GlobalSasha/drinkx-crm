@@ -624,6 +624,74 @@ export interface InboxCountOut {
   pending: number;
 }
 
+// ---- Multi-channel inbox (Sprint 3.4) ----
+
+export type InboxChannel = "email" | "telegram" | "max" | "phone";
+export type InboxDirection = "inbound" | "outbound";
+
+/** A row in GET /leads/{id}/inbox merged feed. */
+export interface InboxFeedEntry {
+  id: string;
+  channel: InboxChannel | string;
+  direction: InboxDirection | string;
+  body?: string | null;
+  subject?: string | null;        // email only
+  sender_id?: string | null;
+  from_email?: string | null;
+  media_url?: string | null;      // phone recording
+  call_duration?: number | null;
+  call_status?: "answered" | "missed" | "busy" | string | null;
+  transcript?: string | null;
+  summary?: string | null;
+  created_at: string;
+}
+
+export interface InboxFeedChannelLink {
+  linked: boolean;
+  address?: string | null;
+  chat_id?: string | null;
+  user_id?: string | null;
+  number?: string | null;
+}
+
+export interface InboxFeedOut {
+  messages: InboxFeedEntry[];
+  channels_linked: Partial<Record<InboxChannel, InboxFeedChannelLink>>;
+}
+
+export interface InboxSendIn {
+  channel: InboxChannel | string;
+  body: string;
+  subject?: string | null;
+}
+
+export interface InboxMessageOut {
+  id: string;
+  workspace_id: string;
+  lead_id: string | null;
+  channel: string;
+  direction: string;
+  external_id: string | null;
+  sender_id: string | null;
+  body: string | null;
+  media_url: string | null;
+  call_duration: number | null;
+  call_status: string | null;
+  transcript: string | null;
+  summary: string | null;
+  stt_provider: string | null;
+  created_at: string;
+}
+
+export interface InboxCallIn {
+  from_extension: string;
+}
+
+export interface InboxCallOut {
+  status: string;
+  detail?: Record<string, unknown> | null;
+}
+
 // ---- Import / export (Sprint 2.1) ----
 
 export type ImportJobStatus =

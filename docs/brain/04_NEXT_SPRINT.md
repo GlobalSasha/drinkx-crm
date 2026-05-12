@@ -695,7 +695,28 @@ Body: { "channel": "email", "body": "текст", "subject": "Тема" }
 
 ---
 
-## G6 — Frontend: InboxTab в LeadCard (~2 дня)
+## G6 — Frontend: InboxTab в LeadCard (~2 дня) ✅
+
+- [x] TypeScript-типы `InboxFeedEntry/Out`, `InboxFeedChannelLink`,
+  `InboxSendIn`, `InboxMessageOut`, `InboxCallIn/Out` в `apps/web/lib/types.ts`
+- [x] `apps/web/lib/hooks/use-lead-inbox.ts` — `useLeadInbox` (polling 10s),
+  `useLeadInboxSend`, `useLeadInboxCall`
+- [x] `apps/web/components/lead-card/InboxTab.tsx` — фильтр-бар
+  [Все/Gmail/Telegram/Телефон], лента с channel badge + direction label,
+  collapsible транскрипт под звонками, composer (Telegram), кнопка
+  «Позвонить» с localStorage-кешем extension
+- [x] 4-й таб «Переписка» в `LeadCard.tsx` (мобильный select + desktop tabs)
+- [x] `npm run typecheck` clean, lint clean для InboxTab
+
+> Email-плечо в `/leads/{id}/inbox` пока пустое — Gmail-переписка
+> отображается в табе «Активность»; полная отправка из карточки —
+> G5 (вне MVP-варианта B).
+>
+> Композер пока только Telegram. MAX (G3) и Email-send (G5) — в спек,
+> не в MVP. UI чипа сделан так, чтобы добавление каналов было одним
+> элементом в массиве.
+
+### G6 — оригинальный спек (для справки)
 
 Новый 6-й таб «Переписка» в карточке лида (существующие 5: Info / Activities / Contacts / AI Brief / Score).
 
