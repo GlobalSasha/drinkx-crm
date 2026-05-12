@@ -23,6 +23,7 @@
 | ADR-019 | Email ownership model — lead-scoped, not manager-scoped | ✅ |
 | ADR-020 | Widen `alembic_version.version_num` to VARCHAR(255) before each migration | ✅ |
 | ADR-022 | Company = Account; Lead = Deal/Opportunity. `leads.company_name` is a snapshot, not source of truth | ✅ |
+| ADR-023 | `leads.segment` = controlled 8-value vocabulary in code, not DB enum | ✅ |
 
 ---
 
@@ -419,3 +420,54 @@ any `contacts.workspace_id IS NULL`.
 so `app/search/` can use `similarity()` + the `%` operator on
 companies/leads/contacts name columns. Short queries (len < 3)
 fork into `_search_ilike` to avoid noise.
+
+## ADR-023 Segment = controlled 8-value vocabulary in code, not DB enum
+
+Date: 2026-05-12
+Status: ✅
+Sprint: 3.5
+
+**Decision.** `leads.segment` and `companies.primary_segment` remain
+`VARCHAR(50)` at the DB level (no `ALTER TYPE`), but the application
+enforces a fixed list of 8 keys defined in
+`apps/api/app/leads/constants.py:SEGMENT_CHOICES`. Pydantic
+`field_validator` on `LeadCreate` / `LeadUpdate` rejects unknown
+values with `422`. The frontend mirrors the list in
+`apps/web/lib/constants/segments.ts`.
+
+**Canonical vocabulary** (slug keys preserved from the prototype
+import to avoid rewriting all 216 production rows; one legacy key
+`coffee_equipment_distributors` is renamed to `distributor` in
+migration 0027; two new keys `office` and `hotel` are added):
+
+| key | label |
+|---|---|
+| `food_retail` | Продуктовый ритейл |
+| `non_food_retail` | Непродуктовый ритейл |
+| `coffee_shops` | Кофейни / Кафе / Рестораны |
+| `qsr_fast_food` | QSR / Fast Food |
+| `gas_stations` | АЗС |
+| `office` | Офисы |
+| `hotel` | Отели |
+| `distributor` | Дистрибьюторы |
+
+**Why not a DB enum.** Adding/removing a segment with a Postgres
+`ENUM` type requires `ALTER TYPE ADD VALUE` (acceptable) or
+`DROP TYPE` + table rewrite (acceptable but heavy). Keeping the
+column as `VARCHAR` lets us evolve the vocabulary with a single
+code change + a one-row backfill SQL, no migration round-trip.
+
+**Why keep prototype keys.** The 216 leads imported in Sprint 1.2
+from the prototype carry slugs like `food_retail`,
+`coffee_equipment_distributors`, etc. The original spec
+(`docs/brain/SPRINT_3_5_SPEC.md`) proposed renaming all keys to a
+cleaner set (`retail_food`, `qsr`, …) but that means rewriting
+every row + every i18n entry + every code reference for purely
+cosmetic gain. Keeping slugs reduces migration 0027 scope to one
+rename + free-text mapping for any manually-typed values.
+
+**City normalization.** `normalize_city()` in the same module
+strips a `"г."` / `"г "` prefix, trims whitespace, and
+capitalizes the first letter. Applied via `field_validator` on
+both create + update paths. Migration 0027 runs the same function
+across existing rows.

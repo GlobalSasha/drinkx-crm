@@ -3,16 +3,8 @@ import { Search, Plus, CalendarRange, Upload } from "lucide-react";
 import { usePipelineStore } from "@/lib/store/pipeline-store";
 import { ExportPopover } from "@/components/export/ExportPopover";
 import { PipelineSwitcher } from "@/components/pipeline/PipelineSwitcher";
+import { SEGMENT_CHOICES } from "@/lib/constants/segments";
 import type { LeadOut } from "@/lib/types";
-
-const SEGMENTS = [
-  "HoReCa",
-  "Офисы",
-  "Ритейл",
-  "Производство",
-  "Образование",
-  "Медицина",
-];
 
 interface Props {
   leads: LeadOut[];
@@ -106,10 +98,10 @@ export function PipelineHeader({ leads, totalCount }: Props) {
 
         <span className="text-muted-3 text-xs">|</span>
 
-        {/* Segment chips */}
+        {/* Segment chips — Sprint 3.5 ADR-023 canonical 8-key list. */}
         <ChipGroup
           label="Все"
-          options={SEGMENTS}
+          options={SEGMENT_CHOICES.map((s) => ({ key: s.key, label: s.label }))}
           selected={filters.segment}
           onSelect={setSegment}
         />
@@ -119,7 +111,7 @@ export function PipelineHeader({ leads, totalCount }: Props) {
             <span className="text-muted-3 text-xs">|</span>
             <ChipGroup
               label="Все города"
-              options={cities}
+              options={cities.map((c) => ({ key: c, label: c }))}
               selected={filters.city}
               onSelect={setCity}
             />
@@ -137,7 +129,7 @@ function ChipGroup({
   onSelect,
 }: {
   label: string;
-  options: string[];
+  options: { key: string; label: string }[];
   selected: string | null;
   onSelect: (v: string | null) => void;
 }) {
@@ -147,8 +139,12 @@ function ChipGroup({
         {label}
       </Chip>
       {options.map((o) => (
-        <Chip key={o} active={selected === o} onClick={() => onSelect(o)}>
-          {o}
+        <Chip
+          key={o.key}
+          active={selected === o.key}
+          onClick={() => onSelect(o.key)}
+        >
+          {o.label}
         </Chip>
       ))}
     </div>

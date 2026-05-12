@@ -1,21 +1,14 @@
 // Shared label maps for Russian-friendly display of backend slugs.
 // Add new entries here; components import from this module, not define locally.
 
-export const SEGMENT_LABELS: Record<string, string> = {
-  food_retail: "Продуктовый ритейл",
-  non_food_retail: "Непродуктовый ритейл",
-  coffee_shops: "Кофейни и кафе",
-  qsr_fast_food: "QSR / Fast Food",
-  gas_stations: "АЗС",
-  coffee_equipment_distributors: "Дистрибьюторы оборудования",
-  horeca: "HoReCa",
-  restaurants: "Рестораны",
-  hotels: "Отели",
-};
-
-export function segmentLabel(s: string): string {
-  return SEGMENT_LABELS[s] ?? s;
-}
+// Sprint 3.5 — segment list moved to `lib/constants/segments.ts` so that
+// drop-down options + display labels stay in one place. Re-exported here
+// for callers that already import from `@/lib/i18n`.
+export {
+  SEGMENT_LABELS,
+  SEGMENT_CHOICES,
+  segmentLabel,
+} from "@/lib/constants/segments";
 
 export const DEAL_TYPE_LABELS: Record<string, string> = {
   enterprise_direct:   "Enterprise",
