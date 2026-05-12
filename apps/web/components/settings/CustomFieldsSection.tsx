@@ -34,6 +34,7 @@ import {
   X,
 } from "lucide-react";
 
+import { T } from "@/lib/design-system";
 import { ApiError } from "@/lib/api-client";
 import {
   useCreateCustomAttribute,
@@ -96,7 +97,7 @@ export function CustomFieldsSection() {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-extrabold tracking-tight">
+          <h2 className={T.heading}>
             Кастомные поля
           </h2>
           <p className="text-xs text-muted-2 mt-0.5">
@@ -124,7 +125,7 @@ export function CustomFieldsSection() {
         <div className="bg-canvas/60 border border-black/5 rounded-2xl px-6 py-12 text-center">
           <Sparkles size={20} className="text-muted-2 mx-auto mb-2" />
           <p className="text-sm text-muted">Пока нет кастомных полей.</p>
-          <p className="text-[11px] text-muted-3 mt-1">
+          <p className="text-xs text-muted-3 mt-1">
             Например: «Регион», «Тип заведения», «Источник лида».
           </p>
         </div>
@@ -253,7 +254,7 @@ function CustomFieldEditor({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-black/5">
-          <h3 className="text-base font-extrabold">
+          <h3 className={T.heading}>
             {isEdit ? "Редактировать поле" : "Новое поле"}
           </h3>
           <button
@@ -267,7 +268,7 @@ function CustomFieldEditor({
 
         <form onSubmit={onSubmit} className="px-5 py-4 space-y-3">
           <div>
-            <label className="text-[11px] font-mono uppercase tracking-wide text-muted-3">
+            <label className={`${T.mono} uppercase text-muted-3`}>
               Метка
             </label>
             <input
@@ -280,7 +281,7 @@ function CustomFieldEditor({
           </div>
 
           <div>
-            <label className="text-[11px] font-mono uppercase tracking-wide text-muted-3">
+            <label className={`${T.mono} uppercase text-muted-3`}>
               Ключ {isEdit && <span className="text-muted-3">(нельзя менять)</span>}
             </label>
             <input
@@ -293,13 +294,13 @@ function CustomFieldEditor({
               placeholder="region"
               className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent disabled:opacity-60"
             />
-            <p className="text-[10px] text-muted-3 mt-1">
+            <p className="text-xs text-muted-3 mt-1">
               Латиница, цифры, подчёркивания.
             </p>
           </div>
 
           <div>
-            <label className="text-[11px] font-mono uppercase tracking-wide text-muted-3">
+            <label className={`${T.mono} uppercase text-muted-3`}>
               Тип {isEdit && <span className="text-muted-3">(нельзя менять)</span>}
             </label>
             <select
@@ -319,13 +320,13 @@ function CustomFieldEditor({
           {kind === "select" && (
             <div>
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-mono uppercase tracking-wide text-muted-3">
+                <label className={`${T.mono} uppercase text-muted-3`}>
                   Варианты
                 </label>
                 <button
                   type="button"
                   onClick={addOption}
-                  className="text-[11px] text-brand-accent font-semibold hover:underline"
+                  className="text-xs text-brand-accent font-semibold hover:underline"
                 >
                   + добавить
                 </button>
@@ -361,7 +362,7 @@ function CustomFieldEditor({
                   </div>
                 ))}
                 {options.length === 0 && (
-                  <p className="text-[10px] text-muted-3">
+                  <p className="text-xs text-muted-3">
                     Нужен хотя бы один вариант.
                   </p>
                 )}
@@ -472,7 +473,7 @@ function DraggableList({
 
   return (
     <div className="bg-white border border-black/5 rounded-2xl shadow-soft overflow-hidden">
-      <div className="bg-canvas grid grid-cols-[28px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,140px)_minmax(0,90px)_64px] gap-3 px-4 py-2 text-[10px] font-mono uppercase tracking-wide text-muted-3 font-semibold">
+      <div className={`bg-canvas grid grid-cols-[28px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,140px)_minmax(0,90px)_64px] gap-3 px-4 py-2 ${T.mono} uppercase text-muted-3 font-semibold`}>
         <span aria-hidden />
         <span>Метка</span>
         <span>Ключ</span>

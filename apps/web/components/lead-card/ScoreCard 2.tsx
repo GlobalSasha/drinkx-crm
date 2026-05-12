@@ -7,7 +7,7 @@ import {
   tierFromScore,
   type LeadOut,
 } from "@/lib/types";
-import { C, T } from "@/lib/design-system";
+import { C } from "@/lib/design-system";
 import { priorityChip } from "@/lib/ui/priority";
 
 interface Props {
@@ -64,7 +64,7 @@ export function ScoreCard({ lead }: Props) {
         className="w-full flex items-center justify-between gap-3"
         aria-expanded={expanded}
       >
-        <span className={`${T.heading} ${C.color.text}`}>
+        <span className={`${C.bodySm} font-semibold ${C.color.text}`}>
           Оценка лида
         </span>
         <span className={`${C.bodyXs} ${C.color.muted} font-mono`}>
@@ -74,7 +74,7 @@ export function ScoreCard({ lead }: Props) {
 
       <div className="mt-3 flex items-center justify-between gap-3">
         <div className="flex items-baseline gap-1">
-          <span className={`${T.metric} ${C.color.text}`}>
+          <span className={`font-mono text-2xl font-bold ${C.color.text} tabular-nums`}>
             {lead.score ?? "—"}
           </span>
           <span className={`${C.bodyXs} ${C.color.muted} font-mono`}>/100</span>

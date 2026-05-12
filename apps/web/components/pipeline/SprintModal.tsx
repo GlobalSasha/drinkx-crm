@@ -123,7 +123,7 @@ export function SprintModal({ isOpen: isOpenProp, onClose: onCloseProp }: Props 
         <div className="bg-white rounded-2xl border border-black/5 shadow-soft w-full max-w-md p-6 relative">
           {/* Header */}
           <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-extrabold tracking-tight">
+            <h2 className="text-lg font-bold tracking-tight">
               Новый спринт
             </h2>
             <button

@@ -8,6 +8,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ChevronLeft, Loader2 } from "lucide-react";
 
+import { T } from "@/lib/design-system";
 import { useMe } from "@/lib/hooks/use-me";
 import { useManagerStats } from "@/lib/hooks/use-team-stats";
 import type { TeamPeriod } from "@/lib/types";
@@ -69,7 +70,7 @@ export default function ManagerStatsPage() {
 
       <header className="flex flex-wrap items-end justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-xl font-extrabold tracking-tight">
+          <h1 className={T.heading}>
             {stats.data?.name ?? "…"}
           </h1>
           {stats.data && (
@@ -126,19 +127,19 @@ export default function ManagerStatsPage() {
             <table className="w-full text-left">
               <thead className="bg-canvas/60">
                 <tr className="border-b border-black/5">
-                  <th className="px-4 py-2.5 font-mono uppercase tracking-[0.2em] text-[10px] text-muted-3 font-semibold">
+                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold`}>
                     Дата
                   </th>
-                  <th className="px-4 py-2.5 font-mono uppercase tracking-[0.2em] text-[10px] text-muted-3 font-semibold text-right w-[80px]">
+                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold text-right w-[80px]`}>
                     КП
                   </th>
-                  <th className="px-4 py-2.5 font-mono uppercase tracking-[0.2em] text-[10px] text-muted-3 font-semibold text-right w-[80px]">
+                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold text-right w-[80px]`}>
                     Из пула
                   </th>
-                  <th className="px-4 py-2.5 font-mono uppercase tracking-[0.2em] text-[10px] text-muted-3 font-semibold text-right w-[100px]">
+                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold text-right w-[100px]`}>
                     Продвинуто
                   </th>
-                  <th className="px-4 py-2.5 font-mono uppercase tracking-[0.2em] text-[10px] text-muted-3 font-semibold text-right w-[80px]">
+                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold text-right w-[80px]`}>
                     Задачи
                   </th>
                 </tr>
@@ -184,8 +185,8 @@ export default function ManagerStatsPage() {
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="text-center">
-      <p className="text-2xl font-extrabold tabular-nums text-ink">{value}</p>
-      <p className="text-[10px] font-mono uppercase tracking-[0.15em] text-muted-3 mt-1">
+      <p className={`${T.metric} text-ink`}>{value}</p>
+      <p className={`${T.mono} uppercase text-muted-3 mt-1`}>
         {label}
       </p>
     </div>

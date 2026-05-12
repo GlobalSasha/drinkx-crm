@@ -10,6 +10,7 @@
 import { useState } from "react";
 import { Loader2, Plus, Star, Trash2 } from "lucide-react";
 
+import { T } from "@/lib/design-system";
 import { ApiError } from "@/lib/api-client";
 import { useMe } from "@/lib/hooks/use-me";
 import {
@@ -131,7 +132,7 @@ export function PipelinesSection() {
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-extrabold tracking-tight">Воронки</h2>
+          <h2 className={T.heading}>Воронки</h2>
           <p className="text-xs text-muted-2 mt-0.5">
             Создавайте отдельные воронки для разных типов сделок: продажи,
             партнёры, апсейл и т.д.
@@ -153,16 +154,16 @@ export function PipelinesSection() {
         <table className="w-full text-left">
           <thead className="bg-canvas/60">
             <tr className="border-b border-black/5">
-              <th className="px-4 py-2.5 font-mono uppercase tracking-[0.2em] text-[10px] text-muted-3 font-semibold">
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold`}>
                 Название
               </th>
-              <th className="px-4 py-2.5 font-mono uppercase tracking-[0.2em] text-[10px] text-muted-3 font-semibold w-[110px]">
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold w-[110px]`}>
                 Стадий
               </th>
-              <th className="px-4 py-2.5 font-mono uppercase tracking-[0.2em] text-[10px] text-muted-3 font-semibold w-[180px]">
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold w-[180px]`}>
                 По умолчанию
               </th>
-              <th className="px-4 py-2.5 font-mono uppercase tracking-[0.2em] text-[10px] text-muted-3 font-semibold w-[80px] text-right">
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold w-[80px] text-right`}>
                 <span className="sr-only">Действия</span>
               </th>
             </tr>
@@ -191,13 +192,13 @@ export function PipelinesSection() {
                     </button>
                   </td>
                   <td className="px-4 py-3 align-middle">
-                    <span className="font-mono text-[12px] text-muted-2 tabular-nums">
+                    <span className={`${T.mono} text-muted-2 tabular-nums`}>
                       {p.stages.length}
                     </span>
                   </td>
                   <td className="px-4 py-3 align-middle">
                     {isDefault ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wide bg-brand-soft text-brand-accent rounded-pill px-2 py-0.5">
+                      <span className={`inline-flex items-center gap-1 ${T.mono} uppercase bg-brand-soft text-brand-accent rounded-pill px-2 py-0.5`}>
                         <Star size={10} />
                         по умолчанию
                       </span>
@@ -205,12 +206,12 @@ export function PipelinesSection() {
                       <button
                         onClick={() => onSetDefault(p)}
                         disabled={setDefault.isPending}
-                        className="text-[11px] font-semibold text-muted hover:text-ink disabled:opacity-40 transition-colors"
+                        className="text-xs font-semibold text-muted hover:text-ink disabled:opacity-40 transition-colors"
                       >
                         Сделать основной
                       </button>
                     ) : (
-                      <span className="text-[11px] text-muted-3">—</span>
+                      <span className="text-xs text-muted-3">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3 align-middle text-right">
@@ -332,7 +333,7 @@ function DeleteModal({
           aria-label={title}
           className="bg-white rounded-2xl border border-black/5 shadow-soft w-full max-w-md p-6"
         >
-          <h3 className="text-base font-extrabold tracking-tight text-ink mb-2">
+          <h3 className={`${T.heading} text-ink mb-2`}>
             {title}
           </h3>
           {body}

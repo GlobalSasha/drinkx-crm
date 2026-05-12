@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { useDeleteLead } from "@/lib/hooks/use-lead";
 import { ApiError } from "@/lib/api-client";
-import { C, T } from "@/lib/design-system";
+import { C } from "@/lib/design-system";
 
 interface Props {
   leadId: string;
@@ -46,7 +46,7 @@ export function DeleteConfirmModal({ leadId, companyName, onClose }: Props) {
             <AlertTriangle size={20} className="text-rose" />
           </div>
           <div>
-            <h2 className={`${T.heading} ${C.color.text}`}>
+            <h2 className={`${C.cardTitle} font-bold ${C.color.text}`}>
               Удалить лид?
             </h2>
             <p className={`${C.bodySm} ${C.color.muted} mt-1`}>
@@ -59,7 +59,7 @@ export function DeleteConfirmModal({ leadId, companyName, onClose }: Props) {
         <div className="mb-4">
           <label
             htmlFor="confirm-delete-name"
-            className={`${T.caption} block mb-1.5`}
+            className={`${C.bodyXs} font-mono uppercase tracking-wider ${C.color.muted} block mb-1.5`}
           >
             Введите название компании для подтверждения
           </label>

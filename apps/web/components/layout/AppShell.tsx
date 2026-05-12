@@ -277,7 +277,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     >
       {/* Mobile top bar — only visible on < md */}
       <header className="md:hidden sticky top-0 z-20 bg-white border-b border-brand-border flex items-center justify-between px-4 py-3">
-        <Link href="/today" className={`${C.body} font-black tracking-tight ${C.color.text}`}>
+        <Link href="/today" className={`${C.body} font-bold tracking-tight ${C.color.text}`}>
           drinkx<span className={C.color.accent}>.</span>crm
         </Link>
         <button
@@ -311,7 +311,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="px-5 py-5 border-b border-brand-border flex items-center justify-between">
           <Link
             href="/today"
-            className={`${C.body} font-black tracking-tight ${C.color.text} transition-opacity`}
+            className={`${C.body} font-bold tracking-tight ${C.color.text} transition-opacity`}
           >
             drinkx<span className={C.color.accent}>.</span>crm
           </Link>

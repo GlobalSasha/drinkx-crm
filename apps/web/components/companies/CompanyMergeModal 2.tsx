@@ -4,7 +4,7 @@ import { GitMerge, AlertTriangle, Loader2 } from "lucide-react";
 import { useCompanyAutocomplete } from "@/lib/hooks/use-search";
 import { useMergeCompanies } from "@/lib/hooks/use-companies";
 import { ApiError } from "@/lib/api-client";
-import { C, T } from "@/lib/design-system";
+import { C } from "@/lib/design-system";
 
 interface Props {
   sourceId: string;
@@ -71,7 +71,7 @@ export function CompanyMergeModal({ sourceId, sourceName, onClose, onSuccess }: 
         </div>
 
         <div className="mb-4">
-          <label className={`${T.caption} block mb-1.5`}>
+          <label className={`font-mono ${C.bodyXs} uppercase tracking-wider ${C.color.muted} block mb-1.5`}>
             Целевая компания
           </label>
           <input
@@ -107,7 +107,7 @@ export function CompanyMergeModal({ sourceId, sourceName, onClose, onSuccess }: 
             </ul>
           )}
           {query && !isFetching && items.filter((it) => it.id !== sourceId).length === 0 && (
-            <p className={`${T.hint} mt-2`}>Совпадений нет.</p>
+            <p className={`${C.bodyXs} ${C.color.muted} mt-2 italic`}>Совпадений нет.</p>
           )}
         </div>
 

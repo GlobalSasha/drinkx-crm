@@ -119,7 +119,7 @@ export function AISection() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-extrabold tracking-tight">AI</h2>
+        <h2 className="text-lg font-bold tracking-tight">AI</h2>
         <p className="text-xs text-muted-2 mt-0.5">
           Лимит расходов на исследования лидов и выбор основного провайдера.
           Настройки записываются, но fallback-цепочка в v1 ещё читает env —
@@ -135,7 +135,7 @@ export function AISection() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-extrabold text-ink">
+              <h3 className="text-sm font-bold text-ink">
                 Дневной бюджет
               </h3>
               <span

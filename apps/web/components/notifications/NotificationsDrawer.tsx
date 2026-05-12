@@ -142,7 +142,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
         {/* Header */}
         <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-extrabold tracking-tight">Уведомления</h2>
+            <h2 className="text-base font-bold tracking-tight">Уведомления</h2>
             {unread > 0 && (
               <span className="bg-brand-accent text-white text-[10px] font-mono font-bold px-2 py-0.5 rounded-pill tabular-nums">
                 {unread}

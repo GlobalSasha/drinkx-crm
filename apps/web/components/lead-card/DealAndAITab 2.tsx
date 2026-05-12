@@ -17,7 +17,7 @@ import { useUsers } from "@/lib/hooks/use-users";
 import { ApiError } from "@/lib/api-client";
 import type { LeadOut } from "@/lib/types";
 import { dealTypeLabel } from "@/lib/i18n";
-import { C, T } from "@/lib/design-system";
+import { C } from "@/lib/design-system";
 
 interface Props {
   lead: LeadOut;
@@ -284,7 +284,7 @@ function AIBriefCard({
             </div>
           )}
 
-          <p className={`${T.hint} pt-1`}>
+          <p className={`${C.bodyXs} ${C.color.muted} italic pt-1`}>
             Данные из базы. AI дополняет только пустые поля — существующие
             не перезаписываются.
           </p>
@@ -303,7 +303,7 @@ function AIBriefCard({
 function Block({ title, items }: { title: string; items: string[] }) {
   return (
     <div>
-      <p className={`${T.caption} mb-2`}>
+      <p className={`font-mono ${C.bodyXs} uppercase tracking-wider ${C.color.muted} mb-2`}>
         {title}
       </p>
       <ul className={`${C.bodySm} ${C.color.text} space-y-1.5 leading-relaxed`}>

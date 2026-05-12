@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useContacts } from "@/lib/hooks/use-contacts";
 import type { ContactOut, LeadOut } from "@/lib/types";
-import { C } from "@/lib/design-system";
+import { C, T } from "@/lib/design-system";
 import { ContactEditModal } from "./ContactEditModal";
 
 interface Props {
@@ -73,7 +73,7 @@ export function ContactsTab({ lead }: Props) {
       )}
 
       {contacts.length === 0 ? (
-        <p className={`${C.bodySm} ${C.color.muted} italic py-6 text-center`}>
+        <p className={`${T.hint} py-6 text-center`}>
           Контактов пока нет. Добавьте первый — он попадёт в список ЛПР.
         </p>
       ) : (
@@ -199,7 +199,7 @@ function ContactRow({
           </div>
 
           {isUnverified && contact.notes && (
-            <p className={`${C.bodyXs} ${C.color.muted} italic mt-2`}>
+            <p className={`${T.hint} mt-2`}>
               Источник: {contact.notes.length > 80 ? `${contact.notes.slice(0, 80)}…` : contact.notes}
             </p>
           )}

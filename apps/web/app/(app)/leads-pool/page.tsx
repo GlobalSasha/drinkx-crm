@@ -5,6 +5,7 @@ import { usePoolLeads, useClaimLead } from "@/lib/hooks/use-leads";
 import { Toast } from "@/components/ui/Toast";
 import { ExportPopover } from "@/components/export/ExportPopover";
 import { AIBulkUpdateModal } from "@/components/export/AIBulkUpdateModal";
+import { T } from "@/lib/design-system";
 import { tierFromScore } from "@/lib/types";
 import type { LeadOut } from "@/lib/types";
 
@@ -37,7 +38,7 @@ interface ToastState {
 function FitSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-2 whitespace-nowrap">
+      <span className={`${T.mono} uppercase text-muted-2 whitespace-nowrap`}>
         Fit ≥ {value}
       </span>
       <input
@@ -82,7 +83,7 @@ function PoolRow({
       <td className="px-4 py-3 text-sm text-muted-2">{lead.city ?? "—"}</td>
       <td className="px-4 py-3 text-sm text-muted-2">{lead.segment ? segmentLabel(lead.segment) : "—"}</td>
       <td className="px-4 py-3">
-        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${TIER_STYLE[tier]}`}>
+        <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${TIER_STYLE[tier]}`}>
           {tier}
         </span>
       </td>
@@ -90,7 +91,7 @@ function PoolRow({
         {lead.fit_score != null ? lead.fit_score : "—"}
       </td>
       <td className="px-4 py-3">
-        <span className="text-[10px] font-mono bg-black/5 text-muted px-1.5 py-0.5 rounded-md">
+        <span className={`${T.mono} bg-black/5 text-muted px-1.5 py-0.5 rounded-md`}>
           {lead.assignment_status}
         </span>
       </td>
@@ -221,7 +222,7 @@ export default function LeadsPoolPage() {
       <div className="sticky top-0 z-10 bg-white border-b border-black/5 px-6 py-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-baseline gap-2">
-            <h1 className="text-xl font-extrabold tracking-tight">База лидов</h1>
+            <h1 className={T.heading}>База лидов</h1>
             {/* Compact total — shown small next to title, the loud counts
                 live inside each chip below. */}
             <span className="text-muted-3 text-xs font-mono tabular-nums">
@@ -350,7 +351,7 @@ export default function LeadsPoolPage() {
         {!isLoading && !isError && filtered.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="bg-white border border-black/5 rounded-2xl p-10 shadow-soft max-w-sm w-full">
-              <p className="text-lg font-extrabold tracking-tight mb-2">В пуле пока пусто</p>
+              <p className={`${T.heading} mb-2`}>В пуле пока пусто</p>
               <p className="text-sm text-muted">
                 Импортируйте лиды или добавьте вручную.
               </p>
@@ -366,7 +367,7 @@ export default function LeadsPoolPage() {
                   {["Компания", "Город", "Сегмент", "Tier", "Fit Score", "Статус", ""].map((h) => (
                     <th
                       key={h}
-                      className="px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.1em] text-muted-2 whitespace-nowrap"
+                      className={`px-4 py-2.5 ${T.mono} uppercase text-muted-2 whitespace-nowrap`}
                     >
                       {h}
                     </th>
@@ -421,7 +422,7 @@ function ChipButton({
       <span>{children}</span>
       {count != null && (
         <span
-          className={`tabular-nums text-[10px] leading-none font-mono px-1.5 py-0.5 rounded-pill ${
+          className={`tabular-nums ${T.mono} leading-none px-1.5 py-0.5 rounded-pill ${
             active ? "bg-white/15 text-white" : "bg-black/5 text-muted-2"
           }`}
         >

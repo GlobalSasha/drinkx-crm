@@ -402,7 +402,7 @@ export default function InboxPage() {
   return (
     <div className="px-6 py-6 md:px-10 md:py-8 max-w-[920px] mx-auto">
       <header className="mb-6">
-        <h1 className="text-xl font-extrabold tracking-tight text-ink">
+        <h1 className="text-xl font-bold tracking-tight text-ink">
           Входящие
         </h1>
         <p className="text-sm text-muted mt-1">Неразобранные письма</p>

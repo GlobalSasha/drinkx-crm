@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 
+import { T } from "@/lib/design-system";
 import { ApiError } from "@/lib/api-client";
 import { useMe } from "@/lib/hooks/use-me";
 import {
@@ -83,7 +84,7 @@ export function TemplatesSection() {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-extrabold tracking-tight">Шаблоны</h2>
+          <h2 className={T.heading}>Шаблоны</h2>
           <p className="text-xs text-muted-2 mt-0.5">
             Готовые тексты сообщений для email / Telegram / SMS.
             Их будут использовать автоматизации Sprint 2.5 — в v1 это
@@ -110,7 +111,7 @@ export function TemplatesSection() {
         <div className="bg-canvas/60 border border-black/5 rounded-2xl px-6 py-12 text-center">
           <ScrollText size={20} className="text-muted-2 mx-auto mb-2" />
           <p className="text-sm text-muted">Шаблонов пока нет.</p>
-          <p className="text-[11px] text-muted-3 mt-1">
+          <p className="text-xs text-muted-3 mt-1">
             Например: «Первое касание», «Напоминание о встрече».
           </p>
         </div>
@@ -118,7 +119,7 @@ export function TemplatesSection() {
         <div className="bg-white border border-black/5 rounded-2xl shadow-soft overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-canvas">
-              <tr className="text-left text-[10px] font-mono uppercase tracking-wide text-muted-3">
+              <tr className={`text-left ${T.mono} uppercase text-muted-3`}>
                 <th className="px-4 py-2 font-semibold">Название</th>
                 <th className="px-4 py-2 font-semibold">Канал</th>
                 <th className="px-4 py-2 font-semibold">Категория</th>
@@ -270,7 +271,7 @@ function TemplateEditor({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-black/5">
-          <h3 className="text-base font-extrabold">
+          <h3 className={T.heading}>
             {isEdit ? "Редактировать шаблон" : "Новый шаблон"}
           </h3>
           <button
@@ -284,7 +285,7 @@ function TemplateEditor({
 
         <form onSubmit={onSubmit} className="px-5 py-4 space-y-3">
           <div>
-            <label className="text-[11px] font-mono uppercase tracking-wide text-muted-3">
+            <label className={`${T.mono} uppercase text-muted-3`}>
               Название
             </label>
             <input
@@ -297,7 +298,7 @@ function TemplateEditor({
           </div>
 
           <div>
-            <label className="text-[11px] font-mono uppercase tracking-wide text-muted-3">
+            <label className={`${T.mono} uppercase text-muted-3`}>
               Канал
             </label>
             <select
@@ -314,7 +315,7 @@ function TemplateEditor({
           </div>
 
           <div>
-            <label className="text-[11px] font-mono uppercase tracking-wide text-muted-3">
+            <label className={`${T.mono} uppercase text-muted-3`}>
               Категория <span className="text-muted-3">(необязательно)</span>
             </label>
             <input
@@ -327,7 +328,7 @@ function TemplateEditor({
           </div>
 
           <div>
-            <label className="text-[11px] font-mono uppercase tracking-wide text-muted-3">
+            <label className={`${T.mono} uppercase text-muted-3`}>
               Текст
             </label>
             <textarea
@@ -337,7 +338,7 @@ function TemplateEditor({
               placeholder="Здравствуйте, {{lead.contact_name}}…"
               className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent font-mono"
             />
-            <p className="text-[10px] text-muted-3 mt-1">
+            <p className="text-xs text-muted-3 mt-1">
               Подстановки появятся в Sprint 2.5 — пока обычный текст.
             </p>
           </div>

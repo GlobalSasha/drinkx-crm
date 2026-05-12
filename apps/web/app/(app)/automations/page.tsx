@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 
 import { ApiError } from "@/lib/api-client";
+import { T } from "@/lib/design-system";
 import {
   useAutomationRuns,
   useAutomationStepRuns,
@@ -128,7 +129,7 @@ export default function AutomationsPage() {
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-xl font-extrabold tracking-tight flex items-center gap-2">
+          <h1 className={`${T.heading} flex items-center gap-2`}>
             <Workflow size={20} className="text-muted" />
             Автоматизации
           </h1>
@@ -158,7 +159,7 @@ export default function AutomationsPage() {
         <div className="bg-canvas/60 border border-black/5 rounded-2xl px-6 py-12 text-center">
           <Workflow size={20} className="text-muted-2 mx-auto mb-2" />
           <p className="text-sm text-muted">Автоматизаций пока нет.</p>
-          <p className="text-[11px] text-muted-3 mt-1">
+          <p className="text-xs text-muted-3 mt-1">
             Например: «когда лид перешёл в Pilot → создать задачу
             ‘связаться с ЛПР’».
           </p>
@@ -167,7 +168,7 @@ export default function AutomationsPage() {
         <div className="bg-white border border-black/5 rounded-2xl shadow-soft overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-canvas">
-              <tr className="text-left text-[10px] font-mono uppercase tracking-wide text-muted-3">
+              <tr className={`text-left ${T.mono} uppercase text-muted-3`}>
                 <th className="px-4 py-2 font-semibold">Название</th>
                 <th className="px-4 py-2 font-semibold">Триггер</th>
                 <th className="px-4 py-2 font-semibold">Действие</th>
@@ -514,7 +515,7 @@ function AutomationEditor({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-black/5">
-          <h3 className="text-base font-extrabold">
+          <h3 className={T.heading}>
             {isEdit ? "Редактировать автоматизацию" : "Новая автоматизация"}
           </h3>
           <button
@@ -528,7 +529,7 @@ function AutomationEditor({
 
         <form onSubmit={onSubmit} className="px-5 py-4 space-y-3">
           <div>
-            <label className="text-[11px] font-mono uppercase tracking-wide text-muted-3">
+            <label className={`${T.mono} uppercase text-muted-3`}>
               Название
             </label>
             <input
@@ -541,7 +542,7 @@ function AutomationEditor({
           </div>
 
           <div>
-            <label className="text-[11px] font-mono uppercase tracking-wide text-muted-3">
+            <label className={`${T.mono} uppercase text-muted-3`}>
               Триггер
             </label>
             <select
@@ -560,7 +561,7 @@ function AutomationEditor({
           </div>
 
           <fieldset className="border border-black/5 rounded-xl p-3 space-y-2">
-            <legend className="px-1 text-[10px] font-mono uppercase tracking-wide text-muted-3">
+            <legend className={`px-1 ${T.mono} uppercase text-muted-3`}>
               Условие (необязательно)
             </legend>
             <div className="grid grid-cols-3 gap-2">
@@ -607,7 +608,7 @@ function AutomationEditor({
           </fieldset>
 
           <div>
-            <label className="text-[11px] font-mono uppercase tracking-wide text-muted-3">
+            <label className={`${T.mono} uppercase text-muted-3`}>
               Действие
             </label>
             <select
@@ -627,7 +628,7 @@ function AutomationEditor({
 
           {actionType === "send_template" && (
             <div>
-              <label className="text-[11px] font-mono uppercase tracking-wide text-muted-3">
+              <label className={`${T.mono} uppercase text-muted-3`}>
                 Шаблон
               </label>
               <select
@@ -648,7 +649,7 @@ function AutomationEditor({
           {actionType === "create_task" && (
             <>
               <div>
-                <label className="text-[11px] font-mono uppercase tracking-wide text-muted-3">
+                <label className={`${T.mono} uppercase text-muted-3`}>
                   Заголовок задачи
                 </label>
                 <input
@@ -658,12 +659,12 @@ function AutomationEditor({
                   placeholder="Связаться с ЛПР"
                   className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent"
                 />
-                <p className="text-[10px] text-muted-3 mt-1">
+                <p className="text-xs text-muted-3 mt-1">
                   Поддерживает подстановки <code>{"{{lead.field}}"}</code>.
                 </p>
               </div>
               <div>
-                <label className="text-[11px] font-mono uppercase tracking-wide text-muted-3">
+                <label className={`${T.mono} uppercase text-muted-3`}>
                   Срок (часов)
                 </label>
                 <input
@@ -679,7 +680,7 @@ function AutomationEditor({
 
           {actionType === "move_stage" && (
             <div>
-              <label className="text-[11px] font-mono uppercase tracking-wide text-muted-3">
+              <label className={`${T.mono} uppercase text-muted-3`}>
                 Целевая стадия (UUID)
               </label>
               <input
@@ -689,7 +690,7 @@ function AutomationEditor({
                 placeholder="00000000-0000-0000-0000-000000000000"
                 className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent"
               />
-              <p className="text-[10px] text-muted-3 mt-1">
+              <p className="text-xs text-muted-3 mt-1">
                 ID можно скопировать из URL карточки стадии в /settings →
                 Воронки.
               </p>
@@ -701,11 +702,11 @@ function AutomationEditor({
               after step 0 fires. Delay steps gate the next step's
               schedule (no side-effect of their own). */}
           <fieldset className="border border-black/5 rounded-xl p-3 space-y-2">
-            <legend className="px-1 text-[10px] font-mono uppercase tracking-wide text-muted-3">
+            <legend className={`px-1 ${T.mono} uppercase text-muted-3`}>
               Цепочка после первого шага (необязательно)
             </legend>
             {extraSteps.length === 0 ? (
-              <p className="text-[11px] text-muted-3">
+              <p className="text-xs text-muted-3">
                 Без шагов — автоматизация однократная (запускается один раз
                 при срабатывании триггера).
               </p>
@@ -716,7 +717,7 @@ function AutomationEditor({
                     key={idx}
                     className="bg-canvas/60 border border-black/10 rounded-xl p-2 space-y-2"
                   >
-                    <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-3">
+                    <div className={`flex items-center gap-1.5 ${T.mono} text-muted-3`}>
                       <span>Шаг {idx + 2}</span>
                       <select
                         value={step.type}
@@ -774,7 +775,7 @@ function AutomationEditor({
 
                     {step.type === "delay_hours" && (
                       <div>
-                        <label className="text-[10px] text-muted-3">
+                        <label className="text-xs text-muted-3">
                           Часов:
                         </label>
                         <input
@@ -791,7 +792,7 @@ function AutomationEditor({
                           }
                           className="ml-2 w-24 bg-white border border-black/10 rounded-lg px-2 py-1 text-xs font-mono focus:outline-none focus:border-brand-accent"
                         />
-                        <span className="ml-2 text-[10px] text-muted-3">
+                        <span className="ml-2 text-xs text-muted-3">
                           (1—720)
                         </span>
                       </div>
@@ -868,28 +869,28 @@ function AutomationEditor({
               <button
                 type="button"
                 onClick={() => addExtraStep("delay_hours")}
-                className="text-[11px] inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-black/10 hover:border-brand-accent"
+                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-black/10 hover:border-brand-accent"
               >
                 <Plus size={10} /> Пауза
               </button>
               <button
                 type="button"
                 onClick={() => addExtraStep("send_template")}
-                className="text-[11px] inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-black/10 hover:border-brand-accent"
+                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-black/10 hover:border-brand-accent"
               >
                 <Plus size={10} /> Шаблон
               </button>
               <button
                 type="button"
                 onClick={() => addExtraStep("create_task")}
-                className="text-[11px] inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-black/10 hover:border-brand-accent"
+                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-black/10 hover:border-brand-accent"
               >
                 <Plus size={10} /> Задача
               </button>
               <button
                 type="button"
                 onClick={() => addExtraStep("move_stage")}
-                className="text-[11px] inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-black/10 hover:border-brand-accent"
+                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-black/10 hover:border-brand-accent"
               >
                 <Plus size={10} /> Стадия
               </button>
@@ -953,10 +954,10 @@ function RunsDrawer({
       <aside className="bg-white h-full w-full max-w-md shadow-xl flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b border-black/5">
           <div className="min-w-0">
-            <h3 className="text-base font-extrabold truncate">
+            <h3 className={`${T.heading} truncate`}>
               История запусков
             </h3>
-            <p className="text-[11px] text-muted-2 truncate">
+            <p className="text-xs text-muted-2 truncate">
               {automation.name}
             </p>
           </div>
@@ -1021,11 +1022,11 @@ function RunRow({
           <div className="text-xs font-semibold text-ink">
             {RUN_STATUS_LABELS[run.status]}
           </div>
-          <div className="text-[10px] font-mono text-muted-3">
+          <div className={`${T.mono} text-muted-3`}>
             {new Date(run.executed_at).toLocaleString("ru-RU")}
           </div>
           {run.error && (
-            <p className="text-[11px] text-muted-2 mt-1 break-words">
+            <p className="text-xs text-muted-2 mt-1 break-words">
               {run.error}
             </p>
           )}
@@ -1044,11 +1045,11 @@ function RunRow({
       {expanded && (
         <div className="border-t border-black/5 px-3 py-2 bg-white">
           {stepsQuery.isLoading ? (
-            <div className="flex items-center gap-1.5 text-[11px] text-muted-2 py-1">
+            <div className="flex items-center gap-1.5 text-xs text-muted-2 py-1">
               <Loader2 size={10} className="animate-spin" /> Загрузка шагов...
             </div>
           ) : !stepsQuery.data || stepsQuery.data.length === 0 ? (
-            <p className="text-[11px] text-muted-3">Нет шагов для этого запуска.</p>
+            <p className="text-xs text-muted-3">Нет шагов для этого запуска.</p>
           ) : (
             <ul className="space-y-1">
               {stepsQuery.data.map((sr) => {
@@ -1057,7 +1058,7 @@ function RunRow({
                 return (
                   <li
                     key={sr.id}
-                    className="flex items-start gap-1.5 text-[11px]"
+                    className="flex items-start gap-1.5 text-xs"
                   >
                     <div className="pt-0.5 w-3 text-muted-3 font-mono">
                       {sr.step_index + 1}
@@ -1072,13 +1073,13 @@ function RunRow({
                           · {STEP_RUN_STATUS_LABELS[sr.status]}
                         </span>
                       </div>
-                      <div className="text-[10px] font-mono text-muted-3">
+                      <div className={`${T.mono} text-muted-3`}>
                         {sr.executed_at
                           ? `выполнен ${new Date(sr.executed_at).toLocaleString("ru-RU")}`
                           : `запланирован на ${new Date(sr.scheduled_at).toLocaleString("ru-RU")}`}
                       </div>
                       {sr.error && (
-                        <p className="text-[10px] text-muted-2 mt-0.5 break-words">
+                        <p className="text-xs text-muted-2 mt-0.5 break-words">
                           {sr.error}
                         </p>
                       )}

@@ -95,7 +95,7 @@ export function ImportWizard({ open, onClose }: Props) {
               <div className="text-[10px] font-mono uppercase tracking-wider text-muted-3">
                 Импорт лидов
               </div>
-              <h2 className="text-lg font-extrabold tracking-tight text-ink mt-0.5">
+              <h2 className="text-lg font-bold tracking-tight text-ink mt-0.5">
                 {STEP_LABELS[step]}
               </h2>
             </div>

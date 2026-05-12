@@ -7,7 +7,7 @@ export default function HomePage() {
         <div className="font-mono text-xs uppercase tracking-[0.2em] text-muted mb-3">
           Phase 1 · Foundation
         </div>
-        <h1 className="text-5xl font-extrabold tracking-tight leading-none mb-6">
+        <h1 className="text-5xl font-bold tracking-tight leading-none mb-6">
           drinkx<span className="text-brand-accent">.</span>crm
         </h1>
         <p className="text-muted mb-8 leading-relaxed">

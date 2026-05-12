@@ -13,7 +13,7 @@ export default function KnowledgePage() {
         <div className="w-12 h-12 mx-auto rounded-full bg-brand-soft flex items-center justify-center mb-4">
           <BookOpen size={20} className="text-brand-accent" />
         </div>
-        <h1 className="text-lg font-bold tracking-tight mb-2">
+        <h1 className="text-lg font-extrabold tracking-tight mb-2">
           База знаний
         </h1>
         <p className="text-sm text-muted-2">Раздел в разработке.</p>

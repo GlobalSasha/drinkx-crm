@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 
+import { T } from "@/lib/design-system";
 import { useMe } from "@/lib/hooks/use-me";
 import {
   useDeleteForm,
@@ -87,7 +88,7 @@ export default function FormsPage() {
       <div className="sticky top-0 z-10 bg-white border-b border-black/5 px-6 py-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-baseline gap-2">
-            <h1 className="text-xl font-extrabold tracking-tight">Формы</h1>
+            <h1 className={T.heading}>Формы</h1>
             <span className="text-muted-3 text-xs font-mono tabular-nums">
               {items.length}
             </span>
@@ -122,7 +123,7 @@ export default function FormsPage() {
 
         {items.length > 0 && (
           <div className="rounded-2xl border border-black/5 bg-white overflow-hidden">
-            <div className="grid grid-cols-[1fr_180px_90px_110px_140px_100px] items-center gap-3 px-4 py-2.5 bg-canvas border-b border-black/5 text-[10px] font-mono uppercase tracking-wider text-muted-2">
+            <div className={`grid grid-cols-[1fr_180px_90px_110px_140px_100px] items-center gap-3 px-4 py-2.5 bg-canvas border-b border-black/5 ${T.mono} uppercase text-muted-2`}>
               <span>Название</span>
               <span>Slug</span>
               <span className="text-right">Подач</span>
@@ -197,12 +198,12 @@ function FormRow({
       <div className="min-w-0">
         <div className="text-sm font-bold text-ink truncate">{form.name}</div>
         {form.redirect_url && (
-          <div className="text-[10px] font-mono text-muted-3 truncate">
+          <div className={`${T.mono} text-muted-3 truncate`}>
             → {form.redirect_url}
           </div>
         )}
       </div>
-      <span className="text-[11px] font-mono text-muted-2 truncate">
+      <span className={`${T.mono} text-muted-2 truncate`}>
         /{form.slug}
       </span>
       <span className="text-right text-sm font-mono text-ink tabular-nums">
@@ -227,7 +228,7 @@ function FormRow({
           )}
         />
       </button>
-      <span className="text-[11px] font-mono text-muted-3">
+      <span className={`${T.mono} text-muted-3`}>
         {relativeTime(form.created_at)}
       </span>
       <div className="flex items-center justify-end">
@@ -257,7 +258,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
         <ClipboardList size={22} className="text-muted-3" />
       </div>
       <div className="text-sm font-bold text-ink">Пока нет ни одной формы</div>
-      <p className="text-[12px] text-muted-2 mt-1 mb-4 max-w-[24rem]">
+      <p className="text-sm text-muted-2 mt-1 mb-4 max-w-[24rem]">
         Создайте форму, чтобы лиды с лендинга приходили в CRM автоматически —
         без ручного копирования из почты.
       </p>
@@ -300,10 +301,10 @@ function ConfirmDeleteModal({
           aria-modal="true"
           className="bg-white rounded-2xl border border-black/5 shadow-soft w-full max-w-md p-5"
         >
-          <h2 className="text-base font-extrabold tracking-tight text-ink">
+          <h2 className={`${T.heading} text-ink`}>
             Удалить форму?
           </h2>
-          <p className="text-[13px] text-muted mt-2">
+          <p className="text-sm text-muted mt-2">
             Форма «{form.name}» будет деактивирована — embed-код вернёт{" "}
             <span className="font-mono">410 Gone</span>, лиды перестанут
             приходить. История подач (

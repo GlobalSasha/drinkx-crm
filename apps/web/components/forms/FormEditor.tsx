@@ -244,7 +244,7 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
               <div className="text-[10px] font-mono uppercase tracking-wider text-muted-3">
                 Форма
               </div>
-              <h2 className="text-lg font-extrabold tracking-tight text-ink mt-0.5 truncate">
+              <h2 className="text-lg font-bold tracking-tight text-ink mt-0.5 truncate">
                 {isEdit ? form?.name : "Новая форма"}
               </h2>
               {isEdit && form?.slug && (
@@ -604,7 +604,7 @@ function EmbedTab({
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-base font-extrabold tracking-tight text-ink">
+        <h3 className="text-base font-bold tracking-tight text-ink">
           Встроить форму
         </h3>
         <p className="text-[13px] text-muted mt-1">

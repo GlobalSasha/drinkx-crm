@@ -15,7 +15,7 @@ import {
   useDeleteContact,
 } from "@/lib/hooks/use-contacts";
 import type { ContactOut, ContactCreate, ContactRoleType } from "@/lib/types";
-import { C, T } from "@/lib/design-system";
+import { C } from "@/lib/design-system";
 
 /** Internal form shape — adds front-end-only fields that aren't on the
  *  backend Contact model yet (last_name, middle_name, company, dept,
@@ -145,7 +145,7 @@ export function ContactEditModal({ leadId, contact, onClose }: Props) {
         onSubmit={handleSave}
         className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-soft my-8"
       >
-        <h2 className={`${T.heading} ${C.color.text} mb-5`}>
+        <h2 className={`${C.cardTitle} font-bold ${C.color.text} mb-5`}>
           {contact ? "Изменить контакт" : "Добавить контакт"}
         </h2>
 
@@ -188,7 +188,7 @@ export function ContactEditModal({ leadId, contact, onClose }: Props) {
 
           {/* Social media section */}
           <div className="pt-3 border-t border-brand-border">
-            <p className={`${T.caption} mb-3`}>
+            <p className={`font-mono ${C.bodyXs} uppercase tracking-wider ${C.color.muted} mb-3`}>
               Социальные сети
             </p>
             <div className="grid grid-cols-2 gap-3">
@@ -233,7 +233,7 @@ export function ContactEditModal({ leadId, contact, onClose }: Props) {
 
           {/* Verification section */}
           <div className="pt-3 border-t border-brand-border">
-            <p className={`${T.caption} mb-2`}>
+            <p className={`font-mono ${C.bodyXs} uppercase tracking-wider ${C.color.muted} mb-2`}>
               Верификация
             </p>
             <div className="flex gap-1.5 bg-brand-panel p-1 rounded-full w-fit">
@@ -263,7 +263,7 @@ export function ContactEditModal({ leadId, contact, onClose }: Props) {
 
           {/* Notes */}
           <div>
-            <label className={`${T.caption} block mb-1.5`}>
+            <label className={`font-mono ${C.bodyXs} uppercase tracking-wider ${C.color.muted} block mb-1.5`}>
               Заметки
             </label>
             <textarea
@@ -349,7 +349,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className={`${T.caption} block mb-1.5`}>
+      <label className={`font-mono ${C.bodyXs} uppercase tracking-wider ${C.color.muted} block mb-1.5`}>
         {label}
       </label>
       <input
@@ -361,7 +361,7 @@ function Field({
         className={`w-full px-3 py-2 ${C.bodySm} bg-white border border-brand-border rounded-xl outline-none focus:border-brand-accent transition-colors`}
       />
       {hint && (
-        <p className={`${T.hint} mt-1`}>{hint}</p>
+        <p className={`${C.bodyXs} ${C.color.muted} italic mt-1`}>{hint}</p>
       )}
     </div>
   );
@@ -386,7 +386,7 @@ function FieldWithIcon({
 }) {
   return (
     <div>
-      <label className={`${T.caption} block mb-1.5`}>
+      <label className={`font-mono ${C.bodyXs} uppercase tracking-wider ${C.color.muted} block mb-1.5`}>
         {label}
       </label>
       <div className="relative">
@@ -402,7 +402,7 @@ function FieldWithIcon({
         />
       </div>
       {hint && (
-        <p className={`${T.hint} mt-1`}>{hint}</p>
+        <p className={`${C.bodyXs} ${C.color.muted} italic mt-1`}>{hint}</p>
       )}
     </div>
   );

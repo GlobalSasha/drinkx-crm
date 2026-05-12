@@ -10,6 +10,7 @@
 
 import { useEffect } from "react";
 
+import { T } from "@/lib/design-system";
 import { captureClientException } from "@/lib/sentry-capture";
 
 export default function GlobalError({
@@ -36,14 +37,14 @@ export default function GlobalError({
           background: "#fafafa",
         }}
       >
-        <h1 style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>
+        <h1 className={`${T.heading} mb-2`}>
           Что-то пошло не так
         </h1>
         <p style={{ color: "#666", marginBottom: "1rem" }}>
           Мы уже знаем — попробуйте обновить страницу.
         </p>
         {error.digest ? (
-          <p style={{ color: "#999", fontSize: "0.875rem", fontFamily: "monospace" }}>
+          <p className={`${T.mono} text-[#999]`}>
             ID: {error.digest}
           </p>
         ) : null}

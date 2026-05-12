@@ -68,7 +68,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
           <Sparkles size={16} />
         </div>
         <div>
-          <h3 className="text-base font-extrabold tracking-tight text-ink">
+          <h3 className="text-base font-bold tracking-tight text-ink">
             Изменения от AI
           </h3>
           <p className="text-[13px] text-muted mt-1">
@@ -364,7 +364,7 @@ function StatCard({
         {label}
       </div>
       <div className="flex items-baseline gap-1.5">
-        <span className="text-3xl font-extrabold tracking-tight tabular-nums">
+        <span className="text-3xl font-bold tracking-tight tabular-nums">
           {value}
         </span>
         <span className="text-[11px] opacity-70">{unit}</span>

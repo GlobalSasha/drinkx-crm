@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import type { LeadOut, Stage } from "@/lib/types";
 import { priorityChip } from "@/lib/ui/priority";
+import { T } from "@/lib/design-system";
 
 interface Props {
   stages: Stage[];
@@ -51,10 +52,10 @@ export function PipelineList({ stages, leads }: Props) {
                 className="w-2 h-2 rounded-full shrink-0"
                 style={{ backgroundColor: stage.color }}
               />
-              <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-ink truncate">
+              <h3 className={`${T.caption} font-bold text-ink truncate`}>
                 {stage.name}
               </h3>
-              <span className="font-mono text-[10px] text-muted-2 tabular-nums">
+              <span className={`${T.mono} text-muted-2 tabular-nums`}>
                 {stageLeads.length}
               </span>
             </div>
@@ -77,7 +78,7 @@ export function PipelineList({ stages, leads }: Props) {
                             so fast-scroll context isn't lost when
                             section headings scroll out of view. */}
                         <span
-                          className="inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-wide text-muted-2 truncate"
+                          className={`inline-flex items-center gap-1 ${T.mono} uppercase text-muted-2 truncate`}
                           style={{ maxWidth: "60%" }}
                         >
                           <span
@@ -87,7 +88,7 @@ export function PipelineList({ stages, leads }: Props) {
                           {stage.name}
                         </span>
                         {segCity && (
-                          <span className="font-mono text-[10px] text-muted-3 truncate lowercase">
+                          <span className={`${T.mono} text-muted-3 truncate lowercase`}>
                             · {segCity}
                           </span>
                         )}
@@ -95,7 +96,7 @@ export function PipelineList({ stages, leads }: Props) {
                     </div>
                     {lead.priority && (
                       <span
-                        className={`shrink-0 font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-md ${priorityChip(lead.priority)}`}
+                        className={`shrink-0 ${T.mono} font-bold px-1.5 py-0.5 rounded-md ${priorityChip(lead.priority)}`}
                       >
                         {lead.priority}
                       </span>

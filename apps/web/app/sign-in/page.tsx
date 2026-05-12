@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { T } from "@/lib/design-system";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 function SignInForm() {
@@ -71,10 +72,10 @@ function SignInForm() {
 
   return (
     <div className="relative max-w-md w-full bg-white border border-black/10 rounded-2xl p-12 shadow-soft">
-      <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted mb-3">
+      <div className={`${T.mono} text-muted mb-3`}>
         ВХОД В CRM
       </div>
-      <h1 className="text-4xl font-extrabold tracking-[-0.035em] leading-none mb-2">
+      <h1 className={`${T.display} tracking-[-0.035em] leading-none mb-2`}>
         drinkx<span className="text-brand-accent">.</span>crm
       </h1>
       <p className="text-muted text-sm mb-8 leading-relaxed">
@@ -104,7 +105,7 @@ function SignInForm() {
         Войти через Google
       </button>
 
-      <div className="my-6 flex items-center gap-3 text-[11px] font-mono text-muted">
+      <div className={`my-6 flex items-center gap-3 ${T.mono} text-muted`}>
         <div className="flex-1 h-px bg-black/10" />
         ИЛИ
         <div className="flex-1 h-px bg-black/10" />
@@ -130,7 +131,7 @@ function SignInForm() {
         </div>
       ) : (
         <form onSubmit={handleMagicLink} className="space-y-3">
-          <div className="text-xs text-muted font-mono uppercase tracking-wider">
+          <div className={`${T.caption} text-muted`}>
             Magic link на email
           </div>
           <input
@@ -151,7 +152,7 @@ function SignInForm() {
         </form>
       )}
 
-      <p className="text-[11px] text-muted-3 mt-8 leading-relaxed text-center">
+      <p className="text-xs text-muted-3 mt-8 leading-relaxed text-center">
         При входе создаётся профиль менеджера в workspace DrinkX.
         <br />
         Используем только email и имя из Google · никакой почтовой переписки

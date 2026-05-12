@@ -112,7 +112,7 @@ export function CreateLeadModal() {
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-2xl border border-black/5 shadow-soft w-full max-w-md p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-extrabold tracking-tight">Новый лид</h2>
+            <h2 className="text-lg font-bold tracking-tight">Новый лид</h2>
             <button
               onClick={closeCreateLeadModal}
               className="text-muted hover:text-ink transition-colors p-1 rounded-lg hover:bg-black/5"

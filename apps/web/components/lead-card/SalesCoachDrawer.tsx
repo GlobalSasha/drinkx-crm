@@ -129,7 +129,7 @@ export function SalesCoachDrawer({
             <Bot size={16} className="text-brand-accent-text" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className={`${C.bodySm} font-extrabold text-brand-primary`}>
+            <div className={`${C.bodySm} font-bold text-brand-primary`}>
               Чак · Sales Coach
             </div>
             <div className={`${C.bodyXs} text-brand-muted truncate`}>

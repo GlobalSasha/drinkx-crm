@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Loader2, Mail, Plus, Shield, Trash2, UserCircle2, X } from "lucide-react";
 
+import { T } from "@/lib/design-system";
 import { ApiError } from "@/lib/api-client";
 import { useMe } from "@/lib/hooks/use-me";
 import {
@@ -116,7 +117,7 @@ export function TeamSection() {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-extrabold tracking-tight">Команда</h2>
+          <h2 className={T.heading}>Команда</h2>
           <p className="text-xs text-muted-2 mt-0.5">
             Все пользователи общего workspace. Админ может приглашать
             новых членов и менять роли.
@@ -127,7 +128,7 @@ export function TeamSection() {
             <Link
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               href={"/team" as any}
-              className="inline-flex items-center gap-1.5 text-xs font-mono uppercase tracking-[0.12em] text-muted-2 hover:text-ink transition-colors"
+              className={`inline-flex items-center gap-1.5 ${T.mono} uppercase text-muted-2 hover:text-ink transition-colors`}
             >
               Дашборд →
             </Link>
@@ -149,17 +150,17 @@ export function TeamSection() {
         <table className="w-full text-left">
           <thead className="bg-canvas/60">
             <tr className="border-b border-black/5">
-              <th className="px-4 py-2.5 font-mono uppercase tracking-[0.2em] text-[10px] text-muted-3 font-semibold">
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold`}>
                 Имя / Email
               </th>
-              <th className="px-4 py-2.5 font-mono uppercase tracking-[0.2em] text-[10px] text-muted-3 font-semibold w-[160px]">
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold w-[160px]`}>
                 Роль
               </th>
-              <th className="px-4 py-2.5 font-mono uppercase tracking-[0.2em] text-[10px] text-muted-3 font-semibold w-[150px]">
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold w-[150px]`}>
                 Последний вход
               </th>
               {isAdmin && (
-                <th className="px-4 py-2.5 font-mono uppercase tracking-[0.2em] text-[10px] text-muted-3 font-semibold w-[60px]">
+                <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold w-[60px]`}>
                   {/* actions */}
                 </th>
               )}
@@ -195,20 +196,20 @@ export function TeamSection() {
       {/* Pending invites */}
       {pendingInvites.length > 0 && (
         <div>
-          <h3 className="text-xs font-mono uppercase tracking-[0.15em] text-muted-3 mb-2">
+          <h3 className={`${T.mono} uppercase text-muted-3 mb-2`}>
             Ожидают принятия приглашения
           </h3>
           <div className="bg-white border border-black/5 rounded-2xl shadow-soft overflow-hidden">
             <table className="w-full text-left">
               <thead className="bg-canvas/60">
                 <tr className="border-b border-black/5">
-                  <th className="px-4 py-2.5 font-mono uppercase tracking-[0.2em] text-[10px] text-muted-3 font-semibold">
+                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold`}>
                     Email
                   </th>
-                  <th className="px-4 py-2.5 font-mono uppercase tracking-[0.2em] text-[10px] text-muted-3 font-semibold w-[180px]">
+                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold w-[180px]`}>
                     Предложенная роль
                   </th>
-                  <th className="px-4 py-2.5 font-mono uppercase tracking-[0.2em] text-[10px] text-muted-3 font-semibold w-[150px]">
+                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold w-[150px]`}>
                     Приглашён
                   </th>
                 </tr>
@@ -318,13 +319,13 @@ function UserRow({
       <td className="px-4 py-3 align-middle">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-full bg-brand-soft flex items-center justify-center shrink-0">
-            <span className="text-[11px] font-bold text-brand-accent">{initial}</span>
+            <span className="text-xs font-bold text-brand-accent">{initial}</span>
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-ink truncate">
               {user.name || "—"}
             </p>
-            <p className="text-[11px] font-mono text-muted-3 truncate">
+            <p className={`${T.mono} text-muted-3 truncate`}>
               {user.email}
             </p>
           </div>
@@ -360,7 +361,7 @@ function UserRow({
           </span>
         )}
         {error && (
-          <p className="text-[11px] text-red-700 mt-1 leading-tight">
+          <p className="text-xs text-red-700 mt-1 leading-tight">
             {error}
           </p>
         )}
@@ -407,7 +408,7 @@ function DeleteUserModal({
       aria-modal="true"
     >
       <div className="bg-white rounded-2xl shadow-soft max-w-md w-full p-6">
-        <h3 className="text-base font-extrabold text-ink mb-2">
+        <h3 className={`${T.heading} text-ink mb-2`}>
           Удалить {name}?
         </h3>
         <p className="text-sm text-muted-2 mb-5">
@@ -529,10 +530,10 @@ function InviteModal({
         >
           <div className="px-6 py-4 border-b border-black/5 flex items-start justify-between gap-4">
             <div>
-              <div className="text-[10px] font-mono uppercase tracking-wider text-muted-3">
+              <div className={`${T.mono} uppercase text-muted-3`}>
                 Команда
               </div>
-              <h2 className="text-lg font-extrabold tracking-tight text-ink mt-0.5">
+              <h2 className={`${T.heading} text-ink mt-0.5`}>
                 Пригласить пользователя
               </h2>
             </div>
@@ -562,7 +563,7 @@ function InviteModal({
             ) : (
               <>
                 <div>
-                  <label className="block text-[11px] font-mono uppercase tracking-wide text-muted-3 mb-1.5">
+                  <label className={`block ${T.mono} uppercase text-muted-3 mb-1.5`}>
                     Email
                   </label>
                   <input
@@ -574,7 +575,7 @@ function InviteModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-mono uppercase tracking-wide text-muted-3 mb-1.5">
+                  <label className={`block ${T.mono} uppercase text-muted-3 mb-1.5`}>
                     Предложенная роль
                   </label>
                   <select
@@ -590,7 +591,7 @@ function InviteModal({
                       </option>
                     ))}
                   </select>
-                  <p className="text-[11px] text-muted-3 mt-1 leading-tight">
+                  <p className="text-xs text-muted-3 mt-1 leading-tight">
                     После принятия приглашения пользователь получит роль
                     «Менеджер». Эта подсказка для вас — в админке справа
                     можно изменить роль.
@@ -599,7 +600,7 @@ function InviteModal({
               </>
             )}
             {error && (
-              <p className="text-[12px] text-red-700">{error}</p>
+              <p className="text-sm text-red-700">{error}</p>
             )}
           </div>
 

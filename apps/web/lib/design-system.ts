@@ -4,13 +4,28 @@
 // brand-* color tokens; this module composes ready-to-use class strings
 // so component code never deals in raw `text-xx`, `bg-xx`, padding values.
 //
-// Rules baked in:
-//   • All buttons -> rounded-full
-//   • No hover:* classes (disabled site-wide per design spec)
-//   • No shadow-* on cards (only on toasts / popovers handled inline)
-//   • All font sizes use clamp() — never text-xs/sm/lg etc.
+// Typography policy:
+//   • Use T.* tokens only — never raw text-[Npx], text-xs/sm/lg, etc.
+//   • Weights allowed: font-normal / font-medium / font-semibold / font-bold
+//   • Italic only via T.hint (empty-state / unfilled placeholder)
+//   • font-mono only for IDs, emails, INN, timestamps, code, webhooks
 //
-// Usage: `import { C } from '@/lib/design-system'`
+// Usage:
+//   import { T, C } from '@/lib/design-system'
+
+// ─── Typography (5 levels + 2 metric + hint) ───────────────────
+export const T = {
+  display:  'text-3xl md:text-4xl font-bold tracking-tight',
+  heading:  'text-lg font-semibold',
+  body:     'text-sm font-normal',
+  caption:  'text-xs font-medium text-brand-muted uppercase tracking-wide',
+  mono:     'font-mono text-xs tracking-normal',
+  hint:     'text-xs font-medium italic normal-case tracking-normal text-brand-muted',
+  metric:   'text-4xl font-bold tabular-nums',
+  metricLg: 'text-5xl font-bold tabular-nums',
+} as const;
+
+export type Typography = typeof T;
 
 export const C = {
   // ─── Цвета ───────────────────────────────────────────────
@@ -32,33 +47,35 @@ export const C = {
     dark:   'border-white/10',
   },
 
-  // ─── Типографика ─────────────────────────────────────────
-  hero:        'text-[clamp(32px,6vw,80px)] font-black',
-  h1:          'text-[clamp(26px,4vw,58px)] font-black',
-  h2sm:        'text-[clamp(26px,4vw,58px)] font-black',
-  h3:          'text-[clamp(17px,1.45vw,21px)] font-black',
-  cardTitle:   'text-[clamp(18px,1.7vw,26px)] font-bold',
-  cardTitleLg: 'text-[clamp(28px,3.4vw,52px)] font-black',
+  // ─── Типографика (back-compat aliases → T.*) ─────────────
+  // New code: use T.* directly. These aliases keep existing call sites
+  // working while the sweep migrates them over.
+  hero:        T.display,
+  h1:          T.heading,
+  h2sm:        T.heading,
+  h3:          T.heading,
+  cardTitle:   T.heading,
+  cardTitleLg: T.display,
 
-  body:      'text-[clamp(16px,1.45vw,22px)]',
-  bodyHero:  'text-[clamp(18px,1.6vw,26px)]',
-  bodySm:    'text-[clamp(14px,1.05vw,16px)]',
-  bodyXs:    'text-[clamp(12px,0.9vw,14px)]',
-  cardBody:  'text-[clamp(14px,1.05vw,16px)]',
-  caption:   'text-[clamp(11px,1.1vw,14px)] uppercase tracking-wider',
-  captionSm: 'text-[clamp(12px,1.2vw,16px)]',
+  body:      T.body,
+  bodyHero:  T.body,
+  bodySm:    T.caption,
+  bodyXs:    T.caption,
+  cardBody:  T.caption,
+  caption:   T.caption,
+  captionSm: T.caption,
 
-  metricHero:      'text-[clamp(40px,7.5vw,100px)] font-black',
-  metricLg:        'text-[clamp(32px,5vw,72px)] font-black',
-  metricMd:        'text-[clamp(28px,4vw,60px)] font-black',
-  metricSm:        'text-[clamp(22px,2.5vw,36px)] font-black',
-  metricLabel:     'text-[clamp(14px,1.2vw,22px)]',
-  metricLabelSm:   'text-[clamp(11px,0.9vw,14px)]',
-  metricLabelHero: 'text-[clamp(18px,1.45vw,24px)]',
+  metricHero:      T.metricLg,
+  metricLg:        T.metricLg,
+  metricMd:        T.metric,
+  metricSm:        T.metric,
+  metricLabel:     T.caption,
+  metricLabelSm:   T.caption,
+  metricLabelHero: T.caption,
 
-  btn:     'text-[clamp(10px,0.9vw,12px)]',
-  btnLg:   'text-[clamp(12px,1vw,14px)]',
-  btnHero: 'text-[clamp(13px,1.1vw,16px)]',
+  btn:     T.body,
+  btnLg:   T.body,
+  btnHero: T.body,
 
   // ─── Радиусы ─────────────────────────────────────────────
   radius: {
@@ -100,8 +117,8 @@ export const C = {
 
   // ─── Формы ───────────────────────────────────────────────
   form: {
-    label: 'text-[clamp(11px,0.9vw,13px)] text-brand-muted uppercase tracking-wide font-medium',
-    field: 'w-full bg-white border border-brand-border rounded-full px-4 py-2.5 text-[clamp(13px,1vw,15px)] text-brand-primary outline-none focus:border-brand-accent transition-colors',
+    label: 'text-xs font-medium text-brand-muted uppercase tracking-wide',
+    field: 'w-full bg-white border border-brand-border rounded-full px-4 py-2.5 text-sm text-brand-primary outline-none focus:border-brand-accent transition-colors',
   },
 } as const;
 

@@ -69,7 +69,7 @@ export function ChannelsSection() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-extrabold tracking-tight">Каналы</h2>
+        <h2 className="text-lg font-bold tracking-tight">Каналы</h2>
         <p className="text-xs text-muted-2 mt-0.5">
           Входящие письма из Gmail и исходящая почта через SMTP.
           В v1 настройки только просмотр; правки — через переменные
@@ -85,7 +85,7 @@ export function ChannelsSection() {
               <Mail size={18} className="text-muted" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm font-extrabold text-ink">Gmail</h3>
+              <h3 className="text-sm font-bold text-ink">Gmail</h3>
               <p className="text-xs text-muted-2 mt-0.5">
                 Письма автоматически попадают в /inbox для разбора и
                 привязки к лидам (Sprint 2.0).
@@ -161,7 +161,7 @@ export function ChannelsSection() {
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-extrabold text-ink">
+              <h3 className="text-sm font-bold text-ink">
                 SMTP (исходящая почта)
               </h3>
               {smtp.configured ? (

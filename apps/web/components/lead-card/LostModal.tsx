@@ -64,7 +64,7 @@ export function LostModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-black/5">
-          <h3 className="text-base font-extrabold">
+          <h3 className="text-base font-bold">
             Перевести в «Проигран»?
           </h3>
           <button

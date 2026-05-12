@@ -20,7 +20,7 @@ import type {
   InboxFeedOut,
   LeadOut,
 } from "@/lib/types";
-import { C } from "@/lib/design-system";
+import { C, T } from "@/lib/design-system";
 
 interface Props {
   lead: LeadOut;
@@ -345,7 +345,7 @@ export function InboxTab({ lead }: Props) {
           Не удалось загрузить переписку.
         </p>
       ) : filtered.length === 0 ? (
-        <p className={`${C.bodySm} ${C.color.muted} italic py-8 text-center`}>
+        <p className={`${T.hint} py-8 text-center`}>
           {filter === "all"
             ? "Сообщений по этому лиду пока нет."
             : filter === "email"

@@ -18,6 +18,7 @@ import {
   useUpsertLeadAttribute,
 } from "@/lib/hooks/use-lead-attributes";
 import type { LeadAttributeOut } from "@/lib/types";
+import { T } from "@/lib/design-system";
 
 interface Props {
   leadId: string;
@@ -77,7 +78,7 @@ export function CustomFieldsPanel({ leadId }: Props) {
 
   return (
     <section className="bg-white border border-black/5 rounded-2xl shadow-soft p-4">
-      <h3 className="text-xs font-mono uppercase tracking-[0.18em] text-muted-3 mb-3">
+      <h3 className={`${T.caption} mb-3`}>
         Кастомные поля
       </h3>
       <div className="divide-y divide-black/5">
@@ -189,7 +190,7 @@ function CustomFieldRow({
             {display ? (
               <span className="text-sm text-ink truncate">{display}</span>
             ) : (
-              <span className="text-xs text-muted-3 italic">
+              <span className={T.hint}>
                 не заполнено
               </span>
             )}
@@ -211,7 +212,7 @@ function CustomFieldRow({
           />
         )}
         {error && (
-          <p className="text-[11px] text-rose mt-0.5 px-1.5">{error}</p>
+          <p className="text-xs text-rose mt-0.5 px-1.5">{error}</p>
         )}
       </div>
     </div>

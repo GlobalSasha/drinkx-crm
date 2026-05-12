@@ -34,7 +34,7 @@ export function ProgressStep({ jobId, initialJob, onClose }: Props) {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-base font-extrabold tracking-tight text-ink">
+        <h3 className="text-base font-bold tracking-tight text-ink">
           {isRunning && "Импорт выполняется"}
           {isSucceeded && "Импорт завершён"}
           {isFailed && "Импорт завершён с ошибками"}
@@ -174,7 +174,7 @@ function Counter({
       <span className="text-[10px] font-mono uppercase tracking-wider text-muted-3">
         {label}
       </span>
-      <span className={`text-xl font-extrabold tabular-nums ${valueColor}`}>
+      <span className={`text-xl font-bold tabular-nums ${valueColor}`}>
         {value}
       </span>
     </div>

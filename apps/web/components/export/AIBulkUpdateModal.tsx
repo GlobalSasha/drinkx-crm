@@ -130,7 +130,7 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
                 <div className="text-[10px] font-mono uppercase tracking-wider text-muted-3">
                   PRD §6.14
                 </div>
-                <h2 className="text-base font-extrabold tracking-tight text-ink mt-0.5">
+                <h2 className="text-base font-bold tracking-tight text-ink mt-0.5">
                   Обновление через AI
                 </h2>
               </div>

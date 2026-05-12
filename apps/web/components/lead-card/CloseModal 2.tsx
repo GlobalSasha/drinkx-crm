@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Trophy, XCircle } from "lucide-react";
 import { useMoveStage } from "@/lib/hooks/use-leads";
 import type { Stage } from "@/lib/types";
-import { C, T } from "@/lib/design-system";
+import { C } from "@/lib/design-system";
 
 interface Props {
   leadId: string;
@@ -54,7 +54,7 @@ export function CloseModal({
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-soft">
-        <h2 className={`${T.heading} ${C.color.text} mb-1`}>
+        <h2 className={`${C.cardTitle} font-bold ${C.color.text} mb-1`}>
           Закрыть лид
         </h2>
         <p className={`${C.bodySm} ${C.color.muted} mb-5`}>

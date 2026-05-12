@@ -65,7 +65,7 @@ export default function TeamPage() {
       <header className="flex flex-wrap items-end justify-between gap-4 mb-6">
         <div className="flex items-center gap-2">
           <Users size={20} className="text-muted" />
-          <h1 className="text-xl font-bold tracking-tight">Команда</h1>
+          <h1 className="text-xl font-extrabold tracking-tight">Команда</h1>
           {stats.data && (
             <span className="text-xs font-mono text-muted-3 ml-2">
               {formatRange(stats.data.from, stats.data.to)}
@@ -169,7 +169,7 @@ function ManagerCard({ m }: { m: TeamManagerStats }) {
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="text-center">
-      <p className="text-xl font-bold tabular-nums text-ink">{value}</p>
+      <p className="text-xl font-extrabold tabular-nums text-ink">{value}</p>
       <p className="text-[10px] font-mono uppercase tracking-[0.15em] text-muted-3 mt-0.5">
         {label}
       </p>

@@ -80,7 +80,7 @@ export function GateModal({ leadId, targetStage, onClose, onSuccess }: Props) {
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-base font-extrabold tracking-tight text-ink">
+              <h2 className="text-base font-bold tracking-tight text-ink">
                 Переход в стадию
               </h2>
               <p

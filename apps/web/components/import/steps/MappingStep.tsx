@@ -94,7 +94,7 @@ export function MappingStep({ job, onBack, onConfirmed }: Props) {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-base font-extrabold tracking-tight text-ink">
+        <h3 className="text-base font-bold tracking-tight text-ink">
           Сопоставьте колонки
         </h3>
         <p className="text-[13px] text-muted mt-1">

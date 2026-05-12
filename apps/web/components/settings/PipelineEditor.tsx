@@ -242,7 +242,7 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
               <div className="text-[10px] font-mono uppercase tracking-wider text-muted-3">
                 Воронка
               </div>
-              <h2 className="text-lg font-extrabold tracking-tight text-ink mt-0.5 truncate">
+              <h2 className="text-lg font-bold tracking-tight text-ink mt-0.5 truncate">
                 {isEdit ? pipeline?.name : "Новая воронка"}
               </h2>
             </div>

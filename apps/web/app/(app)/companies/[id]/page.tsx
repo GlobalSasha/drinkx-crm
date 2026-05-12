@@ -25,7 +25,7 @@ import { useCreateLead } from "@/lib/hooks/use-leads";
 import { useMe } from "@/lib/hooks/use-me";
 import { ApiError } from "@/lib/api-client";
 import type { CompanyUpdate } from "@/lib/types";
-import { C } from "@/lib/design-system";
+import { C, T } from "@/lib/design-system";
 import { CompanyMergeModal } from "@/components/companies/CompanyMergeModal";
 
 interface Props {
@@ -93,8 +93,8 @@ export default function CompanyCardPage({ params }: Props) {
     return (
       <div className="font-sans min-h-screen bg-canvas flex flex-col items-center justify-center gap-4">
         <AlertTriangle size={24} className="text-rose" />
-        <p className={`${C.bodySm} text-rose`}>Компания не найдена</p>
-        <Link href="/pipeline" className={`${C.bodySm} ${C.color.accent}`}>
+        <p className={`${T.body} text-rose`}>Компания не найдена</p>
+        <Link href="/pipeline" className={`${T.body} ${C.color.accent}`}>
           ← К воронке
         </Link>
       </div>
@@ -125,17 +125,17 @@ export default function CompanyCardPage({ params }: Props) {
                   if (e.key === "Escape") setEditField(null);
                 }}
                 autoFocus
-                className="text-[22px] font-medium tracking-tight text-ink bg-transparent border-b-2 border-brand-accent outline-none w-full"
+                className="text-xl font-semibold tracking-tight text-ink bg-transparent border-b-2 border-brand-accent outline-none w-full"
               />
             ) : (
               <h1
-                className="text-[22px] font-medium tracking-tight text-ink cursor-text hover:text-brand-accent-text transition-colors truncate"
+                className="text-xl font-semibold tracking-tight text-ink cursor-text hover:text-brand-accent-text transition-colors truncate"
                 onClick={() => startEdit("name", company.name)}
                 title="Редактировать"
               >
                 {company.name}
                 {company.is_archived && (
-                  <span className={`ml-2 ${C.bodyXs} ${C.color.muted}`}>
+                  <span className={`ml-2 ${T.caption} ${C.color.muted}`}>
                     (архив)
                   </span>
                 )}
@@ -143,17 +143,17 @@ export default function CompanyCardPage({ params }: Props) {
             )}
             <div className="flex flex-wrap items-center gap-2 mt-1">
               {company.inn && (
-                <span className={`${C.bodyXs} font-mono ${C.color.muted} bg-brand-panel px-2 py-0.5 rounded-full`}>
+                <span className={`${T.caption} font-mono ${C.color.muted} bg-brand-panel px-2 py-0.5 rounded-full`}>
                   ИНН {company.inn}
                 </span>
               )}
               {company.primary_segment && (
-                <span className={`${C.bodyXs} ${C.color.muted} bg-brand-panel px-2 py-0.5 rounded-full`}>
+                <span className={`${T.caption} ${C.color.muted} bg-brand-panel px-2 py-0.5 rounded-full`}>
                   {company.primary_segment}
                 </span>
               )}
               {company.city && (
-                <span className={`flex items-center gap-1 ${C.bodyXs} ${C.color.muted}`}>
+                <span className={`flex items-center gap-1 ${T.caption} ${C.color.muted}`}>
                   <MapPin size={11} />
                   {company.city}
                 </span>
@@ -164,7 +164,7 @@ export default function CompanyCardPage({ params }: Props) {
             type="button"
             onClick={handleCreateLead}
             disabled={createLead.isPending}
-            className={`inline-flex items-center gap-1.5 px-4 py-1.5 ${C.btnLg} font-semibold bg-brand-accent text-white rounded-full disabled:opacity-50 transition-opacity`}
+            className={`inline-flex items-center gap-1.5 px-4 py-1.5 ${T.body} font-semibold bg-brand-accent text-white rounded-full disabled:opacity-50 transition-opacity`}
           >
             <Plus size={13} />
             Создать лид
@@ -173,7 +173,7 @@ export default function CompanyCardPage({ params }: Props) {
             <button
               type="button"
               onClick={() => setMergeOpen(true)}
-              className={`inline-flex items-center gap-1.5 px-4 py-1.5 ${C.btnLg} font-semibold ${C.button.ghost} transition-opacity`}
+              className={`inline-flex items-center gap-1.5 px-4 py-1.5 ${T.body} font-semibold ${C.button.ghost} transition-opacity`}
             >
               <GitMerge size={13} />
               Объединить
@@ -185,7 +185,7 @@ export default function CompanyCardPage({ params }: Props) {
       <main className="max-w-6xl mx-auto w-full px-4 sm:px-6 py-6 grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Left: data */}
         <section className="md:col-span-2 bg-white rounded-2xl border border-brand-border p-5">
-          <h2 className={`${C.cardTitle} font-bold ${C.color.text} mb-4`}>
+          <h2 className={`${T.heading} ${C.color.text} mb-4`}>
             Реквизиты
           </h2>
           <DataRow
@@ -271,11 +271,11 @@ export default function CompanyCardPage({ params }: Props) {
         {/* Right: leads + contacts */}
         <aside className="flex flex-col gap-4">
           <section className="bg-white rounded-2xl border border-brand-border p-5">
-            <h2 className={`${C.cardTitle} font-bold ${C.color.text} mb-3`}>
-              Сделки <span className={`${C.bodyXs} ${C.color.muted}`}>({company.leads.length})</span>
+            <h2 className={`${T.heading} ${C.color.text} mb-3`}>
+              Сделки <span className={`${T.caption} ${C.color.muted}`}>({company.leads.length})</span>
             </h2>
             {company.leads.length === 0 ? (
-              <p className={`${C.bodySm} ${C.color.muted} italic`}>Нет сделок.</p>
+              <p className={T.hint}>Нет сделок.</p>
             ) : (
               <ul className="space-y-2">
                 {company.leads.map((l) => (
@@ -284,10 +284,10 @@ export default function CompanyCardPage({ params }: Props) {
                       href={`/leads/${l.id}` as `/leads/${string}`}
                       className={`block px-3 py-2 rounded-xl bg-brand-panel hover:bg-brand-bg transition-colors`}
                     >
-                      <p className={`${C.bodySm} font-semibold ${C.color.text} truncate`}>
+                      <p className={`${T.body} font-semibold ${C.color.text} truncate`}>
                         {l.company_name}
                       </p>
-                      <p className={`${C.bodyXs} ${C.color.muted}`}>
+                      <p className={`${T.caption} ${C.color.muted}`}>
                         score {l.score}/100
                         {l.fit_score != null && ` · AI ${l.fit_score}/10`}
                       </p>
@@ -299,27 +299,27 @@ export default function CompanyCardPage({ params }: Props) {
           </section>
 
           <section className="bg-white rounded-2xl border border-brand-border p-5">
-            <h2 className={`${C.cardTitle} font-bold ${C.color.text} mb-3`}>
-              Контакты <span className={`${C.bodyXs} ${C.color.muted}`}>({company.contacts.length})</span>
+            <h2 className={`${T.heading} ${C.color.text} mb-3`}>
+              Контакты <span className={`${T.caption} ${C.color.muted}`}>({company.contacts.length})</span>
             </h2>
             {company.contacts.length === 0 ? (
-              <p className={`${C.bodySm} ${C.color.muted} italic`}>Нет контактов.</p>
+              <p className={T.hint}>Нет контактов.</p>
             ) : (
               <ul className="space-y-2">
                 {company.contacts.map((c) => (
                   <li key={c.id} className="px-3 py-2 rounded-xl bg-brand-panel">
-                    <p className={`${C.bodySm} font-semibold ${C.color.text}`}>{c.name}</p>
+                    <p className={`${T.body} font-semibold ${C.color.text}`}>{c.name}</p>
                     {c.title && (
-                      <p className={`${C.bodyXs} ${C.color.muted}`}>{c.title}</p>
+                      <p className={`${T.caption} ${C.color.muted}`}>{c.title}</p>
                     )}
                     <div className="flex gap-2 mt-1">
                       {c.phone && (
-                        <a href={`tel:${c.phone}`} className={`${C.bodyXs} ${C.color.accent}`}>
+                        <a href={`tel:${c.phone}`} className={`${T.caption} ${C.color.accent}`}>
                           {c.phone}
                         </a>
                       )}
                       {c.email && (
-                        <a href={`mailto:${c.email}`} className={`${C.bodyXs} ${C.color.accent}`}>
+                        <a href={`mailto:${c.email}`} className={`${T.caption} ${C.color.accent}`}>
                           {c.email}
                         </a>
                       )}
@@ -331,20 +331,20 @@ export default function CompanyCardPage({ params }: Props) {
           </section>
 
           <section className="bg-white rounded-2xl border border-brand-border p-5">
-            <h2 className={`${C.cardTitle} font-bold ${C.color.text} mb-3`}>
+            <h2 className={`${T.heading} ${C.color.text} mb-3`}>
               Активность{" "}
-              <span className={`${C.bodyXs} ${C.color.muted}`}>
+              <span className={`${T.caption} ${C.color.muted}`}>
                 ({company.recent_activities.length})
               </span>
             </h2>
             {company.recent_activities.length === 0 ? (
-              <p className={`${C.bodySm} ${C.color.muted} italic`}>Пока пусто.</p>
+              <p className={T.hint}>Пока пусто.</p>
             ) : (
               <ul className="space-y-2">
                 {company.recent_activities.map((a) => (
                   <li
                     key={a.id}
-                    className={`${C.bodyXs} px-3 py-2 rounded-xl bg-brand-panel`}
+                    className={`${T.caption} px-3 py-2 rounded-xl bg-brand-panel`}
                   >
                     <p className={`font-mono ${C.color.muted} uppercase tracking-wider`}>
                       {a.type} · {new Date(a.created_at).toLocaleDateString("ru-RU")}
@@ -373,7 +373,7 @@ export default function CompanyCardPage({ params }: Props) {
 
       {toast && (
         <div
-          className={`fixed bottom-6 left-1/2 -translate-x-1/2 bg-brand-primary text-white ${C.bodySm} font-semibold px-5 py-2.5 rounded-full z-50`}
+          className={`fixed bottom-6 left-1/2 -translate-x-1/2 bg-brand-primary text-white ${T.body} font-semibold px-5 py-2.5 rounded-full z-50`}
         >
           {toast}
         </div>
@@ -409,7 +409,7 @@ function DataRow({
     <div className="flex items-center gap-3 py-2.5 border-b border-brand-border last:border-0 group">
       <span className={`shrink-0 ${C.color.muted}`}>{icon}</span>
       <span
-        className={`font-mono ${C.bodyXs} uppercase tracking-wider ${C.color.muted} w-20 shrink-0`}
+        className={`font-mono ${T.caption} uppercase tracking-wider ${C.color.muted} w-20 shrink-0`}
       >
         {label}
       </span>
@@ -423,7 +423,7 @@ function DataRow({
               if (e.key === "Escape") cancel();
             }}
             autoFocus
-            className={`flex-1 px-3 py-1 ${C.bodySm} bg-white border border-brand-accent rounded-xl outline-none`}
+            className={`flex-1 px-3 py-1 ${T.body} bg-white border border-brand-accent rounded-xl outline-none`}
           />
           <button
             type="button"
@@ -443,7 +443,7 @@ function DataRow({
       ) : (
         <>
           <span
-            className={`flex-1 ${C.bodySm} ${value ? "text-ink" : "text-brand-muted italic"}`}
+            className={`flex-1 ${value ? `${T.body} text-ink` : T.hint}`}
           >
             {value ? (
               isLink ? (

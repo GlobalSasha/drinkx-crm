@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Search, Building2, Briefcase, User, X, Loader2 } from "lucide-react";
 import { useGlobalSearch } from "@/lib/hooks/use-search";
 import type { SearchHit, SearchHitType } from "@/lib/types";
-import { C, T } from "@/lib/design-system";
+import { C } from "@/lib/design-system";
 
 const TYPE_LABEL: Record<SearchHitType, string> = {
   company: "Компании",
@@ -129,7 +129,7 @@ export function GlobalSearch({ open, onClose }: Props) {
             return (
               <section key={type} className="py-2">
                 <h3
-                  className={`px-5 py-1 ${T.caption}`}
+                  className={`px-5 py-1 font-mono ${C.bodyXs} uppercase tracking-wider ${C.color.muted}`}
                 >
                   {TYPE_LABEL[type]} · {items.length}
                 </h3>
@@ -163,7 +163,7 @@ export function GlobalSearch({ open, onClose }: Props) {
                             )}
                           </span>
                           {it.rank != null && (
-                            <span className={`${T.mono} ${C.color.muted}`}>
+                            <span className={`font-mono ${C.bodyXs} ${C.color.muted}`}>
                               {it.rank.toFixed(2)}
                             </span>
                           )}

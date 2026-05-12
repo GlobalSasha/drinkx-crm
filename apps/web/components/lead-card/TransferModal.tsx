@@ -76,7 +76,7 @@ export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }:
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-base font-extrabold tracking-tight text-ink">
+              <h2 className="text-base font-bold tracking-tight text-ink">
                 Передать лид
               </h2>
               <p className="text-xs text-muted-2 mt-0.5">
