@@ -36,7 +36,7 @@ export function PipelineHeader({ leads, totalCount }: Props) {
   ).sort();
 
   return (
-    <div className="flex flex-col gap-3 px-4 sm:px-6 py-4 bg-white border-b border-black/5">
+    <div className="flex flex-col gap-4 px-4 sm:px-6 py-4 bg-white border-b border-black/5">
       {/* Top row */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 shrink-0">
@@ -100,7 +100,7 @@ export function PipelineHeader({ leads, totalCount }: Props) {
             placeholder="Поиск..."
             value={filters.q}
             onChange={(e) => setQ(e.target.value)}
-            className="pl-8 pr-3 py-1.5 text-sm bg-canvas border border-black/10 rounded-pill outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300 w-44"
+            className="h-8 pl-8 pr-3 text-sm bg-canvas border border-black/10 rounded-pill outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300 w-44"
           />
         </div>
 
@@ -167,7 +167,7 @@ function Chip({
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-1 rounded-pill text-xs font-semibold transition-all duration-300 ${
+      className={`h-8 inline-flex items-center px-3 rounded-pill text-xs font-semibold transition-all duration-300 ${
         active
           ? "bg-brand-accent text-white"
           : "bg-canvas text-muted hover:bg-canvas-2"

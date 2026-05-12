@@ -41,7 +41,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { C } from "@/lib/design-system";
+import { C, T } from "@/lib/design-system";
 import { api } from "@/lib/api-client";
 import { useTodayPlan } from "@/lib/hooks/use-daily-plan";
 import { useFollowupsPending } from "@/lib/hooks/use-followups";
@@ -163,22 +163,20 @@ function leadFocusSortKey(l: LeadOut): number {
 
 // ─── Greeting ──────────────────────────────────────────────
 
-function getGreeting(name: string) {
+function getGreeting() {
   const h = new Date().getHours();
-  if (h >= 5 && h < 12) return { text: `Доброе утро, ${name}`, icon: "🌅" };
-  if (h >= 12 && h < 17) return { text: `Добрый день, ${name}`, icon: "☀️" };
-  if (h >= 17 && h < 22) return { text: `Добрый вечер, ${name}`, icon: "🌆" };
-  return { text: `Доброй ночи, ${name}`, icon: "🌙" };
+  if (h >= 5 && h < 12) return "Доброе утро";
+  if (h >= 12 && h < 18) return "Добрый день";
+  if (h >= 18) return "Добрый вечер";
+  return "Доброй ночи";
 }
 
-function getDateLabel() {
+function getDateTimeCaption() {
   const d = new Date();
   const weekday = d.toLocaleDateString("ru-RU", { weekday: "long" });
   const date = d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
-  return {
-    weekday: weekday[0].toUpperCase() + weekday.slice(1),
-    date,
-  };
+  const time = d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  return `${weekday}, ${date} · ${time}`;
 }
 
 // ─── Shared UI primitives ──────────────────────────────────
@@ -216,9 +214,9 @@ function CounterWidget({ label, icon, value, note, accent, loading }: CounterPro
         </span>
       </div>
       {loading ? (
-        <Skeleton className="h-10 w-20" />
+        <Skeleton className="h-10 w-20 my-3" />
       ) : (
-        <div className={`${C.metricSm} ${valueColor} tabular-nums leading-none`}>
+        <div className={`${C.metricSm} ${valueColor} tabular-nums leading-none my-3`}>
           {value ?? "—"}
         </div>
       )}
@@ -245,7 +243,7 @@ function WidgetHeader({
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           {icon}
-          <h3 className={`${C.bodySm} font-bold ${titleColor}`}>{title}</h3>
+          <h3 className={`${C.bodySm} font-bold italic ${titleColor}`}>{title}</h3>
         </div>
         {subtitle && (
           <p className={`${C.bodyXs} ${C.color.mutedLight} mt-0.5`}>
@@ -370,7 +368,7 @@ function FocusWidget() {
         subtitle="Чак рекомендует начать с этих лидов"
         icon={<Sparkles size={16} className="text-brand-accent" />}
       />
-      <div className="flex flex-col gap-2 mt-4 flex-1">
+      <div className="flex flex-col gap-2 mt-6 flex-1">
         {isLoading && (
           <>
             <Skeleton className="h-12" />
@@ -487,7 +485,7 @@ function TaskListWidget() {
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <ListChecks size={16} className="text-brand-muted" />
-            <h3 className={`${C.bodySm} font-bold ${C.color.text}`}>
+            <h3 className={`${C.bodySm} font-bold italic ${C.color.text}`}>
               Список задач
             </h3>
           </div>
@@ -505,7 +503,7 @@ function TaskListWidget() {
         </Link>
       </div>
 
-      <div className="flex flex-col gap-1.5 mt-4 flex-1">
+      <div className="flex flex-col gap-1.5 mt-6 flex-1">
         {isLoading && (
           <>
             <Skeleton className="h-10" />
@@ -680,7 +678,7 @@ function ChakWidget() {
         icon={<Sparkles size={16} className="text-brand-accent-text" />}
         accent
       />
-      <div className="flex flex-col gap-2.5 mt-4 flex-1">
+      <div className="flex flex-col gap-2.5 mt-6 flex-1">
         {insights.map((it, i) => (
           <div key={i} className="flex items-start gap-3">
             <span className="mt-0.5 shrink-0">{it.icon}</span>
@@ -730,7 +728,7 @@ function FunnelWidget() {
         subtitle="Распределение активных лидов"
         icon={<BarChart3 size={16} className="text-brand-muted" />}
       />
-      <div className="flex flex-col gap-2.5 mt-4 flex-1">
+      <div className="flex flex-col gap-2.5 mt-6 flex-1">
         {isLoading && (
           <>
             <Skeleton className="h-5" />
@@ -789,7 +787,7 @@ function NotifWidget() {
         subtitle="Что произошло сегодня"
         icon={<Bell size={16} className="text-brand-muted" />}
       />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 mt-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 mt-6">
         {isLoading && (
           <>
             <Skeleton className="h-12" />
@@ -1051,8 +1049,8 @@ function TodayPageInner() {
     });
   }
 
-  const greeting = getGreeting(firstName);
-  const { weekday, date } = getDateLabel();
+  const greetingText = getGreeting();
+  const dateTimeCaption = getDateTimeCaption();
   const visible = order.filter((id) => !hidden.has(id));
 
   // Live subtitle. Uses task count when the plan resolves; falls back
@@ -1108,18 +1106,18 @@ function TodayPageInner() {
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Header */}
         <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
-          <div className="min-w-0">
-            <h1 className={`${C.h3} ${C.color.text} flex items-center gap-2`}>
-              <span aria-hidden>{greeting.icon}</span>
-              <span>{greeting.text}</span>
+          <div className="flex-1 min-w-0 bg-white border border-brand-border border-l-[3px] border-l-brand-accent rounded-xl p-6">
+            <div className={T.caption}>{dateTimeCaption}</div>
+            <h1 className={`text-3xl font-bold ${C.color.text} mt-1`}>
+              {greetingText}, <span className="text-brand-accent">{firstName}</span>
             </h1>
             <p className={`${C.bodySm} ${C.color.mutedLight} mt-1`}>
-              {weekday}, {date} · {chakSummary}
+              {chakSummary}
             </p>
           </div>
           <button
             onClick={() => setEditing((v) => !v)}
-            className={`${C.button.ghost} ${C.btnLg} px-4 py-2 inline-flex items-center gap-2`}
+            className={`${C.button.ghost} ${C.btnLg} px-4 py-2 inline-flex items-center gap-2 shrink-0`}
           >
             <LayoutGrid size={14} aria-hidden />
             {editing ? "Готово" : "Настроить"}
