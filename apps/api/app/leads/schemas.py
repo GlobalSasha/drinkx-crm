@@ -81,6 +81,7 @@ class LeadOut(LeadBase):
     won_at: datetime | None
     lost_at: datetime | None
     lost_reason: str | None
+    ai_data: dict | None = None
     created_at: datetime
     updated_at: datetime
 

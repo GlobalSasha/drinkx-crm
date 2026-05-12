@@ -39,6 +39,48 @@ async def _make_lead(db, workspace_id, **kwargs):
 
 
 # ---------------------------------------------------------------------------
+# Schema serialization
+# ---------------------------------------------------------------------------
+
+def test_lead_out_serializes_ai_data():
+    """Regression guard: GET /leads/{id} must surface `ai_data`.
+
+    Without this field on `LeadOut`, FastAPI silently strips it from the
+    response and the lead-card AI Brief tab stays empty even after a
+    successful enrichment run.
+    """
+    from types import SimpleNamespace
+    from uuid import uuid4
+    from datetime import datetime, timezone
+
+    from app.leads.schemas import LeadOut
+
+    now = datetime.now(tz=timezone.utc)
+    fake_lead = SimpleNamespace(
+        id=uuid4(),
+        workspace_id=uuid4(),
+        pipeline_id=None,
+        stage_id=None,
+        company_name="Acme",
+        segment=None, city=None, email=None, phone=None,
+        website=None, inn=None, source=None, tags_json=[],
+        deal_type=None, priority=None, score=0,
+        blocker=None, next_step=None, next_action_at=None,
+        fit_score=None, assignment_status="pool",
+        assigned_to=None, assigned_at=None,
+        transferred_from=None, transferred_at=None,
+        is_rotting_stage=False, is_rotting_next_step=False,
+        last_activity_at=None, archived_at=None,
+        won_at=None, lost_at=None, lost_reason=None,
+        ai_data={"company_profile": "Coffee shop chain", "fit_score": 7.5},
+        created_at=now, updated_at=now,
+    )
+    dumped = LeadOut.model_validate(fake_lead).model_dump()
+    assert "ai_data" in dumped
+    assert dumped["ai_data"] == {"company_profile": "Coffee shop chain", "fit_score": 7.5}
+
+
+# ---------------------------------------------------------------------------
 # CRUD tests
 # ---------------------------------------------------------------------------
 
