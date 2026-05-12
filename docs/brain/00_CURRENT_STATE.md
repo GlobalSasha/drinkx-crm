@@ -1,6 +1,6 @@
 # DrinkX CRM — Current State
 
-Last updated: 2026-05-10 (Sprint 3.1 DONE — Lead AI Agent live in production; PRs [#18](https://github.com/GlobalSasha/drinkx-crm/pull/18), [#19](https://github.com/GlobalSasha/drinkx-crm/pull/19), [#20](https://github.com/GlobalSasha/drinkx-crm/pull/20), [#22](https://github.com/GlobalSasha/drinkx-crm/pull/22) all merged. Sprint 2.7 + 2.6 already on main.)
+Last updated: 2026-05-12 (Sprint 3.4 DONE — Unified Inbox: Telegram Business Bot + Mango Office IP-телефония + SaluteSpeech-транскрипция звонков, на `main` без PR. Sprint 3.3 Companies + 3.4 Team Dashboard также на `main`.)
 
 ## Phase 0 — COMPLETED ✅ (lives in `crm-prototype` repo)
 
@@ -541,10 +541,31 @@ Net-new dependencies: **0 npm + 0 Python** (frontend reuses React Query + lucide
 
 ADR work: none new — Sprint 3.1 was implementation-shaped on top of ADR-009 (package-per-domain), ADR-018 (LLM provider abstraction), ADR-007 (AI proposes, manager decides).
 
-### ⏸ NOT YET BUILT (after Sprint 3.1)
-- **Sprint 3.2** — Lead AI Agent polish: per-suggestion id + persistent dismiss; chat streaming; manager rating thumbs up/down; SPIN-analysis of inbound through LLM (currently only pattern matching). Spec lives in `docs/brain/04_NEXT_SPRINT.md`.
-- **Sprint 2.8 long-tail** — Sprint 2.7 G3 + G4 carryovers (tg outbound, Enrichment Celery+WS); multi-clause condition UI; AmoCRM adapter; Telegram Business inbox + email send (gmail.send scope); Quote/КП builder; Knowledge Base CRUD UI; multi-step automation polish (dnd-kit reorder, pause-mid-chain UI, per-step retry).
-- **Phase 3 broader** — Multi-tenancy (invite-flow + per-tenant routing for second client), MCP server, OCR визиток, pgvector.
+### ✅ Sprint 3.4 — Unified Inbox: Telegram + Mango + STT (DONE, MVP variant B)
+
+Single-source spec + close-report: `docs/brain/sprint_reports/SPRINT_3_4_UNIFIED_INBOX.md`.
+
+Shipped:
+- `inbox_messages` table (migration 0025) + `leads.tg_chat_id`/`leads.max_user_id` (0026)
+- `ChannelAdapter` Protocol + adapters: `telegram.py` (Bot API + Business proxy) и `phone.py` (Mango VPBX, HMAC `sign = sha256(api_key + json + api_salt)`)
+- Webhook endpoints `POST /api/webhooks/{telegram,phone}` с secret-token / HMAC валидацией
+- `POST /leads/{id}/inbox/send` (Telegram outbound) + `POST /leads/{id}/inbox/call` (click-to-call) + `GET /leads/{id}/inbox` (merged feed) + `GET /api/inbox/unmatched/messages` + `PATCH /api/inbox/messages/{id}/assign`
+- STT-абстракция `app/inbox/stt/` (SaluteSpeech по умолчанию, OAuth2 + кеш токена 28 мин) + Celery task `transcribe_call` → MiMo Flash summary + перезапись `Activity.body` + 60-сек Lead-Agent kick
+- Frontend: 4-й таб «Переписка» в LeadCard (фильтр Все/Gmail/Telegram/Телефон, channel badges, collapsible транскрипт, composer + кнопка «Позвонить»); секция «Мессенджеры и звонки» на `/inbox` с inline LeadSearchPicker
+- 44 mock-теста, все зелёные
+
+Carry-overs:
+- MAX Bot (G3) и Gmail Send (G5) — спек сохранён, не в MVP
+- Per-manager Telegram bots — TODO в коде (`channel_connections` миграция как у Gmail). Сейчас один бот на инсталляцию через `TELEGRAM_BOT_TOKEN` + `DEFAULT_WORKSPACE_ID`
+- Email-плечо в `/leads/{id}/inbox` пока пустое — email видно на табе «Активность»
+
+Env vars to provision (operator-side): `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `DEFAULT_WORKSPACE_ID`, `MANGO_API_KEY`, `MANGO_API_SALT`, `SALUTE_CLIENT_ID`, `SALUTE_CLIENT_SECRET`. Smoke-чеклист в close-report.
+
+### ⏸ NOT YET BUILT (after Sprint 3.4)
+- **Sprint 3.5 — Inbox follow-ups** — MAX Bot (G3 carry-over), Gmail send с `gmail.send` scope (G5 carry-over), per-manager Telegram bots через `channel_connections` (TODO зафиксирован в коде).
+- **Sprint 3.2 — Lead AI Agent polish** — per-suggestion id + persistent dismiss; chat streaming; manager rating thumbs up/down; SPIN-analysis of inbound через LLM. Парковка с 3.1.
+- **Sprint 2.8 long-tail** — multi-clause condition UI; AmoCRM adapter; Quote/КП builder; Knowledge Base CRUD UI; multi-step automation polish (dnd-kit reorder, pause-mid-chain UI, per-step retry).
+- **Phase 3 broader** — Multi-tenancy (invite-flow + per-tenant routing), MCP server, OCR визиток, pgvector.
 
 ---
 
@@ -617,16 +638,12 @@ Resolved this sprint:
 
 ## Next
 
-**Sprint 3.2 — Lead AI Agent polish.** The 3.1 close-report explicitly
-parked these features as out-of-scope for v1 of the agent; they're
-the natural follow-on once managers actually use the banner and
-chat drawer in anger. Spec lives in `docs/brain/04_NEXT_SPRINT.md`.
+To be decided by the operator after 3.4 lands in production. Three obvious candidates:
 
-Tentative scope for 3.2:
-- Per-suggestion id + persistent dismiss (currently `× скрыть` is session-only — refresh brings it back). Needs a small schema bump in `agent_state.suggestion.dismissed_ids[]` or a new `agent_state.dismissed_at`.
-- Manager rating thumbs up/down on suggestions — feeds the «менеджер игнорирует советы» pattern in `agent_state.suggestions_log` (skill §11). Persists the rating + adjusts the prompt tone after 3+ ignored.
-- Chat streaming via SSE/WebSocket — current sync POST works but feels laggy on long Pro responses.
-- SPIN-analysis of inbound emails through LLM — replace the pattern-match heuristic in `runner.get_suggestion` with a focused second LLM call (similar to `_extract_contacts_from_sources` in enrichment).
-- (Sprint 2.8 carryovers are still parked — see roadmap.)
+1. **Sprint 3.5 — Inbox follow-ups.** Pick up the carry-overs from 3.4 once Telegram + Mango are smoked: MAX Bot (G3), Gmail send (G5), per-manager Telegram bots through `channel_connections`. Code-side TODO already in `app/inbox/adapters/telegram.py` + `app/inbox/webhooks.py`.
+2. **Sprint 3.2 — Lead AI Agent polish.** Per-suggestion id + persistent dismiss; thumbs up/down; chat streaming; LLM-based SPIN analysis of inbound. Parked since 3.1.
+3. **Soft-launch hardening** — Sentry DSNs (init wiring is ready since 2.7), pg_dump backups, end-to-end smoke ritual after each deploy.
 
-Active migrations on `main`: `0001..0022` (Sprint 3.1 G2 added 0022_lead_agent_state). Next free index: `0023`.
+When you pick one, drop the spec into `docs/brain/04_NEXT_SPRINT.md` — that file currently holds the 3.4 reference and a "TBD" placeholder.
+
+Active migrations on `main`: `0001..0026` (3.3 added 0023+0024, 3.4 added 0025+0026). Next free index: `0027`.

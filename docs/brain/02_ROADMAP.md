@@ -184,10 +184,35 @@
 - 0 new npm deps; 0 new Python deps. ADRs reaffirmed: ADR-009, ADR-018, ADR-007. No new ADRs.
 - Production state: agent endpoints live at `/api/leads/{id}/agent/*`; `lead-agent-scan-silence` beat entry active; FAB + banner visible on every LeadCard.
 
+**Sprint 3.3 — Companies + Global Search (DONE — merged on `main` as PR [#28](https://github.com/GlobalSasha/drinkx-crm/pull/28))**
+- Migration 0023 `companies` table + `leads.company_id` + `contacts.workspace_id/company_id` + pg_trgm; 0024 flips `contacts.workspace_id` to NOT NULL after backfill
+- `app/companies/` domain package + `app/search/` for global search hitting fuzzy indexes
+- Report: `docs/brain/sprint_reports/SPRINT_3_3_COMPANIES.md`
+
+**Sprint 3.4 (team dashboard) — DONE on `main`**
+- Activity dashboard + manager-delete tooling (merge commit `69ebe6e`)
+
+**Sprint 3.4 — Unified Inbox: Telegram + Mango + STT (DONE — on `main`, no PR)**
+- Single-source report: `docs/brain/sprint_reports/SPRINT_3_4_UNIFIED_INBOX.md`
+- MVP variant B (6-day scope): Telegram Business Bot + Mango Office VPBX + SaluteSpeech-транскрипция
+- Backend: 2 миграции (0025 `inbox_messages` с transcript/summary/stt_provider, 0026 `leads.tg_chat_id` + `leads.max_user_id`); `ChannelAdapter` Protocol + `TelegramAdapter` + `PhoneAdapter`; `app/inbox/stt/` (Salute / Whisper / factory); Celery `transcribe_call` (download → STT → MiMo summary → Activity body rewrite → 60s Lead-Agent kick); webhooks `POST /api/webhooks/{telegram,phone}` (TG secret-token, Mango HMAC `sign`); routes `POST /leads/{id}/inbox/send` + `POST /leads/{id}/inbox/call` + `GET /leads/{id}/inbox` + `GET /api/inbox/unmatched/messages` + `PATCH /api/inbox/messages/{id}/assign`
+- Frontend: 4-й таб «Переписка» в LeadCard (filter / feed / collapsible transcript / composer / call button); секция «Мессенджеры и звонки» на `/inbox`
+- 44 mock-теста (test_inbox_messages 10 + test_inbox_telegram 11 + test_inbox_phone 14 + test_inbox_transcribe 9), все зелёные
+- Carry-overs: MAX Bot (G3), Gmail send (G5), per-manager Telegram bots через `channel_connections` — TODO зафиксированы в коде; e-mail плечо в `/leads/{id}/inbox` пока пустое (видно на «Активность»)
+- ENV to provision: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `DEFAULT_WORKSPACE_ID`, `MANGO_API_KEY`, `MANGO_API_SALT`, `SALUTE_CLIENT_ID`, `SALUTE_CLIENT_SECRET`. Smoke-чеклист в close-report
+
 ## 🔜 NEXT
 
+To be decided by the operator after 3.4 Unified Inbox is smoked in production. Candidates:
+
+### Phase 3 — Sprint 3.5 — Inbox follow-ups (~3-4 days)
+Carry-overs from 3.4 Unified Inbox.
+- **MAX Bot** (G3 carry-over) — `adapters/max_messenger.py` + `POST /api/webhooks/max`; structure is symmetric to TelegramAdapter
+- **Gmail send** (G5 carry-over) — request `gmail.send` scope alongside `gmail.readonly` on first connect; existing connections show inline «переподключить» hint; `POST /leads/{id}/inbox/send` for `channel='email'`
+- **Per-manager Telegram bots** — store tokens per `(workspace_id, user_id)` in `channel_connections` (mirror Gmail); webhook URL becomes `/api/webhooks/telegram/{connection_id}`; `DEFAULT_WORKSPACE_ID` retires. TODO already in code.
+
 ### Phase 3 — Sprint 3.2 — Lead AI Agent polish (~3-5 days)
-See `docs/brain/04_NEXT_SPRINT.md` for full spec.
+See historical entry in this doc + the original 3.1 close-report. Parked since the 3.1 close.
 
 **Main driver:** the 3.1 close-report parked five features as out-of-scope for v1 of the agent. They're the natural follow-on once managers actually use the banner and chat drawer in anger.
 
