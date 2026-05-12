@@ -187,6 +187,9 @@ function AIBriefCard({
 
   function handleRun(mode: "full" | "append") {
     trigger.mutate(mode, {
+      onSuccess: () => {
+        showToast("AI Бриф в очереди — обычно 5–10 сек");
+      },
       onError: (err) => {
         if (err instanceof ApiError && err.status === 409) {
           showToast("Enrichment уже запущен");

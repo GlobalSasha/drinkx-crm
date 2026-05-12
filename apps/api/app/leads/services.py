@@ -74,6 +74,22 @@ def _validate_enum_fields(priority: str | None, deal_type: str | None) -> None:
 # Service functions
 # ---------------------------------------------------------------------------
 
+async def get_lead(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+) -> Lead:
+    """Fetch one lead, scoped to workspace. Raises LeadNotFound otherwise.
+
+    Used by endpoints (e.g. /leads/{id}/attributes) that need workspace
+    isolation but don't want to duplicate the 404-or-Lead branching.
+    """
+    lead = await repo.get_by_id(db, lead_id, workspace_id)
+    if lead is None:
+        raise LeadNotFound(lead_id)
+    return lead
+
+
 async def create_lead(
     db: AsyncSession,
     workspace_id: uuid.UUID,
