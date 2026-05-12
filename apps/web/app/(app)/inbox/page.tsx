@@ -23,6 +23,7 @@ import {
 import { useLeads } from "@/lib/hooks/use-leads";
 import { relativeTime } from "@/lib/relative-time";
 import type { InboxItemOut, LeadOut, SuggestedAction } from "@/lib/types";
+import { UnmatchedMessagesSection } from "@/components/inbox/UnmatchedMessagesSection";
 
 const PAGE_SIZE = 20;
 
@@ -474,6 +475,8 @@ export default function InboxPage() {
           )}
         </>
       )}
+
+      <UnmatchedMessagesSection />
     </div>
   );
 }

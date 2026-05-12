@@ -6,8 +6,14 @@ import type {
   InboxConfirmIn,
   InboxCountOut,
   InboxItemOut,
+  InboxMessageOut,
   InboxPageOut,
 } from "@/lib/types";
+
+interface InboxUnmatchedMessagesOut {
+  items: InboxMessageOut[];
+  total: number;
+}
 
 const COUNT_POLL_MS = 30_000;
 const PAGE_SIZE = 20;
@@ -64,5 +70,45 @@ export function useConnectGmail() {
   return useMutation<{ redirect_url: string }, ApiError, void>({
     mutationFn: () =>
       api.post<{ redirect_url: string }>("/api/inbox/connect-gmail"),
+  });
+}
+
+// ---- Multi-channel inbox — unmatched messages (Sprint 3.4 G7) ----
+
+const UNMATCHED_POLL_MS = 15_000;
+const UNMATCHED_PAGE_SIZE = 50;
+
+/** Telegram / MAX / phone messages that arrived without a matched lead. */
+export function useInboxUnmatchedMessages(page: number = 1) {
+  return useQuery({
+    queryKey: ["inbox", "unmatched-messages", page],
+    queryFn: () =>
+      api.get<InboxUnmatchedMessagesOut>(
+        `/api/inbox/unmatched/messages?page=${page}&page_size=${UNMATCHED_PAGE_SIZE}`,
+      ),
+    refetchInterval: UNMATCHED_POLL_MS,
+    refetchIntervalInBackground: false,
+  });
+}
+
+/** Attach an unmatched InboxMessage to a lead. */
+export function useAssignInboxMessage() {
+  const qc = useQueryClient();
+  return useMutation<
+    InboxMessageOut,
+    ApiError,
+    { id: string; lead_id: string }
+  >({
+    mutationFn: ({ id, lead_id }) =>
+      api.patch<InboxMessageOut>(`/api/inbox/messages/${id}/assign`, {
+        lead_id,
+      }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["inbox", "unmatched-messages"] });
+      // The lead's feed gets a new entry — refresh if open.
+      qc.invalidateQueries({
+        queryKey: ["lead-inbox", vars.lead_id],
+      });
+    },
   });
 }

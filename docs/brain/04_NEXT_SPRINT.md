@@ -791,7 +791,19 @@ apps/web/hooks/useLeadInbox.ts               — TanStack Query: fetch + send + 
 
 ---
 
-## G7 — Unmatched messages (~0.5 дня)
+## G7 — Unmatched messages (~0.5 дня) ✅
+
+- [x] `useInboxUnmatchedMessages` (polling 15с) + `useAssignInboxMessage`
+  в `apps/web/lib/hooks/use-inbox.ts`
+- [x] `apps/web/components/inbox/UnmatchedMessagesSection.tsx` — секция
+  «Мессенджеры и звонки» под существующим email-списком, с inline
+  LeadSearchPicker и кнопкой «Привязать к лиду» → PATCH
+  `/api/inbox/messages/{id}/assign`
+- [x] Секция автоматически скрыта, если нематченных нет
+- [x] После назначения: оптимистичное скрытие строки + invalidate
+  unmatched + invalidate lead-inbox целевого лида
+
+### G7 — оригинальный спек (для справки)
 
 Входящие без `lead_id` — `/inbox` страница уже существует (для Gmail).
 Добавляем секцию «Мессенджеры» рядом с существующей секцией email.
