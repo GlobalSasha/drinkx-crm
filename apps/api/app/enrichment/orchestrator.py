@@ -452,6 +452,7 @@ async def _materialise_found_contacts(
 
         contact = Contact(
             lead_id=lead.id,
+            workspace_id=lead.workspace_id,
             name=fc.name.strip(),
             title=fc.title,
             email=fc.email,
@@ -821,6 +822,17 @@ async def run_enrichment(
             duration_ms=duration_ms,
         )
         try:
+            # If `exc` came from a flush, the session's transaction is
+            # already rolled back and any subsequent write raises
+            # InvalidRequestError. Rolling back explicitly resets the
+            # session to a usable state so the run.status='failed' write
+            # below can commit — otherwise the row strands at 'running'
+            # and the lead's AI Brief button stays disabled forever.
+            try:
+                await db.rollback()
+            except Exception:
+                pass
+
             run.status = "failed"
             run.error = f"{error_type}: {exc}"[:1000]
             run.duration_ms = duration_ms

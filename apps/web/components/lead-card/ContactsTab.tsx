@@ -123,7 +123,11 @@ function ContactRow({
   const isUnverified = contact.verified_status === "to_verify";
 
   return (
-    <li className="rounded-2xl border border-brand-border bg-white p-3.5">
+    <li
+      className="rounded-2xl border border-brand-border bg-white p-3.5 cursor-pointer hover:border-brand-accent transition-colors"
+      onClick={onEdit}
+      role="button"
+    >
       <div className="flex items-start gap-3">
         <span
           className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm ${avatarClass}`}
@@ -253,6 +257,7 @@ function LinkBtn({
       href={href}
       target={external ? "_blank" : undefined}
       rel={external ? "noopener noreferrer" : undefined}
+      onClick={(e) => e.stopPropagation()}
       className={`inline-flex items-center gap-1 ${C.bodyXs} ${C.color.muted} hover:${C.color.accent} transition-colors`}
     >
       {icon}
