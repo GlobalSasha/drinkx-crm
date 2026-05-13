@@ -359,6 +359,48 @@ function InboxRow({ item }: { item: InboxItemOut }) {
 // Page
 // ---------------------------------------------------------------------------
 
+function ConnectCTA({
+  connect,
+  handleConnect,
+}: {
+  connect: ReturnType<typeof useConnectGmail>;
+  handleConnect: () => void;
+}) {
+  const searchParams = useSearchParams();
+  const justConnected =
+    searchParams?.get("connect") === "gmail" &&
+    searchParams?.get("status") === "ok";
+  if (justConnected) {
+    return (
+      <p className="text-[12px] text-muted-2 mt-1">
+        Синхронизация запущена — письма появятся в течение нескольких минут.
+      </p>
+    );
+  }
+  return (
+    <>
+      <p className="text-[12px] text-muted-2 mt-1 mb-4">
+        Подключите Gmail, чтобы письма появлялись здесь автоматически.
+      </p>
+      <button
+        onClick={handleConnect}
+        disabled={connect.isPending}
+        className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl bg-brand-accent text-white hover:opacity-90 disabled:opacity-50"
+      >
+        <Mail size={14} />
+        {connect.isPending ? "Подключаем…" : "Подключить Gmail"}
+      </button>
+      {connect.isError && (
+        <p className="mt-3 text-[12px] text-red-700">
+          {connect.error?.status === 503
+            ? "Gmail OAuth is not configured on the server (GOOGLE_CLIENT_ID missing)."
+            : "Failed to start connection. Please try again."}
+        </p>
+      )}
+    </>
+  );
+}
+
 function CallbackBanner() {
   const searchParams = useSearchParams();
   const status = searchParams?.get("status");
@@ -428,24 +470,9 @@ export default function InboxPage() {
             <InboxIcon size={22} className="text-muted-3" />
           </div>
           <div className="text-sm font-bold text-ink">Все письма разобраны</div>
-          <p className="text-[12px] text-muted-2 mt-1 mb-4">
-            Подключите Gmail, чтобы письма появлялись здесь автоматически.
-          </p>
-          <button
-            onClick={handleConnect}
-            disabled={connect.isPending}
-            className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl bg-brand-accent text-white hover:opacity-90 disabled:opacity-50"
-          >
-            <Mail size={14} />
-            {connect.isPending ? "Подключаем…" : "Подключить Gmail"}
-          </button>
-          {connect.isError && (
-            <p className="mt-3 text-[12px] text-red-700">
-              {connect.error?.status === 503
-                ? "Gmail OAuth is not configured on the server (GOOGLE_CLIENT_ID missing)."
-                : "Failed to start connection. Please try again."}
-            </p>
-          )}
+          <Suspense fallback={null}>
+            <ConnectCTA connect={connect} handleConnect={handleConnect} />
+          </Suspense>
         </div>
       )}
 
