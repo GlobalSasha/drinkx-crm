@@ -87,6 +87,11 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # Editable profile fields (Sprint manager-profile, migration 0027).
+    # Avatar is just a URL for now — file upload is a separate task.
+    phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
     workspace: Mapped[Workspace] = relationship(back_populates="users")
 
 

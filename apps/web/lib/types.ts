@@ -540,6 +540,9 @@ export interface MeOut {
   working_hours_json: Record<string, any>;
   onboarding_completed: boolean;
   last_login_at: string | null;
+  phone: string | null;
+  avatar_url: string | null;
+  created_at: string;
   workspace: WorkspaceOut;
 }
 
