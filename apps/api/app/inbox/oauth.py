@@ -9,11 +9,17 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import os
 import time
 from urllib.parse import urlencode
 from uuid import UUID
 
-from google_auth_oauthlib.flow import Flow
+# Google returns extra scopes (openid, userinfo.*) on top of the requested
+# gmail.readonly when the user already granted them via Supabase sign-in.
+# Relax oauthlib's strict scope check before importing Flow.
+os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
+
+from google_auth_oauthlib.flow import Flow  # noqa: E402
 
 from app.config import get_settings
 
