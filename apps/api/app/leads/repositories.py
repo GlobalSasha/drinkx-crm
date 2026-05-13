@@ -79,6 +79,8 @@ async def list_pool(
     city: str | None = None,
     segment: str | None = None,
     fit_min: float | None = None,
+    priority: str | None = None,
+    q: str | None = None,
     page: int = 1,
     page_size: int = 50,
 ) -> tuple[list[Lead], int]:
@@ -88,11 +90,15 @@ async def list_pool(
         Lead.assignment_status == "pool",
     )
     if city is not None:
-        base = base.where(Lead.city == city)
+        base = base.where(Lead.city.ilike(f"%{city}%"))
     if segment is not None:
         base = base.where(Lead.segment == segment)
     if fit_min is not None:
         base = base.where(Lead.fit_score >= fit_min)
+    if priority is not None:
+        base = base.where(Lead.priority == priority)
+    if q is not None:
+        base = base.where(Lead.company_name.ilike(f"%{q}%"))
 
     count_result = await db.execute(select(func.count()).select_from(base.subquery()))
     total: int = count_result.scalar_one()

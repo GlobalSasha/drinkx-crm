@@ -5,9 +5,20 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.leads.constants import SEGMENT_KEYS, normalize_city
 from app.leads.models import AssignmentStatus, DealType, Priority  # noqa: F401 — imported for OpenAPI clarity
+
+
+def _validate_segment(value: str | None) -> str | None:
+    if value is None or value == "":
+        return None
+    if value not in SEGMENT_KEYS:
+        raise ValueError(
+            f"Invalid segment '{value}'. Must be one of: {SEGMENT_KEYS}"
+        )
+    return value
 
 
 class LeadBase(BaseModel):
@@ -40,6 +51,16 @@ class LeadCreate(LeadBase):
     # correct from creation onward.
     company_id: UUID | None = None
 
+    @field_validator("segment")
+    @classmethod
+    def _segment(cls, v: str | None) -> str | None:
+        return _validate_segment(v)
+
+    @field_validator("city")
+    @classmethod
+    def _city(cls, v: str | None) -> str | None:
+        return normalize_city(v)
+
 
 class LeadUpdate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -61,6 +82,16 @@ class LeadUpdate(BaseModel):
     next_action_at: datetime | None = None
     pipeline_id: UUID | None = None
     stage_id: UUID | None = None
+
+    @field_validator("segment")
+    @classmethod
+    def _segment(cls, v: str | None) -> str | None:
+        return _validate_segment(v)
+
+    @field_validator("city")
+    @classmethod
+    def _city(cls, v: str | None) -> str | None:
+        return normalize_city(v)
 
 
 class LeadOut(LeadBase):

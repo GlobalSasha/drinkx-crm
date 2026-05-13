@@ -1,5 +1,6 @@
 "use client";
 import { useState, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Search, Loader2, Sparkles } from "lucide-react";
 import { usePoolLeads, useClaimLead } from "@/lib/hooks/use-leads";
 import { Toast } from "@/components/ui/Toast";
@@ -7,23 +8,8 @@ import { ExportPopover } from "@/components/export/ExportPopover";
 import { AIBulkUpdateModal } from "@/components/export/AIBulkUpdateModal";
 import { T } from "@/lib/design-system";
 import { tierFromScore } from "@/lib/types";
+import { segmentLabel } from "@/lib/constants/segments";
 import type { LeadOut } from "@/lib/types";
-
-// Russian-friendly labels for backend segment slugs (matches build_data.py).
-// Unknown slugs fall back to the raw string so we don't lose data.
-const SEGMENT_LABELS: Record<string, string> = {
-  food_retail: "Продуктовый ритейл",
-  non_food_retail: "Непродуктовый ритейл",
-  coffee_shops: "Кофейни и кафе",
-  qsr_fast_food: "QSR / Fast Food",
-  gas_stations: "АЗС",
-  coffee_equipment_distributors: "Дистрибьюторы оборудования",
-  horeca: "HoReCa",
-  restaurants: "Рестораны",
-  hotels: "Отели",
-};
-
-const segmentLabel = (s: string) => SEGMENT_LABELS[s] ?? s;
 
 // ---- Toast state ----
 
@@ -59,10 +45,12 @@ function FitSlider({ value, onChange }: { value: number; onChange: (v: number) =
 function PoolRow({
   lead,
   onClaim,
+  onOpen,
   claiming,
 }: {
   lead: LeadOut;
   onClaim: (id: string) => void;
+  onOpen: (id: string) => void;
   claiming: boolean;
 }) {
   const tier = tierFromScore(lead.score);
@@ -73,9 +61,13 @@ function PoolRow({
     D: "bg-black/5 text-muted",
   };
 
+  // Sprint 3.5: row-level click navigates to the lead card. The claim
+  // button stops propagation so a manager can claim without leaving
+  // the pool view.
   return (
     <tr
-      className={`border-b border-black/5 transition-opacity duration-300 ${claiming ? "opacity-40" : "hover:bg-canvas"}`}
+      onClick={() => onOpen(lead.id)}
+      className={`border-b border-black/5 transition-opacity duration-300 cursor-pointer ${claiming ? "opacity-40" : "hover:bg-canvas"}`}
     >
       <td className="px-4 py-3">
         <p className="font-semibold text-sm text-ink">{lead.company_name}</p>
@@ -102,7 +94,10 @@ function PoolRow({
           </span>
         ) : (
           <button
-            onClick={() => onClaim(lead.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onClaim(lead.id);
+            }}
             className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-pill px-3 py-1.5 text-xs font-semibold transition-all duration-200 hover:bg-brand-accent/90 active:scale-[0.98]"
           >
             Взять в работу
@@ -116,6 +111,7 @@ function PoolRow({
 // ---- Page ----
 
 export default function LeadsPoolPage() {
+  const router = useRouter();
   const [cityFilter, setCityFilter] = useState<string | null>(null);
   const [segmentFilter, setSegmentFilter] = useState<string | null>(null);
   const [fitMin, setFitMin] = useState(0);
@@ -380,6 +376,7 @@ export default function LeadsPoolPage() {
                     key={lead.id}
                     lead={lead}
                     onClaim={handleClaim}
+                    onOpen={(id) => router.push(`/leads/${id}`)}
                     claiming={claimingIds.has(lead.id)}
                   />
                 ))}

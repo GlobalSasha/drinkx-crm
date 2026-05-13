@@ -91,12 +91,50 @@ async def list_pool(
     # 500 keeps a sane safety rail; longer-term fix is server-side
     # filtering when the workspace pool exceeds this.
     page_size: int = Query(50, ge=1, le=500),
+    priority: str | None = None,
+    q: str | None = None,
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
     user: Annotated[User, Depends(current_user)] = ...,
 ) -> LeadListOut:
-    filters = dict(city=city, segment=segment, fit_min=fit_min, page=page, page_size=page_size)
+    filters = dict(
+        city=city,
+        segment=segment,
+        fit_min=fit_min,
+        priority=priority,
+        q=q,
+        page=page,
+        page_size=page_size,
+    )
     items, total = await services.list_pool(db, user.workspace_id, filters)
     return LeadListOut(items=items, total=total, page=page, page_size=page_size)
+
+
+@router.get("/cities")
+async def list_cities(
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> dict[str, list[str]]:
+    """Distinct normalized cities across the workspace's leads.
+
+    Sprint 3.5: powers leads-pool / pipeline city filters with a
+    stable workspace-wide list rather than one derived from the
+    currently-fetched page.
+    """
+    from sqlalchemy import distinct, select as _select
+
+    from app.leads.constants import normalize_city
+    from app.leads.models import Lead
+
+    rows = await db.execute(
+        _select(distinct(Lead.city))
+        .where(Lead.workspace_id == user.workspace_id, Lead.city.is_not(None))
+    )
+    seen: set[str] = set()
+    for (raw,) in rows.fetchall():
+        n = normalize_city(raw)
+        if n:
+            seen.add(n)
+    return {"cities": sorted(seen)}
 
 
 @router.post("/sprint", response_model=SprintCreateOut)

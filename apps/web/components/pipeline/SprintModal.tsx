@@ -4,17 +4,9 @@ import { X, Loader2 } from "lucide-react";
 import { usePipelineStore } from "@/lib/store/pipeline-store";
 import { usePoolLeads, useCreateSprint } from "@/lib/hooks/use-leads";
 import { Toast } from "@/components/ui/Toast";
+import { SEGMENT_CHOICES } from "@/lib/constants/segments";
 
 const SPRINT_CAPACITY = 20; // fallback if workspace value unavailable
-
-const SEGMENTS = [
-  "HoReCa",
-  "Офисы",
-  "Ритейл",
-  "Производство",
-  "Образование",
-  "Медицина",
-];
 
 interface ToastState {
   id: number;
@@ -146,15 +138,15 @@ export function SprintModal({ isOpen: isOpenProp, onClose: onCloseProp }: Props 
               >
                 Все
               </SegmentChip>
-              {SEGMENTS.map((s) => (
+              {SEGMENT_CHOICES.map((s) => (
                 <SegmentChip
-                  key={s}
-                  active={selectedSegment === s}
+                  key={s.key}
+                  active={selectedSegment === s.key}
                   onClick={() =>
-                    setSelectedSegment(selectedSegment === s ? null : s)
+                    setSelectedSegment(selectedSegment === s.key ? null : s.key)
                   }
                 >
-                  {s}
+                  {s.label}
                 </SegmentChip>
               ))}
             </div>
