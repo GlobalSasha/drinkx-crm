@@ -24,6 +24,7 @@ import { useLeads } from "@/lib/hooks/use-leads";
 import { relativeTime } from "@/lib/relative-time";
 import type { InboxItemOut, LeadOut, SuggestedAction } from "@/lib/types";
 import { UnmatchedMessagesSection } from "@/components/inbox/UnmatchedMessagesSection";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 const PAGE_SIZE = 20;
 
@@ -433,7 +434,9 @@ export default function InboxPage() {
     return Math.max(1, Math.ceil(total / PAGE_SIZE));
   }, [data?.total]);
 
-  function handleConnect() {
+  async function handleConnect() {
+    const supabase = getSupabaseBrowserClient();
+    await supabase.auth.refreshSession();
     connect.mutate(undefined, {
       onSuccess: ({ redirect_url }) => {
         if (redirect_url) window.location.href = redirect_url;
