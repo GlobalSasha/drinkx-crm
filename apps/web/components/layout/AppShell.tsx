@@ -370,9 +370,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
-        {/* User pill */}
+        {/* User pill — links to /settings/profile */}
         <div className="px-3 py-4 border-t border-brand-border">
-          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl bg-brand-bg">
+          <Link
+            href="/settings/profile"
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl bg-brand-bg hover:bg-brand-soft transition-colors"
+          >
             <div className="w-7 h-7 rounded-xl bg-brand-accent flex items-center justify-center shrink-0">
               <span className={`${C.bodyXs} font-bold text-white`}>{avatarLetter}</span>
             </div>
@@ -380,7 +383,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <p className={`${C.bodyXs} font-semibold ${C.color.text} truncate`}>{displayName}</p>
               <p className={`text-[10px] font-mono ${C.color.mutedLight} truncate`}>{displayEmail}</p>
             </div>
-          </div>
+          </Link>
           {user && (
             <button
               onClick={handleSignOut}
