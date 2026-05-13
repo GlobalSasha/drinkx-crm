@@ -208,7 +208,7 @@ function CounterWidget({ label, icon, value, note, accent, loading }: CounterPro
       <div className="flex items-center gap-2">
         <span className={iconColor}>{icon}</span>
         <span
-          className={`${C.bodyXs} ${C.color.mutedLight} uppercase tracking-wider font-medium`}
+          className={`text-sm ${C.color.mutedLight} uppercase tracking-wider font-semibold`}
         >
           {label}
         </span>
@@ -1105,19 +1105,21 @@ function TodayPageInner() {
     <div className="font-sans bg-canvas min-h-screen">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Header */}
-        <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
-          <div className="flex-1 min-w-0 bg-white border border-brand-border border-l-[3px] border-l-brand-accent rounded-xl p-6">
-            <div className={T.caption}>{dateTimeCaption}</div>
-            <h1 className={`text-3xl font-bold ${C.color.text} mt-1`}>
-              {greetingText}, <span className="text-brand-accent">{firstName}</span>
-            </h1>
-            <p className={`${C.bodySm} ${C.color.mutedLight} mt-1`}>
-              {chakSummary}
-            </p>
-          </div>
+        <div className="bg-white border border-brand-border border-l-[3px] border-l-brand-accent rounded-xl p-6 mb-4">
+          <div className={T.caption}>{dateTimeCaption}</div>
+          <h1 className={`text-3xl font-bold ${C.color.text} mt-1`}>
+            {greetingText}, <span className="text-brand-accent">{firstName}</span>
+          </h1>
+          <p className={`${C.bodySm} ${C.color.mutedLight} mt-1`}>
+            {chakSummary}
+          </p>
+        </div>
+
+        {/* Configure row */}
+        <div className="flex justify-end mb-4">
           <button
             onClick={() => setEditing((v) => !v)}
-            className={`${C.button.ghost} ${C.btnLg} px-4 py-2 inline-flex items-center gap-2 shrink-0`}
+            className={`${C.button.ghost} ${C.btnLg} px-4 py-2 inline-flex items-center gap-2`}
           >
             <LayoutGrid size={14} aria-hidden />
             {editing ? "Готово" : "Настроить"}
