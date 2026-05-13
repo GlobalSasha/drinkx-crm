@@ -53,6 +53,7 @@ def build_consent_url(state: str) -> str:
         _client_config(),
         scopes=_scope_list(),
         redirect_uri=_redirect_uri(),
+        autogenerate_code_verifier=False,   # disable PKCE — confidential client, secret is present
     )
     auth_url, _ = flow.authorization_url(
         access_type="offline",        # required to receive a refresh_token
