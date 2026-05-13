@@ -439,6 +439,13 @@ export default function InboxPage() {
             <Mail size={14} />
             {connect.isPending ? "Подключаем…" : "Подключить Gmail"}
           </button>
+          {connect.isError && (
+            <p className="mt-3 text-[12px] text-red-700">
+              {connect.error?.status === 503
+                ? "Gmail OAuth is not configured on the server (GOOGLE_CLIENT_ID missing)."
+                : "Failed to start connection. Please try again."}
+            </p>
+          )}
         </div>
       )}
 
