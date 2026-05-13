@@ -78,6 +78,10 @@ services:
       LLM_FALLBACK_CHAIN: ${LLM_FALLBACK_CHAIN:-["mimo","anthropic","gemini","deepseek"]}
       SENTRY_DSN: ${SENTRY_DSN_API}
       AI_MONTHLY_BUDGET_USD: ${AI_MONTHLY_BUDGET_USD:-200}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      API_BASE_URL: ${API_BASE_URL}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL}
     depends_on:
       postgres:
         condition: service_healthy
