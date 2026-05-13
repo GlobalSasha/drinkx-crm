@@ -12,9 +12,20 @@ echo "==> Pull"
 git fetch origin
 git reset --hard origin/main
 
+echo "==> Cleanup orphan rename stubs from prior partial runs"
+docker ps -a --format '{{.Names}}' | grep -E '^[a-f0-9]+_drinkx-' | xargs -r docker rm -f || true
+
 echo "==> Build + up"
 cd infra/production
-docker compose --env-file .env up -d --build --remove-orphans
+UP_RC=0
+docker compose --env-file .env up -d --build --remove-orphans || UP_RC=$?
+
+echo "==> Self-heal: start any containers left in Created state"
+docker compose --env-file .env up -d || true
+
+if [ "$UP_RC" -ne 0 ]; then
+  echo "⚠ Initial 'up' exited with $UP_RC — self-heal attempted; falling through to health check"
+fi
 
 echo "==> Health check"
 sleep 5
