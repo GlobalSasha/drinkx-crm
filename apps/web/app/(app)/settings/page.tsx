@@ -6,11 +6,13 @@
 // G3 spec: «Скоро» for Phase 2.4+). Read access is open to all roles;
 // PipelinesSection internally gates write actions on useMe().role.
 import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   BellRing,
   Bot,
   ChevronDown,
+  ChevronRight,
   KeyRound,
   Plug,
   ScrollText,
@@ -31,7 +33,6 @@ import { TemplatesSection } from "@/components/settings/TemplatesSection";
 
 type SectionKey =
   | "pipelines"
-  | "profile"
   | "team"
   | "channels"
   | "ai"
@@ -55,7 +56,6 @@ const SECTIONS: SectionDef[] = [
   { key: "ai",            label: "AI",           icon: <Bot size={15} />,      ready: true  },
   { key: "custom_fields", label: "Кастомные поля", icon: <Sparkles size={15} />, ready: true },
   { key: "templates",     label: "Шаблоны",      icon: <ScrollText size={15} />, ready: true },
-  { key: "profile",       label: "Профиль",      icon: <User size={15} />,     ready: false },
   { key: "notifications", label: "Уведомления",  icon: <BellRing size={15} />, ready: false },
   { key: "api",           label: "API",          icon: <KeyRound size={15} />, ready: false },
 ];
@@ -106,6 +106,19 @@ function SettingsPageInner() {
             of three roadmap stubs (Профиль / Уведомления / API)
             without removing them from the IA. */}
         <nav className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible">
+          {/* Profile is a separate route (/settings/profile), not an in-page
+              section — render as a Link rather than a state-switch button. */}
+          <Link
+            // typedRoutes hasn't seen /settings/profile yet at tsc time.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            href={"/settings/profile" as any}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors text-muted hover:bg-black/5 hover:text-ink"
+          >
+            <User size={15} />
+            <span className="flex-1 text-left">Мой профиль</span>
+            <ChevronRight size={12} className="text-muted-3" />
+          </Link>
+
           {SECTIONS.filter((s) => s.ready).map((s) => {
             const isActive = active === s.key;
             return (

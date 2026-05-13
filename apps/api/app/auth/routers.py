@@ -40,6 +40,10 @@ async def update_me(
         user.specialization = payload.specialization
     if payload.working_hours_json is not None:
         user.working_hours_json = payload.working_hours_json
+    if payload.phone is not None:
+        user.phone = payload.phone or None
+    if payload.avatar_url is not None:
+        user.avatar_url = payload.avatar_url or None
     if payload.mark_onboarding_complete:
         user.onboarding_completed = True
 

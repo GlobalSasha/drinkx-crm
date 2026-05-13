@@ -34,11 +34,14 @@ class UserOut(BaseModel):
     working_hours_json: dict[str, Any] = Field(default_factory=dict)
     onboarding_completed: bool
     last_login_at: datetime | None
+    phone: str | None = None
+    avatar_url: str | None = None
+    created_at: datetime
     workspace: WorkspaceOut
 
 
 class UserUpdateIn(BaseModel):
-    """Body for PATCH /auth/me — used by Onboarding step 2."""
+    """Body for PATCH /auth/me — used by Onboarding step 2 and /settings/profile."""
 
     name: str | None = None
     role: str | None = None
@@ -46,4 +49,6 @@ class UserUpdateIn(BaseModel):
     max_active_deals: int | None = Field(default=None, ge=1, le=100)
     specialization: list[str] | None = None
     working_hours_json: dict[str, Any] | None = None
+    phone: str | None = None
+    avatar_url: str | None = None
     mark_onboarding_complete: bool = False
