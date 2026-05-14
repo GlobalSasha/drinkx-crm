@@ -36,6 +36,13 @@ function initialsOf(name: string): string {
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  economic_buyer: "ключевой",
+  champion: "чемпион",
+  technical_buyer: "технический",
+  operational_buyer: "операционный",
+};
+
 function colorFor(seed: string): string {
   let hash = 0;
   for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) | 0;
@@ -118,9 +125,14 @@ function ContactRow({
   contact: ContactOut;
   onEdit: () => void;
 }) {
-  const initials = initialsOf(contact.name);
-  const avatarClass = colorFor(contact.name);
+  const hasName = !!(contact.name && contact.name.trim());
+  const displayName = hasName ? contact.name : "Неизвестный контакт";
+  const initials = hasName ? initialsOf(contact.name) : "?";
+  const avatarClass = hasName
+    ? colorFor(contact.name)
+    : "bg-brand-panel text-muted-2";
   const isUnverified = contact.verified_status === "to_verify";
+  const roleLabel = contact.role_type ? ROLE_LABELS[contact.role_type] : null;
 
   return (
     <li
@@ -139,9 +151,20 @@ function ContactRow({
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 flex-wrap">
               <p className={`${C.bodySm} font-semibold ${C.color.text}`}>
-                {contact.name}
+                {displayName}
               </p>
-              <VerifyBadge status={contact.verified_status} confidence={contact.confidence} />
+              {roleLabel && (
+                <span className={`${C.bodyXs} font-semibold px-2 py-0.5 rounded-full bg-brand-accent/10 text-brand-accent`}>
+                  {roleLabel}
+                </span>
+              )}
+              {!hasName ? (
+                <span className={`${C.bodyXs} font-semibold px-2 py-0.5 rounded-full bg-warning/10 text-warning`}>
+                  уточнить
+                </span>
+              ) : (
+                <VerifyBadge status={contact.verified_status} confidence={contact.confidence} />
+              )}
             </div>
             <button
               type="button"

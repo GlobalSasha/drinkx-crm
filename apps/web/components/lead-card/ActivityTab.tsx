@@ -559,7 +559,7 @@ function ActivityItem({
 // Email rendering — Sprint 2.0 G5. Same outer style as the default
 // activity card, with a header line carrying direction icon + sender
 // + timestamp, then bold subject, then body preview with expand toggle.
-function EmailActivityItem({
+export function EmailActivityItem({
   activity,
   dateStr,
   timeStr,

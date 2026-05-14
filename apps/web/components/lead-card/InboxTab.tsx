@@ -15,12 +15,15 @@ import {
 } from "lucide-react";
 import { ApiError } from "@/lib/api-client";
 import { useLeadInbox, useLeadInboxSend, useLeadInboxCall } from "@/lib/hooks/use-lead-inbox";
+import { useActivities } from "@/lib/hooks/use-activities";
 import type {
+  ActivityOut,
   InboxFeedEntry,
   InboxFeedOut,
   LeadOut,
 } from "@/lib/types";
 import { C, T } from "@/lib/design-system";
+import { EmailActivityItem } from "./ActivityTab";
 
 interface Props {
   lead: LeadOut;
@@ -335,7 +338,9 @@ export function InboxTab({ lead }: Props) {
       )}
 
       {/* Feed */}
-      {inboxQuery.isLoading ? (
+      {filter === "email" ? (
+        <EmailThread leadId={lead.id} />
+      ) : inboxQuery.isLoading ? (
         <div className={`py-8 text-center ${C.bodySm} ${C.color.muted}`}>
           <Loader2 className="inline-block animate-spin mr-2" size={14} />
           Загрузка переписки…
@@ -348,9 +353,7 @@ export function InboxTab({ lead }: Props) {
         <p className={`${T.hint} py-8 text-center`}>
           {filter === "all"
             ? "Сообщений по этому лиду пока нет."
-            : filter === "email"
-              ? "Переписка по Gmail сейчас доступна в табе «Активность»."
-              : `Сообщений в канале «${FILTERS.find((f) => f.key === filter)?.label}» нет.`}
+            : `Сообщений в канале «${FILTERS.find((f) => f.key === filter)?.label}» нет.`}
         </p>
       ) : (
         <ul className="space-y-2.5">
@@ -410,5 +413,74 @@ export function InboxTab({ lead }: Props) {
         </div>
       </div>
     </div>
+  );
+}
+
+function EmailThread({ leadId }: { leadId: string }) {
+  const query = useActivities(leadId, "email");
+  const items: ActivityOut[] = useMemo(
+    () =>
+      (query.data?.pages ?? []).flatMap((p) =>
+        (p.items ?? []).filter((a) => a.channel === "gmail"),
+      ),
+    [query.data],
+  );
+
+  if (query.isLoading) {
+    return (
+      <div className={`py-8 text-center ${C.bodySm} ${C.color.muted}`}>
+        <Loader2 className="inline-block animate-spin mr-2" size={14} />
+        Загрузка переписки…
+      </div>
+    );
+  }
+  if (query.isError) {
+    return (
+      <p className={`${C.bodySm} text-rose-600 py-4 text-center`}>
+        Не удалось загрузить переписку.
+      </p>
+    );
+  }
+  if (items.length === 0) {
+    return (
+      <p className={`${T.hint} py-8 text-center`}>
+        Писем пока нет. Подключите Gmail чтобы переписка появлялась здесь автоматически.
+      </p>
+    );
+  }
+  return (
+    <ul className="space-y-2.5">
+      {items.map((a) => {
+        const d = new Date(a.created_at);
+        const dateStr = d.toLocaleDateString("ru-RU", {
+          day: "2-digit",
+          month: "short",
+        });
+        const timeStr = d.toLocaleTimeString("ru-RU", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        return (
+          <li key={a.id}>
+            <EmailActivityItem activity={a} dateStr={dateStr} timeStr={timeStr} />
+          </li>
+        );
+      })}
+      {query.hasNextPage && (
+        <li className="pt-1 text-center">
+          <button
+            type="button"
+            onClick={() => query.fetchNextPage()}
+            disabled={query.isFetchingNextPage}
+            className={`inline-flex items-center gap-1 px-3 py-1.5 ${C.bodyXs} font-semibold ${C.button.ghost}`}
+          >
+            {query.isFetchingNextPage ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : null}
+            Показать ещё
+          </button>
+        </li>
+      )}
+    </ul>
   );
 }

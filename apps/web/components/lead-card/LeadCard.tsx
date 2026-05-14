@@ -54,9 +54,9 @@ type TabKey = "activity" | "deal-ai" | "contacts" | "inbox";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "activity", label: "Активность" },
+  { key: "inbox", label: "Переписка" },
   { key: "deal-ai", label: "Сделка и AI" },
   { key: "contacts", label: "Контакты" },
-  { key: "inbox", label: "Переписка" },
 ];
 
 interface Props {
