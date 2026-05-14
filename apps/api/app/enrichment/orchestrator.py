@@ -144,21 +144,29 @@ def _roles_for_segment(segment: str | None) -> list[str]:
     if not segment:
         return GENERIC_CONTACT_ROLES
     key = segment.strip().lower().replace(" ", "_").replace("-", "_").replace("/", "_")
-    # Aliases for common Russian-language values seen in production data.
+    # Canonical Russian segments map to the bucket keys above. Legacy
+    # English / Bitrix24 values remain as aliases for safety.
     aliases = {
+        # Canonical Russian
         "horeca": "horeca",
+        "кофейни_и_кафе": "horeca",
+        "продуктовый_ритейл": "retail_grocery",
+        "непродуктовый_ритейл": "retail_grocery",
+        "qsr___fast_food": "qsr",
+        "азс": "gas_stations",
+        # Legacy English / fallback variants
         "хорека": "horeca",
         "horeka": "horeca",
         "retail": "retail_grocery",
         "retail_grocery": "retail_grocery",
+        "food_retail": "retail_grocery",
+        "non_food_retail": "retail_grocery",
         "ритейл": "retail_grocery",
-        "ритейл_grocery": "retail_grocery",
-        "продуктовый_ритейл": "retail_grocery",
+        "coffee_shops": "horeca",
         "qsr": "qsr",
         "fast_food": "qsr",
         "qsr_fast_food": "qsr",
         "azs": "gas_stations",
-        "азс": "gas_stations",
         "gas_stations": "gas_stations",
         "office": "office",
         "офис": "office",

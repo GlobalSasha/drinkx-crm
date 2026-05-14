@@ -1,7 +1,7 @@
 ---
 slug: playbook_qsr
 title: QSR / фастфуд (Burger King / KFC / Subway tier)
-segments: [qsr_fast_food]
+segments: ["QSR / Fast Food"]
 priority: 10
 always_on: false
 ---

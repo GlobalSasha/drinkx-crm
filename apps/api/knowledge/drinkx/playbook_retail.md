@@ -1,7 +1,7 @@
 ---
 slug: playbook_retail
 title: Продуктовый ритейл (Пятёрочка / ВкусВилл tier)
-segments: [food_retail]
+segments: ["Продуктовый ритейл"]
 priority: 10
 always_on: false
 ---

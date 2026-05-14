@@ -1,7 +1,7 @@
 ---
 slug: playbook_horeca
 title: HoReCa playbook (кофейни, рестораны, отели)
-segments: [horeca, coffee_shops, restaurants, hotels]
+segments: ["HORECA", "Кофейни и кафе"]
 priority: 10
 always_on: false
 ---

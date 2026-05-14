@@ -8,22 +8,8 @@ import { AIBulkUpdateModal } from "@/components/export/AIBulkUpdateModal";
 import { T } from "@/lib/design-system";
 import { tierFromScore } from "@/lib/types";
 import type { LeadOut } from "@/lib/types";
-
-// Russian-friendly labels for backend segment slugs (matches build_data.py).
-// Unknown slugs fall back to the raw string so we don't lose data.
-const SEGMENT_LABELS: Record<string, string> = {
-  food_retail: "Продуктовый ритейл",
-  non_food_retail: "Непродуктовый ритейл",
-  coffee_shops: "Кофейни и кафе",
-  qsr_fast_food: "QSR / Fast Food",
-  gas_stations: "АЗС",
-  coffee_equipment_distributors: "Дистрибьюторы оборудования",
-  horeca: "HoReCa",
-  restaurants: "Рестораны",
-  hotels: "Отели",
-};
-
-const segmentLabel = (s: string) => SEGMENT_LABELS[s] ?? s;
+import { segmentLabel, SEGMENT_OPTIONS } from "@/lib/i18n";
+import { MultiSelectDropdown } from "@/components/ui/MultiSelectDropdown";
 
 // ---- Toast state ----
 
@@ -116,8 +102,8 @@ function PoolRow({
 // ---- Page ----
 
 export default function LeadsPoolPage() {
-  const [cityFilter, setCityFilter] = useState<string | null>(null);
-  const [segmentFilter, setSegmentFilter] = useState<string | null>(null);
+  const [cityFilters, setCityFilters] = useState<string[]>([]);
+  const [segmentFilters, setSegmentFilters] = useState<string[]>([]);
   const [fitMin, setFitMin] = useState(0);
   const [search, setSearch] = useState("");
   const [toasts, setToasts] = useState<ToastState[]>([]);
@@ -141,41 +127,53 @@ export default function LeadsPoolPage() {
 
   const allItems = poolQuery.data?.items ?? [];
 
-  // Sorted unique values for the chip rows
+  // Sorted unique values for the filter dropdowns. Segment list = canonical
+  // Russian set + any unexpected legacy values still in the pool.
   const cities = useMemo(
-    () => Array.from(new Set(allItems.map((l) => l.city).filter(Boolean) as string[])).sort(),
-    [allItems]
+    () =>
+      Array.from(new Set(allItems.map((l) => l.city).filter(Boolean) as string[])).sort(
+        (a, b) => a.localeCompare(b, "ru"),
+      ),
+    [allItems],
   );
-  const segments = useMemo(
-    () => Array.from(new Set(allItems.map((l) => l.segment).filter(Boolean) as string[])).sort(),
-    [allItems]
-  );
-
-  // Per-segment / per-city counts on the unfiltered pool — populates the
-  // count badges inside chips so a manager sees "Кофейни и кафе · 29"
-  // before clicking.
-  const segmentCounts = useMemo(() => {
-    const m = new Map<string, number>();
+  const segments = useMemo(() => {
+    const extras = new Set<string>();
     for (const l of allItems) {
-      if (!l.segment) continue;
-      m.set(l.segment, (m.get(l.segment) ?? 0) + 1);
+      if (
+        l.segment &&
+        !SEGMENT_OPTIONS.includes(l.segment as typeof SEGMENT_OPTIONS[number])
+      ) {
+        extras.add(l.segment);
+      }
+    }
+    return [...SEGMENT_OPTIONS, ...Array.from(extras).sort()];
+  }, [allItems]);
+
+  // Per-segment / per-city counts on the unfiltered pool — shown inside
+  // each dropdown row so a manager sees "Кофейни и кафе · 29" before
+  // selecting.
+  const segmentCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const l of allItems) {
+      if (l.segment) m[l.segment] = (m[l.segment] ?? 0) + 1;
     }
     return m;
   }, [allItems]);
   const cityCounts = useMemo(() => {
-    const m = new Map<string, number>();
+    const m: Record<string, number> = {};
     for (const l of allItems) {
-      if (!l.city) continue;
-      m.set(l.city, (m.get(l.city) ?? 0) + 1);
+      if (l.city) m[l.city] = (m[l.city] ?? 0) + 1;
     }
     return m;
   }, [allItems]);
 
   // Apply ALL filters client-side: city + segment + fit_min + search
   const filtered = useMemo(() => {
+    const segSet = new Set(segmentFilters);
+    const citySet = new Set(cityFilters);
     return allItems.filter((l) => {
-      if (cityFilter && l.city !== cityFilter) return false;
-      if (segmentFilter && l.segment !== segmentFilter) return false;
+      if (citySet.size > 0 && (!l.city || !citySet.has(l.city))) return false;
+      if (segSet.size > 0 && (!l.segment || !segSet.has(l.segment))) return false;
       if (fitMin > 0 && (l.fit_score == null || l.fit_score < fitMin)) return false;
       if (search) {
         const q = search.toLowerCase();
@@ -183,7 +181,7 @@ export default function LeadsPoolPage() {
       }
       return true;
     });
-  }, [allItems, cityFilter, segmentFilter, fitMin, search]);
+  }, [allItems, cityFilters, segmentFilters, fitMin, search]);
 
   function handleClaim(id: string) {
     // Optimistic: gray row immediately
@@ -222,7 +220,7 @@ export default function LeadsPoolPage() {
       <div className="sticky top-0 z-10 bg-white border-b border-black/5 px-6 py-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-baseline gap-2">
-            <h1 className={T.heading}>База лидов</h1>
+            <h1 className="type-page-title">База лидов</h1>
             {/* Compact total — shown small next to title, the loud counts
                 live inside each chip below. */}
             <span className="text-muted-3 text-xs font-mono tabular-nums">
@@ -243,8 +241,9 @@ export default function LeadsPoolPage() {
             </button>
             <ExportPopover
               filters={{
-                city: cityFilter ?? undefined,
-                segment: segmentFilter ?? undefined,
+                city: cityFilters.length === 1 ? cityFilters[0] : undefined,
+                segment:
+                  segmentFilters.length === 1 ? segmentFilters[0] : undefined,
                 fit_min: fitMin > 0 ? fitMin : undefined,
                 q: search || undefined,
                 assignment_status: "pool",
@@ -279,54 +278,21 @@ export default function LeadsPoolPage() {
 
           <span className="text-muted-3 text-xs">|</span>
 
-          {/* City chips */}
-          {cities.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              <ChipButton
-                active={cityFilter === null}
-                onClick={() => setCityFilter(null)}
-                count={allItems.length}
-              >
-                Все города
-              </ChipButton>
-              {cities.map((c) => (
-                <ChipButton
-                  key={c}
-                  active={cityFilter === c}
-                  onClick={() => setCityFilter(cityFilter === c ? null : c)}
-                  count={cityCounts.get(c) ?? 0}
-                >
-                  {c}
-                </ChipButton>
-              ))}
-            </div>
-          )}
+          <MultiSelectDropdown
+            label="Сегмент"
+            options={segments}
+            selected={segmentFilters}
+            onChange={setSegmentFilters}
+            counts={segmentCounts}
+          />
 
-          {segments.length > 0 && (
-            <>
-              <span className="text-muted-3 text-xs">|</span>
-              {/* Segment chips with Russian labels + per-segment counts */}
-              <div className="flex flex-wrap gap-1">
-                <ChipButton
-                  active={segmentFilter === null}
-                  onClick={() => setSegmentFilter(null)}
-                  count={allItems.length}
-                >
-                  Все сегменты
-                </ChipButton>
-                {segments.map((s) => (
-                  <ChipButton
-                    key={s}
-                    active={segmentFilter === s}
-                    onClick={() => setSegmentFilter(segmentFilter === s ? null : s)}
-                    count={segmentCounts.get(s) ?? 0}
-                  >
-                    {segmentLabel(s)}
-                  </ChipButton>
-                ))}
-              </div>
-            </>
-          )}
+          <MultiSelectDropdown
+            label="Город"
+            options={cities}
+            selected={cityFilters}
+            onChange={setCityFilters}
+            counts={cityCounts}
+          />
 
           <span className="text-muted-3 text-xs">|</span>
 
@@ -399,36 +365,3 @@ export default function LeadsPoolPage() {
   );
 }
 
-function ChipButton({
-  active,
-  onClick,
-  count,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  count?: number;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`inline-flex items-center gap-1.5 pl-3 pr-2.5 py-1 rounded-pill text-xs font-semibold transition-all duration-200 ${
-        active
-          ? "bg-brand-accent text-white"
-          : "bg-canvas text-muted hover:bg-canvas-2"
-      }`}
-    >
-      <span>{children}</span>
-      {count != null && (
-        <span
-          className={`tabular-nums ${T.mono} leading-none px-1.5 py-0.5 rounded-pill ${
-            active ? "bg-white/15 text-white" : "bg-black/5 text-muted-2"
-          }`}
-        >
-          {count}
-        </span>
-      )}
-    </button>
-  );
-}

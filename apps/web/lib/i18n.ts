@@ -1,17 +1,24 @@
 // Shared label maps for Russian-friendly display of backend slugs.
 // Add new entries here; components import from this module, not define locally.
 
-export const SEGMENT_LABELS: Record<string, string> = {
-  food_retail: "Продуктовый ритейл",
-  non_food_retail: "Непродуктовый ритейл",
-  coffee_shops: "Кофейни и кафе",
-  qsr_fast_food: "QSR / Fast Food",
-  gas_stations: "АЗС",
-  coffee_equipment_distributors: "Дистрибьюторы оборудования",
-  horeca: "HoReCa",
-  restaurants: "Рестораны",
-  hotels: "Отели",
-};
+// Canonical Russian segment values (also stored verbatim in the DB).
+// Order is used by dropdown filters.
+export const SEGMENT_OPTIONS = [
+  "Продуктовый ритейл",
+  "Непродуктовый ритейл",
+  "Кофейни и кафе",
+  "QSR / Fast Food",
+  "HORECA",
+  "АЗС",
+  "Дистрибьюторы оборудования",
+  "Зерно обжарка экстракт",
+  "Вендинг",
+  "Другое",
+] as const;
+
+export const SEGMENT_LABELS: Record<string, string> = Object.fromEntries(
+  SEGMENT_OPTIONS.map((s) => [s, s]),
+);
 
 export function segmentLabel(s: string): string {
   return SEGMENT_LABELS[s] ?? s;

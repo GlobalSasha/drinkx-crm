@@ -1,8 +1,8 @@
 import { create } from "zustand";
 
 interface PipelineFilters {
-  segment: string | null;
-  city: string | null;
+  segments: string[];
+  cities: string[];
   q: string;
 }
 
@@ -45,8 +45,8 @@ function writeSelectedToStorage(
 interface PipelineStore {
   // Filters
   filters: PipelineFilters;
-  setSegment: (segment: string | null) => void;
-  setCity: (city: string | null) => void;
+  setSegments: (segments: string[]) => void;
+  setCities: (cities: string[]) => void;
   setQ: (q: string) => void;
 
   // Pipeline switcher (Sprint 2.3 G2). `null` means «not yet
@@ -79,10 +79,11 @@ interface PipelineStore {
 }
 
 export const usePipelineStore = create<PipelineStore>((set, get) => ({
-  filters: { segment: null, city: null, q: "" },
-  setSegment: (segment) =>
-    set((s) => ({ filters: { ...s.filters, segment } })),
-  setCity: (city) => set((s) => ({ filters: { ...s.filters, city } })),
+  filters: { segments: [], cities: [], q: "" },
+  setSegments: (segments) =>
+    set((s) => ({ filters: { ...s.filters, segments } })),
+  setCities: (cities) =>
+    set((s) => ({ filters: { ...s.filters, cities } })),
   setQ: (q) => set((s) => ({ filters: { ...s.filters, q } })),
 
   selectedPipelineId: null,

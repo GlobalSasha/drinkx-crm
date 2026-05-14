@@ -1,7 +1,7 @@
 ---
 slug: playbook_retail_discount
 title: Дисконтный ритейл (Fix Price / Wildberries-PВЗ tier)
-segments: [non_food_retail]
+segments: ["Непродуктовый ритейл"]
 priority: 8
 always_on: false
 ---

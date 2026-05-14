@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { PipelineHeader } from "@/components/pipeline/PipelineHeader";
@@ -54,15 +54,26 @@ function PipelinePageInner() {
   // patching the previous fallback path needed.
   const stages = activePipeline?.stages ?? [];
 
+  // Server-side: pipeline + free-text search only. Segment/city
+  // multi-select are applied client-side below — keeps the dropdowns
+  // independent of the API's single-value query params.
   const leadsQuery = useLeads({
     pipeline_id: activePipelineId ?? undefined,
-    segment: filters.segment ?? undefined,
-    city: filters.city ?? undefined,
     q: filters.q || undefined,
     page_size: 200,
   });
 
-  const allLeads = leadsQuery.data?.items ?? [];
+  const rawLeads = leadsQuery.data?.items ?? [];
+
+  const allLeads = useMemo(() => {
+    const segSet = new Set(filters.segments);
+    const citySet = new Set(filters.cities);
+    return rawLeads.filter((l) => {
+      if (segSet.size > 0 && (!l.segment || !segSet.has(l.segment))) return false;
+      if (citySet.size > 0 && (!l.city || !citySet.has(l.city))) return false;
+      return true;
+    });
+  }, [rawLeads, filters.segments, filters.cities]);
 
   const isLoading =
     meQuery.isLoading || pipelinesQuery.isLoading || leadsQuery.isLoading;
@@ -89,9 +100,12 @@ function PipelinePageInner() {
 
   return (
     <div className="flex flex-col h-screen bg-canvas overflow-hidden">
+      {/* Header derives filter options + per-option counts from the
+          unfiltered set so selecting one segment doesn't hide the rest.
+          Total badge reflects the visible (post-filter) count. */}
       <PipelineHeader
-        leads={allLeads}
-        totalCount={leadsQuery.data?.total ?? 0}
+        leads={rawLeads}
+        totalCount={allLeads.length}
       />
 
       {isLoading && (

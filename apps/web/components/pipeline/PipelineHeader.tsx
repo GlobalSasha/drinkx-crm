@@ -1,18 +1,12 @@
 "use client";
+import { useMemo } from "react";
 import { Search, Plus, CalendarRange, Upload } from "lucide-react";
 import { usePipelineStore } from "@/lib/store/pipeline-store";
 import { ExportPopover } from "@/components/export/ExportPopover";
 import { PipelineSwitcher } from "@/components/pipeline/PipelineSwitcher";
+import { MultiSelectDropdown } from "@/components/ui/MultiSelectDropdown";
+import { SEGMENT_OPTIONS } from "@/lib/i18n";
 import type { LeadOut } from "@/lib/types";
-
-const SEGMENTS = [
-  "HoReCa",
-  "Офисы",
-  "Ритейл",
-  "Производство",
-  "Образование",
-  "Медицина",
-];
 
 interface Props {
   leads: LeadOut[];
@@ -22,25 +16,65 @@ interface Props {
 export function PipelineHeader({ leads, totalCount }: Props) {
   const {
     filters,
-    setSegment,
-    setCity,
+    setSegments,
+    setCities,
     setQ,
     openSprintModal,
     openCreateLeadModal,
     openImportWizard,
   } = usePipelineStore();
 
-  // Unique cities from the current lead set
-  const cities = Array.from(
-    new Set(leads.map((l) => l.city).filter(Boolean) as string[])
-  ).sort();
+  // Per-segment / per-city counts on the unfiltered set, so dropdown rows
+  // can show how many leads sit behind each option.
+  const segmentCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const l of leads) {
+      if (l.segment) m[l.segment] = (m[l.segment] ?? 0) + 1;
+    }
+    return m;
+  }, [leads]);
+
+  const cityCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const l of leads) {
+      if (l.city) m[l.city] = (m[l.city] ?? 0) + 1;
+    }
+    return m;
+  }, [leads]);
+
+  // Segment options: canonical list + anything unexpected that's already
+  // sitting in the data (legacy values, freshly imported leads).
+  const segmentOptions = useMemo(() => {
+    const extras = new Set<string>();
+    for (const l of leads) {
+      if (l.segment && !SEGMENT_OPTIONS.includes(l.segment as typeof SEGMENT_OPTIONS[number])) {
+        extras.add(l.segment);
+      }
+    }
+    return [...SEGMENT_OPTIONS, ...Array.from(extras).sort()];
+  }, [leads]);
+
+  const cityOptions = useMemo(
+    () =>
+      Array.from(new Set(leads.map((l) => l.city).filter(Boolean) as string[])).sort(
+        (a, b) => a.localeCompare(b, "ru"),
+      ),
+    [leads],
+  );
+
+  // Export dropdown still expects a single segment/city. Degrade gracefully:
+  // pass the value through only when exactly one option is selected.
+  const exportSegment =
+    filters.segments.length === 1 ? filters.segments[0] : undefined;
+  const exportCity =
+    filters.cities.length === 1 ? filters.cities[0] : undefined;
 
   return (
     <div className="flex flex-col gap-4 px-4 sm:px-6 py-4 bg-white border-b border-black/5">
       {/* Top row */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 shrink-0">
-          <h1 className="text-xl font-bold tracking-tight">Воронка</h1>
+          <h1 className="type-page-title">Воронка</h1>
           <span className="bg-black/5 text-muted-2 text-xs font-mono px-2 py-0.5 rounded-pill">
             {totalCount}
           </span>
@@ -48,10 +82,6 @@ export function PipelineHeader({ leads, totalCount }: Props) {
 
         <div className="flex flex-wrap items-center gap-2">
           <PipelineSwitcher />
-          {/* Sprint 2.6 G3: «+Лид» promoted to primary action — accent
-              fill matches the rest of the app's primary CTAs. The
-              «Сформировать план» button below de-emphasizes to
-              outline since it's a periodic flow, not a daily one. */}
           <button
             onClick={openCreateLeadModal}
             className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-brand-accent/90 active:scale-[0.98]"
@@ -69,8 +99,8 @@ export function PipelineHeader({ leads, totalCount }: Props) {
           </button>
           <ExportPopover
             filters={{
-              segment: filters.segment ?? undefined,
-              city: filters.city ?? undefined,
+              segment: exportSegment,
+              city: exportCity,
               q: filters.q || undefined,
               assignment_status: "assigned",
             }}
@@ -89,7 +119,6 @@ export function PipelineHeader({ leads, totalCount }: Props) {
 
       {/* Filter row */}
       <div className="flex flex-wrap items-center gap-2">
-        {/* Search */}
         <div className="relative">
           <Search
             size={14}
@@ -106,74 +135,22 @@ export function PipelineHeader({ leads, totalCount }: Props) {
 
         <span className="text-muted-3 text-xs">|</span>
 
-        {/* Segment chips */}
-        <ChipGroup
-          label="Все"
-          options={SEGMENTS}
-          selected={filters.segment}
-          onSelect={setSegment}
+        <MultiSelectDropdown
+          label="Сегмент"
+          options={segmentOptions}
+          selected={filters.segments}
+          onChange={setSegments}
+          counts={segmentCounts}
         />
 
-        {cities.length > 0 && (
-          <>
-            <span className="text-muted-3 text-xs">|</span>
-            <ChipGroup
-              label="Все города"
-              options={cities}
-              selected={filters.city}
-              onSelect={setCity}
-            />
-          </>
-        )}
+        <MultiSelectDropdown
+          label="Город"
+          options={cityOptions}
+          selected={filters.cities}
+          onChange={setCities}
+          counts={cityCounts}
+        />
       </div>
     </div>
-  );
-}
-
-function ChipGroup({
-  label,
-  options,
-  selected,
-  onSelect,
-}: {
-  label: string;
-  options: string[];
-  selected: string | null;
-  onSelect: (v: string | null) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-1">
-      <Chip active={selected === null} onClick={() => onSelect(null)}>
-        {label}
-      </Chip>
-      {options.map((o) => (
-        <Chip key={o} active={selected === o} onClick={() => onSelect(o)}>
-          {o}
-        </Chip>
-      ))}
-    </div>
-  );
-}
-
-function Chip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`h-8 inline-flex items-center px-3 rounded-pill text-xs font-semibold transition-all duration-300 ${
-        active
-          ? "bg-brand-accent text-white"
-          : "bg-canvas text-muted hover:bg-canvas-2"
-      }`}
-    >
-      {children}
-    </button>
   );
 }
