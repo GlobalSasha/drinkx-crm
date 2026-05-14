@@ -369,6 +369,8 @@ async def test_processor_creates_inbox_item_on_no_match():
     celery_module.celery_app = fake_celery
 
     with patch.object(processor_mod, "_already_processed", new=AsyncMock(return_value=False)), \
+         patch.object(processor_mod, "_company_domain_match", new=AsyncMock(return_value=False)), \
+         patch.object(processor_mod, "_contact_email_match", new=AsyncMock(return_value=False)), \
          patch.object(processor_mod, "match_email", new=AsyncMock(return_value=no_match)), \
          patch.object(processor_mod, "Activity", _ActivitySpy), \
          patch.object(processor_mod, "InboxItem", _inbox_factory), \
