@@ -238,18 +238,11 @@ function ContactRow({
 
 function VerifyBadge({
   status,
-  confidence,
 }: {
   status: string;
   confidence: string;
 }) {
-  if (status === "verified") {
-    return (
-      <span className={`${C.bodyXs} font-semibold px-2 py-0.5 rounded-full bg-success/10 text-success`}>
-        verified
-      </span>
-    );
-  }
+  if (status === "verified") return null;
   if (status === "invalid") {
     return (
       <span className={`${C.bodyXs} font-semibold px-2 py-0.5 rounded-full bg-rose/10 text-rose`}>
@@ -259,7 +252,7 @@ function VerifyBadge({
   }
   return (
     <span className={`${C.bodyXs} font-semibold px-2 py-0.5 rounded-full bg-warning/10 text-warning`}>
-      нужна проверка · {confidence}
+      уточнить
     </span>
   );
 }
