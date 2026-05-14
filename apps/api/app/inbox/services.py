@@ -215,6 +215,7 @@ async def confirm_item(
         )
         contact = Contact(
             lead_id=lead_id,
+            workspace_id=workspace_id,
             name=(contact_name or item.from_email or "Unknown")[:120],
             email=item.from_email or None,
             source="gmail",

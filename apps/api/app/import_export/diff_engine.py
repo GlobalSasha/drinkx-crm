@@ -507,6 +507,7 @@ async def apply_diff_item(
                     continue
                 session.add(Contact(
                     lead_id=lead.id,
+                    workspace_id=lead.workspace_id,
                     name=(cd.get("name") or email or "Unknown")[:120],
                     title=(cd.get("title") or "")[:120] or None,
                     email=email or None,
@@ -600,6 +601,7 @@ async def _apply_create(
                     continue
                 session.add(Contact(
                     lead_id=lead.id,
+                    workspace_id=lead.workspace_id,
                     name=(cd.get("name") or cd.get("email") or "Unknown")[:120],
                     title=(cd.get("title") or "")[:120] or None,
                     email=(cd.get("email") or "").strip().lower() or None,

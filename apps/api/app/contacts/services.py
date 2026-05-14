@@ -50,7 +50,7 @@ async def create_contact(
 ) -> Contact:
     await _get_lead_or_raise(db, lead_id, workspace_id)
     _validate_fields(payload_dict.get("role_type"), payload_dict.get("verified_status"))
-    return await repo.create(db, lead_id, payload_dict)
+    return await repo.create(db, lead_id, {**payload_dict, "workspace_id": workspace_id})
 
 
 async def update_contact(
