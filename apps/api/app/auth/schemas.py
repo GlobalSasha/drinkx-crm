@@ -36,6 +36,11 @@ class UserOut(BaseModel):
     last_login_at: datetime | None
     phone: str | None = None
     avatar_url: str | None = None
+    # Resolved per-user UI prefs (sidebar color / page bg / density / font size).
+    # Always fully populated — backend merges stored values over the
+    # canonical defaults in app.users.ui_prefs.DEFAULTS, so the frontend
+    # never sees missing keys.
+    ui_prefs: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
     workspace: WorkspaceOut
 

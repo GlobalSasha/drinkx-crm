@@ -542,9 +542,27 @@ export interface MeOut {
   last_login_at: string | null;
   phone: string | null;
   avatar_url: string | null;
+  ui_prefs: UiPrefs;
   created_at: string;
   workspace: WorkspaceOut;
 }
+
+// ---- UI prefs (Settings → Appearance) ----
+
+export type SidebarColor = "white" | "cream" | "beige" | "graphite" | "coffee";
+export type BackgroundColor = "cream" | "white";
+export type Density = "comfortable" | "compact";
+export type FontSize = "sm" | "md" | "lg";
+
+export interface UiPrefs {
+  sidebar_color: SidebarColor;
+  background_color: BackgroundColor;
+  density: Density;
+  font_size: FontSize;
+}
+
+/** Patch shape for PATCH /auth/me/ui-prefs — any subset of UiPrefs. */
+export type UiPrefsPatch = Partial<UiPrefs>;
 
 // ---- Audit (Sprint 1.5 group 4) ----
 

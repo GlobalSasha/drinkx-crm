@@ -92,7 +92,23 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
+    # Per-user appearance preferences (migration 0028). See
+    # `app.users.ui_prefs` for the canonical key set + defaults; this
+    # column stores only the manager's customisations so default-shape
+    # changes don't require row migrations.
+    ui_prefs_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+
     workspace: Mapped[Workspace] = relationship(back_populates="users")
+
+    @property
+    def ui_prefs(self) -> dict:
+        """Resolved UI prefs — defaults merged with stored overrides.
+        Read by `UserOut`, never written. Mutations go through
+        `PATCH /api/me/ui-prefs` which validates + merges into
+        `ui_prefs_json`."""
+        from app.users.ui_prefs import resolve
+
+        return resolve(self.ui_prefs_json)
 
 
 class UserInvite(Base, UUIDPrimaryKeyMixin):

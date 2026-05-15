@@ -1,15 +1,16 @@
 """Auth REST endpoints."""
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import current_user
 from app.auth.models import User
 from app.auth.schemas import UserOut, UserUpdateIn
 from app.db import get_db
+from app.users.ui_prefs import validate_patch
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -46,6 +47,33 @@ async def update_me(
         user.avatar_url = payload.avatar_url or None
     if payload.mark_onboarding_complete:
         user.onboarding_completed = True
+
+    await session.commit()
+    await session.refresh(user, attribute_names=["workspace"])
+    return user
+
+
+@router.patch("/me/ui-prefs", response_model=UserOut)
+async def update_my_ui_prefs(
+    payload: dict[str, Any],
+    user: Annotated[User, Depends(current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> User:
+    """Partial update of the current user's UI preferences. Only keys
+    in `app.users.ui_prefs.ALLOWED_VALUES` are accepted; unknown keys
+    or out-of-set values → 400. The patch is merged with the stored
+    column so callers can update a single key at a time."""
+    try:
+        cleaned = validate_patch(payload)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+    merged = dict(user.ui_prefs_json or {})
+    merged.update(cleaned)
+    user.ui_prefs_json = merged
 
     await session.commit()
     await session.refresh(user, attribute_names=["workspace"])

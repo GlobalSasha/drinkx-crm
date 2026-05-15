@@ -99,22 +99,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           Desktop (md+): always visible, fixed at 220px.
           Mobile (<md): slides in from the left when mobileNavOpen flips. */}
       <aside
+        style={{
+          backgroundColor: "var(--sidebar-bg)",
+          color: "var(--sidebar-fg)",
+          borderRight: "1px solid var(--sidebar-border)",
+        }}
         className={clsx(
-          "fixed top-0 left-0 h-screen w-[220px] bg-white border-r border-brand-border flex flex-col z-40 transition-transform duration-200 ease-out",
+          "fixed top-0 left-0 h-screen w-[220px] flex flex-col z-40 transition-transform duration-200 ease-out",
           mobileNavOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
         )}
       >
-        {/* Logo + mobile close */}
-        <div className="px-5 py-5 border-b border-brand-border flex items-center justify-between">
+        {/* Logo + mobile close.
+            Inside the sidebar, text colors inherit from --sidebar-fg
+            (set on <aside> above) so the dark presets (graphite/coffee)
+            stay legible. We deliberately do NOT pin `text-brand-primary`
+            here — that would force #111111 on top of a dark surface. */}
+        <div
+          style={{ borderBottom: "1px solid var(--sidebar-border)" }}
+          className="px-5 py-5 flex items-center justify-between"
+        >
           <Link
             href="/today"
-            className={`type-body font-bold tracking-tight ${C.color.text} transition-opacity`}
+            className="type-body font-bold tracking-tight transition-opacity"
           >
             drinkx<span className={C.color.accent}>.</span>crm
           </Link>
           <button
             onClick={() => setMobileNavOpen(false)}
-            className="md:hidden p-1 rounded-full text-brand-muted transition-colors"
+            className="md:hidden p-1 rounded-full opacity-70 hover:opacity-100 transition-opacity"
             aria-label="Закрыть меню"
           >
             <X size={16} />
@@ -127,23 +139,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <SidebarNavContainer onNotificationsClick={openNotifications} />
 
         {/* User pill — links to /settings/profile */}
-        <div className="px-3 py-4 border-t border-brand-border">
+        <div
+          style={{ borderTop: "1px solid var(--sidebar-border)" }}
+          className="px-3 py-4"
+        >
           <Link
             href="/settings/profile"
-            className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl bg-brand-bg hover:bg-brand-soft transition-colors"
+            style={{ backgroundColor: "var(--sidebar-hover)" }}
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl hover:opacity-90 transition-opacity"
           >
             <div className="w-7 h-7 rounded-xl bg-brand-accent flex items-center justify-center shrink-0">
               <span className="type-caption font-bold text-white">{avatarLetter}</span>
             </div>
             <div className="min-w-0 flex-1">
-              <p className={`type-caption font-semibold ${C.color.text} truncate`}>{displayName}</p>
-              <p className={`text-[10px] font-mono ${C.color.mutedLight} truncate`}>{displayEmail}</p>
+              <p className="type-caption font-semibold truncate">{displayName}</p>
+              <p className="text-[10px] font-mono opacity-60 truncate">{displayEmail}</p>
             </div>
           </Link>
           {user && (
             <button
               onClick={handleSignOut}
-              className={`mt-1 w-full text-[10px] font-mono ${C.color.mutedLight} text-center py-1 transition-colors`}
+              className="mt-1 w-full text-[10px] font-mono opacity-60 hover:opacity-100 text-center py-1 transition-opacity"
             >
               Выйти
             </button>
