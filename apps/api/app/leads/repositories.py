@@ -7,6 +7,7 @@ from typing import Any
 
 from sqlalchemy import func, nullslast, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import defer
 
 from app.leads.models import Lead
 
@@ -64,8 +65,14 @@ async def list_leads(
     count_result = await db.execute(select(func.count()).select_from(base.subquery()))
     total: int = count_result.scalar_one()
 
+    # Defer heavy JSON columns from the row payload — the list response
+    # (LeadListItemOut) doesn't include them, so dragging them across
+    # the wire just to drop them in Pydantic is pure waste. ai_data is
+    # the AI Brief output (kilobytes per lead), agent_state is the
+    # Lead AI Agent memory.
     rows_result = await db.execute(
-        base.order_by(Lead.created_at.desc())
+        base.options(defer(Lead.ai_data), defer(Lead.agent_state))
+        .order_by(Lead.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
     )
@@ -98,7 +105,8 @@ async def list_pool(
     total: int = count_result.scalar_one()
 
     rows_result = await db.execute(
-        base.order_by(nullslast(Lead.fit_score.desc()), Lead.created_at.asc())
+        base.options(defer(Lead.ai_data), defer(Lead.agent_state))
+        .order_by(nullslast(Lead.fit_score.desc()), Lead.created_at.asc())
         .offset((page - 1) * page_size)
         .limit(page_size)
     )
