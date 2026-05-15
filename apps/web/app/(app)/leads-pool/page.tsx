@@ -1,5 +1,6 @@
 "use client";
 import { useState, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Search, Loader2, Sparkles } from "lucide-react";
 import { usePoolLeads, useClaimLead } from "@/lib/hooks/use-leads";
 import { Toast } from "@/components/ui/Toast";
@@ -51,6 +52,7 @@ function PoolRow({
   onClaim: (id: string) => void;
   claiming: boolean;
 }) {
+  const router = useRouter();
   const tier = tierFromScore(lead.score);
   const TIER_STYLE: Record<string, string> = {
     A: "bg-brand-soft text-brand-accent",
@@ -59,9 +61,31 @@ function PoolRow({
     D: "bg-black/5 text-muted",
   };
 
+  function openLead() {
+    router.push(`/leads/${lead.id}`);
+  }
+
+  function handleClaim(e: React.MouseEvent) {
+    // Stop propagation so the row click doesn't fire after the button click.
+    e.stopPropagation();
+    onClaim(lead.id);
+  }
+
+  function handleKey(e: React.KeyboardEvent) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      openLead();
+    }
+  }
+
   return (
     <tr
-      className={`border-b border-black/5 transition-opacity duration-300 ${claiming ? "opacity-40" : "hover:bg-canvas"}`}
+      role="link"
+      tabIndex={0}
+      aria-label={`Открыть лид ${lead.company_name}`}
+      onClick={openLead}
+      onKeyDown={handleKey}
+      className={`border-b border-black/5 transition-opacity duration-300 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-inset ${claiming ? "opacity-40" : "hover:bg-canvas"}`}
     >
       <td className="px-4 py-3">
         <p className="font-semibold text-sm text-ink">{lead.company_name}</p>
@@ -88,8 +112,8 @@ function PoolRow({
           </span>
         ) : (
           <button
-            onClick={() => onClaim(lead.id)}
-            className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-pill px-3 py-1.5 text-xs font-semibold transition-all duration-200 hover:bg-brand-accent/90 active:scale-[0.98]"
+            onClick={handleClaim}
+            className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-pill px-3 py-1.5 text-xs font-semibold transition-all duration-200 hover:bg-brand-accent/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
           >
             Взять в работу
           </button>
