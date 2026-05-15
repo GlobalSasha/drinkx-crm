@@ -39,6 +39,7 @@ import {
 } from "@/lib/hooks/use-automations";
 import { useMe } from "@/lib/hooks/use-me";
 import { useTemplates } from "@/lib/hooks/use-templates";
+import { Modal } from "@/components/ui/Modal";
 import type {
   AutomationAction,
   AutomationOut,
@@ -109,6 +110,7 @@ export default function AutomationsPage() {
   const [editing, setEditing] = useState<AutomationOut | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [runsFor, setRunsFor] = useState<AutomationOut | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AutomationOut | null>(null);
 
   function openCreate() {
     setEditing(null);
@@ -121,15 +123,20 @@ export default function AutomationsPage() {
   }
 
   function onDelete(a: AutomationOut) {
-    if (!window.confirm(`Удалить автоматизацию «${a.name}»?`)) return;
-    del.mutate(a.id);
+    setDeleteTarget(a);
+  }
+
+  function confirmDelete() {
+    if (!deleteTarget) return;
+    del.mutate(deleteTarget.id);
+    setDeleteTarget(null);
   }
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <h1 className={`${T.heading} flex items-center gap-2`}>
+          <h1 className="type-card-title flex items-center gap-2">
             <Workflow size={20} className="text-muted" />
             Автоматизации
           </h1>
@@ -254,6 +261,40 @@ export default function AutomationsPage() {
           automation={runsFor}
           onClose={() => setRunsFor(null)}
         />
+      )}
+
+      {deleteTarget && (
+        <Modal
+          open
+          onClose={() => setDeleteTarget(null)}
+          title="Удалить автоматизацию?"
+          dismissOnBackdrop={false}
+        >
+          <>
+            <h3 className="text-base font-bold mb-2">Удалить автоматизацию?</h3>
+            <p className="text-sm text-muted mb-5">
+              Автоматизация{" "}
+              <span className="font-semibold text-ink">«{deleteTarget.name}»</span>{" "}
+              будет удалена. Запущенные шаги текущих исполнений сохранятся в истории.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="px-4 py-1.5 text-sm font-semibold text-muted hover:text-ink"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="px-4 py-1.5 text-sm font-semibold bg-rose text-white rounded-full hover:bg-rose/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose focus-visible:ring-offset-2"
+              >
+                Удалить
+              </button>
+            </div>
+          </>
+        </Modal>
       )}
     </div>
   );
@@ -515,7 +556,7 @@ function AutomationEditor({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-black/5">
-          <h3 className={T.heading}>
+          <h3 className="type-card-title">
             {isEdit ? "Редактировать автоматизацию" : "Новая автоматизация"}
           </h3>
           <button
@@ -537,7 +578,7 @@ function AutomationEditor({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="При попадании в Pilot — отправить welcome"
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent"
+              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             />
           </div>
 
@@ -550,7 +591,7 @@ function AutomationEditor({
               onChange={(e) =>
                 setTrigger(e.target.value as AutomationTrigger)
               }
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent"
+              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             >
               {(Object.keys(TRIGGER_LABELS) as AutomationTrigger[]).map((t) => (
                 <option key={t} value={t}>
@@ -568,7 +609,7 @@ function AutomationEditor({
               <select
                 value={conditionField}
                 onChange={(e) => setConditionField(e.target.value)}
-                className="bg-canvas border border-black/10 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent"
+                className="bg-canvas border border-black/10 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
               >
                 <option value="">— без условия —</option>
                 <option value="priority">priority</option>
@@ -581,7 +622,7 @@ function AutomationEditor({
                 value={conditionOp}
                 onChange={(e) => setConditionOp(e.target.value)}
                 disabled={!conditionField}
-                className="bg-canvas border border-black/10 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent disabled:opacity-50"
+                className="bg-canvas border border-black/10 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 disabled:opacity-50"
               >
                 <option value="eq">=</option>
                 <option value="neq">≠</option>
@@ -602,7 +643,7 @@ function AutomationEditor({
                   conditionOp === "is_not_null"
                 }
                 placeholder="value"
-                className="bg-canvas border border-black/10 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-accent disabled:opacity-50"
+                className="bg-canvas border border-black/10 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 disabled:opacity-50"
               />
             </div>
           </fieldset>
@@ -616,7 +657,7 @@ function AutomationEditor({
               onChange={(e) =>
                 setActionType(e.target.value as AutomationAction)
               }
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent"
+              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             >
               {(Object.keys(ACTION_LABELS) as AutomationAction[]).map((a) => (
                 <option key={a} value={a}>
@@ -634,7 +675,7 @@ function AutomationEditor({
               <select
                 value={templateId}
                 onChange={(e) => setTemplateId(e.target.value)}
-                className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent"
+                className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
               >
                 <option value="">— выберите шаблон —</option>
                 {templates.map((t) => (
@@ -657,7 +698,7 @@ function AutomationEditor({
                   value={taskTitle}
                   onChange={(e) => setTaskTitle(e.target.value)}
                   placeholder="Связаться с ЛПР"
-                  className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent"
+                  className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                 />
                 <p className="text-xs text-muted-3 mt-1">
                   Поддерживает подстановки <code>{"{{lead.field}}"}</code>.
@@ -672,7 +713,7 @@ function AutomationEditor({
                   min="1"
                   value={dueInHours}
                   onChange={(e) => setDueInHours(e.target.value)}
-                  className="mt-1 w-32 bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent"
+                  className="mt-1 w-32 bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                 />
               </div>
             </>
@@ -688,7 +729,7 @@ function AutomationEditor({
                 value={targetStageId}
                 onChange={(e) => setTargetStageId(e.target.value)}
                 placeholder="00000000-0000-0000-0000-000000000000"
-                className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent"
+                className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
               />
               <p className="text-xs text-muted-3 mt-1">
                 ID можно скопировать из URL карточки стадии в /settings →
@@ -734,7 +775,7 @@ function AutomationEditor({
                                     : { target_stage_id: "" },
                           })
                         }
-                        className="ml-1 bg-white border border-black/10 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-brand-accent"
+                        className="ml-1 bg-white border border-black/10 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                       >
                         {(Object.keys(STEP_TYPE_LABELS) as AutomationStepType[]).map(
                           (t) => (
@@ -790,7 +831,7 @@ function AutomationEditor({
                               },
                             })
                           }
-                          className="ml-2 w-24 bg-white border border-black/10 rounded-lg px-2 py-1 text-xs font-mono focus:outline-none focus:border-brand-accent"
+                          className="ml-2 w-24 bg-white border border-black/10 rounded-lg px-2 py-1 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                         />
                         <span className="ml-2 text-xs text-muted-3">
                           (1—720)
@@ -806,7 +847,7 @@ function AutomationEditor({
                             config: { template_id: e.target.value },
                           })
                         }
-                        className="w-full bg-white border border-black/10 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent"
+                        className="w-full bg-white border border-black/10 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                       >
                         <option value="">— шаблон —</option>
                         {templates.map((t) => (
@@ -828,7 +869,7 @@ function AutomationEditor({
                               config: { title: e.target.value },
                             })
                           }
-                          className="bg-white border border-black/10 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent"
+                          className="bg-white border border-black/10 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                         />
                         <input
                           type="number"
@@ -843,7 +884,7 @@ function AutomationEditor({
                               },
                             })
                           }
-                          className="w-20 bg-white border border-black/10 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-accent"
+                          className="w-20 bg-white border border-black/10 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                         />
                       </div>
                     )}
@@ -858,7 +899,7 @@ function AutomationEditor({
                             config: { target_stage_id: e.target.value },
                           })
                         }
-                        className="w-full bg-white border border-black/10 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-accent"
+                        className="w-full bg-white border border-black/10 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                       />
                     )}
                   </li>
@@ -954,7 +995,7 @@ function RunsDrawer({
       <aside className="bg-white h-full w-full max-w-md shadow-xl flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b border-black/5">
           <div className="min-w-0">
-            <h3 className={`${T.heading} truncate`}>
+            <h3 className="type-card-title truncate">
               История запусков
             </h3>
             <p className="text-xs text-muted-2 truncate">

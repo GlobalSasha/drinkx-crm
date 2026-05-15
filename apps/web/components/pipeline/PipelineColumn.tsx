@@ -1,4 +1,5 @@
 "use client";
+import { memo } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { Stage, LeadOut } from "@/lib/types";
@@ -10,7 +11,7 @@ interface Props {
   leads: LeadOut[];
 }
 
-export function PipelineColumn({ stage, leads }: Props) {
+function PipelineColumnImpl({ stage, leads }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
 
   return (
@@ -26,7 +27,7 @@ export function PipelineColumn({ stage, leads }: Props) {
           style={{ backgroundColor: stage.color }}
         />
         <div className="flex items-center justify-between gap-2">
-          <p className={`${C.caption} ${C.color.text} truncate`}>
+          <p className={`type-caption ${C.color.text} truncate`}>
             {stage.name}
           </p>
           <div className="flex items-center gap-1 shrink-0">
@@ -60,7 +61,7 @@ export function PipelineColumn({ stage, leads }: Props) {
 
         {leads.length === 0 && isOver && (
           <div className="flex-1 flex items-center justify-center border border-dashed border-brand-border rounded-2xl min-h-[60px]">
-            <p className={`${C.bodyXs} ${C.color.mutedLight} text-center px-2`}>
+            <p className={`type-caption ${C.color.mutedLight} text-center px-2`}>
               Перетащите карточку сюда
             </p>
           </div>
@@ -69,3 +70,5 @@ export function PipelineColumn({ stage, leads }: Props) {
     </div>
   );
 }
+
+export const PipelineColumn = memo(PipelineColumnImpl);

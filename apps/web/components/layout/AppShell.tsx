@@ -74,7 +74,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     >
       {/* Mobile top bar — only visible on < md */}
       <header className="md:hidden sticky top-0 z-20 bg-white border-b border-brand-border flex items-center justify-between px-4 py-3">
-        <Link href="/today" className={`${C.body} font-bold tracking-tight ${C.color.text}`}>
+        <Link href="/today" className={`type-body font-bold tracking-tight ${C.color.text}`}>
           drinkx<span className={C.color.accent}>.</span>crm
         </Link>
         <button
@@ -108,7 +108,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="px-5 py-5 border-b border-brand-border flex items-center justify-between">
           <Link
             href="/today"
-            className={`${C.body} font-bold tracking-tight ${C.color.text} transition-opacity`}
+            className={`type-body font-bold tracking-tight ${C.color.text} transition-opacity`}
           >
             drinkx<span className={C.color.accent}>.</span>crm
           </Link>
@@ -133,10 +133,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl bg-brand-bg hover:bg-brand-soft transition-colors"
           >
             <div className="w-7 h-7 rounded-xl bg-brand-accent flex items-center justify-center shrink-0">
-              <span className={`${C.bodyXs} font-bold text-white`}>{avatarLetter}</span>
+              <span className="type-caption font-bold text-white">{avatarLetter}</span>
             </div>
             <div className="min-w-0 flex-1">
-              <p className={`${C.bodyXs} font-semibold ${C.color.text} truncate`}>{displayName}</p>
+              <p className={`type-caption font-semibold ${C.color.text} truncate`}>{displayName}</p>
               <p className={`text-[10px] font-mono ${C.color.mutedLight} truncate`}>{displayEmail}</p>
             </div>
           </Link>
@@ -156,9 +156,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           parent's minmax(0, 1fr) cell instead of its content min-width.
           Pages that need horizontal scroll (Pipeline) handle it with
           their own overflow-x-auto inside. */}
-      <div className="md:col-start-2 min-h-screen min-w-0">
+      <main id="main-content" className="md:col-start-2 min-h-screen min-w-0">
         {children}
-      </div>
+      </main>
 
       {/* Notifications drawer */}
       <NotificationsDrawer open={notifOpen} onClose={() => setNotifOpen(false)} />

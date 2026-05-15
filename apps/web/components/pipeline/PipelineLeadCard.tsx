@@ -1,4 +1,5 @@
 "use client";
+import { memo } from "react";
 import { useRouter } from "next/navigation";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -11,7 +12,7 @@ interface Props {
   lead: LeadOut;
 }
 
-export function PipelineLeadCard({ lead }: Props) {
+function PipelineLeadCardImpl({ lead }: Props) {
   const router = useRouter();
 
   const {
@@ -38,18 +39,29 @@ export function PipelineLeadCard({ lead }: Props) {
       ? "bg-brand-accent text-white"
       : priorityChip(lead.priority);
 
+  function handleKey(e: React.KeyboardEvent) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      router.push(`/leads/${lead.id}`);
+    }
+  }
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...attributes}
       {...listeners}
+      role="link"
+      tabIndex={0}
+      aria-label={`Открыть лид ${lead.company_name}`}
       onClick={() => router.push(`/leads/${lead.id}`)}
-      className="font-sans bg-white border border-brand-border rounded-2xl p-3 cursor-pointer select-none transition-opacity duration-200"
+      onKeyDown={handleKey}
+      className="font-sans bg-white border border-brand-border rounded-2xl p-3 cursor-pointer select-none transition-opacity duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg"
     >
       {/* Company name */}
       <div className="flex items-start justify-between gap-1 mb-1.5">
-        <p className={`${C.bodySm} font-bold ${C.color.text} truncate leading-snug`}>
+        <p className={`type-caption font-bold ${C.color.text} truncate leading-snug`}>
           {lead.company_name}
         </p>
         {isRotting && (
@@ -96,3 +108,5 @@ export function PipelineLeadCard({ lead }: Props) {
     </div>
   );
 }
+
+export const PipelineLeadCard = memo(PipelineLeadCardImpl);

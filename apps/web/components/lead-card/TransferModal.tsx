@@ -3,6 +3,7 @@ import { useState } from "react";
 import { X, ArrowRight, AlertTriangle } from "lucide-react";
 import { useTransferLead } from "@/lib/hooks/use-leads";
 import { ApiError } from "@/lib/api-client";
+import { Modal } from "@/components/ui/Modal";
 
 interface Props {
   leadId: string;
@@ -63,16 +64,8 @@ export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }:
   }
 
   return (
-    <>
-      <div
-        className="fixed inset-0 bg-black/30 z-50 backdrop-blur-[2px]"
-        onClick={onClose}
-      />
-      <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white rounded-2xl border border-black/5 shadow-soft w-full max-w-md p-6 max-h-[90vh] overflow-y-auto"
-        >
+    <Modal open onClose={onClose} title="Передать лид">
+      <form onSubmit={handleSubmit} className="-m-6 p-6 max-h-[90vh] overflow-y-auto">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -168,7 +161,6 @@ export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }:
             </button>
           </div>
         </form>
-      </div>
-    </>
+    </Modal>
   );
 }

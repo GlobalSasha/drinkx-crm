@@ -8,7 +8,6 @@ import {
   useState,
 } from "react";
 import { clsx } from "clsx";
-import { C } from "@/lib/design-system";
 
 export interface NavItem {
   id: string;
@@ -30,7 +29,7 @@ const DISABLED_ITEMS: DisabledNavItem[] = [];
 
 // Shared row geometry. The pill animates over these — keep paddings and
 // gaps consistent across all rows so the pill height stays stable.
-const NAV_ROW = `relative z-10 flex items-center gap-3 px-3 py-2 rounded-full font-medium transition-colors duration-200 ${C.bodySm}`;
+const NAV_ROW = "relative z-10 flex items-center gap-3 px-3 py-2 rounded-full font-medium transition-colors duration-200 type-caption focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg";
 
 interface NavItemRowProps {
   item: NavItem;

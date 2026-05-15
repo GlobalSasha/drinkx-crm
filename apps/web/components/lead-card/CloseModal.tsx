@@ -3,7 +3,8 @@ import { useState } from "react";
 import { Trophy, XCircle } from "lucide-react";
 import { useMoveStage } from "@/lib/hooks/use-leads";
 import type { Stage } from "@/lib/types";
-import { C, T } from "@/lib/design-system";
+import { C } from "@/lib/design-system";
+import { Modal } from "@/components/ui/Modal";
 
 interface Props {
   leadId: string;
@@ -52,12 +53,12 @@ export function CloseModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-soft">
-        <h2 className={`${T.heading} ${C.color.text} mb-1`}>
+    <Modal open onClose={onClose} title="Закрыть лид" dismissOnBackdrop={false}>
+      <>
+        <h2 className={`type-card-title ${C.color.text} mb-1`}>
           Закрыть лид
         </h2>
-        <p className={`${C.bodySm} ${C.color.muted} mb-5`}>
+        <p className={`type-caption ${C.color.muted} mb-5`}>
           Выберите итог сделки. Действие переводит лид в финальную стадию.
         </p>
 
@@ -69,7 +70,7 @@ export function CloseModal({
             className="flex flex-col items-center gap-2 py-5 rounded-2xl border-2 border-success/20 bg-success/5 hover:bg-success/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <Trophy size={28} className="text-success" />
-            <span className={`${C.bodySm} font-semibold text-success`}>
+            <span className="type-caption font-semibold text-success">
               {pendingChoice === "won" ? "Сохранение…" : "Выиграна"}
             </span>
           </button>
@@ -80,7 +81,7 @@ export function CloseModal({
             className="flex flex-col items-center gap-2 py-5 rounded-2xl border-2 border-rose/20 bg-rose/5 hover:bg-rose/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <XCircle size={28} className="text-rose" />
-            <span className={`${C.bodySm} font-semibold text-rose`}>Проиграна</span>
+            <span className="type-caption font-semibold text-rose">Проиграна</span>
           </button>
         </div>
 
@@ -89,12 +90,12 @@ export function CloseModal({
             type="button"
             onClick={onClose}
             disabled={pendingChoice !== null}
-            className={`${C.bodySm} font-semibold ${C.color.muted} hover:${C.color.text} transition-colors px-3 py-1.5`}
+            className={`type-caption font-semibold ${C.color.muted} hover:${C.color.text} transition-colors px-3 py-1.5`}
           >
             Отмена
           </button>
         </div>
-      </div>
-    </div>
+      </>
+    </Modal>
   );
 }
