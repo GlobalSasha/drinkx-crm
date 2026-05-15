@@ -51,6 +51,7 @@ logs/
 
 # Git worktrees
 .worktrees/
+.claude/worktrees/
 
 # Misc
 .DS_Store

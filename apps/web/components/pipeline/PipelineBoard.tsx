@@ -15,7 +15,7 @@ import { useMoveStage } from "@/lib/hooks/use-leads";
 import { ApiError } from "@/lib/api-client";
 import { PipelineColumn } from "./PipelineColumn";
 import { PipelineLeadCard } from "./PipelineLeadCard";
-import { Toast } from "./Toast";
+import { Toast } from "@/components/ui/Toast";
 
 interface Props {
   stages: Stage[];

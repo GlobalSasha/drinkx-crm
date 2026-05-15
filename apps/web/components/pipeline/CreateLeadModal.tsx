@@ -122,10 +122,10 @@ export function CreateLeadModal() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-3">
-            <div>
-              <label className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-2 block mb-1.5">
+            <label className="block">
+              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-2 block mb-1.5">
                 Компания *
-              </label>
+              </span>
               <div className="relative">
                 <input
                   ref={inputRef}
@@ -200,7 +200,7 @@ export function CreateLeadModal() {
                   </button>
                 </div>
               )}
-            </div>
+            </label>
 
             {duplicateCandidates && duplicateCandidates.length > 0 && (
               <div className="rounded-2xl bg-warning/5 border border-warning/30 p-3">
