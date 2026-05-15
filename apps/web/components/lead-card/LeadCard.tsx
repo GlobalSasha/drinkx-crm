@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useLead, useUpdateLead } from "@/lib/hooks/use-lead";
 import { usePipelines, DEFAULT_STAGES } from "@/lib/hooks/use-pipelines";
-import { useMoveStage, useUnclaimLead } from "@/lib/hooks/use-leads";
+import { useClaimLead, useMoveStage, useUnclaimLead } from "@/lib/hooks/use-leads";
 import { useMe } from "@/lib/hooks/use-me";
 import type { Stage } from "@/lib/types";
 import { ActivityTab } from "./ActivityTab";
@@ -69,6 +69,7 @@ export function LeadCard({ leadId }: Props) {
   const updateLead = useUpdateLead(leadId);
   const moveStage = useMoveStage();
   const unclaim = useUnclaimLead();
+  const claim = useClaimLead();
   const me = useMe().data;
   const router = useRouter();
 
@@ -138,6 +139,20 @@ export function LeadCard({ leadId }: Props) {
     if (!lead || unclaim.isPending) return;
     unclaim.mutate(leadId, {
       onSuccess: () => router.push("/pipeline"),
+    });
+  }
+
+  function handleClaim() {
+    if (!lead || claim.isPending) return;
+    claim.mutate(leadId, {
+      onSuccess: () => showToast("Лид в работе"),
+      onError: (err) => {
+        const msg =
+          err.status === 409
+            ? "Эту карточку только что взял другой менеджер"
+            : "Не удалось взять лид в работу";
+        showToast(msg);
+      },
     });
   }
 
@@ -215,6 +230,19 @@ export function LeadCard({ leadId }: Props) {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {lead.assignment_status === "pool" && (
+                <button
+                  type="button"
+                  onClick={handleClaim}
+                  disabled={claim.isPending}
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 type-body font-semibold bg-brand-accent text-white rounded-full disabled:opacity-40 transition-opacity hover:bg-brand-accent/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg"
+                >
+                  {claim.isPending ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : null}
+                  Взять в работу
+                </button>
+              )}
               {lead.assigned_to === me?.id && (
                 <button
                   type="button"
