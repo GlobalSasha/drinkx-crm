@@ -375,9 +375,9 @@ async def compute_diff(
 # apply_diff_item — write changes to the DB
 # ===========================================================================
 
-async def _resolve_stage_id(
+async def _resolve_stage(
     session: AsyncSession, *, lead: Lead, stage_name: str
-) -> UUID | None:
+):
     """Find a Stage matching the given name in the lead's pipeline.
     Falls back to the workspace default pipeline when the lead has
     no pipeline_id yet.
@@ -397,7 +397,7 @@ async def _resolve_stage_id(
     if pipeline_id is None:
         return None
     res = await session.execute(
-        select(Stage.id)
+        select(Stage)
         .where(Stage.pipeline_id == pipeline_id)
         .where(Stage.name.ilike(stage_name))
         .limit(1)
@@ -532,20 +532,44 @@ async def apply_diff_item(
                         contact.source = patch.get("source") or contact.source
                     break
 
-    # stage move
+    # stage move — route through stage_change.move_stage() so post-actions
+    # (Activity log, lead-agent refresh, automation fan-out) fire and hard
+    # gates (cross-pipeline) are still enforced. Soft gates skipped — the
+    # bulk-update preview UI is the human-in-the-loop ADR-007 gate.
     for c in item.changes:
         if c.field != "stage" or c.op != "set":
             continue
-        stage_id = await _resolve_stage_id(
+        target_stage = await _resolve_stage(
             session, lead=lead, stage_name=str(c.value)
         )
-        if stage_id is not None:
-            lead.stage_id = stage_id
-        else:
+        if target_stage is None:
             log.warning(
                 "bulk_update.stage_unresolved",
                 lead_id=str(lead.id),
                 stage_name=c.value,
+            )
+            continue
+        if lead.stage_id == target_stage.id:
+            continue
+        from app.automation.stage_change import (
+            StageTransitionBlocked,
+            move_stage,
+        )
+        try:
+            await move_stage(
+                session,
+                lead,
+                target_stage,
+                user_id=None,
+                gate_skipped=True,
+                skip_reason="bulk_update",
+            )
+        except StageTransitionBlocked as exc:
+            log.warning(
+                "bulk_update.stage_hard_gate_blocked",
+                lead_id=str(lead.id),
+                stage_name=c.value,
+                violations=[v.code for v in exc.violations],
             )
 
     # assigned_to

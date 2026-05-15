@@ -128,13 +128,15 @@ def lead_agent_refresh_suggestion(lead_id: str) -> dict:
     return asyncio.run(refresh_suggestion_async(UUID(lead_id)))
 
 
-@celery_app.task(name="app.scheduled.jobs.transcribe_call", bind=True, max_retries=2)
-def transcribe_call(self, message_id: str) -> dict:
+@celery_app.task(name="app.scheduled.jobs.transcribe_call")
+def transcribe_call(message_id: str) -> dict:
     """Sprint 3.4 G4 — Celery wrapper for call recording transcription.
 
     Async core lives in `app.inbox.message_tasks.transcribe_call_async`.
-    G4 ships a stub that just records the dispatch; G4b adds the real
-    SaluteSpeech + MiMo summary pipeline.
+    The core swallows STT / LLM failures (docstring there spells out why
+    we don't re-raise — Celery retries are expensive UX polish for a
+    transcript step), so no `max_retries` is wired on this task; the
+    previous `bind=True, max_retries=2` was never honoured by the core.
     """
     from app.inbox.message_tasks import transcribe_call_async
 

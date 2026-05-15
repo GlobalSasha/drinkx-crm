@@ -819,13 +819,17 @@ async def _move_stage_action(
     config: dict,
     automation_id_str: str,
 ) -> None:
-    """Direct stage flip. v1 bypasses the gate engine in
-    `app/automation/stage_change.py` — automations are admin-curated
-    and gates would defeat the purpose. Logs an `automation_move`
-    payload on the resulting stage_change Activity so the audit trail
-    is clear that a human didn't move it."""
+    """Move a lead through the canonical `stage_change.move_stage()` so
+    pre-checks (hard gates like cross-pipeline) still fire and post-actions
+    (Activity log with `source=automation`, lead-agent refresh, downstream
+    automation fan-out) run consistently. Soft gates are skipped — the
+    automation itself is the audit trail."""
     from sqlalchemy import select
 
+    from app.automation.stage_change import (
+        StageTransitionBlocked,
+        move_stage,
+    )
     from app.pipelines.models import Stage
 
     target_stage_id = config.get("target_stage_id")
@@ -845,21 +849,20 @@ async def _move_stage_action(
     if lead.stage_id == target.id:
         return
 
-    from_stage_id = lead.stage_id
-    lead.stage_id = target.id
-    db.add(
-        Activity(
-            lead_id=lead.id,
+    try:
+        await move_stage(
+            db,
+            lead,
+            target,
             user_id=None,
-            type="stage_change",
-            payload_json={
-                "from_stage_id": str(from_stage_id) if from_stage_id else None,
-                "to_stage_id": str(target.id),
-                "source": "automation",
-                "automation_id": automation_id_str,
-            },
+            gate_skipped=True,
+            skip_reason=f"automation:{automation_id_str}",
         )
-    )
+    except StageTransitionBlocked as exc:
+        # Hard gate (e.g., cross-pipeline) — automation config is broken;
+        # surface the violation codes for the run log.
+        codes = ",".join(v.code for v in exc.violations)
+        raise ValueError(f"stage_change blocked by hard gate(s): {codes}")
 
 
 # ---------------------------------------------------------------------------

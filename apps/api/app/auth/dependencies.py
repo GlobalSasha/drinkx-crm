@@ -33,7 +33,7 @@ def _extract_bearer(authorization: str | None) -> str | None:
 async def get_token_claims(
     authorization: Annotated[str | None, Header()] = None,
 ) -> TokenClaims:
-    return verify_token(_extract_bearer(authorization))
+    return await verify_token(_extract_bearer(authorization))
 
 
 async def current_user(

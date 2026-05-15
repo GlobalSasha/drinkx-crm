@@ -257,13 +257,23 @@ async def transfer_lead(
     to_user_id: uuid.UUID,
     comment: str | None = None,  # noqa: ARG001 — stored in activity log (Task 4)
 ) -> Lead:
-    """Transfer ownership, recording the previous assignee."""
+    """Transfer ownership, recording the previous assignee.
+
+    Acquires a row-level lock on `leads` before the write so two
+    concurrent transfers on the same lead serialize — without this,
+    `transferred_from` can be lost (the second writer reads the row
+    after the first has already overwritten `assigned_to`)."""
     now = datetime.now(timezone.utc)
-    lead.transferred_from = lead.assigned_to
-    lead.transferred_at = now
-    lead.assigned_to = to_user_id
-    lead.assigned_at = now
-    lead.assignment_status = "assigned"
+    # SELECT … FOR UPDATE the lead row. Lock is released at txn commit.
+    locked = await db.execute(
+        select(Lead).where(Lead.id == lead.id).with_for_update()
+    )
+    fresh = locked.scalar_one()
+    fresh.transferred_from = fresh.assigned_to
+    fresh.transferred_at = now
+    fresh.assigned_to = to_user_id
+    fresh.assigned_at = now
+    fresh.assignment_status = "assigned"
     await db.flush()
-    await db.refresh(lead)
-    return lead
+    await db.refresh(fresh)
+    return fresh
