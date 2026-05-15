@@ -95,7 +95,7 @@ export function GlobalSearch({ open, onClose }: Props) {
             onKeyDown={handleKey}
             placeholder="Поиск компаний, лидов, контактов…"
             autoFocus
-            className={`flex-1 ${C.cardTitle} font-medium ${C.color.text} bg-transparent outline-none placeholder:${C.color.muted}`}
+            className={`flex-1 type-card-title font-medium ${C.color.text} bg-transparent outline-none placeholder:${C.color.muted}`}
           />
           {isFetching && <Loader2 size={14} className="animate-spin text-brand-muted" />}
           <button
@@ -110,7 +110,7 @@ export function GlobalSearch({ open, onClose }: Props) {
 
         <div className="max-h-[60vh] overflow-y-auto">
           {!query.trim() && (
-            <p className={`px-5 py-8 ${C.bodySm} ${C.color.muted} text-center`}>
+            <p className={`px-5 py-8 type-caption ${C.color.muted} text-center`}>
               Начните печатать. <kbd className="font-mono">↑↓</kbd> для навигации,{" "}
               <kbd className="font-mono">↵</kbd> чтобы открыть,{" "}
               <kbd className="font-mono">esc</kbd> — закрыть.
@@ -118,7 +118,7 @@ export function GlobalSearch({ open, onClose }: Props) {
           )}
 
           {query.trim() && flat.length === 0 && !isFetching && (
-            <p className={`px-5 py-8 ${C.bodySm} ${C.color.muted} text-center`}>
+            <p className={`px-5 py-8 type-caption ${C.color.muted} text-center`}>
               Ничего не найдено.
             </p>
           )}
@@ -129,7 +129,7 @@ export function GlobalSearch({ open, onClose }: Props) {
             return (
               <section key={type} className="py-2">
                 <h3
-                  className={`px-5 py-1 ${T.caption}`}
+                  className="px-5 py-1 type-caption text-brand-muted"
                 >
                   {TYPE_LABEL[type]} · {items.length}
                 </h3>
@@ -150,13 +150,13 @@ export function GlobalSearch({ open, onClose }: Props) {
                           <span className={C.color.muted}>{TYPE_ICON[it.type]}</span>
                           <span className="flex-1 min-w-0">
                             <span
-                              className={`${C.bodySm} font-semibold ${C.color.text} truncate block`}
+                              className={`type-caption font-semibold ${C.color.text} truncate block`}
                             >
                               {it.title || "—"}
                             </span>
                             {it.subtitle && (
                               <span
-                                className={`${C.bodyXs} ${C.color.muted} truncate block`}
+                                className={`type-caption ${C.color.muted} truncate block`}
                               >
                                 {it.subtitle}
                               </span>

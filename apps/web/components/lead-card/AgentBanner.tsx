@@ -52,14 +52,14 @@ export function AgentBanner({
       <div className="border-y border-brand-border bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-2 flex items-center gap-3">
           <Bot size={14} className="text-brand-muted shrink-0" />
-          <span className={`${C.bodySm} text-brand-muted flex-1 min-w-0 truncate`}>
+          <span className="type-caption text-brand-muted flex-1 min-w-0 truncate">
             Чак ещё не давал рекомендаций по этому лиду.
           </span>
           <button
             type="button"
             onClick={() => refresh.mutate()}
             disabled={refresh.isPending}
-            className={`inline-flex items-center gap-1 ${C.bodySm} font-semibold text-brand-accent-text hover:opacity-80 transition disabled:opacity-50`}
+            className="inline-flex items-center gap-1 type-caption font-semibold text-brand-accent-text hover:opacity-80 transition disabled:opacity-50"
           >
             <RefreshCw
               size={12}
@@ -102,7 +102,7 @@ export function AgentBanner({
           />
         </div>
         <div className="flex-1 min-w-0">
-          <p className={`${C.bodySm} text-brand-primary leading-snug`}>
+          <p className="type-caption text-brand-primary leading-snug">
             {suggestion.text}
           </p>
           <div className="flex items-center gap-3 mt-1.5 flex-wrap">
@@ -110,7 +110,7 @@ export function AgentBanner({
               <button
                 type="button"
                 onClick={onCoachOpen}
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-accent text-white ${C.bodySm} font-semibold hover:opacity-90 transition`}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-accent text-white type-caption font-semibold hover:opacity-90 transition"
               >
                 {primaryAction}
               </button>
@@ -118,7 +118,7 @@ export function AgentBanner({
             <button
               type="button"
               onClick={onCoachOpen}
-              className={`${C.bodySm} font-medium text-brand-accent-text hover:opacity-80 transition`}
+              className="type-caption font-medium text-brand-accent-text hover:opacity-80 transition"
             >
               Спросить Чака →
             </button>
@@ -126,7 +126,7 @@ export function AgentBanner({
               type="button"
               onClick={() => refresh.mutate()}
               disabled={refresh.isPending}
-              className={`inline-flex items-center gap-1 ${C.bodySm} text-brand-muted hover:text-brand-primary transition disabled:opacity-50`}
+              className="inline-flex items-center gap-1 type-caption text-brand-muted hover:text-brand-primary transition disabled:opacity-50"
               title="Пересчитать рекомендацию"
             >
               <RefreshCw
@@ -135,7 +135,7 @@ export function AgentBanner({
               />
               {refresh.isPending ? "Обновляю" : "Обновить"}
             </button>
-            <span className={`${C.bodyXs} text-brand-muted`}>
+            <span className="type-caption text-brand-muted">
               · уверенность {Math.round(suggestion.confidence * 100)}%
             </span>
           </div>

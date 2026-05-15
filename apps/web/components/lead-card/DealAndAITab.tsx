@@ -17,7 +17,7 @@ import { useUsers } from "@/lib/hooks/use-users";
 import { ApiError } from "@/lib/api-client";
 import type { LeadOut } from "@/lib/types";
 import { dealTypeLabel } from "@/lib/i18n";
-import { C, T } from "@/lib/design-system";
+import { C } from "@/lib/design-system";
 
 interface Props {
   lead: LeadOut;
@@ -64,7 +64,7 @@ export function DealAndAITab({ lead }: Props) {
     <div className="space-y-4">
       {/* === Card 1: О компании === */}
       <section className="bg-white rounded-2xl border border-brand-border p-5">
-        <h2 className={`${C.cardTitle} font-bold ${C.color.text} mb-4`}>
+        <h2 className={`type-card-title font-bold ${C.color.text} mb-4`}>
           О компании
         </h2>
         <ul className="space-y-3.5">
@@ -116,7 +116,7 @@ export function DealAndAITab({ lead }: Props) {
 
       {/* === Card 2: Параметры сделки === */}
       <section className="bg-white rounded-2xl border border-brand-border p-5">
-        <h2 className={`${C.cardTitle} font-bold ${C.color.text} mb-4`}>
+        <h2 className={`type-card-title font-bold ${C.color.text} mb-4`}>
           Параметры сделки
         </h2>
         <ul className="space-y-3.5">
@@ -158,9 +158,9 @@ function Row({
     <li className="flex items-start gap-3">
       <span className="mt-0.5 shrink-0">{icon}</span>
       <div className="min-w-0 flex-1">
-        <div className={`${C.bodySm} ${C.color.text} leading-relaxed`}>{primary}</div>
+        <div className={`type-caption ${C.color.text} leading-relaxed`}>{primary}</div>
         {hint && (
-          <div className={`${C.bodyXs} ${C.color.muted} mt-0.5`}>{hint}</div>
+          <div className={`type-caption ${C.color.muted} mt-0.5`}>{hint}</div>
         )}
       </div>
     </li>
@@ -214,8 +214,8 @@ function AIBriefCard({
       <header className="flex items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">
           <Sparkles size={18} className="text-warning" />
-          <h2 className={`${C.cardTitle} font-bold ${C.color.text}`}>AI Бриф</h2>
-          <span className={`${C.bodyXs} ${C.color.muted} font-mono`}>
+          <h2 className={`type-card-title font-bold ${C.color.text}`}>AI Бриф</h2>
+          <span className={`type-caption ${C.color.muted} font-mono`}>
             · {sourceLabel}
           </span>
         </div>
@@ -224,7 +224,7 @@ function AIBriefCard({
             type="button"
             onClick={() => handleRun("append")}
             disabled={isRunning}
-            className={`inline-flex items-center gap-1.5 px-4 py-1.5 ${C.btnLg} font-semibold ${C.button.ghost} disabled:opacity-50 transition-opacity`}
+            className={`inline-flex items-center gap-1.5 px-4 py-1.5 type-body font-semibold ${C.button.ghost} disabled:opacity-50 transition-opacity`}
           >
             {isRunning ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
             Дополнить
@@ -235,10 +235,10 @@ function AIBriefCard({
       {!hasAiData ? (
         <div className="flex flex-col items-center justify-center py-10 text-center">
           <Sparkles size={32} className="text-warning mb-3" />
-          <p className={`${C.bodySm} font-semibold ${C.color.text} mb-1`}>
+          <p className={`type-caption font-semibold ${C.color.text} mb-1`}>
             Бриф пока пуст
           </p>
-          <p className={`${C.bodyXs} ${C.color.muted} mb-5 max-w-sm`}>
+          <p className={`type-caption ${C.color.muted} mb-5 max-w-sm`}>
             Запустите enrichment — AI соберёт данные из Brave, HH.ru и сайта
             компании, заполнит обзор, сигналы и следующий шаг.
           </p>
@@ -246,7 +246,7 @@ function AIBriefCard({
             type="button"
             onClick={() => handleRun("full")}
             disabled={isRunning}
-            className={`inline-flex items-center gap-2 px-5 py-2 ${C.btnLg} font-semibold bg-brand-accent text-white rounded-full disabled:opacity-50 transition-opacity`}
+            className="inline-flex items-center gap-2 px-5 py-2 type-body font-semibold bg-brand-accent text-white rounded-full disabled:opacity-50 transition-opacity"
           >
             {isRunning ? (
               <>
@@ -279,7 +279,7 @@ function AIBriefCard({
               {sources.map((s, i) => (
                 <span
                   key={`${s}-${i}`}
-                  className={`${C.bodyXs} font-mono ${C.color.muted} bg-brand-panel px-2.5 py-1 rounded-full`}
+                  className={`type-caption font-mono ${C.color.muted} bg-brand-panel px-2.5 py-1 rounded-full`}
                 >
                   {s.length > 40 ? `${s.slice(0, 40)}…` : s}
                 </span>
@@ -287,7 +287,7 @@ function AIBriefCard({
             </div>
           )}
 
-          <p className={`${T.hint} pt-1`}>
+          <p className="type-hint text-brand-muted pt-1">
             Данные из базы. AI дополняет только пустые поля — существующие
             не перезаписываются.
           </p>
@@ -295,7 +295,7 @@ function AIBriefCard({
       )}
 
       {toast && (
-        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 bg-ink text-white ${C.bodySm} font-semibold px-5 py-2 rounded-full z-50`}>
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-ink text-white type-caption font-semibold px-5 py-2 rounded-full z-50">
           {toast}
         </div>
       )}
@@ -306,10 +306,10 @@ function AIBriefCard({
 function Block({ title, items }: { title: string; items: string[] }) {
   return (
     <div>
-      <p className={`${T.caption} mb-2`}>
+      <p className="type-caption text-brand-muted mb-2">
         {title}
       </p>
-      <ul className={`${C.bodySm} ${C.color.text} space-y-1.5 leading-relaxed`}>
+      <ul className={`type-caption ${C.color.text} space-y-1.5 leading-relaxed`}>
         {items.map((it, i) => (
           <li key={i} className="flex gap-2">
             <span className={`${C.color.muted} shrink-0`}>·</span>

@@ -18,7 +18,6 @@ import {
   useUpsertLeadAttribute,
 } from "@/lib/hooks/use-lead-attributes";
 import type { LeadAttributeOut } from "@/lib/types";
-import { T } from "@/lib/design-system";
 
 interface Props {
   leadId: string;
@@ -78,7 +77,7 @@ export function CustomFieldsPanel({ leadId }: Props) {
 
   return (
     <section className="bg-white border border-black/5 rounded-2xl shadow-soft p-4">
-      <h3 className={`${T.caption} mb-3`}>
+      <h3 className="type-caption text-brand-muted mb-3">
         Кастомные поля
       </h3>
       <div className="divide-y divide-black/5">
@@ -190,7 +189,7 @@ function CustomFieldRow({
             {display ? (
               <span className="text-sm text-ink truncate">{display}</span>
             ) : (
-              <span className={T.hint}>
+              <span className="type-hint text-brand-muted">
                 не заполнено
               </span>
             )}
@@ -254,7 +253,7 @@ function CustomFieldEditor({
           onBlur={onCancel}
           onKeyDown={onKey}
           disabled={pending}
-          className="bg-canvas border border-brand-accent/30 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-brand-accent w-full max-w-[280px] disabled:opacity-50"
+          className="bg-canvas border border-brand-accent/30 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 w-full max-w-[280px] disabled:opacity-50"
         >
           <option value="">— очистить —</option>
           {options.map((o) => (
@@ -288,7 +287,7 @@ function CustomFieldEditor({
         onKeyDown={onKey}
         disabled={pending}
         step={attr.kind === "number" ? "any" : undefined}
-        className="bg-canvas border border-brand-accent/30 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-brand-accent w-full max-w-[280px] disabled:opacity-50"
+        className="bg-canvas border border-brand-accent/30 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 w-full max-w-[280px] disabled:opacity-50"
       />
       {pending && <Loader2 size={12} className="animate-spin text-muted-2" />}
     </div>

@@ -73,7 +73,7 @@ function PoolRow({
           {tier}
         </span>
       </td>
-      <td className="px-4 py-3 font-mono text-sm text-muted-2">
+      <td className="px-4 py-3 type-amount text-muted-2">
         {lead.fit_score != null ? lead.fit_score : "—"}
       </td>
       <td className="px-4 py-3">
@@ -317,7 +317,7 @@ export default function LeadsPoolPage() {
         {!isLoading && !isError && filtered.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="bg-white border border-black/5 rounded-2xl p-10 shadow-soft max-w-sm w-full">
-              <p className={`${T.heading} mb-2`}>В пуле пока пусто</p>
+              <p className="type-card-title mb-2">В пуле пока пусто</p>
               <p className="text-sm text-muted">
                 Импортируйте лиды или добавьте вручную.
               </p>
@@ -333,7 +333,7 @@ export default function LeadsPoolPage() {
                   {["Компания", "Город", "Сегмент", "Tier", "Fit Score", "Статус", ""].map((h) => (
                     <th
                       key={h}
-                      className={`px-4 py-2.5 ${T.mono} uppercase text-muted-2 whitespace-nowrap`}
+                      className="px-4 py-2.5 type-table-header text-muted-2 whitespace-nowrap"
                     >
                       {h}
                     </th>

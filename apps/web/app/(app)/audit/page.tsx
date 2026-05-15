@@ -202,7 +202,7 @@ export default function AuditPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <h1 className={`${T.heading} flex items-center gap-2`}>
+          <h1 className="type-card-title flex items-center gap-2">
             <History size={20} className="text-muted" />
             Журнал изменений
           </h1>

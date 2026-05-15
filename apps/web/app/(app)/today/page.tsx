@@ -41,7 +41,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { C, T } from "@/lib/design-system";
+import { C } from "@/lib/design-system";
 import { api } from "@/lib/api-client";
 import { useTodayPlan } from "@/lib/hooks/use-daily-plan";
 import { useFollowupsPending } from "@/lib/hooks/use-followups";
@@ -216,11 +216,11 @@ function CounterWidget({ label, icon, value, note, accent, loading }: CounterPro
       {loading ? (
         <Skeleton className="h-10 w-20 my-3" />
       ) : (
-        <div className={`${C.metricSm} ${valueColor} tabular-nums leading-none my-3`}>
+        <div className={`type-kpi-number ${valueColor} my-3`}>
           {value ?? "—"}
         </div>
       )}
-      <div className={`${C.bodyXs} ${C.color.mutedLight}`}>{note}</div>
+      <div className={`type-caption ${C.color.mutedLight}`}>{note}</div>
     </div>
   );
 }
@@ -243,10 +243,10 @@ function WidgetHeader({
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           {icon}
-          <h3 className={`${C.bodySm} font-bold italic ${titleColor}`}>{title}</h3>
+          <h3 className={`type-caption font-bold italic ${titleColor}`}>{title}</h3>
         </div>
         {subtitle && (
-          <p className={`${C.bodyXs} ${C.color.mutedLight} mt-0.5`}>
+          <p className={`type-caption ${C.color.mutedLight} mt-0.5`}>
             {subtitle}
           </p>
         )}
@@ -377,10 +377,10 @@ function FocusWidget() {
           </>
         )}
         {!isLoading && isError && (
-          <p className={`${C.bodyXs} ${C.color.mutedLight}`}>—</p>
+          <p className={`type-caption ${C.color.mutedLight}`}>—</p>
         )}
         {!isLoading && !isError && top.length === 0 && (
-          <p className={`${C.bodySm} ${C.color.mutedLight}`}>
+          <p className={`type-caption ${C.color.mutedLight}`}>
             Нет лидов в работе
           </p>
         )}
@@ -396,15 +396,15 @@ function FocusWidget() {
               </span>
             )}
             <div className="min-w-0 flex-1">
-              <p className={`${C.bodySm} font-semibold ${C.color.text} truncate`}>
+              <p className={`type-caption font-semibold ${C.color.text} truncate`}>
                 {l.company_name}
               </p>
-              <p className={`${C.bodyXs} ${C.color.mutedLight} truncate`}>
+              <p className={`type-caption ${C.color.mutedLight} truncate`}>
                 {[l.segment, l.city].filter(Boolean).join(" · ") || "—"}
               </p>
             </div>
             <span
-              className={`${C.bodyXs} font-mono font-bold tabular-nums bg-brand-soft text-brand-accent-text px-2 py-0.5 rounded-full shrink-0`}
+              className={`type-caption font-mono font-bold tabular-nums bg-brand-soft text-brand-accent-text px-2 py-0.5 rounded-full shrink-0`}
             >
               {l.score}
             </span>
@@ -485,11 +485,11 @@ function TaskListWidget() {
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <ListChecks size={16} className="text-brand-muted" />
-            <h3 className={`${C.bodySm} font-bold italic ${C.color.text}`}>
+            <h3 className={`type-caption font-bold italic ${C.color.text}`}>
               Список задач
             </h3>
           </div>
-          <p className={`${C.bodyXs} ${C.color.mutedLight} mt-0.5`}>
+          <p className={`type-caption ${C.color.mutedLight} mt-0.5`}>
             Расставлено по таймблокам Чаком
           </p>
         </div>
@@ -513,10 +513,10 @@ function TaskListWidget() {
           </>
         )}
         {!isLoading && isError && (
-          <p className={`${C.bodyXs} ${C.color.mutedLight}`}>—</p>
+          <p className={`type-caption ${C.color.mutedLight}`}>—</p>
         )}
         {!isLoading && !isError && items.length === 0 && (
-          <p className={`${C.bodySm} ${C.color.mutedLight}`}>
+          <p className={`type-caption ${C.color.mutedLight}`}>
             На сегодня задач нет
           </p>
         )}
@@ -528,7 +528,7 @@ function TaskListWidget() {
           const inner = (
             <>
               <span
-                className={`${C.bodyXs} ${C.color.mutedLight} uppercase tracking-wide tabular-nums w-16 shrink-0`}
+                className={`type-caption ${C.color.mutedLight} uppercase tracking-wide tabular-nums w-16 shrink-0`}
               >
                 {formatTaskTime(due)}
               </span>
@@ -537,7 +537,7 @@ function TaskListWidget() {
               </span>
               <div className="min-w-0 flex-1">
                 <p
-                  className={`${C.bodySm} font-medium ${C.color.text} truncate max-w-[280px] ${
+                  className={`type-caption font-medium ${C.color.text} truncate max-w-[280px] ${
                     t.done ? "line-through opacity-60" : ""
                   }`}
                   title={taskTitle}
@@ -545,7 +545,7 @@ function TaskListWidget() {
                   {taskTitle}
                 </p>
                 <p
-                  className={`${C.bodyXs} ${C.color.mutedLight} truncate max-w-[280px]`}
+                  className={`type-caption ${C.color.mutedLight} truncate max-w-[280px]`}
                   title={t.lead_company_name ?? undefined}
                 >
                   {t.lead_company_name ?? "—"}
@@ -606,7 +606,7 @@ function TaskListWidget() {
                   !newTaskText.trim() || !focusLead || addTask.isPending
                 }
                 aria-label="Сохранить задачу"
-                className={`${C.button.primary} ${C.btn} px-3 py-2 disabled:opacity-40`}
+                className={`${C.button.primary} type-body px-3 py-2 disabled:opacity-40`}
               >
                 <Check size={14} />
               </button>
@@ -616,7 +616,7 @@ function TaskListWidget() {
                   setNewTaskText("");
                 }}
                 aria-label="Отменить"
-                className={`${C.button.ghost} ${C.btn} px-3 py-2`}
+                className={`${C.button.ghost} type-body px-3 py-2`}
               >
                 <X size={14} />
               </button>
@@ -626,7 +626,7 @@ function TaskListWidget() {
               onClick={() => setAddingTask(true)}
               disabled={!focusLead}
               title={focusLead ? undefined : "Нет лида для привязки"}
-              className={`w-full mt-2 py-2 rounded-xl border border-dashed border-brand-border text-brand-muted ${C.bodySm} flex items-center justify-center gap-1 disabled:opacity-40`}
+              className="w-full mt-2 py-2 rounded-xl border border-dashed border-brand-border text-brand-muted type-caption flex items-center justify-center gap-1 disabled:opacity-40"
             >
               <Plus size={12} aria-hidden /> добавить задачу
             </button>
@@ -682,7 +682,7 @@ function ChakWidget() {
         {insights.map((it, i) => (
           <div key={i} className="flex items-start gap-3">
             <span className="mt-0.5 shrink-0">{it.icon}</span>
-            <p className={`${C.bodySm} ${C.color.text} leading-snug`}>
+            <p className={`type-caption ${C.color.text} leading-snug`}>
               {it.text}
             </p>
           </div>
@@ -738,10 +738,10 @@ function FunnelWidget() {
           </>
         )}
         {!isLoading && isError && (
-          <p className={`${C.bodyXs} ${C.color.mutedLight}`}>—</p>
+          <p className={`type-caption ${C.color.mutedLight}`}>—</p>
         )}
         {!isLoading && !isError && visibleStages.length === 0 && (
-          <p className={`${C.bodySm} ${C.color.mutedLight}`}>
+          <p className={`type-caption ${C.color.mutedLight}`}>
             Воронка ещё не настроена
           </p>
         )}
@@ -752,7 +752,7 @@ function FunnelWidget() {
             className="flex items-center gap-3 cursor-pointer"
           >
             <span
-              className={`${C.bodyXs} ${C.color.mutedLight} w-24 shrink-0 truncate`}
+              className={`type-caption ${C.color.mutedLight} w-24 shrink-0 truncate`}
             >
               {s.name}
             </span>
@@ -763,7 +763,7 @@ function FunnelWidget() {
               />
             </div>
             <span
-              className={`${C.bodyXs} font-mono font-bold tabular-nums ${C.color.text} w-6 text-right shrink-0`}
+              className={`type-caption font-mono font-bold tabular-nums ${C.color.text} w-6 text-right shrink-0`}
             >
               {s.count}
             </span>
@@ -797,10 +797,10 @@ function NotifWidget() {
           </>
         )}
         {!isLoading && isError && (
-          <p className={`${C.bodyXs} ${C.color.mutedLight} col-span-full`}>—</p>
+          <p className={`type-caption ${C.color.mutedLight} col-span-full`}>—</p>
         )}
         {!isLoading && !isError && items.length === 0 && (
-          <p className={`${C.bodySm} ${C.color.mutedLight} col-span-full`}>
+          <p className={`type-caption ${C.color.mutedLight} col-span-full`}>
             Уведомлений пока нет
           </p>
         )}
@@ -825,11 +825,11 @@ function NotifWidget() {
               className="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-brand-bg cursor-pointer"
             >
               <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />
-              <p className={`${C.bodySm} ${C.color.text} truncate flex-1`}>
+              <p className={`type-caption ${C.color.text} truncate flex-1`}>
                 {n.title || n.body || "—"}
               </p>
               <span
-                className={`${C.bodyXs} font-mono ${C.color.mutedLight} shrink-0`}
+                className={`type-caption font-mono ${C.color.mutedLight} shrink-0`}
               >
                 {relativeTime(n.created_at)}
               </span>
@@ -1106,11 +1106,11 @@ function TodayPageInner() {
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Header */}
         <div className="bg-white border border-brand-border border-l-[3px] border-l-brand-accent rounded-xl p-6 mb-4">
-          <div className={T.caption}>{dateTimeCaption}</div>
-          <h1 className={`text-3xl font-bold ${C.color.text} mt-1`}>
+          <div className="type-caption text-brand-muted">{dateTimeCaption}</div>
+          <h1 className={`type-page-title ${C.color.text} mt-1`}>
             {greetingText}, <span className="text-brand-accent">{firstName}</span>
           </h1>
-          <p className={`${C.bodySm} ${C.color.mutedLight} mt-1`}>
+          <p className={`type-caption ${C.color.mutedLight} mt-1`}>
             {chakSummary}
           </p>
         </div>
@@ -1119,7 +1119,7 @@ function TodayPageInner() {
         <div className="flex justify-end mb-4">
           <button
             onClick={() => setEditing((v) => !v)}
-            className={`${C.button.ghost} ${C.btnLg} px-4 py-2 inline-flex items-center gap-2`}
+            className={`${C.button.ghost} type-body px-4 py-2 inline-flex items-center gap-2`}
           >
             <LayoutGrid size={14} aria-hidden />
             {editing ? "Готово" : "Настроить"}
@@ -1129,7 +1129,7 @@ function TodayPageInner() {
         {/* Edit-mode hint */}
         {editing && (
           <div
-            className={`${C.bodyXs} ${C.color.mutedLight} mb-3 px-1`}
+            className={`type-caption ${C.color.mutedLight} mb-3 px-1`}
             role="status"
           >
             Перетащи виджет за рукоять, чтобы поменять порядок. Крестик — скрыть.
@@ -1167,7 +1167,7 @@ function TodayPageInner() {
         {/* Hidden-widgets restore panel */}
         {editing && hidden.size > 0 && (
           <div className="border border-dashed border-brand-border rounded-[2rem] p-4 mt-4">
-            <p className={`${C.bodySm} ${C.color.mutedLight} mb-3`}>
+            <p className={`type-caption ${C.color.mutedLight} mb-3`}>
               Скрытые виджеты — нажми, чтобы вернуть
             </p>
             <div className="flex flex-wrap gap-2">
@@ -1175,7 +1175,7 @@ function TodayPageInner() {
                 <button
                   key={id}
                   onClick={() => showWidget(id)}
-                  className={`${C.button.ghost} ${C.btn} px-3 py-1.5 inline-flex items-center gap-1`}
+                  className={`${C.button.ghost} type-body px-3 py-1.5 inline-flex items-center gap-1`}
                 >
                   <Plus size={12} aria-hidden />
                   {WIDGET_LABELS[id]}

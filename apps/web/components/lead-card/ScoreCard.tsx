@@ -7,7 +7,7 @@ import {
   tierFromScore,
   type LeadOut,
 } from "@/lib/types";
-import { C, T } from "@/lib/design-system";
+import { C } from "@/lib/design-system";
 import { priorityChip } from "@/lib/ui/priority";
 
 interface Props {
@@ -64,30 +64,30 @@ export function ScoreCard({ lead }: Props) {
         className="w-full flex items-center justify-between gap-3"
         aria-expanded={expanded}
       >
-        <span className={`${T.heading} ${C.color.text}`}>
+        <span className={`type-card-title ${C.color.text}`}>
           Оценка лида
         </span>
-        <span className={`${C.bodyXs} ${C.color.muted} font-mono`}>
+        <span className={`type-caption ${C.color.muted} font-mono`}>
           Score / Приоритет
         </span>
       </button>
 
       <div className="mt-3 flex items-center justify-between gap-3">
         <div className="flex items-baseline gap-1">
-          <span className={`${T.metric} ${C.color.text}`}>
+          <span className={`type-kpi-number ${C.color.text}`}>
             {lead.score ?? "—"}
           </span>
-          <span className={`${C.bodyXs} ${C.color.muted} font-mono`}>/100</span>
+          <span className={`type-caption ${C.color.muted} font-mono`}>/100</span>
         </div>
         <div className="flex items-center gap-2">
           {lead.priority && (
             <span
-              className={`${C.bodyXs} font-semibold px-2 py-0.5 rounded-full ${priorityChip(lead.priority)}`}
+              className={`type-caption font-semibold px-2 py-0.5 rounded-full ${priorityChip(lead.priority)}`}
             >
               {lead.priority}
             </span>
           )}
-          <span className={`${C.bodyXs} ${C.color.muted}`}>
+          <span className={`type-caption ${C.color.muted}`}>
             DrinkX fit {drinkxFitDisplay}/10
           </span>
           <button
@@ -106,8 +106,8 @@ export function ScoreCard({ lead }: Props) {
           {VISIBLE.map((c, i) => (
             <div key={c.key}>
               <div className="flex items-center justify-between mb-1">
-                <label className={`${C.bodyXs} ${C.color.text}`}>{c.label}</label>
-                <span className={`font-mono ${C.bodyXs} ${C.color.muted}`}>
+                <label className={`type-caption ${C.color.text}`}>{c.label}</label>
+                <span className={`font-mono type-caption ${C.color.muted}`}>
                   {values[i]}/{c.max_value}
                   <span className="ml-1.5 bg-brand-panel px-1.5 py-0.5 rounded-md">
                     ×{c.weight}%
@@ -127,14 +127,14 @@ export function ScoreCard({ lead }: Props) {
           ))}
 
           <div className="flex items-center justify-between pt-2">
-            <span className={`${C.bodyXs} ${C.color.muted}`}>
+            <span className={`type-caption ${C.color.muted}`}>
               Итог: <span className={`font-mono font-bold ${C.color.text}`}>{totalSliders}</span> · {tierFromScore(totalSliders)}
             </span>
             <button
               type="button"
               onClick={handleSave}
               disabled={updateLead.isPending}
-              className={`px-3 py-1.5 ${C.btnLg} font-semibold bg-ink text-white rounded-full disabled:opacity-50 transition-opacity`}
+              className="px-3 py-1.5 type-body font-semibold bg-ink text-white rounded-full disabled:opacity-50 transition-opacity"
             >
               {updateLead.isPending ? "…" : "Сохранить оценку"}
             </button>

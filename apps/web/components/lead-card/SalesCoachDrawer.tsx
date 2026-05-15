@@ -129,10 +129,10 @@ export function SalesCoachDrawer({
             <Bot size={16} className="text-brand-accent-text" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className={`${C.bodySm} font-bold text-brand-primary`}>
+            <div className="type-caption font-bold text-brand-primary">
               Чак · Sales Coach
             </div>
-            <div className={`${C.bodyXs} text-brand-muted truncate`}>
+            <div className="type-caption text-brand-muted truncate">
               Контекст этого лида · история не сохраняется
             </div>
           </div>
@@ -158,7 +158,7 @@ export function SalesCoachDrawer({
           {chat.isPending && (
             <div className="flex items-center gap-2 px-3 py-2 text-brand-muted">
               <Loader2 size={12} className="animate-spin" />
-              <span className={C.bodyXs}>Чак думает...</span>
+              <span className="type-caption text-brand-muted">Чак думает...</span>
             </div>
           )}
           <div ref={messagesEndRef} />
@@ -174,7 +174,7 @@ export function SalesCoachDrawer({
                 type="button"
                 onClick={() => send(chip)}
                 disabled={chat.isPending}
-                className={`${C.bodyXs} px-3 py-1.5 rounded-full border border-brand-border bg-brand-bg text-brand-primary hover:border-brand-accent transition disabled:opacity-50`}
+                className="type-caption px-3 py-1.5 rounded-full border border-brand-border bg-brand-bg text-brand-primary hover:border-brand-accent transition disabled:opacity-50"
               >
                 {chip}
               </button>
@@ -201,7 +201,7 @@ export function SalesCoachDrawer({
             }}
             rows={1}
             placeholder="Спросить Чака..."
-            className={`flex-1 resize-none ${C.bodySm} px-3 py-2 rounded-2xl bg-brand-bg border border-brand-border focus:border-brand-accent outline-none text-brand-primary placeholder:text-brand-muted min-h-[40px] max-h-[120px]`}
+            className="flex-1 resize-none type-caption px-3 py-2 rounded-2xl bg-brand-bg border border-brand-border focus:border-brand-accent outline-none text-brand-primary placeholder:text-brand-muted min-h-[40px] max-h-[120px]"
           />
           <button
             type="submit"
@@ -233,7 +233,7 @@ function Message({
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl ${C.bodySm} whitespace-pre-wrap break-words ${
+        className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl type-caption whitespace-pre-wrap break-words ${
           isUser
             ? "bg-brand-accent text-white"
             : "bg-brand-bg text-brand-primary border border-brand-border"
