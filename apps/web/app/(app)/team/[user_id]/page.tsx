@@ -70,7 +70,7 @@ export default function ManagerStatsPage() {
 
       <header className="flex flex-wrap items-end justify-between gap-4 mb-6">
         <div>
-          <h1 className={T.heading}>
+          <h1 className="type-card-title">
             {stats.data?.name ?? "…"}
           </h1>
           {stats.data && (
@@ -185,7 +185,7 @@ export default function ManagerStatsPage() {
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="text-center">
-      <p className={`${T.metric} text-ink`}>{value}</p>
+      <p className="type-kpi-number text-ink">{value}</p>
       <p className={`${T.mono} uppercase text-muted-3 mt-1`}>
         {label}
       </p>

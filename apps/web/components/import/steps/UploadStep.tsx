@@ -168,7 +168,7 @@ export function UploadStep({ onUploaded }: Props) {
       </button>
 
       {error && (
-        <div className="flex items-start gap-2 text-[13px] text-red-700 bg-red-50 rounded-xl px-3 py-2.5">
+        <div className="flex items-start gap-2 text-[13px] text-rose bg-rose/10 rounded-xl px-3 py-2.5">
           <AlertCircle size={14} className="shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>

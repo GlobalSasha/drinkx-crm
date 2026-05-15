@@ -135,7 +135,7 @@ export function PreviewStep({ job, onBack, onApplied }: Props) {
       )}
 
       {error && (
-        <div className="text-[13px] text-red-700 bg-red-50 rounded-xl px-3 py-2.5">
+        <div className="text-[13px] text-rose bg-rose/10 rounded-xl px-3 py-2.5">
           {error}
         </div>
       )}

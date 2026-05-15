@@ -84,7 +84,7 @@ export function TemplatesSection() {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className={T.heading}>Шаблоны</h2>
+          <h2 className="type-card-title">Шаблоны</h2>
           <p className="text-xs text-muted-2 mt-0.5">
             Готовые тексты сообщений для email / Telegram / SMS.
             Их будут использовать автоматизации Sprint 2.5 — в v1 это
@@ -271,7 +271,7 @@ function TemplateEditor({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-black/5">
-          <h3 className={T.heading}>
+          <h3 className="type-card-title">
             {isEdit ? "Редактировать шаблон" : "Новый шаблон"}
           </h3>
           <button
@@ -284,27 +284,27 @@ function TemplateEditor({
         </div>
 
         <form onSubmit={onSubmit} className="px-5 py-4 space-y-3">
-          <div>
-            <label className={`${T.mono} uppercase text-muted-3`}>
+          <label className="block">
+            <span className={`${T.mono} uppercase text-muted-3`}>
               Название
-            </label>
+            </span>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Первое касание"
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent"
+              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             />
-          </div>
+          </label>
 
-          <div>
-            <label className={`${T.mono} uppercase text-muted-3`}>
+          <label className="block">
+            <span className={`${T.mono} uppercase text-muted-3`}>
               Канал
-            </label>
+            </span>
             <select
               value={channel}
               onChange={(e) => setChannel(e.target.value as TemplateChannel)}
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent"
+              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             >
               {(Object.keys(CHANNEL_LABELS) as TemplateChannel[]).map((c) => (
                 <option key={c} value={c}>
@@ -312,36 +312,36 @@ function TemplateEditor({
                 </option>
               ))}
             </select>
-          </div>
+          </label>
 
-          <div>
-            <label className={`${T.mono} uppercase text-muted-3`}>
+          <label className="block">
+            <span className={`${T.mono} uppercase text-muted-3`}>
               Категория <span className="text-muted-3">(необязательно)</span>
-            </label>
+            </span>
             <input
               type="text"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               placeholder="Онбординг"
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent"
+              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             />
-          </div>
+          </label>
 
-          <div>
-            <label className={`${T.mono} uppercase text-muted-3`}>
+          <label className="block">
+            <span className={`${T.mono} uppercase text-muted-3`}>
               Текст
-            </label>
+            </span>
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={6}
               placeholder="Здравствуйте, {{lead.contact_name}}…"
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent font-mono"
+              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 font-mono"
             />
             <p className="text-xs text-muted-3 mt-1">
               Подстановки появятся в Sprint 2.5 — пока обычный текст.
             </p>
-          </div>
+          </label>
 
           {error && <p className="text-xs text-rose">{error}</p>}
 

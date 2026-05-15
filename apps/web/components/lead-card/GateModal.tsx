@@ -5,6 +5,7 @@ import { useMoveStage } from "@/lib/hooks/use-leads";
 import type { Stage, GateViolationOut } from "@/lib/types";
 import { DEFAULT_GATE_CRITERIA } from "@/lib/types";
 import { ApiError } from "@/lib/api-client";
+import { Modal } from "@/components/ui/Modal";
 
 interface Props {
   leadId: string;
@@ -70,13 +71,8 @@ export function GateModal({ leadId, targetStage, onClose, onSuccess }: Props) {
   }
 
   return (
-    <>
-      <div
-        className="fixed inset-0 bg-black/30 z-50 backdrop-blur-[2px]"
-        onClick={onClose}
-      />
-      <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl border border-black/5 shadow-soft w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+    <Modal open onClose={onClose} title="Переход в стадию">
+      <div className="-m-6 p-6 max-h-[90vh] overflow-y-auto">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -201,8 +197,7 @@ export function GateModal({ leadId, targetStage, onClose, onSuccess }: Props) {
               {moveStage.isPending ? "..." : "Переместить"}
             </button>
           </div>
-        </div>
       </div>
-    </>
+    </Modal>
   );
 }

@@ -5,6 +5,7 @@ Celery wrapping is Phase 2.
 """
 from __future__ import annotations
 
+import hashlib
 import uuid
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -12,7 +13,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 import structlog
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
 
@@ -157,6 +158,17 @@ async def generate_for_user(
         plan_date=str(plan_date),
     )
     bound_log.info("daily_plan.generate.start")
+
+    # Serialize concurrent generations for the same (user, date) — without
+    # this lock, the hourly cron and a manual `regenerate_for_user` can race
+    # the DELETE+INSERT, hitting the UniqueConstraint(user_id, plan_date)
+    # with an IntegrityError. The advisory lock is released at txn commit.
+    _lock_key_bytes = hashlib.blake2b(
+        f"daily_plan:{user.id}:{plan_date.isoformat()}".encode(),
+        digest_size=8,
+    ).digest()
+    _lock_key = int.from_bytes(_lock_key_bytes, "big", signed=True)
+    await db.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": _lock_key})
 
     # Upsert: delete any previous plan for this (user, date) pair first.
     await db.execute(

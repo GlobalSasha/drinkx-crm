@@ -75,7 +75,7 @@ function SignInForm() {
       <div className={`${T.mono} text-muted mb-3`}>
         ВХОД В CRM
       </div>
-      <h1 className={`${T.display} tracking-[-0.035em] leading-none mb-2`}>
+      <h1 className="type-page-title tracking-[-0.035em] leading-none mb-2">
         drinkx<span className="text-brand-accent">.</span>crm
       </h1>
       <p className="text-muted text-sm mb-8 leading-relaxed">
@@ -84,7 +84,7 @@ function SignInForm() {
       </p>
 
       {error && (
-        <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+        <div className="mb-4 px-4 py-3 rounded-lg bg-rose/10 border border-rose/20 text-sm text-rose">
           {error}
         </div>
       )}
@@ -131,7 +131,7 @@ function SignInForm() {
         </div>
       ) : (
         <form onSubmit={handleMagicLink} className="space-y-3">
-          <div className={`${T.caption} text-muted`}>
+          <div className="type-caption text-muted">
             Magic link на email
           </div>
           <input
@@ -140,7 +140,7 @@ function SignInForm() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@drinkx.tech"
             required
-            className="w-full bg-black/[0.03] border border-black/10 rounded-lg px-4 py-2.5 text-sm text-ink placeholder:text-muted-2 focus:outline-none focus:border-brand-accent/40"
+            className="w-full bg-black/[0.03] border border-black/10 rounded-lg px-4 py-2.5 text-sm text-ink placeholder:text-muted-2 focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1/40"
           />
           <button
             type="submit"

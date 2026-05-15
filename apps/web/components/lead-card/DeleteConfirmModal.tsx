@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { useDeleteLead } from "@/lib/hooks/use-lead";
 import { ApiError } from "@/lib/api-client";
-import { C, T } from "@/lib/design-system";
+import { C } from "@/lib/design-system";
+import { Modal } from "@/components/ui/Modal";
 
 interface Props {
   leadId: string;
@@ -39,17 +40,17 @@ export function DeleteConfirmModal({ leadId, companyName, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-soft">
+    <Modal open onClose={onClose} title="Удалить лид?" dismissOnBackdrop={false}>
+      <>
         <div className="flex items-start gap-3 mb-4">
           <div className="p-2 rounded-full bg-rose/10 shrink-0">
             <AlertTriangle size={20} className="text-rose" />
           </div>
           <div>
-            <h2 className={`${T.heading} ${C.color.text}`}>
+            <h2 className={`type-card-title ${C.color.text}`}>
               Удалить лид?
             </h2>
-            <p className={`${C.bodySm} ${C.color.muted} mt-1`}>
+            <p className={`type-caption ${C.color.muted} mt-1`}>
               Действие нельзя отменить. Все связанные контакты, активности
               и follow-up&apos;ы будут удалены вместе с лидом.
             </p>
@@ -59,7 +60,7 @@ export function DeleteConfirmModal({ leadId, companyName, onClose }: Props) {
         <div className="mb-4">
           <label
             htmlFor="confirm-delete-name"
-            className={`${T.caption} block mb-1.5`}
+            className="type-caption text-brand-muted block mb-1.5"
           >
             Введите название компании для подтверждения
           </label>
@@ -69,13 +70,13 @@ export function DeleteConfirmModal({ leadId, companyName, onClose }: Props) {
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
             placeholder={companyName}
-            className={`w-full px-3 py-2 ${C.bodySm} bg-white border border-brand-border rounded-xl outline-none focus:border-rose transition-colors`}
+            className="w-full px-3 py-2 type-caption text-brand-muted bg-white border border-brand-border rounded-xl outline-none focus:border-rose transition-colors"
             autoFocus
           />
         </div>
 
         {error && (
-          <p className={`${C.bodySm} text-rose mb-3`}>{error}</p>
+          <p className="type-caption text-rose mb-3">{error}</p>
         )}
 
         <div className="flex justify-end gap-2">
@@ -83,7 +84,7 @@ export function DeleteConfirmModal({ leadId, companyName, onClose }: Props) {
             type="button"
             onClick={onClose}
             disabled={del.isPending}
-            className={`px-4 py-1.5 ${C.btnLg} font-semibold ${C.button.ghost} transition-opacity`}
+            className={`px-4 py-1.5 type-body font-semibold ${C.button.ghost} transition-opacity`}
           >
             Отмена
           </button>
@@ -91,12 +92,12 @@ export function DeleteConfirmModal({ leadId, companyName, onClose }: Props) {
             type="button"
             onClick={handleDelete}
             disabled={!ok || del.isPending}
-            className={`px-4 py-1.5 ${C.btnLg} font-semibold bg-rose text-white rounded-full disabled:opacity-40 disabled:cursor-not-allowed transition-opacity`}
+            className="px-4 py-1.5 type-body font-semibold bg-rose text-white rounded-full disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
           >
             {del.isPending ? "Удаление…" : "Удалить"}
           </button>
         </div>
-      </div>
-    </div>
+      </>
+    </Modal>
   );
 }

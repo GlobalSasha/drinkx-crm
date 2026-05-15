@@ -2,27 +2,21 @@
 //
 // Source of truth: this file. Tailwind config exposes the underlying
 // brand-* color tokens; this module composes ready-to-use class strings
-// so component code never deals in raw `text-xx`, `bg-xx`, padding values.
+// so component code never deals in raw `bg-xx`, padding, etc.
 //
 // Typography policy:
-//   • Use T.* tokens only — never raw text-[Npx], text-xs/sm/lg, etc.
-//   • Weights allowed: font-normal / font-medium / font-semibold / font-bold
-//   • Italic only via T.hint (empty-state / unfilled placeholder)
-//   • font-mono only for IDs, emails, INN, timestamps, code, webhooks
+//   • Typography lives in globals.css as `.type-*` utility classes
+//     (type-page-title, type-card-title, type-body, type-caption,
+//     type-hint, type-kpi-number, type-kpi-number-lg, etc.).
+//     This file only retains `T.mono` for IDs, emails, INN,
+//     timestamps, code, webhooks.
 //
 // Usage:
 //   import { T, C } from '@/lib/design-system'
 
-// ─── Typography (5 levels + 2 metric + hint) ───────────────────
+// ─── Mono (only surviving T token) ─────────────────────────────
 export const T = {
-  display:  'text-3xl md:text-4xl font-bold tracking-tight',
-  heading:  'text-lg font-semibold',
-  body:     'text-sm font-normal',
-  caption:  'text-xs font-medium text-brand-muted uppercase tracking-wide',
-  mono:     'font-mono text-xs tracking-normal',
-  hint:     'text-xs font-medium italic normal-case tracking-normal text-brand-muted',
-  metric:   'text-4xl font-bold tabular-nums',
-  metricLg: 'text-5xl font-bold tabular-nums',
+  mono: 'font-mono text-xs tracking-normal',
 } as const;
 
 export type Typography = typeof T;
@@ -47,36 +41,6 @@ export const C = {
     dark:   'border-white/10',
   },
 
-  // ─── Типографика (back-compat aliases → T.*) ─────────────
-  // New code: use T.* directly. These aliases keep existing call sites
-  // working while the sweep migrates them over.
-  hero:        T.display,
-  h1:          T.heading,
-  h2sm:        T.heading,
-  h3:          T.heading,
-  cardTitle:   T.heading,
-  cardTitleLg: T.display,
-
-  body:      T.body,
-  bodyHero:  T.body,
-  bodySm:    T.caption,
-  bodyXs:    T.caption,
-  cardBody:  T.caption,
-  caption:   T.caption,
-  captionSm: T.caption,
-
-  metricHero:      T.metricLg,
-  metricLg:        T.metricLg,
-  metricMd:        T.metric,
-  metricSm:        T.metric,
-  metricLabel:     T.caption,
-  metricLabelSm:   T.caption,
-  metricLabelHero: T.caption,
-
-  btn:     T.body,
-  btnLg:   T.body,
-  btnHero: T.body,
-
   // ─── Радиусы ─────────────────────────────────────────────
   radius: {
     sm:   'rounded-full',
@@ -95,11 +59,14 @@ export const C = {
   },
 
   // ─── Кнопки (всегда rounded-full) ────────────────────────
+  // focusRing — общий visible-only ring для клавиатурной навигации
+  // (применяется к кнопкам, ссылкам, интерактивным карточкам).
+  focusRing: 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg',
   button: {
-    primary: 'bg-brand-accent text-white rounded-full font-medium transition-opacity',
-    pill:    'bg-brand-panel text-brand-muted-strong border border-brand-border rounded-full font-medium',
-    nav:     'bg-brand-panel text-brand-primary rounded-full font-medium',
-    ghost:   'bg-transparent text-brand-muted border border-brand-border rounded-full font-medium',
+    primary: 'bg-brand-accent text-white rounded-full font-medium transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg',
+    pill:    'bg-brand-panel text-brand-muted-strong border border-brand-border rounded-full font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg',
+    nav:     'bg-brand-panel text-brand-primary rounded-full font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg',
+    ghost:   'bg-transparent text-brand-muted border border-brand-border rounded-full font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg',
   },
 
   // ─── Layout ──────────────────────────────────────────────
@@ -118,7 +85,7 @@ export const C = {
   // ─── Формы ───────────────────────────────────────────────
   form: {
     label: 'text-xs font-medium text-brand-muted uppercase tracking-wide',
-    field: 'w-full bg-white border border-brand-border rounded-full px-4 py-2.5 text-sm text-brand-primary outline-none focus:border-brand-accent transition-colors',
+    field: 'w-full bg-white border border-brand-border rounded-full px-4 py-2.5 text-sm text-brand-primary outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 focus-visible:ring-offset-brand-bg transition-colors',
   },
 } as const;
 

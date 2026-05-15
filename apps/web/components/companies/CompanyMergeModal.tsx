@@ -4,7 +4,7 @@ import { GitMerge, AlertTriangle, Loader2 } from "lucide-react";
 import { useCompanyAutocomplete } from "@/lib/hooks/use-search";
 import { useMergeCompanies } from "@/lib/hooks/use-companies";
 import { ApiError } from "@/lib/api-client";
-import { C, T } from "@/lib/design-system";
+import { C } from "@/lib/design-system";
 
 interface Props {
   sourceId: string;
@@ -61,17 +61,17 @@ export function CompanyMergeModal({ sourceId, sourceName, onClose, onSuccess }: 
             <GitMerge size={18} className="text-brand-accent-text" />
           </div>
           <div>
-            <h2 className={`${C.cardTitle} font-bold ${C.color.text}`}>
+            <h2 className={`type-card-title font-bold ${C.color.text}`}>
               Объединить компании
             </h2>
-            <p className={`${C.bodyXs} ${C.color.muted} mt-0.5`}>
+            <p className={`type-caption ${C.color.muted} mt-0.5`}>
               «{sourceName}» будет архивирована, её лиды и контакты перейдут к выбранной компании.
             </p>
           </div>
         </div>
 
         <div className="mb-4">
-          <label className={`${T.caption} block mb-1.5`}>
+          <label className="type-caption text-brand-muted block mb-1.5">
             Целевая компания
           </label>
           <input
@@ -82,7 +82,7 @@ export function CompanyMergeModal({ sourceId, sourceName, onClose, onSuccess }: 
               setTargetId(null);
             }}
             placeholder="Начните печатать название…"
-            className={`w-full px-3 py-2 ${C.bodySm} bg-white border border-brand-border rounded-xl outline-none focus:border-brand-accent transition-colors`}
+            className="w-full px-3 py-2 type-caption text-brand-muted bg-white border border-brand-border rounded-xl outline-none focus:border-brand-accent transition-colors"
             autoFocus
           />
           {query && !targetId && items.length > 0 && (
@@ -97,9 +97,9 @@ export function CompanyMergeModal({ sourceId, sourceName, onClose, onSuccess }: 
                       onClick={() => selectTarget(it.id, it.title)}
                       className={`flex flex-col w-full px-3 py-2 text-left hover:bg-brand-panel transition-colors`}
                     >
-                      <span className={`${C.bodySm} font-semibold ${C.color.text}`}>{it.title}</span>
+                      <span className={`type-caption font-semibold ${C.color.text}`}>{it.title}</span>
                       {it.subtitle && (
-                        <span className={`${C.bodyXs} ${C.color.muted}`}>{it.subtitle}</span>
+                        <span className={`type-caption ${C.color.muted}`}>{it.subtitle}</span>
                       )}
                     </button>
                   </li>
@@ -107,14 +107,14 @@ export function CompanyMergeModal({ sourceId, sourceName, onClose, onSuccess }: 
             </ul>
           )}
           {query && !isFetching && items.filter((it) => it.id !== sourceId).length === 0 && (
-            <p className={`${T.hint} mt-2`}>Совпадений нет.</p>
+            <p className="type-hint text-brand-muted mt-2">Совпадений нет.</p>
           )}
         </div>
 
         {innConflict && (
           <div className="flex items-start gap-2 bg-warning/5 border border-warning/30 rounded-2xl px-3 py-2.5 mb-4">
             <AlertTriangle size={14} className="text-warning shrink-0 mt-0.5" />
-            <div className={`${C.bodyXs}`}>
+            <div className="type-caption text-brand-muted">
               <p className="font-semibold text-warning">Разные ИНН</p>
               <p className={C.color.muted}>
                 Исходный: {innConflict.source} · Целевой: {innConflict.target}.
@@ -129,7 +129,7 @@ export function CompanyMergeModal({ sourceId, sourceName, onClose, onSuccess }: 
             type="button"
             onClick={onClose}
             disabled={merge.isPending}
-            className={`px-4 py-1.5 ${C.btnLg} font-semibold ${C.button.ghost}`}
+            className={`px-4 py-1.5 type-body font-semibold ${C.button.ghost}`}
           >
             Отмена
           </button>
@@ -138,7 +138,7 @@ export function CompanyMergeModal({ sourceId, sourceName, onClose, onSuccess }: 
               type="button"
               onClick={() => handleMerge(true)}
               disabled={merge.isPending}
-              className={`px-4 py-1.5 ${C.btnLg} font-semibold bg-warning text-white rounded-full disabled:opacity-50`}
+              className="px-4 py-1.5 type-body font-semibold bg-warning text-white rounded-full disabled:opacity-50"
             >
               {merge.isPending ? <Loader2 size={13} className="animate-spin" /> : "Объединить всё равно"}
             </button>
@@ -147,7 +147,7 @@ export function CompanyMergeModal({ sourceId, sourceName, onClose, onSuccess }: 
               type="button"
               onClick={() => handleMerge(false)}
               disabled={!targetId || merge.isPending}
-              className={`px-4 py-1.5 ${C.btnLg} font-semibold bg-brand-accent text-white rounded-full disabled:opacity-40 disabled:cursor-not-allowed`}
+              className="px-4 py-1.5 type-body font-semibold bg-brand-accent text-white rounded-full disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {merge.isPending ? <Loader2 size={13} className="animate-spin" /> : `Объединить → ${targetName.slice(0, 20)}`}
             </button>

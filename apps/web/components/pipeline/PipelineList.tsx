@@ -52,7 +52,7 @@ export function PipelineList({ stages, leads }: Props) {
                 className="w-2 h-2 rounded-full shrink-0"
                 style={{ backgroundColor: stage.color }}
               />
-              <h3 className={`${T.caption} font-bold text-ink truncate`}>
+              <h3 className="type-caption font-bold text-ink truncate">
                 {stage.name}
               </h3>
               <span className={`${T.mono} text-muted-2 tabular-nums`}>

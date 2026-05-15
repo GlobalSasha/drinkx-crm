@@ -37,7 +37,7 @@ class TransitionContext:
     lead: Lead
     from_stage: Stage | None
     to_stage: Stage
-    user_id: uuid.UUID
+    user_id: uuid.UUID | None
     gate_skipped: bool
     skip_reason: str | None
     violations: list[GateViolation] = field(default_factory=list)
@@ -223,7 +223,7 @@ async def move_stage(
     db: AsyncSession,
     lead: Lead,
     to_stage: Stage,
-    user_id: uuid.UUID,
+    user_id: uuid.UUID | None,
     *,
     gate_skipped: bool = False,
     skip_reason: str | None = None,

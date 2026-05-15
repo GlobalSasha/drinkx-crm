@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useContacts } from "@/lib/hooks/use-contacts";
 import type { ContactOut, LeadOut } from "@/lib/types";
-import { C, T } from "@/lib/design-system";
+import { C } from "@/lib/design-system";
 import { ContactEditModal } from "./ContactEditModal";
 
 interface Props {
@@ -62,7 +62,7 @@ export function ContactsTab({ lead }: Props) {
 
   if (isLoading) {
     return (
-      <div className={`py-8 text-center ${C.bodySm} ${C.color.muted}`}>
+      <div className={`py-8 text-center type-caption ${C.color.muted}`}>
         Загрузка контактов…
       </div>
     );
@@ -73,14 +73,14 @@ export function ContactsTab({ lead }: Props) {
       {unverifiedCount > 0 && (
         <div className="flex items-center gap-2 bg-warning/5 border border-warning/20 rounded-xl px-3.5 py-2.5">
           <AlertTriangle size={14} className="text-warning shrink-0" />
-          <p className={`${C.bodyXs} text-warning`}>
+          <p className="type-caption text-warning">
             AI · нужна проверка ({unverifiedCount})
           </p>
         </div>
       )}
 
       {contacts.length === 0 ? (
-        <p className={`${T.hint} py-6 text-center`}>
+        <p className="type-hint text-brand-muted py-6 text-center">
           Контактов пока нет. Добавьте первый — он попадёт в список ЛПР.
         </p>
       ) : (
@@ -98,7 +98,7 @@ export function ContactsTab({ lead }: Props) {
       <button
         type="button"
         onClick={() => setAddingNew(true)}
-        className={`inline-flex items-center gap-1.5 px-4 py-1.5 ${C.btnLg} font-semibold ${C.button.ghost} mt-2`}
+        className={`inline-flex items-center gap-1.5 px-4 py-1.5 type-body font-semibold ${C.button.ghost} mt-2`}
       >
         <Plus size={13} />
         Добавить контакт
@@ -150,16 +150,16 @@ function ContactRow({
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className={`${C.bodySm} font-semibold ${C.color.text}`}>
+              <p className={`type-caption font-semibold ${C.color.text}`}>
                 {displayName}
               </p>
               {roleLabel && (
-                <span className={`${C.bodyXs} font-semibold px-2 py-0.5 rounded-full bg-brand-accent/10 text-brand-accent`}>
+                <span className="type-caption font-semibold px-2 py-0.5 rounded-full bg-brand-accent/10 text-brand-accent">
                   {roleLabel}
                 </span>
               )}
               {!hasName ? (
-                <span className={`${C.bodyXs} font-semibold px-2 py-0.5 rounded-full bg-warning/10 text-warning`}>
+                <span className="type-caption font-semibold px-2 py-0.5 rounded-full bg-warning/10 text-warning">
                   уточнить
                 </span>
               ) : (
@@ -169,7 +169,7 @@ function ContactRow({
             <button
               type="button"
               onClick={onEdit}
-              className={`inline-flex items-center gap-1 px-2.5 py-1 ${C.bodyXs} font-semibold ${C.color.muted} hover:${C.color.text} bg-brand-panel rounded-full transition-colors shrink-0`}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 type-caption font-semibold ${C.color.muted} hover:${C.color.text} bg-brand-panel rounded-full transition-colors shrink-0`}
             >
               <Pencil size={11} />
               Изменить
@@ -177,7 +177,7 @@ function ContactRow({
           </div>
 
           {contact.title && (
-            <p className={`${C.bodyXs} ${C.color.muted} mt-0.5`}>{contact.title}</p>
+            <p className={`type-caption ${C.color.muted} mt-0.5`}>{contact.title}</p>
           )}
 
           <div className="flex flex-wrap gap-x-3 gap-y-1.5 mt-2.5">
@@ -226,7 +226,7 @@ function ContactRow({
           </div>
 
           {isUnverified && contact.notes && (
-            <p className={`${T.hint} mt-2`}>
+            <p className="type-hint text-brand-muted mt-2">
               Источник: {contact.notes.length > 80 ? `${contact.notes.slice(0, 80)}…` : contact.notes}
             </p>
           )}
@@ -245,13 +245,13 @@ function VerifyBadge({
   if (status === "verified") return null;
   if (status === "invalid") {
     return (
-      <span className={`${C.bodyXs} font-semibold px-2 py-0.5 rounded-full bg-rose/10 text-rose`}>
+      <span className="type-caption font-semibold px-2 py-0.5 rounded-full bg-rose/10 text-rose">
         invalid
       </span>
     );
   }
   return (
-    <span className={`${C.bodyXs} font-semibold px-2 py-0.5 rounded-full bg-warning/10 text-warning`}>
+    <span className="type-caption font-semibold px-2 py-0.5 rounded-full bg-warning/10 text-warning">
       уточнить
     </span>
   );
@@ -274,7 +274,7 @@ function LinkBtn({
       target={external ? "_blank" : undefined}
       rel={external ? "noopener noreferrer" : undefined}
       onClick={(e) => e.stopPropagation()}
-      className={`inline-flex items-center gap-1 ${C.bodyXs} ${C.color.muted} hover:${C.color.accent} transition-colors`}
+      className={`inline-flex items-center gap-1 type-caption ${C.color.muted} hover:${C.color.accent} transition-colors`}
     >
       {icon}
       {label}

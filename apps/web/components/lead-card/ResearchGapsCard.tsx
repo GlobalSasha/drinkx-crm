@@ -1,7 +1,7 @@
 "use client";
 import { Search } from "lucide-react";
 import type { LeadOut } from "@/lib/types";
-import { C, T } from "@/lib/design-system";
+import { C } from "@/lib/design-system";
 
 interface Props {
   lead: LeadOut;
@@ -23,11 +23,11 @@ export function ResearchGapsCard({ lead }: Props) {
     <section className="bg-white rounded-2xl border border-brand-border p-4">
       <header className="flex items-center gap-2 mb-2">
         <Search size={14} className={C.color.muted} />
-        <h3 className={`${T.heading} ${C.color.text}`}>
+        <h3 className={`type-card-title ${C.color.text}`}>
           Research gaps
         </h3>
       </header>
-      <p className={`${C.bodyXs} ${C.color.muted} leading-relaxed`}>{gaps}</p>
+      <p className={`type-caption ${C.color.muted} leading-relaxed`}>{gaps}</p>
     </section>
   );
 }

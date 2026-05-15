@@ -99,7 +99,7 @@ export default function ProfilePage() {
         Назад к настройкам
       </Link>
 
-      <h1 className={T.heading + " mb-6"}>Мой профиль</h1>
+      <h1 className="type-card-title mb-6">Мой профиль</h1>
 
       <div className="bg-white border border-brand-border rounded-2xl p-6 mb-4">
         <div className="flex items-center gap-4 mb-6 pb-6 border-b border-brand-border">
@@ -116,7 +116,7 @@ export default function ProfilePage() {
             )}
           </div>
           <div className="min-w-0">
-            <p className={T.body + " font-semibold truncate"}>
+            <p className="type-body font-semibold truncate">
               {me.name || "—"}
             </p>
             <p className={T.mono + " text-brand-muted mt-0.5 truncate"}>
@@ -127,29 +127,29 @@ export default function ProfilePage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
-            <label className={T.caption + " block mb-1.5"}>Имя</label>
+            <label className="type-caption text-brand-muted block mb-1.5">Имя</label>
             <input
               type="text"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               placeholder="Кирилл"
-              className="w-full border border-brand-border rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-brand-accent transition-colors"
+              className="w-full border border-brand-border rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 transition-colors"
             />
           </div>
           <div>
-            <label className={T.caption + " block mb-1.5"}>Фамилия</label>
+            <label className="type-caption text-brand-muted block mb-1.5">Фамилия</label>
             <input
               type="text"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
               placeholder="Вербицкий"
-              className="w-full border border-brand-border rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-brand-accent transition-colors"
+              className="w-full border border-brand-border rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 transition-colors"
             />
           </div>
         </div>
 
         <div className="mb-4">
-          <label className={T.caption + " block mb-1.5"}>Email</label>
+          <label className="type-caption text-brand-muted block mb-1.5">Email</label>
           <input
             type="email"
             value={me.email}
@@ -162,35 +162,35 @@ export default function ProfilePage() {
         </div>
 
         <div>
-          <label className={T.caption + " block mb-1.5"}>Телефон</label>
+          <label className="type-caption text-brand-muted block mb-1.5">Телефон</label>
           <input
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="+7 (___) ___-__-__"
-            className="w-full border border-brand-border rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-brand-accent transition-colors"
+            className="w-full border border-brand-border rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 transition-colors"
           />
         </div>
       </div>
 
       <div className="bg-white border border-brand-border rounded-2xl p-4 mb-4">
-        <p className={T.caption + " mb-3"}>Информация об аккаунте</p>
+        <p className="type-caption text-brand-muted mb-3">Информация об аккаунте</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <p className={T.mono + " text-brand-muted"}>Роль</p>
-            <p className={T.body + " font-medium mt-0.5"}>
+            <p className="type-body font-medium mt-0.5">
               {ROLE_LABEL[me.role] ?? me.role}
             </p>
           </div>
           <div>
             <p className={T.mono + " text-brand-muted"}>В системе с</p>
-            <p className={T.body + " font-medium mt-0.5"}>
+            <p className="type-body font-medium mt-0.5">
               {formatFullDate(me.created_at)}
             </p>
           </div>
           <div>
             <p className={T.mono + " text-brand-muted"}>Последний вход</p>
-            <p className={T.body + " font-medium mt-0.5"}>
+            <p className="type-body font-medium mt-0.5">
               {formatShortDate(me.last_login_at)}
             </p>
           </div>
@@ -198,7 +198,7 @@ export default function ProfilePage() {
       </div>
 
       {error && (
-        <p className="text-xs font-mono text-red-600 mb-3">{error}</p>
+        <p className="text-xs font-mono text-rose mb-3">{error}</p>
       )}
 
       <div className="flex justify-end gap-3">

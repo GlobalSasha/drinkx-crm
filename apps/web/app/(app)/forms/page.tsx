@@ -88,7 +88,7 @@ export default function FormsPage() {
       <div className="sticky top-0 z-10 bg-white border-b border-black/5 px-6 py-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-baseline gap-2">
-            <h1 className={T.heading}>Формы</h1>
+            <h1 className="type-card-title">Формы</h1>
             <span className="text-muted-3 text-xs font-mono tabular-nums">
               {items.length}
             </span>
@@ -111,7 +111,7 @@ export default function FormsPage() {
         )}
 
         {formsQuery.isError && (
-          <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 text-red-700 text-sm">
+          <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose/10 text-rose text-sm">
             <AlertCircle size={14} />
             Не удалось загрузить формы.
           </div>
@@ -301,7 +301,7 @@ function ConfirmDeleteModal({
           aria-modal="true"
           className="bg-white rounded-2xl border border-black/5 shadow-soft w-full max-w-md p-5"
         >
-          <h2 className={`${T.heading} text-ink`}>
+          <h2 className="type-card-title text-ink">
             Удалить форму?
           </h2>
           <p className="text-sm text-muted mt-2">

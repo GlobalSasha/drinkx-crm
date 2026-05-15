@@ -534,7 +534,7 @@ async def test_delete_user_404_when_target_missing():
 
 @pytest.mark.asyncio
 async def test_diff_engine_resolves_default_via_workspace_fk():
-    """Sprint 2.4 G1: diff_engine._resolve_stage_id used to query
+    """Sprint 2.4 G1: diff_engine._resolve_stage used to query
     `Pipeline.is_default=true` directly. Migration 0017 drops that
     column. The new code path goes through
     `pipelines_repo.get_default_pipeline_id` which reads the
@@ -548,7 +548,7 @@ async def test_diff_engine_resolves_default_via_workspace_fk():
     db = AsyncMock()
     workspace_id = uuid.uuid4()
     target_pipeline_id = uuid.uuid4()
-    matched_stage_id = uuid.uuid4()
+    matched_stage = MagicMock()
 
     lead = MagicMock()
     lead.workspace_id = workspace_id
@@ -562,7 +562,7 @@ async def test_diff_engine_resolves_default_via_workspace_fk():
 
     fake_stage_result = MagicMock()
     fake_stage_result.scalar_one_or_none = MagicMock(
-        return_value=matched_stage_id
+        return_value=matched_stage
     )
     db.execute = AsyncMock(return_value=fake_stage_result)
 
@@ -570,10 +570,10 @@ async def test_diff_engine_resolves_default_via_workspace_fk():
         "app.pipelines.repositories.get_default_pipeline_id",
         new=fake_get_default_pipeline_id,
     ):
-        result = await de_mod._resolve_stage_id(
+        result = await de_mod._resolve_stage(
             db, lead=lead, stage_name="Discovery"
         )
 
-    assert result == matched_stage_id
+    assert result is matched_stage
     assert len(get_default_calls) == 1
     assert get_default_calls[0]["workspace_id"] == workspace_id

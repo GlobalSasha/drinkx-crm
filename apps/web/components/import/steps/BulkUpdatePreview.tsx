@@ -152,7 +152,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
       )}
 
       {error && (
-        <div className="text-[13px] text-red-700 bg-red-50 rounded-xl px-3 py-2.5">
+        <div className="text-[13px] text-rose bg-rose/10 rounded-xl px-3 py-2.5">
           {error}
         </div>
       )}
@@ -250,7 +250,7 @@ function ActionBadge({ isCreate }: { isCreate: boolean }) {
         "text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-md",
         isCreate
           ? "bg-emerald-500/10 text-emerald-700"
-          : "bg-blue-500/10 text-blue-700",
+          : "bg-info/100/10 text-info",
       )}
     >
       {isCreate ? "create" : "update"}
@@ -350,7 +350,7 @@ function StatCard({
   unit: string;
 }) {
   const palette = {
-    info: "bg-blue-50 text-blue-700 border-blue-200/60",
+    info: "bg-info/10 text-info border-info/20",
     success: "bg-emerald-50 text-emerald-700 border-emerald-200/60",
     warning: "bg-amber-50 text-amber-800 border-amber-200/60",
     neutral: "bg-canvas text-ink border-black/5",

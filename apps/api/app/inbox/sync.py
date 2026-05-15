@@ -213,10 +213,22 @@ async def _incremental_for_one(
     seen_ids: set[str] = set()
     new_message_ids: list[str] = []
     new_cursor = cursor
+    # Gmail historyId is a monotonically increasing integer transported as a
+    # string. Compare numerically — lexicographic ">" gives wrong answers
+    # across digit-count boundaries (e.g. "9" > "10" lex-true but int-false).
+    try:
+        new_cursor_int = int(new_cursor)
+    except (TypeError, ValueError):
+        new_cursor_int = 0
     for entry in entries:
         entry_history_id = str(entry.get("id") or "")
-        if entry_history_id and (entry_history_id > new_cursor):
+        try:
+            entry_history_int = int(entry_history_id) if entry_history_id else 0
+        except ValueError:
+            entry_history_int = 0
+        if entry_history_int and entry_history_int > new_cursor_int:
             new_cursor = entry_history_id
+            new_cursor_int = entry_history_int
         for added in entry.get("messagesAdded") or []:
             mid = (added.get("message") or {}).get("id")
             if mid and mid not in seen_ids:

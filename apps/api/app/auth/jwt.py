@@ -11,13 +11,11 @@ is configured — every request returns a fixed dev identity.
 """
 from __future__ import annotations
 
-import json
 import time
-import urllib.error
-import urllib.request
 from dataclasses import dataclass
 from typing import Any
 
+import httpx
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
 
@@ -52,12 +50,14 @@ def _stub_claims() -> TokenClaims:
     )
 
 
-def _fetch_jwks() -> dict[str, Any]:
-    """Fetch the project JWKS (cached for _JWKS_TTL_SECONDS)."""
+async def _fetch_jwks(force: bool = False) -> dict[str, Any]:
+    """Fetch the project JWKS. Cached for _JWKS_TTL_SECONDS; pass force=True
+    to bypass the cache (used to recover from a Supabase key rotation that
+    arrives mid-TTL — see _key_for_kid)."""
     now = time.time()
     cached = _JWKS_CACHE.get("data")
     fetched_at = _JWKS_CACHE.get("fetched_at", 0.0)
-    if cached is not None and (now - fetched_at) < _JWKS_TTL_SECONDS:
+    if not force and cached is not None and (now - fetched_at) < _JWKS_TTL_SECONDS:
         return cached  # type: ignore[no-any-return]
 
     s = get_settings()
@@ -69,9 +69,11 @@ def _fetch_jwks() -> dict[str, Any]:
 
     url = f"{s.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
     try:
-        with urllib.request.urlopen(url, timeout=5) as resp:  # noqa: S310
-            data = json.loads(resp.read())
-    except (urllib.error.URLError, OSError, json.JSONDecodeError) as e:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            data = resp.json()
+    except (httpx.HTTPError, ValueError) as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"failed to fetch JWKS: {e}",
@@ -82,16 +84,22 @@ def _fetch_jwks() -> dict[str, Any]:
     return data
 
 
-def _key_for_kid(kid: str | None) -> dict[str, Any] | None:
-    """Look up a JWK by its `kid`. Returns None if unknown."""
-    jwks = _fetch_jwks()
+async def _key_for_kid(kid: str | None) -> dict[str, Any] | None:
+    """Look up a JWK by its `kid`. On a miss, re-fetch the JWKS once (bypass
+    cache) to handle the case where Supabase has rotated keys mid-TTL —
+    without this, a key rotation would 401 every request for up to 10 min."""
+    jwks = await _fetch_jwks()
+    for k in jwks.get("keys", []):
+        if k.get("kid") == kid:
+            return k  # type: ignore[no-any-return]
+    jwks = await _fetch_jwks(force=True)
     for k in jwks.get("keys", []):
         if k.get("kid") == kid:
             return k  # type: ignore[no-any-return]
     return None
 
 
-def verify_token(token: str | None) -> TokenClaims:
+async def verify_token(token: str | None) -> TokenClaims:
     """Verify a Supabase access token and return claims.
 
     Raises HTTPException(401) on invalid/missing token. In stub mode falls
@@ -135,7 +143,7 @@ def verify_token(token: str | None) -> TokenClaims:
             )
         elif alg in ("ES256", "RS256"):
             # Asymmetric path — fetch JWK by kid from JWKS
-            key = _key_for_kid(kid)
+            key = await _key_for_kid(kid)
             if key is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,

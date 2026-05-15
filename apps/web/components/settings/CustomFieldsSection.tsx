@@ -97,7 +97,7 @@ export function CustomFieldsSection() {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className={T.heading}>
+          <h2 className="type-card-title">
             Кастомные поля
           </h2>
           <p className="text-xs text-muted-2 mt-0.5">
@@ -254,7 +254,7 @@ function CustomFieldEditor({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-black/5">
-          <h3 className={T.heading}>
+          <h3 className="type-card-title">
             {isEdit ? "Редактировать поле" : "Новое поле"}
           </h3>
           <button
@@ -267,23 +267,23 @@ function CustomFieldEditor({
         </div>
 
         <form onSubmit={onSubmit} className="px-5 py-4 space-y-3">
-          <div>
-            <label className={`${T.mono} uppercase text-muted-3`}>
+          <label className="block">
+            <span className={`${T.mono} uppercase text-muted-3`}>
               Метка
-            </label>
+            </span>
             <input
               type="text"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="Регион"
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent"
+              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             />
-          </div>
+          </label>
 
-          <div>
-            <label className={`${T.mono} uppercase text-muted-3`}>
+          <label className="block">
+            <span className={`${T.mono} uppercase text-muted-3`}>
               Ключ {isEdit && <span className="text-muted-3">(нельзя менять)</span>}
-            </label>
+            </span>
             <input
               type="text"
               value={key}
@@ -292,22 +292,22 @@ function CustomFieldEditor({
               }
               disabled={isEdit}
               placeholder="region"
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent disabled:opacity-60"
+              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 disabled:opacity-60"
             />
             <p className="text-xs text-muted-3 mt-1">
               Латиница, цифры, подчёркивания.
             </p>
-          </div>
+          </label>
 
-          <div>
-            <label className={`${T.mono} uppercase text-muted-3`}>
+          <label className="block">
+            <span className={`${T.mono} uppercase text-muted-3`}>
               Тип {isEdit && <span className="text-muted-3">(нельзя менять)</span>}
-            </label>
+            </span>
             <select
               value={kind}
               onChange={(e) => setKind(e.target.value as AttributeKind)}
               disabled={isEdit}
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent disabled:opacity-60"
+              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 disabled:opacity-60"
             >
               {(Object.keys(KIND_LABELS) as AttributeKind[]).map((k) => (
                 <option key={k} value={k}>
@@ -315,7 +315,7 @@ function CustomFieldEditor({
                 </option>
               ))}
             </select>
-          </div>
+          </label>
 
           {kind === "select" && (
             <div>
@@ -341,7 +341,7 @@ function CustomFieldEditor({
                         updateOption(i, { value: e.target.value })
                       }
                       placeholder="value"
-                      className="flex-1 bg-canvas border border-black/10 rounded-lg px-2 py-1 text-xs font-mono focus:outline-none focus:border-brand-accent"
+                      className="flex-1 bg-canvas border border-black/10 rounded-lg px-2 py-1 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                     />
                     <input
                       type="text"
@@ -350,7 +350,7 @@ function CustomFieldEditor({
                         updateOption(i, { label: e.target.value })
                       }
                       placeholder="Метка"
-                      className="flex-1 bg-canvas border border-black/10 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-brand-accent"
+                      className="flex-1 bg-canvas border border-black/10 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                     />
                     <button
                       type="button"

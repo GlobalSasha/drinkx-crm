@@ -22,7 +22,7 @@ import type {
   InboxFeedOut,
   LeadOut,
 } from "@/lib/types";
-import { C, T } from "@/lib/design-system";
+import { C } from "@/lib/design-system";
 import { EmailActivityItem } from "./ActivityTab";
 
 interface Props {
@@ -118,27 +118,27 @@ function MessageItem({ entry }: { entry: InboxFeedEntry }) {
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2 min-w-0">
           <span
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${C.bodyXs} font-semibold ${badgeClass}`}
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border type-caption font-semibold ${badgeClass}`}
           >
             {PhoneStateIcon ? <PhoneStateIcon size={12} /> : <ChannelIcon size={12} />}
             {channelLabel}
           </span>
-          <span className={`${C.bodyXs} ${C.color.mutedLight}`}>
+          <span className={`type-caption ${C.color.mutedLight}`}>
             {formatDateTime(entry.created_at)}
           </span>
         </div>
-        <span className={`${C.bodyXs} font-semibold ${inbound ? C.color.accent : C.color.muted}`}>
+        <span className={`type-caption font-semibold ${inbound ? C.color.accent : C.color.muted}`}>
           {directionLabel}
         </span>
       </div>
 
       {entry.subject && (
-        <p className={`${C.bodySm} font-semibold ${C.color.text}`}>{entry.subject}</p>
+        <p className={`type-caption font-semibold ${C.color.text}`}>{entry.subject}</p>
       )}
 
       {isPhone ? (
         <div className="flex items-start gap-3 flex-wrap">
-          <p className={`${C.bodySm} ${C.color.text} flex-1 min-w-[140px]`}>
+          <p className={`type-caption ${C.color.text} flex-1 min-w-[140px]`}>
             {summaryText ? `📞 ${formatCallDuration(entry.call_duration)} · ${summaryText}` : fallbackBody}
           </p>
           {entry.media_url && (
@@ -146,7 +146,7 @@ function MessageItem({ entry }: { entry: InboxFeedEntry }) {
               href={entry.media_url}
               target="_blank"
               rel="noreferrer"
-              className={`inline-flex items-center gap-1 px-3 py-1 ${C.bodyXs} font-semibold ${C.button.ghost}`}
+              className={`inline-flex items-center gap-1 px-3 py-1 type-caption font-semibold ${C.button.ghost}`}
             >
               <Play size={12} />
               Запись
@@ -155,7 +155,7 @@ function MessageItem({ entry }: { entry: InboxFeedEntry }) {
         </div>
       ) : (
         fallbackBody && (
-          <p className={`${C.bodySm} ${C.color.text} whitespace-pre-wrap break-words`}>
+          <p className={`type-caption ${C.color.text} whitespace-pre-wrap break-words`}>
             {fallbackBody}
           </p>
         )
@@ -166,14 +166,14 @@ function MessageItem({ entry }: { entry: InboxFeedEntry }) {
           <button
             type="button"
             onClick={() => setTranscriptOpen((v) => !v)}
-            className={`inline-flex items-center gap-1 ${C.bodyXs} ${C.color.muted} hover:${C.color.accent} transition-colors`}
+            className={`inline-flex items-center gap-1 type-caption ${C.color.muted} hover:${C.color.accent} transition-colors`}
           >
             {transcriptOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
             {transcriptOpen ? "Скрыть транскрипт" : "Показать транскрипт"}
           </button>
           {transcriptOpen && (
             <pre
-              className={`mt-2 ${C.bodyXs} ${C.color.muted} whitespace-pre-wrap break-words font-sans bg-brand-panel/50 rounded-xl px-3 py-2 border border-brand-border`}
+              className={`mt-2 type-caption ${C.color.muted} whitespace-pre-wrap break-words font-sans bg-brand-panel/50 rounded-xl px-3 py-2 border border-brand-border`}
             >
               {entry.transcript}
             </pre>
@@ -182,7 +182,7 @@ function MessageItem({ entry }: { entry: InboxFeedEntry }) {
       )}
 
       {!isPhone && entry.sender_id && (
-        <p className={`${C.bodyXs} ${C.color.mutedLight}`}>от {entry.sender_id}</p>
+        <p className={`type-caption ${C.color.mutedLight}`}>от {entry.sender_id}</p>
       )}
     </li>
   );
@@ -199,7 +199,7 @@ function ComposerHint({
     const linked = links.telegram?.linked;
     if (!linked) {
       return (
-        <p className={`${C.bodyXs} ${C.color.muted}`}>
+        <p className={`type-caption ${C.color.muted}`}>
           У лида не указан Telegram chat ID — добавьте его в профиле, чтобы написать через бота.
         </p>
       );
@@ -309,7 +309,7 @@ export function InboxTab({ lead }: Props) {
               key={f.key}
               type="button"
               onClick={() => setFilter(f.key)}
-              className={`px-3.5 py-1.5 ${C.bodyXs} font-semibold border rounded-full transition-colors ${
+              className={`px-3.5 py-1.5 type-caption font-semibold border rounded-full transition-colors ${
                 active
                   ? "bg-brand-accent text-white border-brand-accent"
                   : "bg-white text-brand-muted-strong border-brand-border hover:border-brand-accent/40"
@@ -323,7 +323,7 @@ export function InboxTab({ lead }: Props) {
           type="button"
           onClick={handleCall}
           disabled={callMutation.isPending}
-          className={`ml-auto inline-flex items-center gap-1.5 px-3.5 py-1.5 ${C.bodyXs} font-semibold ${C.button.primary} disabled:opacity-60`}
+          className={`ml-auto inline-flex items-center gap-1.5 px-3.5 py-1.5 type-caption font-semibold ${C.button.primary} disabled:opacity-60`}
         >
           {callMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Phone size={12} />}
           Позвонить
@@ -331,26 +331,26 @@ export function InboxTab({ lead }: Props) {
       </div>
 
       {callError && (
-        <p className={`${C.bodyXs} text-rose-600`}>{callError}</p>
+        <p className="type-caption text-rose-600">{callError}</p>
       )}
       {callToast && (
-        <p className={`${C.bodyXs} ${C.color.accent}`}>{callToast}</p>
+        <p className={`type-caption ${C.color.accent}`}>{callToast}</p>
       )}
 
       {/* Feed */}
       {filter === "email" ? (
         <EmailThread leadId={lead.id} />
       ) : inboxQuery.isLoading ? (
-        <div className={`py-8 text-center ${C.bodySm} ${C.color.muted}`}>
+        <div className={`py-8 text-center type-caption ${C.color.muted}`}>
           <Loader2 className="inline-block animate-spin mr-2" size={14} />
           Загрузка переписки…
         </div>
       ) : inboxQuery.isError ? (
-        <p className={`${C.bodySm} text-rose-600 py-4 text-center`}>
+        <p className="type-caption text-rose-600 py-4 text-center">
           Не удалось загрузить переписку.
         </p>
       ) : filtered.length === 0 ? (
-        <p className={`${T.hint} py-8 text-center`}>
+        <p className="type-hint text-brand-muted py-8 text-center">
           {filter === "all"
             ? "Сообщений по этому лиду пока нет."
             : `Сообщений в канале «${FILTERS.find((f) => f.key === filter)?.label}» нет.`}
@@ -366,11 +366,11 @@ export function InboxTab({ lead }: Props) {
       {/* Composer */}
       <div className="border-t border-brand-border pt-4 space-y-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className={`${C.bodyXs} ${C.color.muted}`}>Ответить в:</span>
+          <span className={`type-caption ${C.color.muted}`}>Ответить в:</span>
           <button
             type="button"
             onClick={() => setComposerChannel("telegram")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1 ${C.bodyXs} font-semibold border rounded-full transition-colors ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1 type-caption font-semibold border rounded-full transition-colors ${
               composerChannel === "telegram"
                 ? "bg-brand-accent text-white border-brand-accent"
                 : "bg-white text-brand-muted-strong border-brand-border"
@@ -379,7 +379,7 @@ export function InboxTab({ lead }: Props) {
             <MessageCircle size={12} />
             Telegram
           </button>
-          <span className={`${C.bodyXs} ${C.color.mutedLight}`} title="Email-отправка появится в G5">
+          <span className={`type-caption ${C.color.mutedLight}`} title="Email-отправка появится в G5">
             · Email/MAX позже
           </span>
         </div>
@@ -391,17 +391,17 @@ export function InboxTab({ lead }: Props) {
           onChange={(e) => setDraft(e.target.value)}
           rows={3}
           placeholder="Написать сообщение..."
-          className={`w-full bg-white border border-brand-border rounded-2xl px-4 py-2.5 ${C.bodySm} ${C.color.text} outline-none focus:border-brand-accent transition-colors resize-y`}
+          className={`w-full bg-white border border-brand-border rounded-2xl px-4 py-2.5 type-caption ${C.color.text} outline-none focus:border-brand-accent transition-colors resize-y`}
         />
 
-        {sendError && <p className={`${C.bodyXs} text-rose-600`}>{sendError}</p>}
+        {sendError && <p className="type-caption text-rose-600">{sendError}</p>}
 
         <div className="flex justify-end">
           <button
             type="button"
             onClick={handleSend}
             disabled={composerDisabled}
-            className={`inline-flex items-center gap-1.5 px-4 py-2 ${C.bodySm} font-semibold ${C.button.primary} disabled:opacity-50`}
+            className={`inline-flex items-center gap-1.5 px-4 py-2 type-caption font-semibold ${C.button.primary} disabled:opacity-50`}
           >
             {sendMutation.isPending ? (
               <Loader2 size={14} className="animate-spin" />
@@ -428,7 +428,7 @@ function EmailThread({ leadId }: { leadId: string }) {
 
   if (query.isLoading) {
     return (
-      <div className={`py-8 text-center ${C.bodySm} ${C.color.muted}`}>
+      <div className={`py-8 text-center type-caption ${C.color.muted}`}>
         <Loader2 className="inline-block animate-spin mr-2" size={14} />
         Загрузка переписки…
       </div>
@@ -436,14 +436,14 @@ function EmailThread({ leadId }: { leadId: string }) {
   }
   if (query.isError) {
     return (
-      <p className={`${C.bodySm} text-rose-600 py-4 text-center`}>
+      <p className="type-caption text-rose-600 py-4 text-center">
         Не удалось загрузить переписку.
       </p>
     );
   }
   if (items.length === 0) {
     return (
-      <p className={`${T.hint} py-8 text-center`}>
+      <p className="type-hint text-brand-muted py-8 text-center">
         Писем пока нет. Подключите Gmail чтобы переписка появлялась здесь автоматически.
       </p>
     );
@@ -472,7 +472,7 @@ function EmailThread({ leadId }: { leadId: string }) {
             type="button"
             onClick={() => query.fetchNextPage()}
             disabled={query.isFetchingNextPage}
-            className={`inline-flex items-center gap-1 px-3 py-1.5 ${C.bodyXs} font-semibold ${C.button.ghost}`}
+            className={`inline-flex items-center gap-1 px-3 py-1.5 type-caption font-semibold ${C.button.ghost}`}
           >
             {query.isFetchingNextPage ? (
               <Loader2 size={12} className="animate-spin" />

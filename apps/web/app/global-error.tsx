@@ -37,7 +37,7 @@ export default function GlobalError({
           background: "#fafafa",
         }}
       >
-        <h1 className={`${T.heading} mb-2`}>
+        <h1 className="type-card-title mb-2">
           Что-то пошло не так
         </h1>
         <p style={{ color: "#666", marginBottom: "1rem" }}>

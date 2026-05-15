@@ -153,8 +153,8 @@ export function LeadCard({ leadId }: Props) {
     return (
       <div className="font-sans min-h-screen bg-canvas flex flex-col items-center justify-center gap-4">
         <AlertTriangle size={24} className="text-rose" />
-        <p className={`${C.bodySm} text-rose`}>Лид не найден или ошибка загрузки</p>
-        <Link href="/pipeline" className={`${C.bodySm} ${C.color.accent}`}>
+        <p className="type-caption text-rose">Лид не найден или ошибка загрузки</p>
+        <Link href="/pipeline" className={`type-caption ${C.color.accent}`}>
           ← Назад к воронке
         </Link>
       </div>
@@ -220,7 +220,7 @@ export function LeadCard({ leadId }: Props) {
                   type="button"
                   onClick={handleReturnToPool}
                   disabled={unclaim.isPending}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${C.btnLg} font-semibold ${C.button.ghost} disabled:opacity-40 transition-opacity`}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 type-body font-semibold ${C.button.ghost} disabled:opacity-40 transition-opacity`}
                 >
                   Вернуть в базу
                 </button>
@@ -228,7 +228,7 @@ export function LeadCard({ leadId }: Props) {
               <button
                 type="button"
                 onClick={() => setTransferOpen(true)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${C.btnLg} font-semibold ${C.button.ghost} transition-opacity`}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 type-body font-semibold ${C.button.ghost} transition-opacity`}
               >
                 <Send size={13} />
                 Передать
@@ -237,7 +237,7 @@ export function LeadCard({ leadId }: Props) {
                 type="button"
                 onClick={() => setCloseOpen(true)}
                 disabled={isClosed}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${C.btnLg} font-semibold ${C.button.ghost} disabled:opacity-40 disabled:cursor-not-allowed transition-opacity`}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 type-body font-semibold ${C.button.ghost} disabled:opacity-40 disabled:cursor-not-allowed transition-opacity`}
               >
                 <Lock size={13} />
                 Закрыто
@@ -280,7 +280,7 @@ export function LeadCard({ leadId }: Props) {
                         key={stage.id}
                         type="button"
                         onClick={() => handleStageSelect(stage)}
-                        className={`flex items-center gap-2.5 w-full px-4 py-2.5 ${C.bodySm} text-left transition-colors hover:bg-brand-panel ${
+                        className={`flex items-center gap-2.5 w-full px-4 py-2.5 type-caption text-brand-muted text-left transition-colors hover:bg-brand-panel ${
                           stage.id === lead.stage_id ? "bg-brand-bg" : ""
                         }`}
                       >
@@ -307,7 +307,7 @@ export function LeadCard({ leadId }: Props) {
 
             {lead.priority && (
               <span
-                className={`${C.bodyXs} font-semibold px-2 py-0.5 rounded-full ${priorityClass}`}
+                className={`type-caption font-semibold px-2 py-0.5 rounded-full ${priorityClass}`}
               >
                 {lead.priority}
               </span>
@@ -315,14 +315,14 @@ export function LeadCard({ leadId }: Props) {
 
             {lead.segment && (
               <span
-                className={`${C.bodyXs} ${C.color.muted} bg-brand-panel px-2 py-0.5 rounded-full`}
+                className={`type-caption ${C.color.muted} bg-brand-panel px-2 py-0.5 rounded-full`}
               >
                 {lead.segment}
               </span>
             )}
 
             {(lead.is_rotting_stage || lead.is_rotting_next_step) && (
-              <span className={`flex items-center gap-1 ${C.bodyXs} text-warning`}>
+              <span className="flex items-center gap-1 type-caption text-warning">
                 <AlertTriangle size={11} />
                 Протухает
               </span>
@@ -331,7 +331,7 @@ export function LeadCard({ leadId }: Props) {
 
           {(isWon || isLost) && (
             <div
-              className={`mt-3 ml-9 flex items-center gap-2 px-3 py-2 rounded-2xl ${C.bodyXs} font-semibold ${
+              className={`mt-3 ml-9 flex items-center gap-2 px-3 py-2 rounded-2xl type-caption font-semibold ${
                 isWon ? "bg-success/10 text-success" : "bg-rose/10 text-rose"
               }`}
             >
@@ -351,7 +351,7 @@ export function LeadCard({ leadId }: Props) {
               id="lead-tab-select"
               value={activeTab}
               onChange={(e) => setActiveTab(e.target.value as TabKey)}
-              className={`w-full px-4 py-2.5 ${C.bodySm} font-semibold bg-white border border-brand-border rounded-full outline-none focus:border-brand-accent transition-colors ${C.color.text}`}
+              className={`w-full px-4 py-2.5 type-caption font-semibold bg-white border border-brand-border rounded-full outline-none focus:border-brand-accent transition-colors ${C.color.text}`}
             >
               {TABS.map((tab) => (
                 <option key={tab.key} value={tab.key}>{tab.label}</option>
@@ -364,7 +364,7 @@ export function LeadCard({ leadId }: Props) {
                 key={tab.key}
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
-                className={`px-4 py-2.5 ${C.bodySm} font-semibold border-b-2 transition-all whitespace-nowrap ${
+                className={`px-4 py-2.5 type-caption font-semibold border-b-2 transition-all whitespace-nowrap ${
                   activeTab === tab.key
                     ? "border-brand-accent text-brand-accent-text"
                     : "border-transparent text-brand-muted"
@@ -380,7 +380,8 @@ export function LeadCard({ leadId }: Props) {
       <AgentBanner leadId={lead.id} onCoachOpen={() => setCoachOpen(true)} />
 
       {/* Main body — main column LEFT, right column 296px on desktop */}
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-4 sm:py-6">
+      {/* AppShell already provides the <main> landmark; this is a content wrapper. */}
+      <div className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-4 sm:py-6">
         <div className="flex flex-col md:flex-row md:items-start md:gap-6 gap-4">
           {/* Tab body (main) */}
           <div className="flex-1 min-w-0 order-2 md:order-1">
@@ -398,7 +399,7 @@ export function LeadCard({ leadId }: Props) {
             <CustomFieldsPanel leadId={lead.id} />
           </aside>
         </div>
-      </main>
+      </div>
 
       {/* Modals */}
       {gateTarget && (
@@ -456,7 +457,7 @@ export function LeadCard({ leadId }: Props) {
         aria-label="Открыть Sales Coach"
         title="Спросить Чака"
       >
-        <span className={`${C.bodySm} font-semibold`}>🤖 Чак</span>
+        <span className="type-caption font-semibold">🤖 Чак</span>
       </button>
       <SalesCoachDrawer
         leadId={lead.id}
@@ -465,7 +466,7 @@ export function LeadCard({ leadId }: Props) {
       />
 
       {toast && (
-        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 bg-brand-primary text-white ${C.bodySm} font-semibold px-5 py-2.5 rounded-full z-50 transition-all`}>
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-brand-primary text-white type-caption font-semibold px-5 py-2.5 rounded-full z-50 transition-all">
           {toast}
         </div>
       )}
