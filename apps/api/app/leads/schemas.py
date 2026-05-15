@@ -86,8 +86,39 @@ class LeadOut(LeadBase):
     updated_at: datetime
 
 
+class LeadListItemOut(LeadBase):
+    """Slim Lead DTO for list endpoints — drops `ai_data` (AI Brief
+    output, can be 50KB per lead) and `agent_state` (Lead AI Agent
+    memory). Pipeline + Pool views render company name / score /
+    fit_score / priority — none of those need the AI payload, so we
+    skip it both on the SQL side (see `defer()` in repositories) and
+    in the response model so 200-lead lists stay well under 1MB.
+    Fetch the full `LeadOut` via `GET /leads/{id}` when opening a
+    card."""
+
+    id: UUID
+    workspace_id: UUID
+    pipeline_id: UUID | None
+    stage_id: UUID | None
+    fit_score: Decimal | None = None
+    assignment_status: str
+    assigned_to: UUID | None
+    assigned_at: datetime | None
+    transferred_from: UUID | None
+    transferred_at: datetime | None
+    is_rotting_stage: bool
+    is_rotting_next_step: bool
+    last_activity_at: datetime | None
+    archived_at: datetime | None
+    won_at: datetime | None
+    lost_at: datetime | None
+    lost_reason: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
 class LeadListOut(BaseModel):
-    items: list[LeadOut]
+    items: list[LeadListItemOut]
     total: int
     page: int
     page_size: int
