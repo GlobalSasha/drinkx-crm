@@ -320,7 +320,7 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
           {/* Footer */}
           <div className="px-6 py-4 border-t border-black/5 flex items-center justify-between">
             {error ? (
-              <div className="flex items-center gap-1.5 text-[12px] text-red-700">
+              <div className="flex items-center gap-1.5 text-[12px] text-rose">
                 <AlertCircle size={13} />
                 <span>{error}</span>
               </div>
@@ -437,7 +437,7 @@ function StageRowItem({
         type="button"
         onClick={onRemove}
         disabled={!canRemove}
-        className="text-muted-3 hover:text-red-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        className="text-muted-3 hover:text-rose disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         aria-label="Удалить стадию"
         title={canRemove ? "Удалить" : "Нужна хотя бы одна стадия"}
       >

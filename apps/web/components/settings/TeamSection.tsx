@@ -13,6 +13,7 @@ import { Loader2, Mail, Plus, Shield, Trash2, UserCircle2, X } from "lucide-reac
 
 import { T } from "@/lib/design-system";
 import { ApiError } from "@/lib/api-client";
+import { relativeTime as relativeTimeBase } from "@/lib/relative-time";
 import { useMe } from "@/lib/hooks/use-me";
 import {
   useChangeUserRole,
@@ -35,16 +36,7 @@ const ROLE_OPTIONS: ("admin" | "head" | "manager")[] = ["admin", "head", "manage
 
 function relativeTime(iso: string | null): string {
   if (!iso) return "—";
-  const then = new Date(iso).getTime();
-  const now = Date.now();
-  const sec = Math.max(0, Math.round((now - then) / 1000));
-  if (sec < 60) return "сейчас";
-  const min = Math.round(sec / 60);
-  if (min < 60) return `${min} мин назад`;
-  const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr} ч назад`;
-  const day = Math.round(hr / 24);
-  return `${day} дн назад`;
+  return relativeTimeBase(iso) || "—";
 }
 
 export function TeamSection() {
@@ -117,7 +109,7 @@ export function TeamSection() {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className={T.heading}>Команда</h2>
+          <h2 className="type-card-title">Команда</h2>
           <p className="text-xs text-muted-2 mt-0.5">
             Все пользователи общего workspace. Админ может приглашать
             новых членов и менять роли.
@@ -361,7 +353,7 @@ function UserRow({
           </span>
         )}
         {error && (
-          <p className="text-xs text-red-700 mt-1 leading-tight">
+          <p className="text-xs text-rose mt-1 leading-tight">
             {error}
           </p>
         )}
@@ -408,7 +400,7 @@ function DeleteUserModal({
       aria-modal="true"
     >
       <div className="bg-white rounded-2xl shadow-soft max-w-md w-full p-6">
-        <h3 className={`${T.heading} text-ink mb-2`}>
+        <h3 className="type-card-title text-ink mb-2">
           Удалить {name}?
         </h3>
         <p className="text-sm text-muted-2 mb-5">
@@ -533,7 +525,7 @@ function InviteModal({
               <div className={`${T.mono} uppercase text-muted-3`}>
                 Команда
               </div>
-              <h2 className={`${T.heading} text-ink mt-0.5`}>
+              <h2 className="type-card-title text-ink mt-0.5">
                 Пригласить пользователя
               </h2>
             </div>
@@ -600,7 +592,7 @@ function InviteModal({
               </>
             )}
             {error && (
-              <p className="text-sm text-red-700">{error}</p>
+              <p className="text-sm text-rose">{error}</p>
             )}
           </div>
 

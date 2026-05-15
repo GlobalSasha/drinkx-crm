@@ -313,7 +313,7 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
           {tab === "settings" && (
             <div className="px-6 py-4 border-t border-black/5 flex items-center justify-between">
               {error ? (
-                <div className="flex items-center gap-1.5 text-[12px] text-red-700">
+                <div className="flex items-center gap-1.5 text-[12px] text-rose">
                   <AlertCircle size={13} />
                   <span>{error}</span>
                 </div>

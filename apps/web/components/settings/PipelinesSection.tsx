@@ -132,7 +132,7 @@ export function PipelinesSection() {
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className={T.heading}>Воронки</h2>
+          <h2 className="type-card-title">Воронки</h2>
           <p className="text-xs text-muted-2 mt-0.5">
             Создавайте отдельные воронки для разных типов сделок: продажи,
             партнёры, апсейл и т.д.
@@ -218,7 +218,7 @@ export function PipelinesSection() {
                     {isAdminOrHead && (
                       <button
                         onClick={() => startDelete(p)}
-                        className="p-1.5 text-muted-3 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-1.5 text-muted-3 hover:text-rose hover:bg-rose/10 rounded-lg transition-colors"
                         aria-label="Удалить воронку"
                       >
                         <Trash2 size={14} />
@@ -279,7 +279,7 @@ function DeleteModal({
   let primaryLabel = "Удалить";
   let primaryAction = onConfirm;
   let primaryStyle =
-    "bg-red-600 text-white hover:bg-red-700 active:scale-[0.98]";
+    "bg-rose text-white hover:bg-rose/90 active:scale-[0.98]";
   let showCancel = true;
 
   if (conflict?.code === "pipeline_has_leads") {
@@ -333,7 +333,7 @@ function DeleteModal({
           aria-label={title}
           className="bg-white rounded-2xl border border-black/5 shadow-soft w-full max-w-md p-6"
         >
-          <h3 className={`${T.heading} text-ink mb-2`}>
+          <h3 className="type-card-title text-ink mb-2">
             {title}
           </h3>
           {body}

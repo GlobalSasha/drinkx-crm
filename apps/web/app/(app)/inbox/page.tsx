@@ -56,7 +56,7 @@ function suggestionChipLabel(s: SuggestedAction | null): string | null {
 function suggestionChipTone(s: SuggestedAction | null): string {
   if (!s) return "bg-black/5 text-muted-2";
   if (s.action === "create_lead") return "bg-emerald-500/10 text-emerald-700";
-  if (s.action === "add_contact") return "bg-blue-500/10 text-blue-700";
+  if (s.action === "add_contact") return "bg-info/100/10 text-info";
   if (s.action === "match_lead") return "bg-black/5 text-muted-2";
   return "bg-black/5 text-muted-2";
 }
@@ -257,7 +257,7 @@ function InboxRow({ item }: { item: InboxItemOut }) {
         <div className="flex items-center gap-2 mb-1">
           {isInbound ? (
             <span title="Входящее">
-              <ArrowLeft size={14} className="text-blue-600" />
+              <ArrowLeft size={14} className="text-info" />
             </span>
           ) : (
             <span title="Исходящее">
@@ -392,7 +392,7 @@ function ConnectCTA({
         {connect.isPending ? "Подключаем…" : "Подключить Gmail"}
       </button>
       {connect.isError && (
-        <p className="mt-3 text-[12px] text-red-700">
+        <p className="mt-3 text-[12px] text-rose">
           {connect.error?.status === 503
             ? "Gmail OAuth is not configured on the server (GOOGLE_CLIENT_ID missing)."
             : "Failed to start connection. Please try again."}
@@ -416,7 +416,7 @@ function CallbackBanner() {
   }
   if (status === "error") {
     return (
-      <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 text-red-800 text-sm">
+      <div className="mb-4 px-4 py-3 rounded-xl bg-rose/10 text-rose text-sm">
         Не удалось подключить Gmail{error ? `: ${error}` : ""}.
       </div>
     );
@@ -462,7 +462,7 @@ export default function InboxPage() {
       )}
 
       {isError && (
-        <div className="text-sm text-red-700 py-12 text-center">
+        <div className="text-sm text-rose py-12 text-center">
           Не удалось загрузить входящие.
         </div>
       )}

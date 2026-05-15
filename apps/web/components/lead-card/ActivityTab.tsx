@@ -163,7 +163,7 @@ export function ActivityTab({ leadId, lead }: Props) {
           commitment lives on the lead record AND mirrors itself as a
           task activity in the feed below for visibility. */}
       <div className="p-4 bg-brand-soft rounded-2xl border border-brand-accent/20">
-        <p className={`${C.caption} text-brand-muted mb-3`}>следующий шаг</p>
+        <p className="type-caption text-brand-muted mb-3">следующий шаг</p>
         <input
           value={nextStep}
           onChange={(e) => setNextStep(e.target.value)}
@@ -180,7 +180,7 @@ export function ActivityTab({ leadId, lead }: Props) {
           <button
             onClick={handleSaveNextStep}
             disabled={!nextStep.trim() || savingNextStep}
-            className={`${C.button.primary} ${C.btnLg} px-4 py-2 disabled:opacity-40 shrink-0`}
+            className={`${C.button.primary} type-body px-4 py-2 disabled:opacity-40 shrink-0`}
           >
             {savingNextStep ? "..." : "Сохранить"}
           </button>
@@ -582,7 +582,7 @@ export function EmailActivityItem({
       <div className="flex items-center justify-between gap-2 mb-1.5">
         <div className="flex items-center gap-1.5 min-w-0">
           {isInbound ? (
-            <ArrowLeft size={12} className="text-blue-600 shrink-0" aria-label="Входящее" />
+            <ArrowLeft size={12} className="text-info shrink-0" aria-label="Входящее" />
           ) : (
             <ArrowRight size={12} className="text-emerald-600 shrink-0" aria-label="Исходящее" />
           )}

@@ -38,7 +38,17 @@ async function request<T>(
   });
 
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  let data: unknown = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      // Non-JSON body — typically an nginx error page (502/504) or a
+      // proxy timeout. Surface the raw text inside ApiError instead of
+      // letting SyntaxError reach React Query.
+      data = { detail: text.slice(0, 500) };
+    }
+  }
 
   if (!res.ok) throw new ApiError(res.status, data);
   return data as T;

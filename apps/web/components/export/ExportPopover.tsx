@@ -308,7 +308,7 @@ export function ExportPopover({
 
           {/* Error inline */}
           {phase === "error" && errorText && (
-            <div className="mt-3 flex items-start gap-2 text-[12px] text-red-700 bg-red-50 rounded-xl px-3 py-2">
+            <div className="mt-3 flex items-start gap-2 text-[12px] text-rose bg-rose/10 rounded-xl px-3 py-2">
               <AlertCircle size={13} className="shrink-0 mt-0.5" />
               <span>{errorText}</span>
             </div>

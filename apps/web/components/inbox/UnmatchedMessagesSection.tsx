@@ -218,7 +218,7 @@ export function UnmatchedMessagesSection() {
         <header className="mb-3">
           <h2 className="text-base font-bold text-ink">Мессенджеры и звонки</h2>
         </header>
-        <div className="text-sm text-red-700 py-6 text-center">
+        <div className="text-sm text-rose py-6 text-center">
           Не удалось загрузить нематченные сообщения.
         </div>
       </section>

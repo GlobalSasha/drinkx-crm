@@ -177,7 +177,7 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
                     "Скачать snapshot"}
                 </button>
                 {snapshotPhase === "error" && snapshotError && (
-                  <span className="text-[11px] text-red-700">
+                  <span className="text-[11px] text-rose">
                     {snapshotError}
                   </span>
                 )}
