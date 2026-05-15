@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronRight,
   KeyRound,
+  Paintbrush,
   Plug,
   ScrollText,
   Settings as SettingsIcon,
@@ -25,6 +26,7 @@ import {
 import clsx from "clsx";
 
 import { AISection } from "@/components/settings/AISection";
+import { AppearanceSection } from "@/components/settings/AppearanceSection";
 import { ChannelsSection } from "@/components/settings/ChannelsSection";
 import { CustomFieldsSection } from "@/components/settings/CustomFieldsSection";
 import { PipelinesSection } from "@/components/settings/PipelinesSection";
@@ -38,6 +40,7 @@ type SectionKey =
   | "ai"
   | "custom_fields"
   | "templates"
+  | "appearance"
   | "notifications"
   | "api";
 
@@ -56,6 +59,7 @@ const SECTIONS: SectionDef[] = [
   { key: "ai",            label: "AI",           icon: <Bot size={15} />,      ready: true  },
   { key: "custom_fields", label: "Кастомные поля", icon: <Sparkles size={15} />, ready: true },
   { key: "templates",     label: "Шаблоны",      icon: <ScrollText size={15} />, ready: true },
+  { key: "appearance",    label: "Внешний вид",  icon: <Paintbrush size={15} />, ready: true },
   { key: "notifications", label: "Уведомления",  icon: <BellRing size={15} />, ready: false },
   { key: "api",           label: "API",          icon: <KeyRound size={15} />, ready: false },
 ];
@@ -187,25 +191,27 @@ function SettingsPageInner() {
           </div>
         </nav>
 
-        {/* Main */}
-        <main className="min-w-0">
+        {/* Main — AppShell already provides the <main> landmark. */}
+        <div className="min-w-0">
           {active === "pipelines" && <PipelinesSection />}
           {active === "team" && <TeamSection />}
           {active === "channels" && <ChannelsSection />}
           {active === "ai" && <AISection />}
           {active === "custom_fields" && <CustomFieldsSection />}
           {active === "templates" && <TemplatesSection />}
+          {active === "appearance" && <AppearanceSection />}
           {active !== "pipelines" &&
             active !== "team" &&
             active !== "channels" &&
             active !== "ai" &&
             active !== "custom_fields" &&
-            active !== "templates" && (
+            active !== "templates" &&
+            active !== "appearance" && (
               <div className="bg-canvas/60 border border-black/5 rounded-2xl px-6 py-12 text-center">
                 <p className="text-sm text-muted">Эта секция появится позже.</p>
               </div>
             )}
-        </main>
+        </div>
       </div>
     </div>
   );

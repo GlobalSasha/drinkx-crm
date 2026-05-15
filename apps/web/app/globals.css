@@ -17,6 +17,18 @@
   --brand-panel:   #e5e3dc;
   --brand-border:  #d6d4ce;
 
+  /* Per-user appearance — defaults match SIDEBAR_PRESETS.white /
+     BACKGROUND_PRESETS.cream / density=comfortable / font_size=md.
+     `<ThemeApplier/>` overrides these on documentElement once
+     /auth/me hydrates with the manager's stored prefs. */
+  --sidebar-bg:     #ffffff;
+  --sidebar-fg:     #111111;
+  --sidebar-border: #d6d4ce;
+  --sidebar-hover:  rgba(0, 0, 0, 0.04);
+  --page-bg:        #f5f4f0;
+  --density-scale:  1;
+  --base-font-size: 14px;
+
   /* Type scale */
   --text-2xs: 10px;
   --text-xs: 11px;
@@ -46,10 +58,10 @@
   --tracking-widest: 0.06em;
 }
 
-html, body { background: var(--canvas); color: var(--ink); }
+html, body { background: var(--page-bg); color: var(--ink); }
 body {
   font-family: var(--font-ui), -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: var(--text-base);
+  font-size: var(--base-font-size, var(--text-base));
   line-height: var(--leading-normal);
   -webkit-font-smoothing: antialiased;
   letter-spacing: -0.005em;

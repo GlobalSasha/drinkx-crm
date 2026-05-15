@@ -54,9 +54,12 @@ const NavItemRow = memo(function NavItemRow({
     [item.id, registerRef],
   );
 
+  // Inactive rows inherit --sidebar-fg via opacity-70 so they stay
+  // readable on dark presets (graphite/coffee). Highlighted rows pop
+  // with the brand orange — orange has enough contrast on every preset.
   const className = clsx(
     NAV_ROW,
-    isHighlighted ? "text-brand-accent-text" : "text-brand-muted",
+    isHighlighted ? "text-brand-accent-text" : "opacity-70 hover:opacity-100",
   );
   const inner = (
     <>
@@ -189,7 +192,10 @@ export function SidebarNav({ items, activeId }: SidebarNavProps) {
         />
       ))}
 
-      <div className="my-2 border-t border-brand-border" />
+      <div
+        style={{ borderTop: "1px solid var(--sidebar-border)" }}
+        className="my-2"
+      />
 
       {DISABLED_ITEMS.map((item) => (
         <div
