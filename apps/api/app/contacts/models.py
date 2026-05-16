@@ -47,4 +47,10 @@ class Contact(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     verified_status: Mapped[str] = mapped_column(String(20), default="to_verify", nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    lead: Mapped["Lead"] = relationship(back_populates="contacts")  # type: ignore[name-defined]
+    # Same FK-disambiguation as on the Lead side — pin this to the
+    # `Contact.lead_id` column so SQLAlchemy doesn't try to use the
+    # reverse path through `Lead.primary_contact_id`.
+    lead: Mapped["Lead"] = relationship(  # type: ignore[name-defined]
+        back_populates="contacts",
+        foreign_keys=[lead_id],
+    )
