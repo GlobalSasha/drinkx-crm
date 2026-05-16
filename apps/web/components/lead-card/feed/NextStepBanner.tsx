@@ -1,12 +1,15 @@
 "use client";
 
 import { useMemo } from "react";
-import { ArrowDown, Calendar, ListTodo } from "lucide-react";
+import { Calendar, ListTodo, Plus } from "lucide-react";
 import type { FeedItemOut } from "@/lib/types";
 import { formatDateShort } from "./_time";
 
 interface Props {
   items: FeedItemOut[];
+  /** Fires when the empty-state strip is clicked. Parent should
+   *  focus the composer in task mode. */
+  onCreateTaskRequest?: () => void;
 }
 
 /**
@@ -21,7 +24,7 @@ interface Props {
  * Empty state: «Нет задач. Создайте задачу ↓» — points the user
  * at the composer.
  */
-export function NextStepBanner({ items }: Props) {
+export function NextStepBanner({ items, onCreateTaskRequest }: Props) {
   const nextTask = useMemo(() => {
     const open = items.filter((it) => it.type === "task" && !it.task_done);
     if (open.length === 0) return null;
@@ -29,14 +32,17 @@ export function NextStepBanner({ items }: Props) {
   }, [items]);
 
   if (!nextTask) {
+    // Lead Card v2 — thin dashed strip instead of the big banner.
+    // Click jumps straight into the composer in task mode.
     return (
-      <div className="rounded-2xl border border-dashed border-brand-border px-4 py-3 flex items-center gap-2">
-        <ListTodo size={13} className="text-brand-muted" />
-        <p className="type-caption text-brand-muted">
-          Нет задач. Создайте задачу
-        </p>
-        <ArrowDown size={11} className="text-brand-muted" />
-      </div>
+      <button
+        type="button"
+        onClick={onCreateTaskRequest}
+        className="w-full rounded-xl border border-dashed border-brand-border px-4 py-2.5 flex items-center justify-center gap-2 type-caption text-brand-muted hover:border-brand-accent hover:text-brand-accent-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2"
+      >
+        <Plus size={12} />
+        Поставить задачу как следующий шаг
+      </button>
     );
   }
 
