@@ -75,6 +75,30 @@ def _validate_enum_fields(priority: str | None, deal_type: str | None) -> None:
         raise ValueError(f"Invalid deal_type '{deal_type}'. Allowed: {_VALID_DEAL_TYPES}")
 
 
+def _log_lead_assigned(
+    db: AsyncSession,
+    *,
+    lead_id: uuid.UUID,
+    user_id: uuid.UUID,
+    source: str,
+) -> None:
+    """Insert a `lead_assigned` Activity into the session — caller
+    commits in their own flow. Lazy-imports the Activity model to
+    avoid eager-loading the activity domain at module import time.
+    `source` distinguishes single-claim from sprint-claim in the
+    payload for downstream filtering."""
+    from app.activity.models import Activity, ActivityType
+
+    db.add(
+        Activity(
+            lead_id=lead_id,
+            user_id=user_id,
+            type=ActivityType.lead_assigned.value,
+            payload_json={"source": source},
+        )
+    )
+
+
 # ---------------------------------------------------------------------------
 # Service functions
 # ---------------------------------------------------------------------------
@@ -213,6 +237,7 @@ async def claim_lead(
     lead = await repo.claim_lead(db, lead_id, workspace_id, user_id)
     if lead is None:
         raise LeadAlreadyClaimed(lead_id)
+    _log_lead_assigned(db, lead_id=lead_id, user_id=user_id, source="manual_claim")
     return lead
 
 
@@ -264,6 +289,8 @@ async def claim_sprint(
         segment=segment,
         limit=limit,
     )
+    for claimed in items:
+        _log_lead_assigned(db, lead_id=claimed.id, user_id=user_id, source="sprint_claim")
     return items, limit
 
 

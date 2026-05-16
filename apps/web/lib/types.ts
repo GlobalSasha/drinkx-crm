@@ -571,6 +571,61 @@ export interface UiPrefs {
 /** Patch shape for PATCH /auth/me/ui-prefs — any subset of UiPrefs. */
 export type UiPrefsPatch = Partial<UiPrefs>;
 
+// ---- Unified Activity Feed (Sprint) ----
+
+export type FeedItemType =
+  | "comment"
+  | "task"
+  | "reminder"
+  | "file"
+  | "email"
+  | "tg"
+  | "phone"
+  | "system"
+  | "stage_change"
+  | "score_update"
+  | "form_submission"
+  | "ai_suggestion"
+  | "lead_assigned"
+  | "enrichment_done";
+
+export interface FeedItemOut {
+  id: string;
+  lead_id: string;
+  user_id: string | null;
+  type: FeedItemType | string;
+  // Resolved on the backend via LEFT JOIN on users; "Чак" for AI rows.
+  author_name: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  payload_json: Record<string, any>;
+  task_due_at: string | null;
+  task_done: boolean;
+  task_completed_at: string | null;
+  reminder_trigger_at: string | null;
+  file_url: string | null;
+  file_kind: string | null;
+  channel: string | null;
+  direction: string | null;
+  subject: string | null;
+  body: string | null;
+  from_identifier: string | null;
+  to_identifier: string | null;
+  gmail_message_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FeedListOut {
+  items: FeedItemOut[];
+  next_cursor: string | null;
+  has_more: boolean;
+}
+
+export interface AskChakOut {
+  question_activity: FeedItemOut;
+  answer_activity: FeedItemOut;
+}
+
 // ---- Audit (Sprint 1.5 group 4) ----
 
 export type AuditAction =

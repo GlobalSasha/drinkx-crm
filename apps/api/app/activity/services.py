@@ -80,3 +80,38 @@ async def complete_task(
     if activity.task_done:
         return activity  # idempotent
     return await repo.mark_task_done(db, activity, datetime.now(timezone.utc))
+
+
+# Author-name resolution for the unified feed. Anything written by the
+# AI runner / chat handler is presented as «Чак» regardless of the
+# user_id stamped on the row (some chat answers carry the asking
+# manager's id for audit; the visible author is still the AI).
+_AI_AUTHOR_NAME = "Чак"
+_AI_TYPES = {ActivityType.ai_suggestion.value}
+
+
+def _resolve_author_name(activity: Activity, joined_name: str | None) -> str | None:
+    if activity.type in _AI_TYPES:
+        return _AI_AUTHOR_NAME
+    return joined_name
+
+
+async def list_feed(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+    *,
+    cursor: str | None = None,
+    limit: int = 50,
+) -> tuple[list[tuple[Activity, str | None]], str | None]:
+    """Lists feed items (no type filter — the unified feed shows
+    everything) and resolves `author_name` per row via the AI override
+    rule defined above."""
+    await _get_lead_or_raise(db, lead_id, workspace_id)
+    rows, next_cursor = await repo.list_feed_for_lead(
+        db, lead_id, cursor=cursor, limit=limit
+    )
+    resolved: list[tuple[Activity, str | None]] = [
+        (act, _resolve_author_name(act, name)) for (act, name) in rows
+    ]
+    return resolved, next_cursor
