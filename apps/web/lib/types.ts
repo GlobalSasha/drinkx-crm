@@ -117,6 +117,13 @@ export interface LeadOut {
   won_at: string | null;
   lost_at: string | null;
   lost_reason: string | null;
+  // Primary contact pin (Sprint Lead Card Redesign).
+  primary_contact_id: string | null;
+  primary_contact_name: string | null;
+  // Open work counters, surfaced on the pipeline card. Splits
+  // (manager-kind = task) vs (auto_email / ai_hint = followup).
+  open_followups_count: number;
+  open_tasks_count: number;
   created_at: string;
   updated_at: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -10,8 +10,10 @@ import {
   Instagram,
   Facebook,
   AlertTriangle,
+  Star,
 } from "lucide-react";
 import { useContacts } from "@/lib/hooks/use-contacts";
+import { useSetPrimaryContact } from "@/lib/hooks/use-lead";
 import type { ContactOut, LeadOut } from "@/lib/types";
 import { C } from "@/lib/design-system";
 import { ContactEditModal } from "./ContactEditModal";
@@ -52,6 +54,7 @@ function colorFor(seed: string): string {
 
 export function ContactsTab({ lead }: Props) {
   const { data: contacts = [], isLoading } = useContacts(lead.id);
+  const setPrimary = useSetPrimaryContact(lead.id);
   const [editingContact, setEditingContact] = useState<ContactOut | null>(null);
   const [addingNew, setAddingNew] = useState(false);
 
@@ -89,7 +92,12 @@ export function ContactsTab({ lead }: Props) {
             <ContactRow
               key={c.id}
               contact={c}
+              isPrimary={lead.primary_contact_id === c.id}
               onEdit={() => setEditingContact(c)}
+              onTogglePrimary={() => {
+                const next = lead.primary_contact_id === c.id ? null : c.id;
+                setPrimary.mutate(next);
+              }}
             />
           ))}
         </ul>
@@ -120,10 +128,14 @@ export function ContactsTab({ lead }: Props) {
 
 function ContactRow({
   contact,
+  isPrimary,
   onEdit,
+  onTogglePrimary,
 }: {
   contact: ContactOut;
+  isPrimary: boolean;
   onEdit: () => void;
+  onTogglePrimary: () => void;
 }) {
   const hasName = !!(contact.name && contact.name.trim());
   const displayName = hasName ? contact.name : "Неизвестный контакт";
@@ -136,7 +148,11 @@ function ContactRow({
 
   return (
     <li
-      className="rounded-2xl border border-brand-border bg-white p-3.5 cursor-pointer hover:border-brand-accent transition-colors"
+      className={`rounded-2xl border bg-white p-3.5 cursor-pointer transition-colors ${
+        isPrimary
+          ? "border-brand-accent ring-1 ring-brand-accent/30"
+          : "border-brand-border hover:border-brand-accent"
+      }`}
       onClick={onEdit}
       role="button"
     >
@@ -150,9 +166,34 @@ function ContactRow({
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTogglePrimary();
+                }}
+                aria-label={isPrimary ? "Снять с основного ЛПР" : "Назначить основным ЛПР"}
+                aria-pressed={isPrimary}
+                title={isPrimary ? "Основной ЛПР" : "Сделать основным ЛПР"}
+                className={`shrink-0 -ml-1 p-1 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
+                  isPrimary
+                    ? "text-brand-accent"
+                    : "text-muted-3 hover:text-brand-accent"
+                }`}
+              >
+                <Star
+                  size={14}
+                  fill={isPrimary ? "currentColor" : "none"}
+                />
+              </button>
               <p className={`type-caption font-semibold ${C.color.text}`}>
                 {displayName}
               </p>
+              {isPrimary && (
+                <span className="type-caption font-semibold px-2 py-0.5 rounded-full bg-brand-accent text-white">
+                  Основной ЛПР
+                </span>
+              )}
               {roleLabel && (
                 <span className="type-caption font-semibold px-2 py-0.5 rounded-full bg-brand-accent/10 text-brand-accent">
                   {roleLabel}
@@ -168,7 +209,10 @@ function ContactRow({
             </div>
             <button
               type="button"
-              onClick={onEdit}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
               className={`inline-flex items-center gap-1 px-2.5 py-1 type-caption font-semibold ${C.color.muted} hover:${C.color.text} bg-brand-panel rounded-full transition-colors shrink-0`}
             >
               <Pencil size={11} />
