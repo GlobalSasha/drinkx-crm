@@ -1,7 +1,7 @@
 "use client";
 import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Loader2, Sparkles } from "lucide-react";
+import { Search, Loader2, Sparkles, X } from "lucide-react";
 import { usePoolLeads, useClaimLead } from "@/lib/hooks/use-leads";
 import { Toast } from "@/components/ui/Toast";
 import { ExportPopover } from "@/components/export/ExportPopover";
@@ -125,15 +125,52 @@ function PoolRow({
 
 // ---- Page ----
 
+const TIER_OPTIONS = ["A", "B", "C", "D"];
+const PRIORITY_OPTIONS = ["A", "B", "C", "D"];
+
 export default function LeadsPoolPage() {
   const [cityFilters, setCityFilters] = useState<string[]>([]);
   const [segmentFilters, setSegmentFilters] = useState<string[]>([]);
+  const [priorityFilters, setPriorityFilters] = useState<string[]>([]);
+  const [tierFilters, setTierFilters] = useState<string[]>([]);
+  const [dealTypeFilters, setDealTypeFilters] = useState<string[]>([]);
+  const [sourceFilters, setSourceFilters] = useState<string[]>([]);
+  const [tagFilters, setTagFilters] = useState<string[]>([]);
   const [fitMin, setFitMin] = useState(0);
   const [search, setSearch] = useState("");
+  const [hasEmailOnly, setHasEmailOnly] = useState(false);
+  const [hasPhoneOnly, setHasPhoneOnly] = useState(false);
   const [toasts, setToasts] = useState<ToastState[]>([]);
   // Track which lead IDs are currently being claimed (for optimistic UI)
   const [claimingIds, setClaimingIds] = useState<Set<string>>(new Set());
   const [aiUpdateOpen, setAiUpdateOpen] = useState(false);
+
+  const activeFilterCount =
+    (cityFilters.length > 0 ? 1 : 0) +
+    (segmentFilters.length > 0 ? 1 : 0) +
+    (priorityFilters.length > 0 ? 1 : 0) +
+    (tierFilters.length > 0 ? 1 : 0) +
+    (dealTypeFilters.length > 0 ? 1 : 0) +
+    (sourceFilters.length > 0 ? 1 : 0) +
+    (tagFilters.length > 0 ? 1 : 0) +
+    (fitMin > 0 ? 1 : 0) +
+    (search ? 1 : 0) +
+    (hasEmailOnly ? 1 : 0) +
+    (hasPhoneOnly ? 1 : 0);
+
+  function resetAllFilters() {
+    setCityFilters([]);
+    setSegmentFilters([]);
+    setPriorityFilters([]);
+    setTierFilters([]);
+    setDealTypeFilters([]);
+    setSourceFilters([]);
+    setTagFilters([]);
+    setFitMin(0);
+    setSearch("");
+    setHasEmailOnly(false);
+    setHasPhoneOnly(false);
+  }
 
   const addToast = useCallback((message: string, type: "error" | "success" = "success") => {
     const id = Date.now();
@@ -173,9 +210,8 @@ export default function LeadsPoolPage() {
     return [...SEGMENT_OPTIONS, ...Array.from(extras).sort()];
   }, [allItems]);
 
-  // Per-segment / per-city counts on the unfiltered pool — shown inside
-  // each dropdown row so a manager sees "Кофейни и кафе · 29" before
-  // selecting.
+  // Per-* counts on the unfiltered pool — shown inside each dropdown
+  // row so a manager sees "Кофейни и кафе · 29" before selecting.
   const segmentCounts = useMemo(() => {
     const m: Record<string, number> = {};
     for (const l of allItems) {
@@ -190,22 +226,130 @@ export default function LeadsPoolPage() {
     }
     return m;
   }, [allItems]);
+  const priorityCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const l of allItems) {
+      if (l.priority) m[l.priority] = (m[l.priority] ?? 0) + 1;
+    }
+    return m;
+  }, [allItems]);
+  const tierCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const l of allItems) {
+      const t = tierFromScore(l.score);
+      m[t] = (m[t] ?? 0) + 1;
+    }
+    return m;
+  }, [allItems]);
+  const dealTypes = useMemo(
+    () =>
+      Array.from(
+        new Set(allItems.map((l) => l.deal_type).filter(Boolean) as string[]),
+      ).sort(),
+    [allItems],
+  );
+  const dealTypeCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const l of allItems) {
+      if (l.deal_type) m[l.deal_type] = (m[l.deal_type] ?? 0) + 1;
+    }
+    return m;
+  }, [allItems]);
+  const sources = useMemo(
+    () =>
+      Array.from(
+        new Set(allItems.map((l) => l.source).filter(Boolean) as string[]),
+      ).sort(),
+    [allItems],
+  );
+  const sourceCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const l of allItems) {
+      if (l.source) m[l.source] = (m[l.source] ?? 0) + 1;
+    }
+    return m;
+  }, [allItems]);
+  const tags = useMemo(() => {
+    const set = new Set<string>();
+    for (const l of allItems) {
+      for (const t of l.tags_json ?? []) set.add(t);
+    }
+    return Array.from(set).sort();
+  }, [allItems]);
+  const tagCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const l of allItems) {
+      for (const t of l.tags_json ?? []) m[t] = (m[t] ?? 0) + 1;
+    }
+    return m;
+  }, [allItems]);
 
-  // Apply ALL filters client-side: city + segment + fit_min + search
+  // Apply ALL filters client-side.
   const filtered = useMemo(() => {
     const segSet = new Set(segmentFilters);
     const citySet = new Set(cityFilters);
+    const prioSet = new Set(priorityFilters);
+    const tierSet = new Set(tierFilters);
+    const dealSet = new Set(dealTypeFilters);
+    const sourceSet = new Set(sourceFilters);
+    const tagSet = new Set(tagFilters);
+    const q = search.trim().toLowerCase();
     return allItems.filter((l) => {
       if (citySet.size > 0 && (!l.city || !citySet.has(l.city))) return false;
       if (segSet.size > 0 && (!l.segment || !segSet.has(l.segment))) return false;
+      if (prioSet.size > 0 && (!l.priority || !prioSet.has(l.priority))) return false;
+      if (tierSet.size > 0 && !tierSet.has(tierFromScore(l.score))) return false;
+      if (dealSet.size > 0 && (!l.deal_type || !dealSet.has(l.deal_type))) return false;
+      if (sourceSet.size > 0 && (!l.source || !sourceSet.has(l.source))) return false;
+      if (tagSet.size > 0) {
+        const leadTags = l.tags_json ?? [];
+        // AND-match across selected tags — lead must carry every one
+        let ok = true;
+        for (const t of tagSet) {
+          if (!leadTags.includes(t)) {
+            ok = false;
+            break;
+          }
+        }
+        if (!ok) return false;
+      }
       if (fitMin > 0 && (l.fit_score == null || l.fit_score < fitMin)) return false;
-      if (search) {
-        const q = search.toLowerCase();
-        if (!l.company_name.toLowerCase().includes(q)) return false;
+      if (hasEmailOnly && !l.email) return false;
+      if (hasPhoneOnly && !l.phone) return false;
+      if (q) {
+        // Multi-field text match: name + email + phone + INN.
+        // Phone is normalised to digits-only on both sides so users
+        // can paste "+7 (495) 123-45-67" and still match "74951234567".
+        const phoneDigits = q.replace(/\D/g, "");
+        const leadName = (l.company_name ?? "").toLowerCase();
+        const leadEmail = (l.email ?? "").toLowerCase();
+        const leadInn = (l.inn ?? "").toLowerCase();
+        const leadPhoneDigits = (l.phone ?? "").replace(/\D/g, "");
+        const matched =
+          leadName.includes(q) ||
+          (leadEmail && leadEmail.includes(q)) ||
+          (leadInn && leadInn.includes(q)) ||
+          (phoneDigits.length >= 3 &&
+            leadPhoneDigits &&
+            leadPhoneDigits.includes(phoneDigits));
+        if (!matched) return false;
       }
       return true;
     });
-  }, [allItems, cityFilters, segmentFilters, fitMin, search]);
+  }, [
+    allItems,
+    cityFilters,
+    segmentFilters,
+    priorityFilters,
+    tierFilters,
+    dealTypeFilters,
+    sourceFilters,
+    tagFilters,
+    fitMin,
+    search,
+    hasEmailOnly,
+    hasPhoneOnly,
+  ]);
 
   function handleClaim(id: string) {
     // Optimistic: gray row immediately
@@ -286,21 +430,26 @@ export default function LeadsPoolPage() {
           onClose={() => setAiUpdateOpen(false)}
         />
 
-        {/* Filter row */}
-        <div className="flex flex-wrap items-center gap-3 mt-3">
-          {/* Search */}
+        {/* Filter row — flex-wraps over 1-2 lines depending on viewport.
+            Order: text search → categorical dropdowns → numeric/boolean
+            modifiers → reset. Categorical filters that have nothing to
+            offer (e.g. zero unique sources in the dataset) hide their
+            dropdown to keep the bar from getting noisy. */}
+        <div className="flex flex-wrap items-center gap-2 mt-3">
+          {/* Search — name + email + phone + INN. */}
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-3 pointer-events-none" />
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-3 pointer-events-none"
+            />
             <input
               type="text"
-              placeholder="Поиск..."
+              placeholder="Поиск: имя, email, телефон, ИНН"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 pr-3 py-1.5 text-sm bg-canvas border border-black/10 rounded-pill outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300 w-40"
+              className="pl-8 pr-3 py-1.5 text-sm bg-canvas border border-black/10 rounded-pill outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300 w-64"
             />
           </div>
-
-          <span className="text-muted-3 text-xs">|</span>
 
           <MultiSelectDropdown
             label="Сегмент"
@@ -318,9 +467,97 @@ export default function LeadsPoolPage() {
             counts={cityCounts}
           />
 
+          <MultiSelectDropdown
+            label="Приоритет"
+            options={PRIORITY_OPTIONS}
+            selected={priorityFilters}
+            onChange={setPriorityFilters}
+            counts={priorityCounts}
+          />
+
+          <MultiSelectDropdown
+            label="Tier"
+            options={TIER_OPTIONS}
+            selected={tierFilters}
+            onChange={setTierFilters}
+            counts={tierCounts}
+          />
+
+          {dealTypes.length > 0 && (
+            <MultiSelectDropdown
+              label="Тип сделки"
+              options={dealTypes}
+              selected={dealTypeFilters}
+              onChange={setDealTypeFilters}
+              counts={dealTypeCounts}
+            />
+          )}
+
+          {sources.length > 0 && (
+            <MultiSelectDropdown
+              label="Источник"
+              options={sources}
+              selected={sourceFilters}
+              onChange={setSourceFilters}
+              counts={sourceCounts}
+            />
+          )}
+
+          {tags.length > 0 && (
+            <MultiSelectDropdown
+              label="Теги"
+              options={tags}
+              selected={tagFilters}
+              onChange={setTagFilters}
+              counts={tagCounts}
+            />
+          )}
+
           <span className="text-muted-3 text-xs">|</span>
 
           <FitSlider value={fitMin} onChange={setFitMin} />
+
+          <span className="text-muted-3 text-xs">|</span>
+
+          {/* Boolean toggles — render as pill buttons with checked state. */}
+          <button
+            type="button"
+            onClick={() => setHasEmailOnly((v) => !v)}
+            aria-pressed={hasEmailOnly}
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-pill text-xs font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
+              hasEmailOnly
+                ? "bg-brand-soft text-brand-accent-text border-brand-accent/30"
+                : "bg-canvas text-muted border-black/10 hover:border-black/20"
+            }`}
+          >
+            С email
+          </button>
+          <button
+            type="button"
+            onClick={() => setHasPhoneOnly((v) => !v)}
+            aria-pressed={hasPhoneOnly}
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-pill text-xs font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
+              hasPhoneOnly
+                ? "bg-brand-soft text-brand-accent-text border-brand-accent/30"
+                : "bg-canvas text-muted border-black/10 hover:border-black/20"
+            }`}
+          >
+            С телефоном
+          </button>
+
+          {activeFilterCount > 0 && (
+            <>
+              <span className="text-muted-3 text-xs">|</span>
+              <button
+                type="button"
+                onClick={resetAllFilters}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-pill text-xs font-semibold text-rose hover:bg-rose/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose focus-visible:ring-offset-1"
+              >
+                <X size={12} />
+                Сбросить ({activeFilterCount})
+              </button>
+            </>
+          )}
         </div>
       </div>
 
