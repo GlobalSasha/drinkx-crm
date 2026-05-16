@@ -201,9 +201,56 @@
 - Carry-overs: MAX Bot (G3), Gmail send (G5), per-manager Telegram bots через `channel_connections` — TODO зафиксированы в коде; e-mail плечо в `/leads/{id}/inbox` пока пустое (видно на «Активность»)
 - ENV to provision: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `DEFAULT_WORKSPACE_ID`, `MANGO_API_KEY`, `MANGO_API_SALT`, `SALUTE_CLIENT_ID`, `SALUTE_CLIENT_SECRET`. Smoke-чеклист в close-report
 
+**Sprint Lead Card Refresh arc — DONE** (2026-05-15 / 16, three PRs)
+- **PR [#41](https://github.com/GlobalSasha/crm/pull/41) — Lead Card Redesign**
+  - Migration 0029: `leads.primary_contact_id` FK + new `lead_stage_history` table + `(lead_id, entered_at)` index. PK via `gen_random_uuid()` so direct SQL inserts (backfill) don't need app code.
+  - `stage_change.move_stage` writes to history via a new POST_ACTION `record_stage_history` — closes the open row + inserts a new one. Wrapped in try/except so history-write never rolls back the move.
+  - `LeadOut` + `LeadListItemOut` gain `primary_contact_id`, `primary_contact_name`, `open_followups_count`, `open_tasks_count`. Counts split by `reminder_kind`: `manager` = task, `auto_email`/`ai_hint` = followup.
+  - `get_by_id` + `list_leads` + `list_pool` do LEFT JOIN on contacts + two correlated scalar subqueries on followups in one round-trip — no N+1 across the page.
+  - `PATCH /leads/{id}/primary-contact` body `{contact_id?}`, validates `contact.lead_id == lead_id`.
+  - Pipeline Kanban card redesigned to 88px fixed height / 3 rows: company / ★ primary LPR / segment + 📋 tasks + 🔔 followups + date. Priority badge, score, fit_score, rotting indicators removed.
+  - Contacts tab — star button to pin/unpin primary, optimistic via `useSetPrimaryContact`.
+  - `scripts/backfill_stage_history.sql` ran once on prod after deploy — 291 inserts, count matched active leads.
+- **PR [#42](https://github.com/GlobalSasha/crm/pull/42) — Unified Activity Feed**
+  - No migration (`activities.type` is `String(30)`); ENUM grew `phone, ai_suggestion, lead_assigned, enrichment_done`.
+  - `GET /api/leads/{id}/feed` — cursor-paginated, LEFT JOIN on `users` for `author_name` (AI rows override to "Чак" regardless of `user_id`).
+  - `POST /api/leads/{id}/feed/ask-chak` — writes question + answer activities in one transaction, returns both for optimistic frontend append.
+  - `lead_agent_refresh_suggestion` writes `Activity(ai_suggestion)` on suggestion-text change (dedup → no spam from silence-scan / stage-change / inbox-attach triggers).
+  - `claim_lead` + `claim_sprint` → `Activity(lead_assigned)`. Enrichment orchestrator → `Activity(enrichment_done)` after `run.status='succeeded'`.
+  - Frontend: «Активность» tab → `UnifiedFeed` with date separators + 6 per-type item components + `EmailModal` + `FeedComposer` (4 modes + `@Чак` routing). Tasks have inline checkbox + due date + file attachment chip; AI rows tinted brand-soft + «Спросить подробнее» seed for follow-ups.
+  - **Deleted:** `AgentBanner`, `SalesCoachDrawer`, FAB `🤖 Чак`, «Переписка» tab, `ActivityTab`, `InboxTab`, `use-lead-agent.ts` hook.
+  - `NextStepBanner` empty state collapses to a thin dashed strip; click switches composer to task mode via new `modeRequest` prop chain.
+- **Hotfixes** ([#43](https://github.com/GlobalSasha/crm/pull/43), [#44](https://github.com/GlobalSasha/crm/pull/44))
+  - #43: `Lead.primary_contact_id` created a second FK path between leads ⇄ contacts → SQLAlchemy mapper init crashed all endpoints with 500. Fix: explicit `foreign_keys="Contact.lead_id"` on both sides of the back-populated pair.
+  - #44: `_SORT_KEY` used `jsonb_extract_path_text` on a `json` (not `jsonb`) column → `/feed` returned 500. Fix: swap to `json_extract_path_text` — same call shape, no migration.
+- **PR [#45](https://github.com/GlobalSasha/crm/pull/45) — Lead Card v2**
+  - Migration 0030: `leads.deal_amount NUMERIC(12,2)`, `deal_quantity INT`, `deal_equipment VARCHAR(50)`, `score_details_json JSONB NOT NULL DEFAULT '{}'`.
+  - `app/leads/scoring.py` — pure functions: `priority_label`, `priority_from_score` (80/60/40), `compute_total`, `clean_values`. Mirrored client-side in the modal for live total preview.
+  - `Lead.priority_label` `@property`; `LeadOut`/`LeadListItemOut` expose it so the frontend never renders raw letters.
+  - `PATCH /api/leads/{id}/deal` — partial via `model_fields_set`.
+  - `GET /api/leads/{id}/score-details` — workspace `scoring_criteria` × `lead.score_details_json` join, always returns full criteria list.
+  - `PATCH /api/leads/{id}/score-details` — merges JSONB, recomputes `leads.score` + `leads.priority`. Drops unknown criterion keys silently; out-of-range → 400.
+  - `GET /api/leads/{id}/stage-durations` — reads `lead_stage_history`, returns per-stage `{days, status}`. Closed durations summed, current computed from `now - entered_at`.
+  - Frontend: new `StagesStepper`, `DealValueStrip` + inline `DealEditModal`, `ClientScoreCard` (replaces `ScoreCard.tsx`, removes «DrinkX fit X/10» line), editable `ScoreBreakdownModal` (0..max_value dot pickers + live total + priority pill).
+  - Header rewrite: word priority pill via `priority_label`, Row 2 meta strip (★ LPR · 📅 в работе с · 🟢 активность), «Закрыто» → «Закрыть сделку ▾» dropdown. `CloseModal` removed.
+- 4 new ADRs: 023 (manual scoring), 024 (unified feed), 025 (`lead_stage_history` dedicated table), 026 (`primary_contact_id` is a pin, not a role).
+
 ## 🔜 NEXT
 
-To be decided by the operator after 3.4 Unified Inbox is smoked in production. Candidates:
+To be decided by the operator after the Lead Card Refresh arc is smoked in production. Candidates:
+
+### Phase 3 — Stage Dwell Analytics (~2-3 days)
+Consume the `lead_stage_history` data that now accumulates on every transition. ADR-025 sized the table for fast aggregation — nothing reads it workspace-wide yet.
+- Service: `get_stage_dwell_summary(workspace_id)` over `lead_stage_history` × `stages` × `pipelines` — avg / median / p90 days per stage; count of leads stuck > 14 days; bottleneck rank
+- Endpoint: `GET /api/analytics/stage-dwell` (admin/head)
+- UI: card on `/today` or `/settings → Скоринг` showing top-3 slowest stages with «N leads stuck» drill-in to a filtered `/leads-pool` view
+- No migration needed; no new pipeline. Just consume what the Lead Card Refresh arc started writing.
+
+### Phase 3 — Telegram + phone in the Unified Feed (when 3.5 productionises them)
+Sprint Unified Activity Feed (PR #42) deliberately left `inbox_messages` (Telegram + phone) out of the feed and deleted the «Переписка» tab. Those messages still arrive and get stored — they're just invisible in the UI. When 3.5 ships per-manager Telegram bots / MAX / Mango outbound, fold them INTO the unified feed (mix activity rows + inbox_messages by created_at). Don't bring «Переписка» back as a separate tab.
+
+### Phase 2 — Automation Rule Builder UX gaps (long-tail)
+The Automation Builder (Sprint 2.5) shipped a workable v1 but several documented carryovers remain in the long-tail list below. Surfacing here for visibility: multi-clause conditions, dnd reorder of multi-step chains, pause-mid-chain UI, per-step retry. Pick when manager demand for it is real.
 
 ### Phase 3 — Sprint 3.5 — Inbox follow-ups (~3-4 days)
 Carry-overs from 3.4 Unified Inbox.

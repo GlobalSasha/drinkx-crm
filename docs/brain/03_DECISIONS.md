@@ -23,6 +23,10 @@
 | ADR-019 | Email ownership model — lead-scoped, not manager-scoped | ✅ |
 | ADR-020 | Widen `alembic_version.version_num` to VARCHAR(255) before each migration | ✅ |
 | ADR-022 | Company = Account; Lead = Deal/Opportunity. `leads.company_name` is a snapshot, not source of truth | ✅ |
+| ADR-023 | Score 0–100 is manager-manual, not AI. Backend recomputes total + priority from `leads.score_details_json` on every PATCH | ✅ |
+| ADR-024 | Unified Activity Feed — Чак is a feed participant, drawer/banner removed | ✅ |
+| ADR-025 | `lead_stage_history` is a dedicated table, not derived from `activities.stage_change` payload | ✅ |
+| ADR-026 | `leads.primary_contact_id` is a separate concept from `contacts.role_type` — pinning, not role | ✅ |
 
 ---
 
@@ -419,3 +423,214 @@ any `contacts.workspace_id IS NULL`.
 so `app/search/` can use `similarity()` + the `%` operator on
 companies/leads/contacts name columns. Short queries (len < 3)
 fork into `_search_ilike` to avoid noise.
+
+
+## ADR-023 Score 0–100 is manager-manual, not AI
+
+**Date:** 2026-05-16
+**Status:** ✅ (Sprint Lead Card v2, PR [#45](https://github.com/GlobalSasha/crm/pull/45))
+
+**Decision.** The 8-criteria Score 0–100 is filled in by the manager
+through an editable popup (`ScoreBreakdownModal`). The AI Research
+Agent does NOT write to `leads.score`, `leads.priority`, or
+`leads.score_details_json`. The two scoring systems from ADR-004
+stay split:
+
+- `fit_score` (0–10): AI auto, written by the orchestrator, **kept in
+  DB for future surfaces but not shown on the LeadCard.**
+- `Score` (0–100): manager manual, 8 criteria with weights, persisted
+  to `leads.score_details_json`. Server recomputes `leads.score`
+  + `leads.priority` (A/B/C/D via 80/60/40 thresholds, see ADR-006)
+  on every `PATCH /leads/{id}/score-details`. Priority is derived
+  state, never set independently by the client.
+
+**Why not let AI do it.** The 8 criteria (Масштаб потенциала,
+Вероятность пилота 90д, Экономический покупатель, …) are sales
+judgements grounded in conversations the AI doesn't see. Letting the
+AI guess at them produced silently wrong priorities and the manager
+stopped trusting the score. Manual entry is slower but the number
+becomes operationally meaningful.
+
+**Storage shape.**
+
+```
+leads.score_details_json = { criterion_key: int 0..max_value, ... }
+```
+
+Keys match `scoring_criteria.criterion_key` for the workspace
+(per-workspace customisable, see ADR-017). Unknown keys are dropped
+silently on PATCH so a workspace-config drift doesn't error out the
+write. Out-of-range values raise 400.
+
+**Recompute formula** (mirrored in `app/leads/scoring.py:compute_total`):
+
+```
+total = round(Σ (value / max_value) × weight)  for each criterion
+priority = A if total ≥ 80 else B if ≥ 60 else C if ≥ 40 else D
+```
+
+`priority_label` is a derived Russian word (Стратегический /
+Перспективный / Низкий / Архив) computed by
+`app/leads/scoring.priority_label` and exposed on `LeadOut` so the
+frontend never has to translate the raw letter.
+
+**What if AI scoring comes back later.** Either add a separate
+column (`leads.ai_score`, `leads.ai_priority`) or surface
+`fit_score` more loudly — don't bolt AI onto the manual column.
+Keeping the manual path simple and trustworthy was the whole point.
+
+## ADR-024 Unified Activity Feed — Чак as a feed participant
+
+**Date:** 2026-05-15
+**Status:** ✅ (Sprint Unified Activity Feed, PR [#42](https://github.com/GlobalSasha/crm/pull/42))
+
+**Decision.** The LeadCard «Активность» tab is now a single
+chronological feed across `activities` rows. The AI assistant Чак
+posts to it as a participant — runner suggestions land as
+`Activity(type='ai_suggestion')` rows, chat answers come from
+`POST /leads/{id}/feed/ask-chak`. The separate `AgentBanner`,
+`SalesCoachDrawer`, FAB `🤖 Чак`, and the «Переписка» tab are
+DELETED.
+
+**Why.** Three signals from the v1 layout:
+
+1. The banner / drawer / FAB / Переписка tab carved up information
+   that managers actually read in time order. Switching back and
+   forth was the most-clicked complaint.
+2. AI recommendations only made sense in context (last email, last
+   stage move, last task). Hiding them in a drawer broke that
+   context.
+3. The drawer's in-memory chat history vanished on close; managers
+   couldn't show a teammate what Чак said yesterday.
+
+**Architecture rules.**
+
+- Feed = `activities` table only. Telegram + phone messages live in
+  `inbox_messages` and stay OUT of the feed until those channels are
+  productionised (see roadmap «Sprint 3.5»). The «Переписка» tab is
+  not coming back; channels will mix INTO the unified feed when
+  ready.
+- `author_name` is resolved server-side via LEFT JOIN on `users`
+  (one round-trip, no N+1) so the feed renders «Менеджер Иван»
+  without N+1.
+- AI rows override `author_name="Чак"` regardless of the row's
+  `user_id` — some chat rows stamp the asking manager for audit;
+  the visible author is still Чак.
+- `lead_agent_refresh_suggestion` dedupes Activity writes on text —
+  silence-scan / stage-change / inbox-attach triggers don't spam
+  the feed with the same recommendation.
+- `Activity.type` is `String(30)` not Postgres ENUM, so adding
+  `ai_suggestion`, `lead_assigned`, `enrichment_done`, `phone`
+  needed no migration.
+
+**Composer routing.** Comments starting with `@Чак ...` route to
+`/feed/ask-chak`; everything else creates an `Activity` via the
+existing `POST /leads/{id}/activities`. Same composer, two backends.
+
+**Trade-off.** A drawer-style chat allowed long back-and-forth
+without the answers leaving a permanent feed trail. The new model
+makes every Q&A a persistent record — which is what we wanted for
+shared workspace context, but means «brainstorming» questions now
+clutter the feed. If that bites, add a `payload_json.scratchpad=true`
+flag and filter those out of the default feed view.
+
+## ADR-025 `lead_stage_history` is a dedicated table
+
+**Date:** 2026-05-15
+**Status:** ✅ (Sprint Lead Card Redesign, PR [#41](https://github.com/GlobalSasha/crm/pull/41))
+
+**Decision.** Stage-transition history lives in its own table
+`lead_stage_history` (one open row per lead at any time), not derived
+from the existing `activities WHERE type='stage_change'` payload.
+
+```
+lead_stage_history (
+  id            UUID PK DEFAULT gen_random_uuid(),
+  lead_id       UUID NOT NULL FK → leads.id CASCADE,
+  stage_id      UUID NOT NULL FK → stages.id CASCADE,
+  entered_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  exited_at     TIMESTAMPTZ,
+  duration_sec  INTEGER
+)
+INDEX (lead_id, entered_at)
+```
+
+**Write path.** `app/automation/stage_change.move_stage` runs a
+POST_ACTION `record_stage_history` after applying the new stage:
+closes the open row (`exited_at = now()`, `duration_sec =
+floor(now - entered_at)`), inserts a fresh open row for the
+destination. Wrapped in try/except — a history-write failure never
+rolls back the move itself; the `activities.stage_change` row is
+still the canonical audit trail.
+
+**Why a separate table, not just consume `activities.payload_json`.**
+
+1. `activities.payload_json` is JSON (not JSONB on the column-type
+   level — see ADR around the feed sort-key fix), and querying
+   per-stage durations means JSON extract + parse + window function
+   per row. With `lead_stage_history`, the dwell-time question
+   («how long has this lead been in stage X») becomes
+   `SELECT entered_at FROM lead_stage_history WHERE lead_id=? AND
+   exited_at IS NULL` — index hit, microseconds.
+2. We want workspace-wide analytics (average dwell, leads stuck
+   > 14 days) without touching the per-event log. Putting durations
+   in `activities` JSON would force every aggregation to do JSON
+   extraction at read time.
+3. The duration is computed at write time, so historical rows have
+   stable values even if `created_at` math drifts (timezone changes,
+   etc.).
+
+**Backfill.** `scripts/backfill_stage_history.sql` ran once after
+the migration applied: one open row per active lead at
+`COALESCE(assigned_at, created_at)` pinned to `leads.stage_id`.
+Idempotent (`NOT EXISTS` guard). 291 inserts, 291 active leads —
+the sanity counts matched.
+
+**Not in scope for this ADR.** The `/api/leads/{id}/stage-durations`
+endpoint added in Sprint Lead Card v2 (PR #45) consumes the table
+for one lead at a time. Workspace-wide analytics is on the roadmap
+but not built yet.
+
+## ADR-026 `leads.primary_contact_id` is a pin, not a role
+
+**Date:** 2026-05-15
+**Status:** ✅ (Sprint Lead Card Redesign, PR [#41](https://github.com/GlobalSasha/crm/pull/41))
+
+**Decision.** A lead has at most one «основной ЛПР» pinned via
+`leads.primary_contact_id UUID NULL FK → contacts.id ON DELETE SET
+NULL`. This is **independent of** the existing
+`contacts.role_type` ENUM (`economic_buyer / champion /
+technical_buyer / operational_buyer`).
+
+The two answer different questions:
+
+- `contacts.role_type` — what KIND of stakeholder this person is
+  (BANT-style decision-maker role). Many roles per lead are normal:
+  one economic buyer + one champion + one technical.
+- `leads.primary_contact_id` — who is the manager's MAIN point of
+  contact right now. UI surfaces this in the pipeline card and the
+  LeadCard header («★ Иванов И.И.»). Always at most one per lead.
+
+**Why not promote one role to «primary».** Tried it on paper —
+`primary_role` boolean on `contacts`, or a sentinel role value like
+`primary_economic_buyer`. Both bled the «kind of stakeholder» axis
+into the «who is the manager working with» axis and made gate
+checks (ADR-012 — Economic Buyer required at Stage 6) harder to
+reason about. Two separate concerns, two separate columns.
+
+**Set / unset flow.** `PATCH /leads/{lead_id}/primary-contact` body
+`{contact_id?}`. Server validates `contact.lead_id == lead_id` so
+a UUID forged from another lead can't be promoted. Pass `null` to
+clear. Setting a new contact automatically replaces the previous —
+single FK column, no «which one is primary» bookkeeping needed.
+
+**Side-effect on ORM.** Adding `Lead.primary_contact_id` created a
+second FK path between `leads` ⇄ `contacts` (the original being
+`Contact.lead_id` → `leads.id`). SQLAlchemy then refused to resolve
+`Contact.lead`'s back-populates and crashed mapper init on every
+request — production took a 500 outage for ~10 minutes before
+PR #43 hot-fixed it with explicit `foreign_keys="Contact.lead_id"`
+on both sides of the relationship. **If you ever add another
+cross-domain FK between two existing tables, write the
+`foreign_keys=` pin in the same commit — don't trust SQLAlchemy
+to disambiguate.**

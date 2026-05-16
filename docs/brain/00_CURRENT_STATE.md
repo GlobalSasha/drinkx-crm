@@ -1,6 +1,6 @@
 # DrinkX CRM — Current State
 
-Last updated: 2026-05-12 (Sprint 3.4 DONE — Unified Inbox: Telegram Business Bot + Mango Office IP-телефония + SaluteSpeech-транскрипция звонков, на `main` без PR. Sprint 3.3 Companies + 3.4 Team Dashboard также на `main`.)
+Last updated: 2026-05-16 (Lead Card Refresh arc shipped — PRs #41 Lead Card Redesign, #42 Unified Activity Feed, #45 Lead Card v2. LeadCard screen now has unified chronological feed with Чак as a native participant, horizontal stage stepper with days-per-stage, deal-value strip, editable 8-criteria manual scoring popup, primary contact pin. Migration head bumped 0026 → 0030. Two prod outages along the way — ORM mapper ambiguity after FK addition and `jsonb_extract_path_text` on a `json` column — both hot-fixed in <30 min.)
 
 ## Phase 0 — COMPLETED ✅ (lives in `crm-prototype` repo)
 
@@ -636,14 +636,89 @@ Resolved this sprint:
 
 ---
 
+### ✅ Sprint Lead Card Redesign — PR [#41](https://github.com/GlobalSasha/crm/pull/41) (merged 2026-05-15)
+
+Backend `1186c1a..9486618`, single PR.
+
+- **Migration 0029** — `leads.primary_contact_id UUID NULL FK → contacts.id ON DELETE SET NULL` + new `lead_stage_history` table `(id, lead_id CASCADE, stage_id CASCADE, entered_at NOT NULL DEFAULT now(), exited_at NULL, duration_sec INT NULL)` + index `(lead_id, entered_at)`. PK via `gen_random_uuid()` so direct SQL inserts from the backfill script don't need app code.
+- **`Lead.primary_contact_id` ORM** + new `LeadStageHistory` mapped class (registered via the existing `from app.leads import models` side-effect import; no celery_app edits).
+- **`stage_change.move_stage`** gains a new POST_ACTION `record_stage_history` — closes the open row (sets `exited_at`, computes `duration_sec`), inserts a fresh open row for the destination stage. Wrapped in try/except so a history-write failure never rolls back the move itself.
+- **`LeadOut`/`LeadListItemOut`** gain four fields: `primary_contact_id, primary_contact_name, open_followups_count, open_tasks_count`. Counts split by `reminder_kind`: `manager` = task, `auto_email`/`ai_hint` = followup.
+- **`get_by_id` + `list_leads` + `list_pool`** do a single LEFT JOIN on contacts (for `primary_contact_name`) plus two correlated scalar subqueries on followups — one round-trip, no N+1 across the page.
+- **`PATCH /api/leads/{id}/primary-contact`** body `{contact_id?}`, validates `contact.lead_id == lead_id` so a UUID from another lead can't be promoted.
+- **Frontend contacts tab** — star button next to each contact name; click pins/unpins primary, `useSetPrimaryContact` does optimistic flip of `primary_contact_id` in the `["lead", id]` query cache.
+- **Pipeline Kanban card redesigned** to fixed-height 88px / 3 rows: company name / ★ primary LPR / segment + 📋 tasks + 🔔 followups + date. Removed priority badge, score, fit_score, rotting indicators — the card is now a clean "who / what / when" surface.
+- **Backfill** — `scripts/backfill_stage_history.sql` (one open history row per active lead at `COALESCE(assigned_at, created_at)` pinned to the lead's current stage). Idempotent (`NOT EXISTS` guard). Ran manually on prod after deploy: 291 inserts, 291 active leads — count matched.
+
+### ✅ Sprint Unified Activity Feed — PR [#42](https://github.com/GlobalSasha/crm/pull/42) (merged 2026-05-15)
+
+Two commits on the branch: `65c2597` backend, `b8f6d1d` frontend.
+
+- **No migration** — `activities.type` is `String(30)`, new values are just new strings. ENUM grew `phone, ai_suggestion, lead_assigned, enrichment_done`. (`phone` was already used by the Mango webhook writer; this commit just made the Python enum reflect reality.)
+- **`GET /api/leads/{id}/feed`** — cursor-paginated unified feed. Same `_SORT_KEY` ordering as `/activities` (COALESCE on `payload_json.received_at` for Gmail backfill) but adds a `User` LEFT JOIN so `author_name` lands in one round-trip. AI rows force `author_name="Чак"` regardless of `user_id`.
+- **`POST /api/leads/{id}/feed/ask-chak`** — writes the question (as `comment` from the asking manager) and the answer (as `ai_suggestion` from Чак) in one transaction. Returns both rows for optimistic frontend append.
+- **`lead_agent_refresh_suggestion`** runner now drops an `Activity(ai_suggestion)` whenever the suggestion text changes — deduped on text so silence-scan / stage-change / inbox-attach triggers don't spam the feed with the same recommendation.
+- **`leads.claim_lead` + `claim_sprint`** hook → `Activity(lead_assigned)` per claimed lead with `source=manual_claim|sprint_claim`.
+- **`enrichment.orchestrator`** writes `Activity(enrichment_done)` after `run.status='succeeded'` (try/except — never blocks the run commit).
+- **Frontend rewrite of «Активность» tab as `UnifiedFeed`** — date separators (Сегодня / Вчера / D MMM), one component per type (`FeedItemComment / Task / Call / Email / AI / System`), `EmailModal` for the full email body, `FeedComposer` at the bottom with 4 modes (💬 ☑ 📞 📎) + `@Чак` detection routes to ask-chak. Tasks have inline checkbox + «Выполнено» button + file attachment chip; AI rows tinted brand-soft and carry «Спросить подробнее» seeding a follow-up question.
+- **`AgentBanner`, `SalesCoachDrawer`, FAB `🤖 Чак`, «Переписка» tab, `ActivityTab`, `InboxTab`, `use-lead-agent.ts` — all deleted.** Чак is now a feed participant; the drawer is gone. Telegram + phone messages live in `inbox_messages` and are NOT shown in the feed (returns when telephony is productionised — see Roadmap).
+- **`NextStepBanner`** — when there are no open tasks, the bulky banner collapses to a thin dashed strip «＋ Поставить задачу как следующий шаг»; click switches the composer into task mode via new `modeRequest` prop.
+
+### 🔥 Hotfixes on top of Unified Activity Feed
+
+| PR | Issue |
+|---|---|
+| [#43](https://github.com/GlobalSasha/crm/pull/43) | `Lead.primary_contact_id` FK created a SECOND path between `leads` ⇄ `contacts`; SQLAlchemy refused to resolve `Contact.lead`'s back-populates. **All API requests started returning 500.** Fix: pin both sides of the back-populated pair to `Contact.lead_id` via explicit `foreign_keys`. Detection: every endpoint dropped to 500 after Phase B deploy. Verified with `from sqlalchemy.orm import configure_mappers; configure_mappers()` after loading the full registry. |
+| [#44](https://github.com/GlobalSasha/crm/pull/44) | Sort-key in `list_for_lead` + `list_feed_for_lead` used `jsonb_extract_path_text(payload_json, 'received_at')`, but `activities.payload_json` is `json` (not `jsonb`) at the column level. **`/leads/{id}` Активность tab returned 500** with `function jsonb_extract_path_text(json, character varying) does not exist`. Fix: swap to `json_extract_path_text` — same call shape, returns text, no migration. |
+
+Both bugs were caught after deploy via prod log scrape, fixed and re-deployed within minutes. Lesson: the api entrypoint runs `alembic upgrade head && uvicorn` but never exercises the endpoints — pre-deploy CI smoke would have caught both. Tracked in roadmap «soft-launch hardening».
+
+### ✅ Sprint Lead Card v2 — PR [#45](https://github.com/GlobalSasha/crm/pull/45) (merged 2026-05-16)
+
+Six commits on the branch (`6bcd81d..2f57020`), phases B → H.
+
+- **Migration 0030** — `leads.deal_amount NUMERIC(12,2)`, `deal_quantity INT`, `deal_equipment VARCHAR(50)`, `score_details_json JSONB NOT NULL DEFAULT '{}'`. All additive.
+- **New `app/leads/scoring.py`** — pure functions, no DB imports:
+  - `priority_label(letter)` → Russian word (A=Стратегический, B=Перспективный, C=Низкий, D=Архив)
+  - `priority_from_score(total)` — 80/60/40 thresholds (see ADR-006 wording, this just formalises the math)
+  - `compute_total(criteria_defs, values)` — `sum(value/max_value * weight)`, clamped 0..max per criterion
+  - `clean_values(criteria_defs, incoming)` — whitelist + range check, raises ValueError → 400
+- **`Lead.priority_label`** is a `@property` reading through the scoring helper. `LeadOut`/`LeadListItemOut` carry it so the frontend never renders raw letters.
+- **`PATCH /api/leads/{id}/deal`** — partial update via `model_fields_set` so a `null` explicitly clears a column while a missing key leaves it alone.
+- **`GET /api/leads/{id}/score-details`** — joins workspace `scoring_criteria` × `lead.score_details_json`, returns `{total, max, priority, priority_label, criteria[]}`. Always returns the full criteria list (with `current_value=0` for keys the manager hasn't touched).
+- **`PATCH /api/leads/{id}/score-details`** — merges patch dict into JSONB, recomputes `leads.score` AND `leads.priority` from the merged dict, persists. Drops unknown keys silently (workspace-config drift safety); out-of-range values → 400.
+- **`GET /api/leads/{id}/stage-durations`** — reads `lead_stage_history` and returns one row per stage in the lead's pipeline: `{stage_id, stage_name, position, days, status: done|current|pending}`. Closed rows aggregated by `duration_sec`; current stage computed from `now - entered_at`. Stages never visited come back with `days: null, status: 'pending'`.
+- **New frontend hooks** in `lib/hooks/use-lead-v2.ts`: `useStageDurations, useUpdateDealFields, useScoreBreakdown, useUpdateScoreDetails` with cache invalidation chains so the header pill / score card stay in sync.
+- **`StagesStepper`** — horizontal stepper above the tabs. Green check dot + muted "N дней" for done, accent dot with 4px glow + larger days for current, empty dot for pending. Pipelines wider than the viewport scroll inside the container.
+- **`DealValueStrip`** — single card below the stepper: 💰 sum + 📦 qty × model + ✎ pencil. Empty state → «＋ Добавить детали сделки» placeholder. Inline `DealEditModal` (3 fields, ru-RU locale, empty equipment → NULL).
+- **`ClientScoreCard`** replaces the right-column `ScoreCard.tsx`. Renamed «Оценка лида» → «Оценка клиента». Removed «DrinkX fit X/10» line — `fit_score` stays in DB but is no longer shown here. Whole card is a button → opens `ScoreBreakdownModal`.
+- **`ScoreBreakdownModal`** — editable popup with 0..max_value dot pickers per criterion. Live total + priority pill update in the modal header as the user clicks dots (mirrors the backend formula). Save PATCHes `/score-details`; server's recomputed `score`/`priority` come back in the LeadOut and refresh the underlying lead query.
+- **LeadCard header rewrite**:
+  - Priority pill shows the Russian WORD via `lead.priority_label`; raw letter is no longer visible on the screen.
+  - New Row 2 meta strip: ★ Primary LPR · 📅 в работе с {assigned_at ?? created_at} · 🟢 активность {last_activity_at}.
+  - «Закрыто» button became a «Закрыть сделку ▾» dropdown: «Закрыть как выигран» (direct `move_stage`) / «Закрыть как проигран (с причиной)» (opens existing `LostModal`). `CloseModal` removed.
+- **`ScoreCard.tsx` deleted** alongside the related typedoc references.
+
+---
+
+## Open issues / risks after the arc
+
+1. **Stage-dwell analytics not surfaced yet.** `lead_stage_history` now accumulates per-transition rows but the data is read only by `/stage-durations` for one lead at a time. There's no workspace-wide «average days per stage» / «leads stuck > 14 days» report. See roadmap «stage dwell analytics».
+2. **Stale TODOs in code, post-arc:** Sprint 2.1 «encrypt at rest» TODOs that were closed in 2.1 G1 still sit in `inbox/models.py:38`, `inbox/crypto.py:3`, `alembic/versions/20260507_0008_channel_connections.py:39`. Cosmetic — remove next time someone touches the file.
+3. **Email-history sort key fragility.** The `_SORT_KEY` expression in `app/activity/repositories.py` only works because the column is `json` and we use `json_extract_path_text`. If a future migration switches to `JSONB`, the function name has to flip too. Worth a comment-of-record but not an action item right now.
+4. **CI smoke gap.** Two prod 500s shipped this arc because the api entrypoint `alembic upgrade head && uvicorn` doesn't exercise endpoints. Adding a single `curl /api/leads?page_size=1` after deploy would have caught both within seconds. Tracked under «soft-launch hardening» in the roadmap.
+
+---
+
 ## Next
 
-To be decided by the operator after 3.4 lands in production. Three obvious candidates:
+Operator pick after Lead Card Refresh arc lands cleanly. Three obvious candidates:
 
-1. **Sprint 3.5 — Inbox follow-ups.** Pick up the carry-overs from 3.4 once Telegram + Mango are smoked: MAX Bot (G3), Gmail send (G5), per-manager Telegram bots through `channel_connections`. Code-side TODO already in `app/inbox/adapters/telegram.py` + `app/inbox/webhooks.py`.
-2. **Sprint 3.2 — Lead AI Agent polish.** Per-suggestion id + persistent dismiss; thumbs up/down; chat streaming; LLM-based SPIN analysis of inbound. Parked since 3.1.
-3. **Soft-launch hardening** — Sentry DSNs (init wiring is ready since 2.7), pg_dump backups, end-to-end smoke ritual after each deploy.
+1. **Stage dwell time analytics** — consume `lead_stage_history` for a workspace-wide view of how long deals sit at each stage, surface in `/today` or `/settings → Скоринг`. Migration not needed; service + endpoint + UI card.
+2. **Sprint 3.5 — Inbox follow-ups.** Carry-overs from 3.4: MAX Bot, Gmail send, per-manager Telegram bots through `channel_connections`. Brings Telegram + phone messages back into the unified feed once they're shipped.
+3. **Sprint 3.2 — Lead AI Agent polish.** Per-suggestion id + persistent dismiss, thumbs up/down, chat streaming, SPIN analysis of inbound. Parked since 3.1.
+4. **Soft-launch hardening** — Sentry DSNs, pg_dump backups, CI endpoint smoke ritual.
 
-When you pick one, drop the spec into `docs/brain/04_NEXT_SPRINT.md` — that file currently holds the 3.4 reference and a "TBD" placeholder.
+When you pick one, drop the spec into `docs/brain/04_NEXT_SPRINT.md`.
 
-Active migrations on `main`: `0001..0026` (3.3 added 0023+0024, 3.4 added 0025+0026). Next free index: `0027`.
+Active migrations on `main`: `0001..0030`. Next free index: `0031`.
