@@ -78,6 +78,24 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     score: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     fit_score: Mapped[float | None] = mapped_column(Numeric(4, 2), nullable=True)
 
+    # Lead Card v2 sprint — deal-value strip (migration 0030).
+    # Manager fills these manually; no AI write path.
+    deal_amount: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    deal_quantity: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    deal_equipment: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+    # Per-criterion score breakdown (migration 0030). Keys match
+    # `scoring_criteria.criterion_key` for the workspace; values are
+    # ints 0..max_value (max_value=5 by seed). `leads.score` integer
+    # is recomputed from this dict whenever the manager edits via
+    # PATCH /leads/{id}/score-details.
+    score_details_json: Mapped[dict] = mapped_column(
+        JSON,
+        default=dict,
+        nullable=False,
+        server_default=sa.text("'{}'::jsonb"),
+    )
+
     # Lead Pool (ADR-015)
     # assigned_to / transferred_from are FKs to users but have no ORM relationship —
     # loading the user is done in the service layer via a JOIN to avoid coupling the
@@ -137,6 +155,16 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     # the new Lead.primary_contact_id). `foreign_keys` pins this
     # relationship to the Contact-side column so SQLAlchemy can build
     # the join clause.
+    @property
+    def priority_label(self) -> str | None:
+        """Human-readable Russian label derived from the raw priority
+        letter. Read by `LeadOut`/`LeadListItemOut` via
+        `from_attributes=True`; the LeadCard header pill renders this
+        instead of "B"/"C"/"D"."""
+        from app.leads.scoring import priority_label
+
+        return priority_label(self.priority)
+
     contacts: Mapped[list["Contact"]] = relationship(  # type: ignore[name-defined]
         back_populates="lead",
         cascade="all, delete-orphan",

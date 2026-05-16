@@ -17,6 +17,12 @@ interface Props {
   /** Seed value pushed in by callers (e.g. «@Чак » from FeedItemAI button). */
   seed?: string;
   onSeedConsumed?: () => void;
+  /** Lead Card v2 — switch the composer into a specific mode and
+   *  focus the input. Used by `NextStepBanner` to drop the user
+   *  straight into task creation. Cleared via `onModeRequestConsumed`
+   *  after applying. */
+  modeRequest?: Mode | null;
+  onModeRequestConsumed?: () => void;
 }
 
 type Mode = "comment" | "task" | "call" | "file";
@@ -29,7 +35,13 @@ type Mode = "comment" | "task" | "call" | "file";
  * submission to the ask-chak endpoint instead of creating a regular
  * comment. The marker is stripped before the question is sent.
  */
-export function FeedComposer({ leadId, seed, onSeedConsumed }: Props) {
+export function FeedComposer({
+  leadId,
+  seed,
+  onSeedConsumed,
+  modeRequest,
+  onModeRequestConsumed,
+}: Props) {
   const [mode, setMode] = useState<Mode>("comment");
   const [text, setText] = useState("");
   const [taskDue, setTaskDue] = useState<string>(""); // yyyy-mm-dd
@@ -48,6 +60,14 @@ export function FeedComposer({ leadId, seed, onSeedConsumed }: Props) {
     setTimeout(() => inputRef.current?.focus(), 30);
     onSeedConsumed?.();
   }, [seed, onSeedConsumed]);
+
+  // External mode-switch (e.g. NextStepBanner empty-state strip).
+  useEffect(() => {
+    if (!modeRequest) return;
+    setMode(modeRequest);
+    setTimeout(() => inputRef.current?.focus(), 30);
+    onModeRequestConsumed?.();
+  }, [modeRequest, onModeRequestConsumed]);
 
   function reset() {
     setText("");

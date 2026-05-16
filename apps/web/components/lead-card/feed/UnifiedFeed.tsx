@@ -37,6 +37,9 @@ export function UnifiedFeed({ leadId }: Props) {
   const feed = useFeed(leadId);
   const [openEmail, setOpenEmail] = useState<FeedItemOut | null>(null);
   const [composerSeed, setComposerSeed] = useState<string | undefined>(undefined);
+  const [composerModeRequest, setComposerModeRequest] = useState<
+    "comment" | "task" | "call" | "file" | null
+  >(null);
 
   // Flatten the paged feed into one chronological list.
   const items = useMemo(() => {
@@ -62,7 +65,10 @@ export function UnifiedFeed({ leadId }: Props) {
 
   return (
     <div className="space-y-4">
-      <NextStepBanner items={items} />
+      <NextStepBanner
+        items={items}
+        onCreateTaskRequest={() => setComposerModeRequest("task")}
+      />
 
       <div className="space-y-3">
         {items.length === 0 && (
@@ -115,6 +121,8 @@ export function UnifiedFeed({ leadId }: Props) {
         leadId={leadId}
         seed={composerSeed}
         onSeedConsumed={() => setComposerSeed(undefined)}
+        modeRequest={composerModeRequest}
+        onModeRequestConsumed={() => setComposerModeRequest(null)}
       />
 
       {openEmail && (

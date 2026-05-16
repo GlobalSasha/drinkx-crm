@@ -13,6 +13,9 @@ import {
   Send,
   Lock,
   Trash2,
+  Star,
+  Calendar,
+  Activity as ActivityIcon,
 } from "lucide-react";
 import { useLead, useUpdateLead } from "@/lib/hooks/use-lead";
 import { usePipelines, DEFAULT_STAGES } from "@/lib/hooks/use-pipelines";
@@ -24,15 +27,42 @@ import { ContactsTab } from "./ContactsTab";
 import { UnifiedFeed } from "./feed/UnifiedFeed";
 import { FollowupsRail } from "./FollowupsRail";
 import { CustomFieldsPanel } from "./CustomFieldsPanel";
-import { ScoreCard } from "./ScoreCard";
+import { ClientScoreCard } from "./ClientScoreCard";
+import { DealValueStrip } from "./DealValueStrip";
+import { StagesStepper } from "./StagesStepper";
 import { ResearchGapsCard } from "./ResearchGapsCard";
 import { GateModal } from "./GateModal";
 import { LostModal } from "./LostModal";
 import { TransferModal } from "./TransferModal";
-import { CloseModal } from "./CloseModal";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
-import { priorityChip } from "@/lib/ui/priority";
 import { C } from "@/lib/design-system";
+
+// Priority pill colors keyed on the letter (A/B/C/D). Lead Card v2:
+// the visible label is now the Russian word from `lead.priority_label`
+// (server-side), but the background tone still varies by letter to
+// keep the visual hierarchy. Letter A is the brand-loud one; D fades
+// to gray.
+function priorityPillStyle(letter: string | null | undefined): string {
+  switch (letter) {
+    case "A":
+      return "bg-success/15 text-success";
+    case "B":
+      return "bg-success/10 text-success";
+    case "C":
+      return "bg-warning/10 text-warning";
+    case "D":
+      return "bg-black/5 text-brand-muted";
+    default:
+      return "bg-black/5 text-brand-muted";
+  }
+}
+
+function formatRelativeShort(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "short" });
+}
 
 function formatWonLostDate(iso: string | null | undefined): string {
   if (!iso) return "";
@@ -85,7 +115,11 @@ export function LeadCard({ leadId }: Props) {
   const [gateTarget, setGateTarget] = useState<Stage | null>(null);
   const [lostStage, setLostStage] = useState<Stage | null>(null);
   const [transferOpen, setTransferOpen] = useState(false);
-  const [closeOpen, setCloseOpen] = useState(false);
+  // Lead Card v2: «Закрыто» button is now a tiny dropdown so the
+  // manager picks Won / Lost without going through CloseModal's
+  // grid. Won → straight call into useMoveStage; Lost → opens the
+  // existing LostModal with the required reason field.
+  const [closeMenuOpen, setCloseMenuOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -182,10 +216,24 @@ export function LeadCard({ leadId }: Props) {
   const wonStage = stages.find((s) => s.is_won) ?? null;
   const lostStageRef = stages.find((s) => s.is_lost) ?? null;
 
-  const priorityClass =
-    lead.priority === "A"
-      ? "bg-warning text-white"
-      : priorityChip(lead.priority);
+  const priorityClass = priorityPillStyle(lead.priority);
+
+  function handleCloseWon() {
+    setCloseMenuOpen(false);
+    if (!wonStage) return;
+    moveStage.mutate(
+      { leadId: lead!.id, body: { stage_id: wonStage.id } },
+      {
+        onSuccess: () => showToast("Сделка отмечена выигранной"),
+      },
+    );
+  }
+
+  function handleCloseLost() {
+    setCloseMenuOpen(false);
+    if (!lostStageRef) return;
+    setLostStage(lostStageRef);
+  }
 
   return (
     <div className="font-sans min-h-screen bg-canvas flex flex-col">
@@ -260,15 +308,50 @@ export function LeadCard({ leadId }: Props) {
                 <Send size={13} />
                 Передать
               </button>
-              <button
-                type="button"
-                onClick={() => setCloseOpen(true)}
-                disabled={isClosed}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 type-body font-semibold ${C.button.ghost} disabled:opacity-40 disabled:cursor-not-allowed transition-opacity`}
-              >
-                <Lock size={13} />
-                Закрыто
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setCloseMenuOpen((v) => !v)}
+                  disabled={isClosed}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 type-body font-semibold ${C.button.ghost} disabled:opacity-40 disabled:cursor-not-allowed transition-opacity`}
+                >
+                  <Lock size={13} />
+                  Закрыть сделку
+                  <ChevronDown size={11} />
+                </button>
+                {closeMenuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setCloseMenuOpen(false)}
+                    />
+                    <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-brand-border rounded-2xl shadow-soft z-20 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={handleCloseWon}
+                        disabled={!wonStage}
+                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left type-caption hover:bg-success/5 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <CheckCircle2 size={13} className="text-success" />
+                        <span className="font-semibold text-success">
+                          Закрыть как выигран
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCloseLost}
+                        disabled={!lostStageRef}
+                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left type-caption hover:bg-rose/5 disabled:opacity-40 disabled:cursor-not-allowed border-t border-brand-border"
+                      >
+                        <XCircle size={13} className="text-rose" />
+                        <span className="font-semibold text-rose">
+                          Закрыть как проигран (с причиной)
+                        </span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() => setDeleteOpen(true)}
@@ -280,7 +363,34 @@ export function LeadCard({ leadId }: Props) {
             </div>
           </div>
 
-          {/* Row 2: badges */}
+          {/* Row 2: meta — primary LPR + key dates. Hidden if nothing
+              to show so the header collapses gracefully on bare leads. */}
+          {(lead.primary_contact_name || lead.assigned_at || lead.last_activity_at) && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 ml-9 type-caption text-brand-muted">
+              {lead.primary_contact_name && (
+                <span className="inline-flex items-center gap-1">
+                  <Star size={11} fill="currentColor" className="text-brand-accent" />
+                  <span className="text-brand-primary font-semibold">
+                    {lead.primary_contact_name}
+                  </span>
+                </span>
+              )}
+              {(lead.assigned_at || lead.created_at) && (
+                <span className="inline-flex items-center gap-1">
+                  <Calendar size={11} />
+                  в работе с {formatRelativeShort(lead.assigned_at ?? lead.created_at)}
+                </span>
+              )}
+              {lead.last_activity_at && (
+                <span className="inline-flex items-center gap-1">
+                  <ActivityIcon size={11} className="text-success" />
+                  активность {formatRelativeShort(lead.last_activity_at)}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Row 3: stage / priority / segment pills */}
           <div className="flex flex-wrap items-center gap-2 mt-3 ml-9">
             <button
               type="button"
@@ -332,11 +442,11 @@ export function LeadCard({ leadId }: Props) {
 
             <span className="w-px h-4 bg-brand-border" aria-hidden="true" />
 
-            {lead.priority && (
+            {(lead.priority_label || lead.priority) && (
               <span
-                className={`type-caption font-semibold px-2 py-0.5 rounded-full ${priorityClass}`}
+                className={`type-caption font-semibold px-2.5 py-0.5 rounded-full ${priorityClass}`}
               >
-                {lead.priority}
+                {lead.priority_label ?? lead.priority}
               </span>
             )}
 
@@ -370,6 +480,17 @@ export function LeadCard({ leadId }: Props) {
               </span>
             </div>
           )}
+
+          {/* Lead Card v2 — stages stepper + deal-value strip,
+              mounted between header pills and tabs. Both blocks are
+              self-fetching (their own queries) so they don't bloat
+              this component. */}
+          <div className="mt-4">
+            <StagesStepper leadId={lead.id} />
+          </div>
+          <div className="mt-3">
+            <DealValueStrip lead={lead} />
+          </div>
 
           {/* Tab switcher */}
           <div className="sm:hidden mt-4">
@@ -418,7 +539,7 @@ export function LeadCard({ leadId }: Props) {
           {/* Right column */}
           <aside className="w-full md:w-[296px] md:shrink-0 flex flex-col gap-4 order-1 md:order-2">
             <FollowupsRail leadId={lead.id} />
-            <ScoreCard lead={lead} />
+            <ClientScoreCard lead={lead} />
             <ResearchGapsCard lead={lead} />
             <CustomFieldsPanel leadId={lead.id} />
           </aside>
@@ -444,16 +565,9 @@ export function LeadCard({ leadId }: Props) {
         />
       )}
 
-      {closeOpen && (
-        <CloseModal
-          leadId={lead.id}
-          wonStage={wonStage}
-          lostStage={lostStageRef}
-          onClose={() => setCloseOpen(false)}
-          onSuccess={() => showToast("Сделка отмечена выигранной")}
-          onLostFlow={() => setLostStage(lostStageRef)}
-        />
-      )}
+      {/* CloseModal removed (Lead Card v2): the «Закрыть сделку ▾»
+          dropdown in the header now triggers Won inline or routes Lost
+          to LostModal below. */}
 
       {lostStage && (
         <LostModal

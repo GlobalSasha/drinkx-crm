@@ -453,3 +453,260 @@ async def set_primary_contact(
     refreshed = await repo.get_by_id(db, lead_id, workspace_id)
     assert refreshed is not None
     return refreshed
+
+
+# ---------------------------------------------------------------------------
+# Lead Card v2 — deal-value strip + manual scoring (Sprint Lead Card v2)
+# ---------------------------------------------------------------------------
+
+
+async def patch_deal_fields(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+    fields_set: set[str],
+    deal_amount: object,
+    deal_quantity: object,
+    deal_equipment: object,
+) -> Lead:
+    """Partial update of `deal_amount / deal_quantity / deal_equipment`.
+
+    Only columns whose key is in `fields_set` get touched — that's how
+    we tell «explicitly set to null» (clear the value) apart from
+    «not in payload» (leave as is). Pydantic gives the set via
+    `body.model_fields_set`.
+    """
+    lead = await repo.get_by_id(db, lead_id, workspace_id)
+    if lead is None:
+        raise LeadNotFound(lead_id)
+
+    if "deal_amount" in fields_set:
+        lead.deal_amount = deal_amount  # type: ignore[assignment]
+    if "deal_quantity" in fields_set:
+        lead.deal_quantity = deal_quantity  # type: ignore[assignment]
+    if "deal_equipment" in fields_set:
+        # Empty string normalises to NULL so an «erased» input doesn't
+        # leave a sentinel empty string in the column.
+        val = deal_equipment if deal_equipment else None
+        lead.deal_equipment = val  # type: ignore[assignment]
+
+    await db.commit()
+    refreshed = await repo.get_by_id(db, lead_id, workspace_id)
+    assert refreshed is not None
+    return refreshed
+
+
+async def _load_criteria(
+    db: AsyncSession, workspace_id: uuid.UUID
+):
+    """Fetch the workspace's `scoring_criteria` rows as a list of
+    `CriterionDef` for the scoring math module. Order by `weight DESC`
+    so the score-breakdown popup ranks heavy criteria first."""
+    from sqlalchemy import select
+    from app.auth.models import ScoringCriteria
+    from app.leads.scoring import CriterionDef
+
+    result = await db.execute(
+        select(ScoringCriteria)
+        .where(ScoringCriteria.workspace_id == workspace_id)
+        .order_by(ScoringCriteria.weight.desc(), ScoringCriteria.criterion_key.asc())
+    )
+    rows = list(result.scalars().all())
+    return rows, [
+        CriterionDef(
+            key=r.criterion_key,
+            label=r.label,
+            weight=r.weight,
+            max_value=r.max_value,
+        )
+        for r in rows
+    ]
+
+
+async def patch_score_details(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+    patch: dict,
+) -> Lead:
+    """Merge a partial score-details patch into `leads.score_details_json`,
+    recompute `leads.score` + `leads.priority` from the new dict, and
+    return the lead.
+
+    Validation lives in `scoring.clean_values` — unknown criterion keys
+    are dropped, out-of-range values raise ValueError → the router
+    surfaces 400.
+    """
+    from app.leads.scoring import (
+        clean_values,
+        compute_total,
+        priority_from_score,
+    )
+
+    lead = await repo.get_by_id(db, lead_id, workspace_id)
+    if lead is None:
+        raise LeadNotFound(lead_id)
+
+    _, criteria_defs = await _load_criteria(db, workspace_id)
+
+    cleaned = clean_values(criteria_defs, patch)
+
+    merged = dict(lead.score_details_json or {})
+    merged.update(cleaned)
+    lead.score_details_json = merged
+
+    total = compute_total(criteria_defs, merged)
+    lead.score = total
+    lead.priority = priority_from_score(total)
+
+    await db.commit()
+    refreshed = await repo.get_by_id(db, lead_id, workspace_id)
+    assert refreshed is not None
+    return refreshed
+
+
+async def get_score_breakdown(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+) -> dict:
+    """Read-side join: workspace `scoring_criteria` × lead's
+    `score_details_json`. Returns the shape `ScoreBreakdownOut`
+    expects — total + max + priority/label + per-criterion list."""
+    from app.leads.scoring import compute_total, priority_label as _label
+
+    lead = await repo.get_by_id(db, lead_id, workspace_id)
+    if lead is None:
+        raise LeadNotFound(lead_id)
+
+    rows, defs = await _load_criteria(db, workspace_id)
+    values = dict(lead.score_details_json or {})
+
+    total = compute_total(defs, values)
+    max_total = sum(c.weight for c in defs)
+    priority = lead.priority
+
+    criteria = []
+    for c in defs:
+        v = values.get(c.key, 0)
+        try:
+            v = int(v)
+        except (TypeError, ValueError):
+            v = 0
+        v = max(0, min(c.max_value, v))
+        contribution = (v / c.max_value) * c.weight if c.max_value > 0 else 0.0
+        criteria.append(
+            {
+                "key": c.key,
+                "label": c.label,
+                "weight": c.weight,
+                "max_value": c.max_value,
+                "current_value": v,
+                "contribution": round(contribution, 2),
+            }
+        )
+
+    return {
+        "total": total,
+        "max": max_total,
+        "priority": priority,
+        "priority_label": _label(priority),
+        "criteria": criteria,
+    }
+
+
+async def get_stage_durations(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+) -> list[dict]:
+    """For every stage in this lead's pipeline (or the workspace's
+    default pipeline if the lead is detached), return:
+
+      stage_id, stage_name, position, days (int|None), status
+
+    `days` is computed from `lead_stage_history` rows:
+      - stage closed (exited_at set)   → ceil(duration_sec / 86400)
+      - current stage (exited_at NULL) → ceil((now - entered_at) / day)
+      - never visited                  → None
+
+    `status`:
+      - "done"     row has exited_at
+      - "current"  row has no exited_at AND stage_id == lead.stage_id
+      - "pending"  no history row OR row exists with no exited_at but
+                   the lead has since moved away (shouldn't happen in
+                   practice, but the guard keeps the response sane).
+    """
+    import math
+    from datetime import datetime, timezone
+    from sqlalchemy import select
+    from app.leads.models import LeadStageHistory
+    from app.pipelines.models import Pipeline, Stage
+    from app.pipelines import repositories as pipelines_repo
+
+    lead = await repo.get_by_id(db, lead_id, workspace_id)
+    if lead is None:
+        raise LeadNotFound(lead_id)
+
+    pipeline_id = lead.pipeline_id
+    if pipeline_id is None:
+        pipeline_id = await pipelines_repo.get_default_pipeline_id(
+            db, workspace_id=workspace_id
+        )
+    if pipeline_id is None:
+        return []
+
+    stages_result = await db.execute(
+        select(Stage)
+        .where(Stage.pipeline_id == pipeline_id)
+        .order_by(Stage.position.asc())
+    )
+    stages = list(stages_result.scalars().all())
+
+    history_result = await db.execute(
+        select(LeadStageHistory)
+        .where(LeadStageHistory.lead_id == lead_id)
+        .order_by(LeadStageHistory.entered_at.asc())
+    )
+    history = list(history_result.scalars().all())
+
+    # Sum closed durations and pick out an open row per stage_id.
+    sum_done: dict[uuid.UUID, int] = {}
+    open_row: dict[uuid.UUID, LeadStageHistory] = {}
+    for row in history:
+        if row.exited_at is None:
+            open_row[row.stage_id] = row
+        else:
+            if row.duration_sec is not None:
+                sum_done[row.stage_id] = sum_done.get(row.stage_id, 0) + int(row.duration_sec)
+
+    now = datetime.now(timezone.utc)
+    out: list[dict] = []
+    for s in stages:
+        is_current = (
+            s.id in open_row
+            and lead.stage_id is not None
+            and s.id == lead.stage_id
+        )
+        days: int | None
+        status: str
+        if is_current:
+            elapsed = (now - open_row[s.id].entered_at).total_seconds()
+            days = max(0, int(math.ceil(elapsed / 86400)))
+            status = "current"
+        elif s.id in sum_done:
+            days = max(0, int(math.ceil(sum_done[s.id] / 86400)))
+            status = "done"
+        else:
+            days = None
+            status = "pending"
+        out.append(
+            {
+                "stage_id": s.id,
+                "stage_name": s.name,
+                "position": s.position,
+                "days": days,
+                "status": status,
+            }
+        )
+    return out
