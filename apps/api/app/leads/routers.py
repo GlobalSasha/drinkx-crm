@@ -20,6 +20,7 @@ from app.leads.schemas import (
     LeadUpdate,
     MoveStageBlockedDetail,
     MoveStageIn,
+    PrimaryContactIn,
     SprintCreateIn,
     SprintCreateOut,
     TransferIn,
@@ -28,6 +29,7 @@ from app.leads.services import (
     LeadAlreadyClaimed,
     LeadNotFound,
     LeadNotOwnedByUser,
+    PrimaryContactInvalid,
     StageNotFound,
     TransferTargetInvalid,
 )
@@ -295,6 +297,31 @@ async def move_stage(
         await db.commit()
 
     await flush_pending_email_dispatches(pending_emails)
+    return lead  # type: ignore[return-value]
+
+
+@router.patch("/{lead_id}/primary-contact", response_model=LeadOut)
+async def set_primary_contact(
+    lead_id: UUID,
+    payload: PrimaryContactIn,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> LeadOut:
+    """Pin one Contact as «основной ЛПР» for this lead. Pass
+    `{"contact_id": null}` to clear. Setting a new primary
+    automatically replaces the previous — `primary_contact_id` is
+    a single FK column on `leads`."""
+    try:
+        lead = await services.set_primary_contact(
+            db, user.workspace_id, lead_id, payload.contact_id
+        )
+    except LeadNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+    except PrimaryContactInvalid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Contact not found or does not belong to this lead",
+        )
     return lead  # type: ignore[return-value]
 
 

@@ -82,6 +82,15 @@ class LeadOut(LeadBase):
     lost_at: datetime | None
     lost_reason: str | None
     ai_data: dict | None = None
+    # Primary contact («основной ЛПР») — id from leads.primary_contact_id,
+    # name resolved via LEFT JOIN in the list-query repository.
+    primary_contact_id: UUID | None = None
+    primary_contact_name: str | None = None
+    # Open work counters. Split is reminder_kind-based per Sprint pre-flight:
+    #   open_tasks_count     = status != 'done' AND reminder_kind = 'manager'
+    #   open_followups_count = status != 'done' AND reminder_kind IN ('auto_email', 'ai_hint')
+    open_followups_count: int = 0
+    open_tasks_count: int = 0
     created_at: datetime
     updated_at: datetime
 
@@ -113,6 +122,10 @@ class LeadListItemOut(LeadBase):
     won_at: datetime | None
     lost_at: datetime | None
     lost_reason: str | None
+    primary_contact_id: UUID | None = None
+    primary_contact_name: str | None = None
+    open_followups_count: int = 0
+    open_tasks_count: int = 0
     created_at: datetime
     updated_at: datetime
 
@@ -146,6 +159,12 @@ class MoveStageIn(BaseModel):
     gate_skipped: bool = False
     skip_reason: str | None = None
     lost_reason: str | None = None  # only used when entering lost stage
+
+
+class PrimaryContactIn(BaseModel):
+    """Body for PATCH /leads/{id}/primary-contact. Pass null to clear."""
+
+    contact_id: UUID | None = None
 
 
 class GateViolationOut(BaseModel):

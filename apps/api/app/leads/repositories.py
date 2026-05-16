@@ -5,18 +5,74 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import func, nullslast, select, text, update
+from sqlalchemy import and_, case, func, nullslast, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
+from app.contacts.models import Contact
+from app.followups.models import Followup
 from app.leads.models import Lead
 
 
-async def get_by_id(db: AsyncSession, lead_id: uuid.UUID, workspace_id: uuid.UUID) -> Lead | None:
-    result = await db.execute(
-        select(Lead).where(Lead.id == lead_id, Lead.workspace_id == workspace_id)
+# Reminder kinds that count as «задача» (manual work) vs «followup»
+# (automated touch). Pre-flight decision — see Sprint spec.
+_TASK_KINDS = ("manager",)
+_FOLLOWUP_KINDS = ("auto_email", "ai_hint")
+
+
+def _open_count_subquery(reminder_kinds: tuple[str, ...]):
+    """Return a correlated SELECT COUNT(*) of Followup rows for a lead
+    whose status != 'done' and reminder_kind is in the given set.
+    Wrapping as a scalar subquery in the SELECT list — one round-trip,
+    no N+1."""
+    return (
+        select(func.count(Followup.id))
+        .where(Followup.lead_id == Lead.id)
+        .where(Followup.status != "done")
+        .where(Followup.reminder_kind.in_(reminder_kinds))
+        .correlate(Lead)
+        .scalar_subquery()
     )
-    return result.scalar_one_or_none()
+
+
+def _populate_extras(rows: list[tuple]) -> list[Lead]:
+    """Walk the (Lead, primary_contact_name, open_tasks, open_followups)
+    rows produced by the list queries and hang the joined values onto
+    the Lead instance so Pydantic `from_attributes=True` picks them up
+    without a second pass."""
+    out: list[Lead] = []
+    for lead, contact_name, tasks_count, followups_count in rows:
+        lead.primary_contact_name = contact_name  # type: ignore[attr-defined]
+        lead.open_tasks_count = int(tasks_count or 0)  # type: ignore[attr-defined]
+        lead.open_followups_count = int(followups_count or 0)  # type: ignore[attr-defined]
+        out.append(lead)
+    return out
+
+
+async def get_by_id(db: AsyncSession, lead_id: uuid.UUID, workspace_id: uuid.UUID) -> Lead | None:
+    """Fetch a single lead with primary-contact name + open work counts.
+
+    The Lead Card needs the same 4 extra fields the list view does
+    (`primary_contact_name`, `open_tasks_count`, `open_followups_count`,
+    plus the resolved `primary_contact_id` from the row). We attach
+    them onto the ORM instance so Pydantic `from_attributes=True`
+    serializes them transparently."""
+    stmt = (
+        select(
+            Lead,
+            Contact.name.label("primary_contact_name"),
+            _open_count_subquery(_TASK_KINDS).label("open_tasks_count"),
+            _open_count_subquery(_FOLLOWUP_KINDS).label("open_followups_count"),
+        )
+        .select_from(Lead)
+        .outerjoin(Contact, Contact.id == Lead.primary_contact_id)
+        .where(Lead.id == lead_id, Lead.workspace_id == workspace_id)
+    )
+    row = (await db.execute(stmt)).first()
+    if row is None:
+        return None
+    populated = _populate_extras([row])
+    return populated[0]
 
 
 async def list_leads(
@@ -65,18 +121,24 @@ async def list_leads(
     count_result = await db.execute(select(func.count()).select_from(base.subquery()))
     total: int = count_result.scalar_one()
 
-    # Defer heavy JSON columns from the row payload — the list response
-    # (LeadListItemOut) doesn't include them, so dragging them across
-    # the wire just to drop them in Pydantic is pure waste. ai_data is
-    # the AI Brief output (kilobytes per lead), agent_state is the
-    # Lead AI Agent memory.
-    rows_result = await db.execute(
-        base.options(defer(Lead.ai_data), defer(Lead.agent_state))
+    # Add primary contact name + open-task/followup counts to each row
+    # via LEFT JOIN + correlated scalar subqueries. One round-trip, no
+    # N+1 across the page. `defer()` skips heavy JSONB columns that
+    # the list response doesn't include (ai_data, agent_state).
+    list_stmt = (
+        base.add_columns(
+            Contact.name.label("primary_contact_name"),
+            _open_count_subquery(_TASK_KINDS).label("open_tasks_count"),
+            _open_count_subquery(_FOLLOWUP_KINDS).label("open_followups_count"),
+        )
+        .outerjoin(Contact, Contact.id == Lead.primary_contact_id)
+        .options(defer(Lead.ai_data), defer(Lead.agent_state))
         .order_by(Lead.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
     )
-    return list(rows_result.scalars().all()), total
+    rows_result = await db.execute(list_stmt)
+    return _populate_extras(list(rows_result.all())), total
 
 
 async def list_pool(
@@ -104,13 +166,20 @@ async def list_pool(
     count_result = await db.execute(select(func.count()).select_from(base.subquery()))
     total: int = count_result.scalar_one()
 
-    rows_result = await db.execute(
-        base.options(defer(Lead.ai_data), defer(Lead.agent_state))
+    list_stmt = (
+        base.add_columns(
+            Contact.name.label("primary_contact_name"),
+            _open_count_subquery(_TASK_KINDS).label("open_tasks_count"),
+            _open_count_subquery(_FOLLOWUP_KINDS).label("open_followups_count"),
+        )
+        .outerjoin(Contact, Contact.id == Lead.primary_contact_id)
+        .options(defer(Lead.ai_data), defer(Lead.agent_state))
         .order_by(nullslast(Lead.fit_score.desc()), Lead.created_at.asc())
         .offset((page - 1) * page_size)
         .limit(page_size)
     )
-    return list(rows_result.scalars().all()), total
+    rows_result = await db.execute(list_stmt)
+    return _populate_extras(list(rows_result.all())), total
 
 
 async def create_lead(

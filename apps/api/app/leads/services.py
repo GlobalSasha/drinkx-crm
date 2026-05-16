@@ -47,6 +47,11 @@ class StageNotFound(Exception):
     pass
 
 
+class PrimaryContactInvalid(Exception):
+    """Raised when the requested contact doesn't exist or doesn't belong
+    to the target lead."""
+
+
 # Re-export so callers can catch without importing from automation directly
 __all__ = [
     "StageNotFound",
@@ -384,3 +389,40 @@ async def move_lead_stage(
         },
     )
     return moved
+
+
+async def set_primary_contact(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+    contact_id: uuid.UUID | None,
+) -> Lead:
+    """Singled-out «основной ЛПР» on a lead. Pass None to clear.
+
+    `contact_id` (when set) must point to a Contact attached to this
+    very lead — cross-lead reuse is rejected so a manager can't
+    accidentally promote someone else's contact via UUID forgery.
+    """
+    from app.contacts.models import Contact
+
+    lead = await repo.get_by_id(db, lead_id, workspace_id)
+    if lead is None:
+        raise LeadNotFound(lead_id)
+
+    if contact_id is not None:
+        result = await db.execute(
+            select(Contact).where(
+                Contact.id == contact_id,
+                Contact.lead_id == lead_id,
+            )
+        )
+        if result.scalar_one_or_none() is None:
+            raise PrimaryContactInvalid(contact_id)
+
+    lead.primary_contact_id = contact_id
+    await db.commit()
+    # Re-fetch so the response carries the joined primary_contact_name
+    # and the open-counts subqueries.
+    refreshed = await repo.get_by_id(db, lead_id, workspace_id)
+    assert refreshed is not None
+    return refreshed

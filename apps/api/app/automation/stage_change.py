@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activity.models import Activity
 from app.contacts.models import Contact
-from app.leads.models import Lead
+from app.leads.models import Lead, LeadStageHistory
 from app.pipelines.models import Stage
 
 log = logging.getLogger(__name__)
@@ -178,6 +178,49 @@ async def fan_out_automation_builder(
     )
 
 
+async def record_stage_history(
+    ctx: TransitionContext, db: AsyncSession
+) -> None:
+    """Append-only `lead_stage_history` audit (migration 0029).
+
+    Closes the open row for the previous stage (sets `exited_at` +
+    `duration_sec`) and inserts a fresh open row for the destination.
+    Wrapped in try/except so a failure here never rolls back the
+    stage move — the move is already applied at this point and the
+    `activities.stage_change` row is the canonical audit trail."""
+    try:
+        now = datetime.now(timezone.utc)
+        # Close previous open row (if any).
+        result = await db.execute(
+            select(LeadStageHistory)
+            .where(LeadStageHistory.lead_id == ctx.lead.id)
+            .where(LeadStageHistory.exited_at.is_(None))
+            .order_by(LeadStageHistory.entered_at.desc())
+            .limit(1)
+        )
+        previous = result.scalar_one_or_none()
+        if previous is not None:
+            previous.exited_at = now
+            previous.duration_sec = int(
+                (now - previous.entered_at).total_seconds()
+            )
+        # Open row for the new stage.
+        db.add(
+            LeadStageHistory(
+                lead_id=ctx.lead.id,
+                stage_id=ctx.to_stage.id,
+                entered_at=now,
+            )
+        )
+    except Exception as exc:  # noqa: BLE001 — never block the move
+        log.warning(
+            "stage_change.history_write_failed lead_id=%s to_stage=%s error=%s",
+            ctx.lead.id,
+            ctx.to_stage.id,
+            str(exc)[:200],
+        )
+
+
 async def trigger_lead_agent_refresh(
     ctx: TransitionContext, db: AsyncSession
 ) -> None:
@@ -210,6 +253,7 @@ async def trigger_lead_agent_refresh(
 POST_ACTIONS: list[PostAction] = [
     set_won_lost_timestamps,
     log_stage_change_activity,
+    record_stage_history,
     fan_out_automation_builder,
     trigger_lead_agent_refresh,
 ]

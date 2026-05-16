@@ -47,3 +47,44 @@ export function useDeleteLead(id: string) {
     },
   });
 }
+
+
+/**
+ * Pin one Contact as «основной ЛПР» on the lead. Pass `null` to unpin.
+ * Setting a new primary automatically replaces the previous — the
+ * backend column is a single FK, so we don't have to clear the old
+ * one client-side.
+ *
+ * Optimistic: writes `primary_contact_id` into the cached LeadOut
+ * immediately so the star in the contacts tab flips without a
+ * round-trip. The server returns the full `LeadOut` with the joined
+ * `primary_contact_name`, which we then drop into the cache.
+ */
+export function useSetPrimaryContact(leadId: string) {
+  const qc = useQueryClient();
+  return useMutation<LeadOut, ApiError, string | null>({
+    mutationFn: (contactId) =>
+      api.patch<LeadOut>(`/leads/${leadId}/primary-contact`, {
+        contact_id: contactId,
+      }),
+    onMutate: async (contactId) => {
+      await qc.cancelQueries({ queryKey: ["lead", leadId] });
+      const prev = qc.getQueryData<LeadOut>(["lead", leadId]);
+      if (prev) {
+        qc.setQueryData<LeadOut>(["lead", leadId], {
+          ...prev,
+          primary_contact_id: contactId,
+        });
+      }
+      return { prev };
+    },
+    onError: (_err, _vars, context) => {
+      const ctx = context as { prev?: LeadOut } | undefined;
+      if (ctx?.prev) qc.setQueryData(["lead", leadId], ctx.prev);
+    },
+    onSuccess: (lead) => {
+      qc.setQueryData(["lead", leadId], lead);
+      qc.invalidateQueries({ queryKey: ["leads"] });
+    },
+  });
+}
