@@ -50,6 +50,16 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     stage_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("stages.id", ondelete="SET NULL"), nullable=True
     )
+    # Singled-out «основной ЛПР» — UI badges this contact on the pipeline
+    # card so the manager sees the decision-maker without opening the
+    # lead. Migration 0029 adds the column (FK SET NULL on contact
+    # delete). No ORM relationship — the resolver in the list-query
+    # repository does a LEFT JOIN to fetch just the contact name.
+    primary_contact_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("contacts.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     # Basic
     company_name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -136,4 +146,48 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
         sa.Index("ix_leads_workspace_stage", "workspace_id", "stage_id"),
         sa.Index("ix_leads_workspace_assignment", "workspace_id", "assignment_status"),
         sa.Index("ix_leads_rotting", "is_rotting_stage", "is_rotting_next_step"),
+    )
+
+
+class LeadStageHistory(Base, UUIDPrimaryKeyMixin):
+    """Append-only audit of stage transitions (migration 0029).
+
+    One open row per lead at any time (`exited_at IS NULL`). The
+    `stage_change.move_stage` post-action closes the open row on
+    transition and inserts a fresh open row for the destination
+    stage. Complements `activities` of `type='stage_change'` — that
+    log keeps per-event payload (gate violations, source, automation
+    id); this table is for «how long has this lead been in stage X»
+    queries that shouldn't have to scan Activity payload_json.
+    """
+
+    __tablename__ = "lead_stage_history"
+
+    lead_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("leads.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    stage_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("stages.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    entered_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=sa.text("now()"),
+        nullable=False,
+    )
+    exited_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    duration_sec: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    __table_args__ = (
+        sa.Index("ix_lead_stage_history_lead_entered", "lead_id", "entered_at"),
     )
