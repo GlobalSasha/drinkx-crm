@@ -15,9 +15,14 @@ from app.activity.models import Activity
 # in app/inbox/processor.py — ISO 8601 string) so a multi-month backfill
 # orders by send time, not by ingest time. Falls back to created_at for
 # rows without a payload received_at (notes, tasks, etc.).
+#
+# `activities.payload_json` is declared `JSON` in the model and lives on
+# Postgres as `json` (not `jsonb`). Use `json_extract_path_text` —
+# `jsonb_extract_path_text(json, ...)` doesn't exist and fails plan-time
+# on this endpoint (production 500 on /feed reported 2026-05-16).
 _SORT_KEY = func.coalesce(
     cast(
-        func.jsonb_extract_path_text(Activity.payload_json, "received_at"),
+        func.json_extract_path_text(Activity.payload_json, "received_at"),
         DateTime(timezone=True),
     ),
     Activity.created_at,
