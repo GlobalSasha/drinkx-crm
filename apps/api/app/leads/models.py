@@ -132,8 +132,15 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
         default=dict,
     )
 
+    # Disambiguate FKs: after migration 0029 there are TWO foreign-key
+    # paths between leads ⇄ contacts (the original Contact.lead_id and
+    # the new Lead.primary_contact_id). `foreign_keys` pins this
+    # relationship to the Contact-side column so SQLAlchemy can build
+    # the join clause.
     contacts: Mapped[list["Contact"]] = relationship(  # type: ignore[name-defined]
-        back_populates="lead", cascade="all, delete-orphan"
+        back_populates="lead",
+        cascade="all, delete-orphan",
+        foreign_keys="Contact.lead_id",
     )
     activities: Mapped[list["Activity"]] = relationship(  # type: ignore[name-defined]
         back_populates="lead", cascade="all, delete-orphan"
