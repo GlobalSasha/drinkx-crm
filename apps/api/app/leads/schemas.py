@@ -91,6 +91,14 @@ class LeadOut(LeadBase):
     #   open_followups_count = status != 'done' AND reminder_kind IN ('auto_email', 'ai_hint')
     open_followups_count: int = 0
     open_tasks_count: int = 0
+    # Deal-value strip (Lead Card v2, migration 0030)
+    deal_amount: Decimal | None = None
+    deal_quantity: int | None = None
+    deal_equipment: str | None = None
+    # Russian label derived from `priority` letter via
+    # `app.leads.scoring.priority_label`. Frontend reads this instead
+    # of the raw letter so the LeadCard never has to translate.
+    priority_label: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -126,6 +134,10 @@ class LeadListItemOut(LeadBase):
     primary_contact_name: str | None = None
     open_followups_count: int = 0
     open_tasks_count: int = 0
+    deal_amount: Decimal | None = None
+    deal_quantity: int | None = None
+    deal_equipment: str | None = None
+    priority_label: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -165,6 +177,57 @@ class PrimaryContactIn(BaseModel):
     """Body for PATCH /leads/{id}/primary-contact. Pass null to clear."""
 
     contact_id: UUID | None = None
+
+
+class DealPatchIn(BaseModel):
+    """Body for PATCH /leads/{id}/deal — partial update of the
+    deal-value strip. Any subset of the three fields is accepted;
+    omitted fields stay unchanged. Pass null to clear a single field."""
+
+    deal_amount: Decimal | None = None
+    deal_quantity: int | None = None
+    deal_equipment: str | None = None
+
+    # Whether the field was sent at all (vs. left unset). The router
+    # walks model_fields_set so a `null` clears the column but a missing
+    # key leaves it alone.
+    model_config = ConfigDict(extra="forbid")
+
+
+class ScoreDetailsPatchIn(BaseModel):
+    """Body for PATCH /leads/{id}/score-details. The dict is
+    whitelisted server-side against the workspace's `scoring_criteria`;
+    keys outside the set are silently dropped. Each value must be
+    integer 0..criterion.max_value."""
+
+    score_details: dict[str, int] = Field(default_factory=dict)
+
+
+class ScoreCriterionOut(BaseModel):
+    """One row in the score-breakdown response."""
+
+    key: str
+    label: str
+    weight: int
+    max_value: int
+    current_value: int
+    contribution: float  # value/max_value * weight, useful for the bar
+
+
+class ScoreBreakdownOut(BaseModel):
+    total: int
+    max: int
+    priority: str | None
+    priority_label: str | None
+    criteria: list[ScoreCriterionOut]
+
+
+class StageDurationOut(BaseModel):
+    stage_id: UUID
+    stage_name: str
+    position: int
+    days: int | None
+    status: str  # "done" | "current" | "pending"
 
 
 class GateViolationOut(BaseModel):

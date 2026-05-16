@@ -13,6 +13,7 @@ from app.automation.stage_change import StageTransitionBlocked, StageTransitionI
 from app.db import get_db
 from app.leads import services
 from app.leads.schemas import (
+    DealPatchIn,
     GateViolationOut,
     LeadCreate,
     LeadListOut,
@@ -21,8 +22,11 @@ from app.leads.schemas import (
     MoveStageBlockedDetail,
     MoveStageIn,
     PrimaryContactIn,
+    ScoreBreakdownOut,
+    ScoreDetailsPatchIn,
     SprintCreateIn,
     SprintCreateOut,
+    StageDurationOut,
     TransferIn,
 )
 from app.leads.services import (
@@ -450,3 +454,98 @@ async def upsert_lead_attribute(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail="Updated attribute not found in re-read",
     )
+
+
+# ---------------------------------------------------------------------------
+# Lead Card v2 — deal-value + manual scoring + stage-durations
+# ---------------------------------------------------------------------------
+
+
+@router.patch("/{lead_id}/deal", response_model=LeadOut)
+async def patch_deal(
+    lead_id: UUID,
+    payload: DealPatchIn,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> LeadOut:
+    """Partial update of the deal-value strip (sum / quantity /
+    equipment). Empty `deal_equipment` normalises to NULL."""
+    try:
+        lead = await services.patch_deal_fields(
+            db,
+            workspace_id=user.workspace_id,
+            lead_id=lead_id,
+            fields_set=payload.model_fields_set,
+            deal_amount=payload.deal_amount,
+            deal_quantity=payload.deal_quantity,
+            deal_equipment=payload.deal_equipment,
+        )
+    except LeadNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+    return lead  # type: ignore[return-value]
+
+
+@router.get("/{lead_id}/score-details", response_model=ScoreBreakdownOut)
+async def get_score_details(
+    lead_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> ScoreBreakdownOut:
+    """Per-criterion score breakdown for the popup — joins this
+    workspace's `scoring_criteria` with the lead's
+    `score_details_json`. Always returns the full criteria list (with
+    `current_value=0` for keys the manager hasn't touched yet)."""
+    try:
+        data = await services.get_score_breakdown(
+            db, workspace_id=user.workspace_id, lead_id=lead_id
+        )
+    except LeadNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+    return ScoreBreakdownOut.model_validate(data)
+
+
+@router.patch("/{lead_id}/score-details", response_model=LeadOut)
+async def patch_score_details(
+    lead_id: UUID,
+    payload: ScoreDetailsPatchIn,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> LeadOut:
+    """Manual edit of the 8-criteria scoring grid. Body shape:
+
+      { "score_details": { "scale_potential": 4, "budget_confirmed": 5, ... } }
+
+    Unknown keys are dropped; values outside 0..max_value → 400.
+    Server recomputes `leads.score` (integer 0..100) AND
+    `leads.priority` (A/B/C/D via 80/60/40 thresholds) from the
+    merged dict, then returns the updated LeadOut."""
+    try:
+        lead = await services.patch_score_details(
+            db,
+            workspace_id=user.workspace_id,
+            lead_id=lead_id,
+            patch=payload.score_details,
+        )
+    except LeadNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    return lead  # type: ignore[return-value]
+
+
+@router.get("/{lead_id}/stage-durations", response_model=list[StageDurationOut])
+async def get_stage_durations(
+    lead_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> list[StageDurationOut]:
+    """How many days a lead has spent in each stage of its pipeline.
+    Source: `lead_stage_history` table (Sprint Lead Card Redesign).
+    See service docstring for the per-stage day computation."""
+    try:
+        rows = await services.get_stage_durations(
+            db, workspace_id=user.workspace_id, lead_id=lead_id
+        )
+    except LeadNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+    return [StageDurationOut.model_validate(r) for r in rows]

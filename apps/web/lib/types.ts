@@ -124,6 +124,14 @@ export interface LeadOut {
   // (manager-kind = task) vs (auto_email / ai_hint = followup).
   open_followups_count: number;
   open_tasks_count: number;
+  // Deal-value strip (Sprint Lead Card v2).
+  deal_amount: number | string | null;
+  deal_quantity: number | null;
+  deal_equipment: string | null;
+  // Russian label derived from `priority` letter server-side via
+  // `app.leads.scoring.priority_label`. The LeadCard reads this
+  // instead of the raw letter so the UI never has to translate.
+  priority_label: string | null;
   created_at: string;
   updated_at: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -624,6 +632,39 @@ export interface FeedListOut {
 export interface AskChakOut {
   question_activity: FeedItemOut;
   answer_activity: FeedItemOut;
+}
+
+// ---- Lead Card v2 ----
+
+export interface StageDurationOut {
+  stage_id: string;
+  stage_name: string;
+  position: number;
+  days: number | null;
+  status: "done" | "current" | "pending";
+}
+
+export interface ScoreCriterionOut {
+  key: string;
+  label: string;
+  weight: number;
+  max_value: number;
+  current_value: number;
+  contribution: number;
+}
+
+export interface ScoreBreakdownOut {
+  total: number;
+  max: number;
+  priority: string | null;
+  priority_label: string | null;
+  criteria: ScoreCriterionOut[];
+}
+
+export interface DealPatchIn {
+  deal_amount?: number | null;
+  deal_quantity?: number | null;
+  deal_equipment?: string | null;
 }
 
 // ---- Audit (Sprint 1.5 group 4) ----
