@@ -122,3 +122,53 @@ async def mark_task_done(
     await db.flush()
     await db.refresh(activity)
     return activity
+
+
+async def list_feed_for_lead(
+    db: AsyncSession,
+    lead_id: uuid.UUID,
+    *,
+    cursor: str | None = None,
+    limit: int = 50,
+) -> tuple[list[tuple[Activity, str | None]], str | None]:
+    """Same ordering / cursor semantics as `list_for_lead`, but each
+    row comes back as `(Activity, author_name)` — User.name resolved
+    via LEFT JOIN so the frontend doesn't need an N+1 to label
+    «Менеджер Иван» on every card.
+
+    AI rows (`type='ai_suggestion'`) are rendered as Чак on the
+    frontend regardless of the joined user — the join is still
+    performed because some chat rows stamp the manager who asked the
+    question, and we want that user's name for the *question* row in
+    the same listing.
+    """
+    from app.auth.models import User  # local import to avoid model cycle
+
+    q = (
+        select(Activity, User.name)
+        .select_from(Activity)
+        .outerjoin(User, User.id == Activity.user_id)
+        .where(Activity.lead_id == lead_id)
+    )
+    if cursor is not None:
+        cursor_ts, cursor_id = _decode_cursor(cursor)
+        q = q.where(
+            or_(
+                _SORT_KEY < cursor_ts,
+                and_(_SORT_KEY == cursor_ts, Activity.id < cursor_id),
+            )
+        )
+    q = q.order_by(_SORT_KEY.desc(), Activity.id.desc()).limit(limit + 1)
+
+    rows = list((await db.execute(q)).all())
+
+    if len(rows) > limit:
+        rows = rows[:limit]
+        last_act = rows[-1][0]
+        next_cursor = _encode_cursor(_sort_key_of(last_act), last_act.id)
+    else:
+        next_cursor = None
+
+    # Materialise as (Activity, name) tuples so callers can index.
+    out = [(row[0], row[1]) for row in rows]
+    return out, next_cursor

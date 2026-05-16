@@ -101,8 +101,41 @@ async def refresh_suggestion_async(lead_id: UUID) -> dict:
                 }
 
             current = dict(lead.agent_state or {})
+            previous_suggestion = current.get("suggestion") or {}
+            previous_text = (previous_suggestion.get("text") or "").strip()
+            new_text = (suggestion.text or "").strip()
+
             current["suggestion"] = suggestion.model_dump()
             lead.agent_state = current
+
+            # Drop a feed card whenever the suggestion text *changes*.
+            # Without the dedupe, every silence-scan / stage-change /
+            # inbox-attach trigger would spam the feed with the same
+            # recommendation. Comparing text (not the whole dict) is
+            # what the user-visible card uses — action_label /
+            # confidence rounding shouldn't count as a new event.
+            if new_text and new_text != previous_text:
+                from app.activity.models import Activity, ActivityType
+
+                session.add(
+                    Activity(
+                        lead_id=lead.id,
+                        user_id=None,
+                        type=ActivityType.ai_suggestion.value,
+                        body=new_text,
+                        payload_json={
+                            "action_label": suggestion.action_label,
+                            "action_intent": getattr(
+                                suggestion, "action_intent", None
+                            ),
+                            "confidence": float(suggestion.confidence)
+                            if suggestion.confidence is not None
+                            else None,
+                            "source": "runner",
+                        },
+                    )
+                )
+
             await session.commit()
 
             log.info(

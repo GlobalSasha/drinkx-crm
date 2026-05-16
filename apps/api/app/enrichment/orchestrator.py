@@ -806,6 +806,33 @@ async def run_enrichment(
                     error=str(notify_exc)[:200],
                 )
 
+        # Drop a feed card so the manager sees «AI Brief готов» in the
+        # unified Activity Feed without leaving the lead. Lazy-import to
+        # avoid pulling activity at orchestrator-module load. Wrapped
+        # in try/except — feed write must never roll back the enrichment
+        # run.
+        try:
+            from app.activity.models import Activity, ActivityType
+
+            db.add(
+                Activity(
+                    lead_id=lead.id,
+                    user_id=None,
+                    type=ActivityType.enrichment_done.value,
+                    payload_json={
+                        "provider": completion.provider,
+                        "model": completion.model,
+                        "duration_ms": duration_ms,
+                        "sources": sources_used,
+                    },
+                )
+            )
+        except Exception as feed_exc:  # noqa: BLE001 — best-effort
+            bound_log.warning(
+                "enrichment.feed_write_failed",
+                error=str(feed_exc)[:200],
+            )
+
         await db.commit()
         bound_log.info("enrichment.commit_done")
 

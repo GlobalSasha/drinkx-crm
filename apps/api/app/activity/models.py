@@ -19,10 +19,22 @@ class ActivityType(str, Enum):
     file = "file"
     email = "email"
     tg = "tg"
+    # Sprint 3.4: voice calls — was already used in code (Mango webhook
+    # writer) before being declared here.
+    phone = "phone"
     system = "system"
     stage_change = "stage_change"
     score_update = "score_update"
     form_submission = "form_submission"
+    # Sprint «Unified Activity Feed»: AI assistant becomes a feed
+    # participant. `ai_suggestion` rows are written by the lead-agent
+    # runner (background suggestion) and the /ask-chak endpoint (chat
+    # answer). Body holds the suggestion text; payload_json carries
+    # `action_label / action_intent / confidence`.
+    ai_suggestion = "ai_suggestion"
+    # System events surfaced as feed cards.
+    lead_assigned = "lead_assigned"
+    enrichment_done = "enrichment_done"
 
 
 class Activity(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
