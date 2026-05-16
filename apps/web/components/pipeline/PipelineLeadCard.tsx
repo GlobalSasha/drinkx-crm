@@ -3,15 +3,29 @@ import { memo } from "react";
 import { useRouter } from "next/navigation";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { AlertTriangle, Clock } from "lucide-react";
+import { Bell, ClipboardList, Star } from "lucide-react";
 import type { LeadOut } from "@/lib/types";
-import { priorityChip } from "@/lib/ui/priority";
 import { C } from "@/lib/design-system";
 
 interface Props {
   lead: LeadOut;
 }
 
+/**
+ * Pipeline Kanban card — Sprint «Lead Card Redesign».
+ *
+ * Fixed three-row layout (~88px tall):
+ *   1. Company name
+ *   2. ★ Primary contact name — empty (whitespace) when no primary set
+ *      so the card height stays constant across the column
+ *   3. Bottom info bar — segment chip, open tasks / followups
+ *      counters (only when > 0), and a date on the right
+ *
+ * Removed from the previous design (intentionally): priority badge,
+ * score, fit_score, rotting indicators. The pipeline view is now a
+ * pure «who / what / when» surface; AI and rotting metadata live in
+ * the Lead Card detail view.
+ */
 function PipelineLeadCardImpl({ lead }: Props) {
   const router = useRouter();
 
@@ -30,21 +44,19 @@ function PipelineLeadCardImpl({ lead }: Props) {
     opacity: isDragging ? 0.4 : 1,
   };
 
-  const isRotting = lead.is_rotting_stage || lead.is_rotting_next_step;
-
-  // Priority A pops with the solid brand accent — everything else
-  // keeps the existing tier palette (B/C/D) but in pill form.
-  const priorityClass =
-    lead.priority === "A"
-      ? "bg-brand-accent text-white"
-      : priorityChip(lead.priority);
-
   function handleKey(e: React.KeyboardEvent) {
     if (e.key === "Enter") {
       e.preventDefault();
       router.push(`/leads/${lead.id}`);
     }
   }
+
+  // Date right-aligned in the bottom row: assigned_at if known, else
+  // created_at. Format DD.MM.YY. Both fields are guaranteed populated
+  // for any lead the list query returns, so the fallback chain is
+  // mostly defensive against future schema changes.
+  const dateIso = lead.assigned_at ?? lead.created_at;
+  const dateLabel = dateIso ? formatDDMMYY(dateIso) : "";
 
   return (
     <div
@@ -57,56 +69,67 @@ function PipelineLeadCardImpl({ lead }: Props) {
       aria-label={`Открыть лид ${lead.company_name}`}
       onClick={() => router.push(`/leads/${lead.id}`)}
       onKeyDown={handleKey}
-      className="font-sans bg-white border border-brand-border rounded-2xl p-3 cursor-pointer select-none transition-opacity duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg"
+      className="font-sans bg-white border border-brand-border rounded-md p-3 h-[88px] flex flex-col justify-between cursor-pointer select-none transition-opacity duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg"
     >
-      {/* Company name */}
-      <div className="flex items-start justify-between gap-1 mb-1.5">
-        <p className={`type-caption font-bold ${C.color.text} truncate leading-snug`}>
-          {lead.company_name}
-        </p>
-        {isRotting && (
-          <AlertTriangle size={13} className="text-warning shrink-0 mt-0.5" />
+      {/* Row 1 — company name (bold, single line) */}
+      <p className={`type-caption font-bold ${C.color.text} truncate leading-snug`}>
+        {lead.company_name}
+      </p>
+
+      {/* Row 2 — primary contact name with star prefix. Always
+          rendered (with placeholder) so the card height stays
+          constant in the column. */}
+      <p className="flex items-center gap-1 type-caption text-brand-muted-strong truncate min-h-[16px]">
+        {lead.primary_contact_name ? (
+          <>
+            <Star size={11} fill="currentColor" className="text-brand-accent shrink-0" />
+            <span className="truncate">{lead.primary_contact_name}</span>
+          </>
+        ) : (
+          <span className="opacity-0">—</span>
         )}
-      </div>
+      </p>
 
-      {/* Segment + city */}
-      {(lead.segment || lead.city) && (
-        <p className={`font-mono text-[10px] uppercase tracking-[0.08em] ${C.color.mutedLight} truncate mb-2`}>
-          {[lead.segment, lead.city].filter(Boolean).join(" · ")}
-        </p>
-      )}
-
-      {/* Badges row */}
-      <div className="flex flex-wrap items-center gap-1">
-        {lead.priority && (
+      {/* Row 3 — bottom info bar */}
+      <div className="flex items-center gap-1.5 text-[10px] text-brand-muted">
+        {lead.segment && (
+          <span className="font-mono uppercase tracking-[0.06em] bg-brand-panel text-brand-muted-strong px-1.5 py-0.5 rounded-md truncate max-w-[90px]">
+            {lead.segment}
+          </span>
+        )}
+        {lead.open_tasks_count > 0 && (
           <span
-            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${priorityClass}`}
+            className="inline-flex items-center gap-0.5 tabular-nums"
+            title={`Открытых задач: ${lead.open_tasks_count}`}
           >
-            {lead.priority}
+            <ClipboardList size={10} />
+            {lead.open_tasks_count}
           </span>
         )}
-
-        {lead.score > 0 && (
-          <span className="text-[10px] font-bold font-mono bg-brand-soft text-brand-accent-text px-2 py-0.5 rounded-full tabular-nums">
-            {lead.score}
+        {lead.open_followups_count > 0 && (
+          <span
+            className="inline-flex items-center gap-0.5 tabular-nums"
+            title={`Открытых follow-up: ${lead.open_followups_count}`}
+          >
+            <Bell size={10} />
+            {lead.open_followups_count}
           </span>
         )}
-
-        {lead.fit_score != null && (
-          <span className="text-[10px] font-mono bg-brand-panel text-brand-muted-strong px-2 py-0.5 rounded-full tabular-nums">
-            fit {lead.fit_score}
-          </span>
-        )}
-
-        {isRotting && (
-          <span className="text-[10px] font-mono flex items-center gap-0.5 text-warning">
-            <Clock size={10} />
-            rot
-          </span>
-        )}
+        <span className="ml-auto font-mono tabular-nums shrink-0">
+          {dateLabel}
+        </span>
       </div>
     </div>
   );
+}
+
+function formatDDMMYY(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yy = String(d.getFullYear() % 100).padStart(2, "0");
+  return `${dd}.${mm}.${yy}`;
 }
 
 export const PipelineLeadCard = memo(PipelineLeadCardImpl);
