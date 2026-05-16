@@ -19,10 +19,9 @@ import { usePipelines, DEFAULT_STAGES } from "@/lib/hooks/use-pipelines";
 import { useClaimLead, useMoveStage, useUnclaimLead } from "@/lib/hooks/use-leads";
 import { useMe } from "@/lib/hooks/use-me";
 import type { Stage } from "@/lib/types";
-import { ActivityTab } from "./ActivityTab";
 import { DealAndAITab } from "./DealAndAITab";
 import { ContactsTab } from "./ContactsTab";
-import { InboxTab } from "./InboxTab";
+import { UnifiedFeed } from "./feed/UnifiedFeed";
 import { FollowupsRail } from "./FollowupsRail";
 import { CustomFieldsPanel } from "./CustomFieldsPanel";
 import { ScoreCard } from "./ScoreCard";
@@ -32,8 +31,6 @@ import { LostModal } from "./LostModal";
 import { TransferModal } from "./TransferModal";
 import { CloseModal } from "./CloseModal";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
-import { AgentBanner } from "./AgentBanner";
-import { SalesCoachDrawer } from "./SalesCoachDrawer";
 import { priorityChip } from "@/lib/ui/priority";
 import { C } from "@/lib/design-system";
 
@@ -50,11 +47,14 @@ function formatWonLostDate(iso: string | null | undefined): string {
   }
 }
 
-type TabKey = "activity" | "deal-ai" | "contacts" | "inbox";
+// «Переписка» tab is gone (Sprint Unified Activity Feed). Emails now
+// appear inside «Активность» as collapsed cards alongside comments /
+// tasks / AI messages. Telegram + phone messages stay in `inbox_messages`
+// for now — separate sprint will surface them again.
+type TabKey = "activity" | "deal-ai" | "contacts";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "activity", label: "Активность" },
-  { key: "inbox", label: "Переписка" },
   { key: "deal-ai", label: "Сделка и AI" },
   { key: "contacts", label: "Контакты" },
 ];
@@ -87,7 +87,6 @@ export function LeadCard({ leadId }: Props) {
   const [transferOpen, setTransferOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [coachOpen, setCoachOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -405,18 +404,15 @@ export function LeadCard({ leadId }: Props) {
         </div>
       </header>
 
-      <AgentBanner leadId={lead.id} onCoachOpen={() => setCoachOpen(true)} />
-
       {/* Main body — main column LEFT, right column 296px on desktop */}
       {/* AppShell already provides the <main> landmark; this is a content wrapper. */}
       <div className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-4 sm:py-6">
         <div className="flex flex-col md:flex-row md:items-start md:gap-6 gap-4">
           {/* Tab body (main) */}
           <div className="flex-1 min-w-0 order-2 md:order-1">
-            {activeTab === "activity" && <ActivityTab leadId={lead.id} lead={lead} />}
+            {activeTab === "activity" && <UnifiedFeed leadId={lead.id} />}
             {activeTab === "deal-ai" && <DealAndAITab lead={lead} />}
             {activeTab === "contacts" && <ContactsTab lead={lead} />}
-            {activeTab === "inbox" && <InboxTab lead={lead} />}
           </div>
 
           {/* Right column */}
@@ -477,21 +473,10 @@ export function LeadCard({ leadId }: Props) {
         />
       )}
 
-      {/* Sales Coach FAB */}
-      <button
-        type="button"
-        onClick={() => setCoachOpen(true)}
-        className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 bg-brand-primary text-white px-4 py-3 rounded-full shadow-soft hover:bg-brand-muted-strong transition-all"
-        aria-label="Открыть Sales Coach"
-        title="Спросить Чака"
-      >
-        <span className="type-caption font-semibold">🤖 Чак</span>
-      </button>
-      <SalesCoachDrawer
-        leadId={lead.id}
-        open={coachOpen}
-        onClose={() => setCoachOpen(false)}
-      />
+      {/* AgentBanner + SalesCoachDrawer + FAB removed — Чак now
+          lives inside the unified Activity feed as a participant
+          (Sprint Unified Activity Feed). Use the feed composer
+          with «@Чак ...» to ask a question. */}
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-brand-primary text-white type-caption font-semibold px-5 py-2.5 rounded-full z-50 transition-all">
