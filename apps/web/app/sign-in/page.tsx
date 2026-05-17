@@ -49,6 +49,22 @@ function SignInForm() {
     // on success the browser is redirected by Supabase — no further action needed
   }
 
+  async function handleTestUser() {
+    setLoading(true);
+    setError(null);
+    const supabase = getSupabaseBrowserClient();
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: "test@drinkx.tech",
+      password: "DrinkX_Test_2026!",
+    });
+    if (signInError) {
+      setError(signInError.message);
+      setLoading(false);
+      return;
+    }
+    router.replace(nextParam as never);
+  }
+
   async function handleMagicLink(e: React.FormEvent) {
     e.preventDefault();
     if (!email) return;
@@ -151,6 +167,20 @@ function SignInForm() {
           </button>
         </form>
       )}
+
+      <div className={`my-6 flex items-center gap-3 ${T.mono} text-muted`}>
+        <div className="flex-1 h-px bg-black/10" />
+        ИЛИ
+        <div className="flex-1 h-px bg-black/10" />
+      </div>
+
+      <button
+        onClick={handleTestUser}
+        disabled={loading}
+        className="w-full py-2.5 px-4 rounded-pill border border-black/15 bg-transparent text-sm text-muted hover:text-ink hover:border-black/30 transition-all duration-300 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        🧪 Войти как тестовый пользователь
+      </button>
 
       <p className="text-xs text-muted-3 mt-8 leading-relaxed text-center">
         При входе создаётся профиль менеджера в workspace DrinkX.
