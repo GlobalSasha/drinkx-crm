@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import type { FeedItemOut } from "@/lib/types";
 import { formatTimeShort } from "./_time";
 
@@ -30,7 +30,7 @@ export function FeedItemAI({ item, onAskFollowUp }: Props) {
   return (
     <div className="flex gap-3 group">
       <div className="shrink-0 w-7 h-7 rounded-full bg-brand-accent flex items-center justify-center">
-        <Bot size={13} className="text-white" />
+        <Sparkles size={13} className="text-white" />
       </div>
       <div className="flex-1 min-w-0">
         <p className="type-caption text-brand-muted">
@@ -38,7 +38,7 @@ export function FeedItemAI({ item, onAskFollowUp }: Props) {
           <span className="mx-1.5">·</span>
           <span>{formatTimeShort(item.created_at)}</span>
         </p>
-        <div className="mt-1 rounded-2xl bg-brand-soft/40 border border-brand-soft p-3">
+        <div className="mt-1 rounded-2xl bg-brand-soft/40 border border-brand-soft border-l-[3px] border-l-brand-accent p-3">
           {item.body && (
             <p className="type-body text-brand-primary whitespace-pre-wrap break-words">
               {item.body}

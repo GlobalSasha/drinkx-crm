@@ -9,6 +9,7 @@ import { FeedItemAI } from "./FeedItemAI";
 import { FeedItemCall } from "./FeedItemCall";
 import { FeedItemComment } from "./FeedItemComment";
 import { FeedItemEmail } from "./FeedItemEmail";
+import { FeedItemMessenger } from "./FeedItemMessenger";
 import { FeedItemSystem } from "./FeedItemSystem";
 import { FeedItemTask } from "./FeedItemTask";
 import { FeedComposer } from "./FeedComposer";
@@ -153,6 +154,9 @@ function FeedItemSwitch({
       return <FeedItemCall item={item} />;
     case "email":
       return <FeedItemEmail item={item} onOpen={() => onOpenEmail(item)} />;
+    case "telegram":
+    case "max":
+      return <FeedItemMessenger item={item} />;
     case "ai_suggestion":
       return <FeedItemAI item={item} onAskFollowUp={onAskFollowUp} />;
     default:

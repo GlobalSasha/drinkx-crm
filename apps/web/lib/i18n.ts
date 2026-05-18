@@ -24,6 +24,25 @@ export function segmentLabel(s: string): string {
   return SEGMENT_LABELS[s] ?? s;
 }
 
+// Compact aliases for cramped surfaces (kanban card chips). Falls back to
+// the full label so an unmapped segment still renders something readable.
+export const SEGMENT_SHORT_LABELS: Record<string, string> = {
+  "Продуктовый ритейл": "ПРОД.",
+  "Непродуктовый ритейл": "РИТЕЙЛ",
+  "Кофейни и кафе": "КОФЕ",
+  "QSR / Fast Food": "QSR",
+  "HORECA": "HORECA",
+  "АЗС": "АЗС",
+  "Дистрибьюторы оборудования": "ДИСТР.",
+  "Зерно обжарка экстракт": "ЗЕРНО",
+  "Вендинг": "ВЕНДИНГ",
+  "Другое": "ДРУГОЕ",
+};
+
+export function segmentShortLabel(s: string): string {
+  return SEGMENT_SHORT_LABELS[s] ?? s;
+}
+
 export const DEAL_TYPE_LABELS: Record<string, string> = {
   enterprise_direct:   "Enterprise",
   qsr:                 "QSR",
