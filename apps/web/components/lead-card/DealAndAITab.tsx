@@ -18,6 +18,7 @@ import { ApiError } from "@/lib/api-client";
 import type { LeadOut } from "@/lib/types";
 import { dealTypeLabel } from "@/lib/i18n";
 import { C } from "@/lib/design-system";
+import { SourceSection } from "./SourceSection";
 
 interface Props {
   lead: LeadOut;
@@ -143,7 +144,10 @@ export function DealAndAITab({ lead }: Props) {
         </ul>
       </section>
 
-      {/* === Card 3: AI Бриф === */}
+      {/* === Card 3: Источник (only for form-sourced leads) === */}
+      <SourceSection lead={lead} />
+
+      {/* === Card 4: AI Бриф === */}
       <AIBriefCard lead={lead} hasAiData={hasAiData} ai={ai} />
     </div>
   );

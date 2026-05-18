@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ChevronDown,
+  Globe,
   Loader2,
   AlertTriangle,
   CheckCircle2,
@@ -462,6 +463,27 @@ export function LeadCard({ leadId }: Props) {
               <span className="flex items-center gap-1 type-caption text-warning">
                 <AlertTriangle size={11} />
                 Протухает
+              </span>
+            )}
+
+            {lead.source_form_id && lead.source_form_name && (
+              <Link
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                href={`/leads-pool?form_id=${lead.source_form_id}` as any}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-brand-soft text-brand-accent-text text-[11px] font-semibold hover:bg-brand-soft/80 transition-colors"
+                title="Открыть пул лидов этого лендинга"
+              >
+                <Globe size={11} aria-hidden />
+                Лендинг: {lead.source_form_name}
+              </Link>
+            )}
+            {lead.source?.startsWith("form:") && !lead.source_form_name && (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-brand-panel text-brand-muted text-[11px] font-semibold"
+                title="Форма удалена"
+              >
+                <Globe size={11} aria-hidden />
+                Заявка с формы
               </span>
             )}
           </div>
