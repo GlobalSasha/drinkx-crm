@@ -206,7 +206,29 @@ function CreateLeadModal({
 // One InboxItem row
 // ---------------------------------------------------------------------------
 
-function InboxRow({ item }: { item: InboxItemOut }) {
+// Strip "Re:", "Fwd:", "Fw:", "Пересл:", "Отв:" (and combinations) so two
+// messages from the same thread can be detected as such for visual grouping.
+// Sprint 3.5 — the audit caught one thread split into 3 visually-identical
+// rows; this lets the UI mark follow-ups as «↳ продолжение треда».
+function normalizeSubject(s: string | null | undefined): string {
+  if (!s) return "";
+  let cur = s.trim();
+  // Run a few times — real-world subjects pile up "Re: Fwd: Re:" prefixes.
+  for (let i = 0; i < 6; i++) {
+    const next = cur.replace(/^(re|fw|fwd|пересл|отв)\s*[:[]\s*/i, "").trim();
+    if (next === cur) break;
+    cur = next;
+  }
+  return cur.toLowerCase();
+}
+
+function InboxRow({
+  item,
+  threadContinuation,
+}: {
+  item: InboxItemOut;
+  threadContinuation: boolean;
+}) {
   const confirm = useConfirmItem();
   const dismiss = useDismissItem();
   const [searchOpen, setSearchOpen] = useState(false);
@@ -251,7 +273,12 @@ function InboxRow({ item }: { item: InboxItemOut }) {
   }
 
   return (
-    <div className="rounded-xl border border-black/5 bg-white p-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+    <div
+      className={clsx(
+        "rounded-xl border bg-white p-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between",
+        threadContinuation ? "border-black/[0.04] ml-6 opacity-90" : "border-black/5",
+      )}
+    >
       {/* Left: meta + body */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 mb-1">
@@ -271,6 +298,14 @@ function InboxRow({ item }: { item: InboxItemOut }) {
           <span className="text-[11px] font-mono text-muted-3">
             {relativeTime(item.received_at)}
           </span>
+          {threadContinuation && (
+            <span
+              className="text-[10px] font-mono text-muted-3 bg-canvas px-1.5 py-0.5 rounded-md"
+              title="Эта запись принадлежит тому же треду, что и сообщение выше"
+            >
+              ↳ продолжение треда
+            </span>
+          )}
         </div>
         <div className="text-sm font-bold text-ink truncate">
           {truncate(item.subject, 80) || "(без темы)"}
@@ -482,9 +517,21 @@ export default function InboxPage() {
       {!isLoading && !isError && (data?.items.length ?? 0) > 0 && (
         <>
           <div className="flex flex-col gap-2.5">
-            {data!.items.map((item) => (
-              <InboxRow key={item.id} item={item} />
-            ))}
+            {data!.items.map((item, idx, arr) => {
+              const prev = idx > 0 ? arr[idx - 1] : null;
+              const threadContinuation =
+                !!prev &&
+                prev.from_email === item.from_email &&
+                normalizeSubject(prev.subject) === normalizeSubject(item.subject) &&
+                normalizeSubject(item.subject).length > 0;
+              return (
+                <InboxRow
+                  key={item.id}
+                  item={item}
+                  threadContinuation={threadContinuation}
+                />
+              );
+            })}
           </div>
 
           {totalPages > 1 && (

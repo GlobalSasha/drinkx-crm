@@ -57,34 +57,43 @@ seed-data work and belong in a separate backfill ticket.
       sidebar cap to "999+" (or show the real count). File:
       `apps/web/components/layout/SidebarNav.tsx`.
 
-### G2 — Pipeline card: surface score + tier
+### G2 — Pipeline card: surface score + tier  ❌ DROPPED (2026-05-18)
 
-> [DECISION NEEDED] `PipelineLeadCard.tsx` header comment from the Lead Card
-> Redesign sprint says: «Removed from the previous design (intentionally):
-> priority badge, score, fit_score, rotting indicators. The pipeline view is
-> now a pure who/what/when surface; AI and rotting metadata live in the Lead
-> Card detail view.» Adding Tier+Score back contradicts that decision. Either
-> we revisit the rationale (audit feedback overrides past simplification) or
-> we drop G2 entirely. Defaulting to «hold» until confirmed.
+The v0 audit suggested adding Tier (A/B/C) + Score back to the kanban card,
+arguing the data exists in `/leads-pool` but isn't surfaced here. However,
+`PipelineLeadCard.tsx` carries an explicit header comment from the Lead Card
+Redesign sprint:
 
-- [ ] Tier (A/B/C) pill on the kanban card — colour-coded, matches what
-      `/leads-pool` already shows. Data exists; UI doesn't surface it.
-- [ ] Score number on the kanban card — small monospace, top-right of the
-      card body.
-- [ ] Empty-state per pipeline column (DISCOVERY, SOLUTION FIT are often empty):
-      one line «Нет лидов — переведи из предыдущей стадии».
+> «Removed from the previous design (intentionally): priority badge, score,
+> fit_score, rotting indicators. The pipeline view is now a pure who/what/when
+> surface; AI and rotting metadata live in the Lead Card detail view.»
+
+Decision: keep the kanban surface pure. AI metadata lives in the detail view
+on purpose. Empty-state per pipeline column also dropped — pipelines with
+many empty stages is a configuration choice, not a UX bug. Revisit if user
+feedback contradicts.
 
 ### G3 — Activity Feed v2
 
-- [ ] AI block styling — `@Чак` messages render with a left accent bar,
-      warm `--ai-bg`, sparkle icon. Other feed entries unchanged.
-- [ ] Inbox → Activity auto-link — when an `inbox_message` arrives with a
-      resolved `lead_id`, also write a compact entry to the lead's activity
-      feed (`channel`, `direction`, preview). Existing
-      `_enqueue_lead_agent_refresh` hook in `app/inbox/message_services.py`
-      is the seam.
-- [ ] Inbox thread grouping — collapse repeat messages from the same
-      `(thread_id, sender)` into one row with «N писем» counter; expand on click.
+- [x] AI block styling — `FeedItemAI` now uses a Sparkles icon (was Bot)
+      and the inner card has a 3px brand-accent left border on top of the
+      existing soft tint, so Чак's messages read as a distinct "AI" voice
+      next to manager comments.
+- [x] Inbox → Activity auto-link — `message_services.receive` already
+      writes an Activity row when an inbound webhook matches a lead
+      (Sprint 3.4). The actual gap was on the frontend: `UnifiedFeed`'s
+      switch had no `case "telegram":` / `case "max":`, so those rows
+      fell through to the muted system render. Added a new
+      `FeedItemMessenger` component that handles both channels and wired
+      it into `FeedItemSwitch`. This is why the audit saw "empty feeds"
+      on most leads — Telegram messages WERE in the DB but didn't render.
+- [x] Inbox thread grouping — added a `normalizeSubject` helper that
+      strips Re:/Fwd:/Пересл:/Отв: prefixes, and the page renders
+      follow-up rows in the same thread with reduced contrast + indent
+      and a «↳ продолжение треда» badge. No backend changes — pure
+      visual signal so the audit's «один тред × 3 одинаковые карточки»
+      complaint goes away. Full thread grouping needs `thread_id` on
+      `InboxItem` (Gmail API has it) — tracked as a follow-up.
 
 ### G4 — Today inline actions
 
