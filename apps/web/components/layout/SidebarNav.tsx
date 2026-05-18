@@ -67,7 +67,7 @@ const NavItemRow = memo(function NavItemRow({
         {item.icon}
         {item.badge != null && item.badge > 0 && (
           <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-brand-accent text-white text-[9px] font-mono font-bold rounded-full px-1 flex items-center justify-center tabular-nums">
-            {item.badge > 99 ? "99+" : item.badge}
+            {item.badge > 999 ? "999+" : item.badge}
           </span>
         )}
       </span>

@@ -122,8 +122,12 @@ export function DealAndAITab({ lead }: Props) {
         <ul className="space-y-3.5">
           <Row
             icon={<CircleDollarSign size={16} className={C.color.muted} />}
-            primary="Сумма сделки не указана"
-            hint="Поле появится после интеграции CRM-формы суммы"
+            primary={
+              lead.deal_amount != null
+                ? `${new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(Number(lead.deal_amount))} ₽`
+                : "Не указана"
+            }
+            hint={lead.deal_amount != null ? "Сумма сделки" : "Заполняется в полосе сделки над вкладками"}
           />
           <Row
             icon={<Tag size={16} className={C.color.muted} />}

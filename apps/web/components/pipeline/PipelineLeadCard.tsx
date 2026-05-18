@@ -6,6 +6,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Bell, ClipboardList, Star } from "lucide-react";
 import type { LeadOut } from "@/lib/types";
 import { C } from "@/lib/design-system";
+import { segmentShortLabel } from "@/lib/i18n";
 
 interface Props {
   lead: LeadOut;
@@ -93,8 +94,11 @@ function PipelineLeadCardImpl({ lead }: Props) {
       {/* Row 3 — bottom info bar */}
       <div className="flex items-center gap-1.5 text-[10px] text-brand-muted">
         {lead.segment && (
-          <span className="font-mono uppercase tracking-[0.06em] bg-brand-panel text-brand-muted-strong px-1.5 py-0.5 rounded-md truncate max-w-[90px]">
-            {lead.segment}
+          <span
+            className="font-mono uppercase tracking-[0.06em] bg-brand-panel text-brand-muted-strong px-1.5 py-0.5 rounded-md truncate max-w-[90px]"
+            title={lead.segment}
+          >
+            {segmentShortLabel(lead.segment)}
           </span>
         )}
         {lead.open_tasks_count > 0 && (

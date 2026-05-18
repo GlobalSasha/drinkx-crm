@@ -1,12 +1,13 @@
 "use client";
 
 // /team — Sprint 3.4 G3. Manager activity dashboard.
-// Gated to admin / head; managers get redirected to /today.
+// Gated to admin / head. Sprint 3.5: managers used to be silently redirected
+// to /today, which left URL-typed visits looking broken. Now they see an
+// explicit access-denied empty state with a route back.
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { Users, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { Users, Loader2, ShieldAlert } from "lucide-react";
 
 import { useMe } from "@/lib/hooks/use-me";
 import { useTeamStats } from "@/lib/hooks/use-team-stats";
@@ -38,16 +39,8 @@ function formatRange(from: string, to: string): string {
 
 export default function TeamPage() {
   const me = useMe();
-  const router = useRouter();
   const [period, setPeriod] = useState<TeamPeriod>("week");
   const stats = useTeamStats(period);
-
-  // Redirect managers — admin/head only page.
-  useEffect(() => {
-    if (me.data && me.data.role !== "admin" && me.data.role !== "head") {
-      router.replace("/today");
-    }
-  }, [me.data, router]);
 
   if (me.isLoading || !me.data) {
     return (
@@ -57,7 +50,32 @@ export default function TeamPage() {
     );
   }
   if (me.data.role !== "admin" && me.data.role !== "head") {
-    return null; // redirect in flight
+    return (
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-12">
+        <div className="bg-white border border-black/5 rounded-2xl shadow-soft p-10">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 rounded-full bg-brand-soft flex items-center justify-center">
+              <ShieldAlert size={20} className="text-brand-accent" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold tracking-tight">Раздел «Команда»</h1>
+              <p className="text-xs text-muted-2">Доступен руководителям и админам</p>
+            </div>
+          </div>
+          <p className="text-sm text-muted-2 leading-relaxed mb-5">
+            На этой странице руководитель видит активность всей команды: количество звонков,
+            писем, движения по воронке, время отклика. Если тебе нужны метрики по себе —
+            открой /today, там собраны твои задачи и сделки за день.
+          </p>
+          <Link
+            href="/today"
+            className="inline-flex items-center gap-2 text-sm font-medium text-brand-accent-text hover:underline"
+          >
+            ← Вернуться на «Сегодня»
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
