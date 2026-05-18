@@ -7,12 +7,12 @@ test suite doesn't pull the declarative base. Covers:
     for an unknown one
   - `latest_form_utm_for_lead` returns the most recent
     `form_submission` Activity's payload_json['utm'] or None
+  - batched helpers `_resolve_forms_batch` and `_latest_utms_batch`
 """
 from __future__ import annotations
 
 import sys
 import uuid
-from types import ModuleType
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -26,8 +26,7 @@ _stub_sqlalchemy()
 # `repositories.py` imports `defer` from `sqlalchemy.orm`; the shared
 # stub doesn't include it (it was added after test_webforms.py shipped).
 # Patch it here so we don't need to touch test_webforms.py.
-import sys as _sys
-_sa_orm = _sys.modules.get("sqlalchemy.orm")
+_sa_orm = sys.modules.get("sqlalchemy.orm")
 if _sa_orm is not None and not hasattr(_sa_orm, "defer"):
     class _Callable:  # minimal duplicate of the stub's _Callable
         def __init__(self, *a, **kw): pass
@@ -108,13 +107,76 @@ async def test_latest_form_utm_for_lead_returns_none_when_no_activity():
     assert out is None
 
 
-def test_lead_out_serializes_new_fields():
-    """Sanity: the Pydantic schema accepts source_form_id, source_form_name,
-    latest_utm and serializes them in the JSON output."""
-    from app.leads.schemas import LeadOut
+def test_lead_out_schema_has_new_fields():
+    """Sanity: LeadOut and LeadListItemOut both declare source_form_id,
+    source_form_name, and latest_utm so list endpoints don't silently
+    strip the values."""
+    from app.leads.schemas import LeadListItemOut, LeadOut
 
-    # Schema-only check: just confirm the field set includes the new keys.
-    fields = LeadOut.model_fields
-    assert "source_form_id" in fields
-    assert "source_form_name" in fields
-    assert "latest_utm" in fields
+    for schema_cls in (LeadOut, LeadListItemOut):
+        fields = schema_cls.model_fields
+        assert "source_form_id" in fields, f"{schema_cls.__name__} missing source_form_id"
+        assert "source_form_name" in fields, f"{schema_cls.__name__} missing source_form_name"
+        assert "latest_utm" in fields, f"{schema_cls.__name__} missing latest_utm"
+
+
+@pytest.mark.asyncio
+async def test_resolve_forms_batch_returns_map():
+    """Batched form resolver returns {slug: (id, name)} for matching rows."""
+    from app.leads import repositories as repo
+
+    form_id = uuid.uuid4()
+    db = MagicMock()
+    db.execute = AsyncMock()
+    db.execute.return_value = MagicMock(
+        all=lambda: [("horeca-msk", form_id, "HoReCa МСК")],
+    )
+
+    result = await repo._resolve_forms_batch(db, ["horeca-msk"])
+
+    assert result == {"horeca-msk": (form_id, "HoReCa МСК")}
+
+
+@pytest.mark.asyncio
+async def test_resolve_forms_batch_empty_slugs_skips_db():
+    """Batched form resolver short-circuits on empty slug list."""
+    from app.leads import repositories as repo
+
+    db = MagicMock()
+    db.execute = AsyncMock()
+
+    result = await repo._resolve_forms_batch(db, [])
+
+    assert result == {}
+    db.execute.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_latest_utms_batch_returns_map():
+    """Batched UTM fetcher returns {lead_id: utm_dict} for matching rows."""
+    from app.leads import repositories as repo
+
+    lead_id = uuid.uuid4()
+    db = MagicMock()
+    db.execute = AsyncMock()
+    db.execute.return_value = MagicMock(
+        all=lambda: [(lead_id, {"utm": {"utm_source": "vk", "utm_campaign": "q3"}})],
+    )
+
+    result = await repo._latest_utms_batch(db, [lead_id])
+
+    assert result == {lead_id: {"utm_source": "vk", "utm_campaign": "q3"}}
+
+
+@pytest.mark.asyncio
+async def test_latest_utms_batch_empty_ids_skips_db():
+    """Batched UTM fetcher short-circuits on empty lead_id list."""
+    from app.leads import repositories as repo
+
+    db = MagicMock()
+    db.execute = AsyncMock()
+
+    result = await repo._latest_utms_batch(db, [])
+
+    assert result == {}
+    db.execute.assert_not_awaited()

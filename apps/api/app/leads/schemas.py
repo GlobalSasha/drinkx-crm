@@ -138,6 +138,10 @@ class LeadListItemOut(LeadBase):
     lost_reason: str | None
     primary_contact_id: UUID | None = None
     primary_contact_name: str | None = None
+    # Sprint 3.6 G1 — landing-form attribution (same as LeadOut).
+    source_form_id: UUID | None = None
+    source_form_name: str | None = None
+    latest_utm: dict | None = None
     open_followups_count: int = 0
     open_tasks_count: int = 0
     deal_amount: Decimal | None = None

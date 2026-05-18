@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+import structlog
 from sqlalchemy import and_, func, nullslast, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
@@ -12,6 +13,8 @@ from sqlalchemy.orm import defer
 from app.contacts.models import Contact
 from app.followups.models import Followup
 from app.leads.models import Lead
+
+log = structlog.get_logger()
 
 
 # Reminder kinds that count as «задача» (manual work) vs «followup»
@@ -94,6 +97,58 @@ def _open_count_subquery(reminder_kinds: tuple[str, ...]):
     )
 
 
+async def _resolve_forms_batch(
+    db: AsyncSession, slugs: list[str]
+) -> dict[str, tuple[uuid.UUID, str]]:
+    """One SELECT to resolve a list of form slugs → {slug: (form_id, form_name)}.
+
+    Used by the list path so the whole page costs one query instead of N.
+    """
+    if not slugs:
+        return {}
+
+    from app.forms.models import WebForm
+
+    result = await db.execute(
+        select(WebForm.slug, WebForm.id, WebForm.name).where(
+            WebForm.slug.in_(slugs)
+        )
+    )
+    return {row[0]: (row[1], row[2]) for row in result.all()}
+
+
+async def _latest_utms_batch(
+    db: AsyncSession, lead_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, dict]:
+    """One SELECT DISTINCT ON (lead_id) to get the latest form_submission
+    UTM payload for each lead. Returns {lead_id: utm_dict}.
+
+    Used by the list path so the whole page costs one query instead of N.
+    """
+    if not lead_ids:
+        return {}
+
+    from app.activity.models import Activity
+
+    result = await db.execute(
+        select(Activity.lead_id, Activity.payload_json)
+        .where(
+            Activity.lead_id.in_(lead_ids),
+            Activity.type == "form_submission",
+        )
+        .distinct(Activity.lead_id)
+        .order_by(Activity.lead_id, Activity.created_at.desc())
+    )
+    utms: dict[uuid.UUID, dict] = {}
+    for lead_id, payload in result.all():
+        if not payload or not isinstance(payload, dict):
+            continue
+        utm = payload.get("utm")
+        if utm and isinstance(utm, dict):
+            utms[lead_id] = dict(utm)
+    return utms
+
+
 async def _populate_extras(
     rows: list,
     *,
@@ -104,9 +159,10 @@ async def _populate_extras(
     Pydantic schema can read them as if they were ORM columns.
 
     Sprint 3.6: also resolves `source_form_id`/`source_form_name` via
-    a WebForm JOIN and `latest_utm` via the latest form_submission
-    Activity. Both are best-effort — if the form was deleted or the
-    Activity row is missing, the fields stay None.
+    a batched WebForm query and `latest_utm` via a single batched
+    form_submission Activity query. Both are best-effort — if the form
+    was deleted or the Activity row is missing, the fields stay None. A
+    transient DB error is caught and logged rather than surfacing a 500.
     """
     leads: list[Lead] = []
     for lead, contact_name, open_tasks, open_followups in rows:
@@ -120,17 +176,39 @@ async def _populate_extras(
         leads.append(lead)
 
     if db is not None:
-        for lead in leads:
-            form = await resolve_form_for_source(db, lead.source)
-            if form is not None:
-                lead.source_form_id = form[0]  # type: ignore[attr-defined]
-                lead.source_form_name = form[1]  # type: ignore[attr-defined]
-            # Read latest_utm only for form-sourced leads — saves N
-            # extra queries on cold leads.
-            if lead.source_form_id is not None:
-                lead.latest_utm = await latest_form_utm_for_lead(  # type: ignore[attr-defined]
-                    db, lead.id
-                )
+        try:
+            # ── Batch 1: resolve form slugs → (form_id, form_name) ──────────
+            slug_to_lead: dict[str, list[Lead]] = {}
+            for lead in leads:
+                slug = parse_form_slug_from_source(lead.source)
+                if slug is not None:
+                    slug_to_lead.setdefault(slug, []).append(lead)
+
+            if slug_to_lead:
+                form_map = await _resolve_forms_batch(db, list(slug_to_lead.keys()))
+                for slug, form_leads in slug_to_lead.items():
+                    if slug in form_map:
+                        form_id, form_name = form_map[slug]
+                        for lead in form_leads:
+                            lead.source_form_id = form_id  # type: ignore[attr-defined]
+                            lead.source_form_name = form_name  # type: ignore[attr-defined]
+
+            # ── Batch 2: fetch latest UTMs for form-sourced leads ────────────
+            form_lead_ids = [
+                lead.id for lead in leads if lead.source_form_id is not None
+            ]
+            if form_lead_ids:
+                utm_map = await _latest_utms_batch(db, form_lead_ids)
+                for lead in leads:
+                    if lead.id in utm_map:
+                        lead.latest_utm = utm_map[lead.id]  # type: ignore[attr-defined]
+        except Exception:
+            log.warning(
+                "leads.enrich.error",
+                lead_count=len(leads),
+                exc_info=True,
+            )
+            # Fields remain at None defaults — don't crash the list response.
 
     return leads
 
