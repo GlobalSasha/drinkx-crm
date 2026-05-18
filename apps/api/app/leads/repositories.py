@@ -239,6 +239,19 @@ async def get_by_id(db: AsyncSession, lead_id: uuid.UUID, workspace_id: uuid.UUI
     return populated[0]
 
 
+async def _slug_for_form_id(
+    db: AsyncSession, form_id: uuid.UUID
+) -> str | None:
+    """Lookup the slug for a given form_id. Returns None when the form
+    has been deleted (the filter then short-circuits to empty)."""
+    from app.forms.models import WebForm
+
+    result = await db.execute(
+        select(WebForm.slug).where(WebForm.id == form_id).limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
 async def list_leads(
     db: AsyncSession,
     workspace_id: uuid.UUID,
@@ -251,6 +264,7 @@ async def list_leads(
     deal_type: str | None = None,
     assigned_to: uuid.UUID | None = None,
     q: str | None = None,
+    form_id: uuid.UUID | None = None,
     page: int = 1,
     page_size: int = 50,
 ) -> tuple[list[Lead], int]:
@@ -265,6 +279,11 @@ async def list_leads(
         Lead.workspace_id == workspace_id,
         Lead.assignment_status == "assigned",
     )
+    if form_id is not None:
+        slug = await _slug_for_form_id(db, form_id)
+        if slug is None:
+            return [], 0  # unknown / deleted form → nothing matches
+        base = base.where(Lead.source == f"form:{slug}")
     if stage_id is not None:
         base = base.where(Lead.stage_id == stage_id)
     if pipeline_id is not None:
@@ -312,6 +331,7 @@ async def list_pool(
     city: str | None = None,
     segment: str | None = None,
     fit_min: float | None = None,
+    form_id: uuid.UUID | None = None,
     page: int = 1,
     page_size: int = 50,
 ) -> tuple[list[Lead], int]:
@@ -320,6 +340,11 @@ async def list_pool(
         Lead.workspace_id == workspace_id,
         Lead.assignment_status == "pool",
     )
+    if form_id is not None:
+        slug = await _slug_for_form_id(db, form_id)
+        if slug is None:
+            return [], 0  # unknown / deleted form → nothing matches
+        base = base.where(Lead.source == f"form:{slug}")
     if city is not None:
         base = base.where(Lead.city == city)
     if segment is not None:

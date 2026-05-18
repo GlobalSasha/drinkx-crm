@@ -51,6 +51,7 @@ async def list_leads(
     deal_type: str | None = None,
     assigned_to: UUID | None = None,
     q: str | None = None,
+    form_id: UUID | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
@@ -65,6 +66,7 @@ async def list_leads(
         deal_type=deal_type,
         assigned_to=assigned_to,
         q=q,
+        form_id=form_id,
         page=page,
         page_size=page_size,
     )
@@ -88,6 +90,7 @@ async def list_pool(
     city: str | None = None,
     segment: str | None = None,
     fit_min: float | None = None,
+    form_id: UUID | None = Query(None),
     page: int = Query(1, ge=1),
     # Hotfix 2026-05-08: cap raised 200 → 500 to match the frontend's
     # intent. /leads-pool fetches the whole pool once and filters
@@ -100,7 +103,7 @@ async def list_pool(
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
     user: Annotated[User, Depends(current_user)] = ...,
 ) -> LeadListOut:
-    filters = dict(city=city, segment=segment, fit_min=fit_min, page=page, page_size=page_size)
+    filters = dict(city=city, segment=segment, fit_min=fit_min, form_id=form_id, page=page, page_size=page_size)
     items, total = await services.list_pool(db, user.workspace_id, filters)
     return LeadListOut(items=items, total=total, page=page, page_size=page_size)
 

@@ -180,3 +180,24 @@ async def test_latest_utms_batch_empty_ids_skips_db():
 
     assert result == {}
     db.execute.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_list_leads_form_id_filter_short_circuits_for_unknown_form():
+    """If form_id is given but doesn't resolve to a slug, list_leads
+    returns empty without querying leads — saves a useless full scan."""
+    from app.leads import repositories as repo
+
+    db = MagicMock()
+    db.execute = AsyncMock()
+    # First call: slug lookup → returns None (form deleted)
+    db.execute.return_value = MagicMock(scalar_one_or_none=lambda: None)
+
+    rows, total = await repo.list_leads(
+        db,
+        workspace_id=uuid.uuid4(),
+        form_id=uuid.uuid4(),
+    )
+
+    assert rows == []
+    assert total == 0
