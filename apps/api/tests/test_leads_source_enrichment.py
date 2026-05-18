@@ -201,3 +201,54 @@ async def test_list_leads_form_id_filter_short_circuits_for_unknown_form():
 
     assert rows == []
     assert total == 0
+
+
+@pytest.mark.asyncio
+async def test_list_leads_form_id_filter_proceeds_when_slug_resolves():
+    """When form_id resolves to a slug, list_leads must NOT short-circuit —
+    it must execute the count + list queries with the slug-match filter
+    attached to the base query. Detects regressions where a future refactor
+    accidentally returns ([], 0) for a valid form too.
+    """
+    from app.leads import repositories as repo
+
+    db = MagicMock()
+    db.execute = AsyncMock()
+
+    # Side effect sequence: slug lookup → count → list (each .all() returns no rows).
+    db.execute.side_effect = [
+        MagicMock(scalar_one_or_none=lambda: "horeca-msk"),  # slug found
+        MagicMock(scalar_one=lambda: 0),  # count
+        MagicMock(all=lambda: []),  # list — empty after filter
+    ]
+
+    rows, total = await repo.list_leads(
+        db,
+        workspace_id=uuid.uuid4(),
+        form_id=uuid.uuid4(),
+    )
+
+    assert rows == []
+    assert total == 0
+    # ≥2 calls = at minimum count must run (proving no short-circuit).
+    assert db.execute.await_count >= 2
+
+
+@pytest.mark.asyncio
+async def test_list_pool_form_id_filter_short_circuits_for_unknown_form():
+    """list_pool mirrors list_leads's short-circuit when form_id doesn't
+    resolve to a slug."""
+    from app.leads import repositories as repo
+
+    db = MagicMock()
+    db.execute = AsyncMock()
+    db.execute.return_value = MagicMock(scalar_one_or_none=lambda: None)
+
+    rows, total = await repo.list_pool(
+        db,
+        workspace_id=uuid.uuid4(),
+        form_id=uuid.uuid4(),
+    )
+
+    assert rows == []
+    assert total == 0

@@ -240,14 +240,19 @@ async def get_by_id(db: AsyncSession, lead_id: uuid.UUID, workspace_id: uuid.UUI
 
 
 async def _slug_for_form_id(
-    db: AsyncSession, form_id: uuid.UUID
+    db: AsyncSession,
+    form_id: uuid.UUID,
+    workspace_id: uuid.UUID,
 ) -> str | None:
-    """Lookup the slug for a given form_id. Returns None when the form
-    has been deleted (the filter then short-circuits to empty)."""
+    """Lookup the slug for a given form_id, scoped to a workspace. Returns
+    None when the form has been deleted OR belongs to a different workspace
+    (the filter then short-circuits to empty)."""
     from app.forms.models import WebForm
 
     result = await db.execute(
-        select(WebForm.slug).where(WebForm.id == form_id).limit(1)
+        select(WebForm.slug)
+        .where(WebForm.id == form_id, WebForm.workspace_id == workspace_id)
+        .limit(1)
     )
     return result.scalar_one_or_none()
 
@@ -280,7 +285,7 @@ async def list_leads(
         Lead.assignment_status == "assigned",
     )
     if form_id is not None:
-        slug = await _slug_for_form_id(db, form_id)
+        slug = await _slug_for_form_id(db, form_id, workspace_id)
         if slug is None:
             return [], 0  # unknown / deleted form → nothing matches
         base = base.where(Lead.source == f"form:{slug}")
@@ -341,7 +346,7 @@ async def list_pool(
         Lead.assignment_status == "pool",
     )
     if form_id is not None:
-        slug = await _slug_for_form_id(db, form_id)
+        slug = await _slug_for_form_id(db, form_id, workspace_id)
         if slug is None:
             return [], 0  # unknown / deleted form → nothing matches
         base = base.where(Lead.source == f"form:{slug}")
