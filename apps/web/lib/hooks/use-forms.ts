@@ -101,7 +101,7 @@ export function useToggleFormActive() {
 export function useFormStats(formId: string | undefined) {
   return useQuery<FormStatsOut, ApiError>({
     queryKey: ["form-stats", formId],
-    queryFn: () => api.get<FormStatsOut>(`/forms/${formId}/stats`),
+    queryFn: () => api.get<FormStatsOut>(`/api/forms/${formId}/stats`),
     enabled: !!formId,
     staleTime: 60_000,
   });
