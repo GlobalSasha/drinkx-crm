@@ -259,26 +259,33 @@ async def get_form_stats(
         )
     )
 
-    # `claimed` = submissions that resolved to a Lead which has been
-    # taken out of pool. One JOIN, no DISTINCT needed because a lead
-    # is referenced by at most one submission per form.
+    # `claimed` = distinct leads (via submissions) that have been taken
+    # out of pool. DISTINCT guards against hypothetical duplicate rows;
+    # explicit IS NOT NULL mirrors spec and makes the NULL exclusion
+    # intentional rather than implicit via INNER JOIN.
     r_claimed = await db.execute(
-        select(func.count())
+        select(func.count(FormSubmission.lead_id.distinct()))
         .select_from(FormSubmission)
         .join(Lead, Lead.id == FormSubmission.lead_id)
         .where(
             FormSubmission.web_form_id == form_id,
+            FormSubmission.lead_id.isnot(None),
             Lead.assignment_status == "assigned",
         )
     )
 
+    # LEFT OUTER JOIN so leads with stage_id=NULL are not silently
+    # excluded — they surface under "Без этапа" instead of vanishing.
     r_stage = await db.execute(
-        select(Stage.name, func.count(Lead.id))
+        select(
+            func.coalesce(Stage.name, "Без этапа").label("stage_name"),
+            func.count(Lead.id),
+        )
         .select_from(FormSubmission)
         .join(Lead, Lead.id == FormSubmission.lead_id)
-        .join(Stage, Stage.id == Lead.stage_id)
+        .outerjoin(Stage, Stage.id == Lead.stage_id)
         .where(FormSubmission.web_form_id == form_id)
-        .group_by(Stage.name)
+        .group_by(func.coalesce(Stage.name, "Без этапа"))
     )
 
     return FormStatsOut(

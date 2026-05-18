@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import current_user, require_admin_or_head
@@ -123,6 +123,26 @@ async def list_form_submissions(
     )
 
 
+@router.get("/{form_id}/stats", response_model=FormStatsOut)
+async def get_stats(
+    form_id: UUID,
+    response: Response,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(require_admin_or_head)] = ...,
+) -> FormStatsOut:
+    """Per-form aggregates for the admin stats card."""
+    # Workspace guard — mirrors the pattern in get_form and list_form_submissions:
+    # verify the form belongs to the caller's workspace before serving stats.
+    try:
+        await svc.get_form_or_404(
+            db, form_id=form_id, workspace_id=user.workspace_id
+        )
+    except svc.WebFormNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
+    response.headers["Cache-Control"] = "private, max-age=60"
+    return await svc.get_form_stats(db, form_id=form_id)
+
+
 # ---------------------------------------------------------------------------
 # Mutate — admin / head only
 # ---------------------------------------------------------------------------
@@ -202,24 +222,6 @@ async def delete_form(
     await db.commit()
     await db.refresh(form)
     return serialize_form(form)
-
-
-@router.get("/{form_id}/stats", response_model=FormStatsOut)
-async def get_stats(
-    form_id: UUID,
-    db: Annotated[AsyncSession, Depends(get_db)] = ...,
-    user: Annotated[User, Depends(require_admin_or_head)] = ...,
-) -> FormStatsOut:
-    """Per-form aggregates for the admin stats card."""
-    # Workspace guard — mirrors the pattern in get_form and list_form_submissions:
-    # verify the form belongs to the caller's workspace before serving stats.
-    try:
-        await svc.get_form_or_404(
-            db, form_id=form_id, workspace_id=user.workspace_id
-        )
-    except svc.WebFormNotFound:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
-    return await svc.get_form_stats(db, form_id=form_id)
 
 
 __all__ = ["router", "build_embed_snippet", "serialize_form"]

@@ -38,7 +38,7 @@ def test_form_stats_schema_shape():
 
 
 @pytest.mark.asyncio
-async def test_get_form_stats_aggregates_three_buckets():
+async def test_get_form_stats_aggregates_four_buckets():
     from app.forms import services as svc
 
     form_id = uuid.uuid4()
@@ -64,3 +64,25 @@ async def test_get_form_stats_aggregates_three_buckets():
     assert out.submissions_30d == 87
     assert out.claimed_count == 12
     assert out.by_stage == {"Новый контакт": 30, "Квалификация": 8}
+
+
+@pytest.mark.asyncio
+async def test_get_form_stats_groups_unplaced_leads_under_no_stage():
+    """Leads with stage_id=NULL must appear under 'Без этапа', not vanish
+    from by_stage entirely."""
+    from app.forms import services as svc
+
+    form_id = uuid.uuid4()
+    db = MagicMock()
+    db.execute = AsyncMock(
+        side_effect=[
+            MagicMock(scalar_one=lambda: 2),  # 7d
+            MagicMock(scalar_one=lambda: 2),  # 30d
+            MagicMock(scalar_one=lambda: 0),  # claimed (still in pool)
+            MagicMock(all=lambda: [("Без этапа", 2)]),
+        ]
+    )
+
+    out = await svc.get_form_stats(db, form_id=form_id)
+
+    assert out.by_stage == {"Без этапа": 2}
