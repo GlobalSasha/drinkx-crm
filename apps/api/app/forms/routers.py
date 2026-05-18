@@ -27,6 +27,7 @@ from app.db import get_db
 from app.forms import repositories as repo
 from app.forms import services as svc
 from app.forms.schemas import (
+    FormStatsOut,
     FormSubmissionOut,
     FormSubmissionPageOut,
     WebFormCreateIn,
@@ -201,6 +202,24 @@ async def delete_form(
     await db.commit()
     await db.refresh(form)
     return serialize_form(form)
+
+
+@router.get("/{form_id}/stats", response_model=FormStatsOut)
+async def get_stats(
+    form_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(require_admin_or_head)] = ...,
+) -> FormStatsOut:
+    """Per-form aggregates for the admin stats card."""
+    # Workspace guard — mirrors the pattern in get_form and list_form_submissions:
+    # verify the form belongs to the caller's workspace before serving stats.
+    try:
+        await svc.get_form_or_404(
+            db, form_id=form_id, workspace_id=user.workspace_id
+        )
+    except svc.WebFormNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
+    return await svc.get_form_stats(db, form_id=form_id)
 
 
 __all__ = ["router", "build_embed_snippet", "serialize_form"]

@@ -219,3 +219,71 @@ async def delete_form(
         session, form_id=form_id, workspace_id=workspace_id
     )
     return await repo.soft_delete(session, form=form)
+
+
+async def get_form_stats(
+    db: AsyncSession,
+    *,
+    form_id: uuid.UUID,
+) -> "FormStatsOut":
+    """Aggregate per-form metrics for the admin /forms stats card.
+
+    Four queries instead of one CTE — each is trivially cheap because
+    `form_submissions` is indexed on `web_form_id` and the counts hit
+    that index directly. Ordering matters: 7d → 30d → claimed → by_stage
+    to mirror the tests.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import func, select
+
+    from app.forms.models import FormSubmission
+    from app.forms.schemas import FormStatsOut
+    from app.leads.models import Lead
+    from app.pipelines.models import Stage
+
+    now = datetime.now(timezone.utc)
+    cutoff_7d = now - timedelta(days=7)
+    cutoff_30d = now - timedelta(days=30)
+
+    r_7d = await db.execute(
+        select(func.count()).select_from(FormSubmission).where(
+            FormSubmission.web_form_id == form_id,
+            FormSubmission.created_at >= cutoff_7d,
+        )
+    )
+    r_30d = await db.execute(
+        select(func.count()).select_from(FormSubmission).where(
+            FormSubmission.web_form_id == form_id,
+            FormSubmission.created_at >= cutoff_30d,
+        )
+    )
+
+    # `claimed` = submissions that resolved to a Lead which has been
+    # taken out of pool. One JOIN, no DISTINCT needed because a lead
+    # is referenced by at most one submission per form.
+    r_claimed = await db.execute(
+        select(func.count())
+        .select_from(FormSubmission)
+        .join(Lead, Lead.id == FormSubmission.lead_id)
+        .where(
+            FormSubmission.web_form_id == form_id,
+            Lead.assignment_status == "assigned",
+        )
+    )
+
+    r_stage = await db.execute(
+        select(Stage.name, func.count(Lead.id))
+        .select_from(FormSubmission)
+        .join(Lead, Lead.id == FormSubmission.lead_id)
+        .join(Stage, Stage.id == Lead.stage_id)
+        .where(FormSubmission.web_form_id == form_id)
+        .group_by(Stage.name)
+    )
+
+    return FormStatsOut(
+        submissions_7d=int(r_7d.scalar_one() or 0),
+        submissions_30d=int(r_30d.scalar_one() or 0),
+        claimed_count=int(r_claimed.scalar_one() or 0),
+        by_stage={name: int(count) for name, count in r_stage.all()},
+    )
