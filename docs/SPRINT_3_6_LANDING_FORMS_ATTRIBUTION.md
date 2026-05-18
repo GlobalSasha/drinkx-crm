@@ -76,10 +76,12 @@ The data is there. The UI bindings are not.
 
 **Backend** — `apps/api/app/leads/`
 
-- Extend `LeadOut` schema with two read-only enrichments:
-  - `source_form_name: str | None` — resolved by joining `web_forms` when
-    `lead.source LIKE 'form:%'` (substring match the slug after the
-    prefix). NULL otherwise.
+- Extend `LeadOut` schema with three read-only enrichments:
+  - `source_form_id: UUID | None` — resolved by joining `web_forms` when
+    `lead.source LIKE 'form:%'`. NULL when source is not a form or the
+    form has been deleted (FK SET NULL).
+  - `source_form_name: str | None` — sibling of the above. NULL when
+    the form has been deleted; the chip falls back to «📥 Заявка с формы».
   - `latest_utm: dict[str, str] | None` — the most recent
     `form_submission` Activity for this lead, reading
     `payload_json["utm"]`. NULL when no form_submission Activity exists.
@@ -95,10 +97,13 @@ The data is there. The UI bindings are not.
 **Frontend** — `apps/web/components/lead-card/`
 
 - `LeadCard.tsx` — add a compact chip in the header strip, next to the
-  company name: `🌐 Лендинг: <source_form_name>`. Render only when
-  `source_form_name` is present. Falls back to a generic
-  `📥 Заявка с формы` (no name) when `lead.source` starts with `form:`
-  but the form was deleted (FK is SET NULL on delete).
+  company name: `🌐 Лендинг: <source_form_name>`. The chip is a
+  `<Link>` to `/leads-pool?form_id=<form_id>` so a manager can pivot
+  from this lead to all leads from the same landing in one click.
+  Render only when `source_form_name` is present. Falls back to a
+  generic `📥 Заявка с формы` (no name, not clickable) when
+  `lead.source` starts with `form:` but the form was deleted (FK is
+  SET NULL on delete).
 - `DealAndAITab.tsx` — add a new section «Источник» below
   «Параметры сделки», visible only for form-sourced leads:
   - Form name (link to `/forms?focus=<id>` for admin/head, plain text
@@ -136,9 +141,20 @@ The data is there. The UI bindings are not.
     landing», ...) — fetched via existing `useForms` hook
   - «Без формы» (filter to `lead.source IS NULL or NOT LIKE 'form:%'`)
     — for the manual / CSV-imported pile.
-- Same dropdown is **optional** for `/pipeline`. If trivial, add it; if
-  it requires PipelineHeader restructuring, defer to a follow-up. The
-  most important surface is `/leads-pool` where fresh form leads land.
+- **Source column on the leads-pool table rows** — render `source_form_name`
+  as a small monospace chip next to (or below) the company name on
+  each row, so a manager can scan «откуда» without applying the filter.
+  Without this, the filter is the only way to see source, and users
+  rarely filter for things they can't see exist.
+- `/pipeline` kanban: per the Sprint 3.5 G2 decision the kanban card
+  stays a pure who/what/when surface — but form-source is operationally
+  important during Q3 campaigns (paid leads need faster response than
+  cold ones), so add a 10px `Globe` icon next to the company name on
+  cards whose `source` starts with `form:`. No text, no chip, just an
+  icon with `title={source_form_name}` for hover. Visual weight ≈ a
+  single character. Skip the full filter dropdown on `/pipeline` —
+  managers there are working a specific pipeline, not slicing by
+  source.
 
 ### G3 — Per-form stats on /forms admin page
 
@@ -187,21 +203,21 @@ Sections:
    <div id="drinkx-form"></div>
    <script src="https://crm.drinkx.tech/api/public/forms/horeca-msk/embed.js"></script>
    ```
-   Pros / cons: instant, styled by us. Use when the landing is static
-   HTML and the manager just wants a working form.
-4. **Pattern A2: React / Next.js (v0 / Claude-generated)** — full
-   working example component:
-   ```tsx
-   const SLUG = "horeca-msk";
-   const API = "https://crm.drinkx.tech/api/public/forms";
-   export default function LeadForm() {
-     // form state, submit handler that POSTs JSON to
-     // `${API}/${SLUG}/submit` with {phone, email, ...}
-     // + UTM passthrough block (read from URL once on mount)
-   }
-   ```
-   Pros / cons: full Tailwind control, native React state, no iframe.
-   Use when the landing is a real React app.
+   Use when the landing is plain HTML (no React) AND the form's
+   default look is acceptable. Pros: zero copy-paste, one line. Cons:
+   styling is fixed by the embed; CSS leakage between landing and
+   form is possible.
+4. **Pattern A2 (recommended for v0 / Claude React landings):
+   copy-paste fetch component** — a real React component the marketer
+   pastes into their landing and styles freely with Tailwind. Why
+   copy-paste over an npm package: the API contract
+   (`POST /api/public/forms/{slug}/submit` with `{phone, email, name,
+   notes, utm}`) is stable and tiny, the form needs pixel-perfect
+   style alignment with the landing's design system (varies per
+   landing), and we don't want to publish & version a public npm
+   package for a single internal endpoint. The docs section ships a
+   full, working component (form state, submit, UTM passthrough,
+   thank-you state) ~80 lines, MIT-licensed implicit.
 5. **UTM passthrough**: how to capture `utm_source`, `utm_medium`,
    `utm_campaign`, `utm_content`, `utm_term` from the landing URL and
    include them in the submission body under a `utm` key. The CRM
@@ -239,13 +255,33 @@ Commit messages reference the gate, e.g.
 6. Submit again with UTM in the URL: `?utm_source=test&utm_campaign=smoke`
    → reopen the new lead → UTM table reflects the values.
 
-## Open questions / decisions deferred
+## Resolved design choices (originally open questions)
 
-- **Should `/pipeline` show the source chip on the pipeline card?**
-  The Lead Card Redesign sprint deliberately removed metadata from the
-  kanban surface (see G2 of Sprint 3.5 — DROPPED). Same decision likely
-  applies: keep the pipeline card pure, surface attribution only inside
-  the lead detail view. Confirm during G1 review.
-- **Self-coded React snippet's UTM block — utility helper?** If the
-  marketing team uses the example more than 2-3 times we should extract
-  a hosted JS helper. For now inline JS is fine and educates the team.
+These were marked as "decisions deferred" in the first draft. Resolved
+on 2026-05-18 without further user input so the spec is implementation-
+ready — overrideable during PR review.
+
+- **Pipeline kanban card source indicator.** Decided: yes, minimal — a
+  10px Globe icon adjacent to the company name on cards whose source
+  starts with `form:`. No text chip. The Sprint 3.5 G2 decision to
+  keep kanban pure stands for sales metadata (Score/Tier) but
+  form-source is attribution metadata that's operationally important
+  during Q3 campaigns (paid leads need faster response). One-icon
+  visual cost is below the threshold of "clutter". See G2 frontend.
+- **React snippet — copy-paste vs npm.** Decided: copy-paste. The API
+  surface is one POST endpoint with a stable JSON contract; landings
+  need pixel-perfect Tailwind alignment; publishing & versioning an
+  npm package for one endpoint is overhead with no payback. The docs
+  ship the full component (~80 lines). Revisit only if the marketing
+  team copies the snippet to 5+ landings AND we ship a v2 endpoint
+  contract.
+- **Lead Card chip click target.** Decided: clicking the
+  «🌐 Лендинг: X» chip on the Lead Card header navigates to
+  `/leads-pool?form_id=<id>` so the manager can quickly see other
+  leads from the same landing. Discoverable side-channel for the
+  filter, no extra UI surface.
+- **UTM denormalisation onto Lead.** Decided: NO. UTM stays on
+  `form_submissions.utm_json` + the `form_submission` Activity
+  payload. Lead-level filter by UTM is dashboard territory (deferred
+  sprint). G1 reads UTM from the latest Activity for display only —
+  no schema change, no migration.
