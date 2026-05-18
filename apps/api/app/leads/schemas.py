@@ -86,6 +86,12 @@ class LeadOut(LeadBase):
     # name resolved via LEFT JOIN in the list-query repository.
     primary_contact_id: UUID | None = None
     primary_contact_name: str | None = None
+    # Sprint 3.6 G1 — landing-form attribution. Resolved at the read
+    # path, never stored. `source_form_id` is the FK target so the
+    # frontend chip can deep-link to `/leads-pool?form_id=<id>`.
+    source_form_id: UUID | None = None
+    source_form_name: str | None = None
+    latest_utm: dict | None = None
     # Open work counters. Split is reminder_kind-based per Sprint pre-flight:
     #   open_tasks_count     = status != 'done' AND reminder_kind = 'manager'
     #   open_followups_count = status != 'done' AND reminder_kind IN ('auto_email', 'ai_hint')
@@ -132,6 +138,10 @@ class LeadListItemOut(LeadBase):
     lost_reason: str | None
     primary_contact_id: UUID | None = None
     primary_contact_name: str | None = None
+    # Sprint 3.6 G1 — landing-form attribution (same as LeadOut).
+    source_form_id: UUID | None = None
+    source_form_name: str | None = None
+    latest_utm: dict | None = None
     open_followups_count: int = 0
     open_tasks_count: int = 0
     deal_amount: Decimal | None = None

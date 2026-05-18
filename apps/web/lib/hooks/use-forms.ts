@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, api } from "@/lib/api-client";
 import type {
+  FormStatsOut,
   WebFormCreateIn,
   WebFormOut,
   WebFormPageOut,
@@ -93,5 +94,15 @@ export function useToggleFormActive() {
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["forms"] });
     },
+  });
+}
+
+/** Sprint 3.6 G4 — per-form stats. Consumed by FormStatsCard (Task 8). */
+export function useFormStats(formId: string | undefined) {
+  return useQuery<FormStatsOut, ApiError>({
+    queryKey: ["form-stats", formId],
+    queryFn: () => api.get<FormStatsOut>(`/api/forms/${formId}/stats`),
+    enabled: !!formId,
+    staleTime: 60_000,
   });
 }

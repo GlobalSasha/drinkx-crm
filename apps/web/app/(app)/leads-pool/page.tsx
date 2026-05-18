@@ -1,8 +1,9 @@
 "use client";
-import { useState, useMemo, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { Search, Loader2, Sparkles, X } from "lucide-react";
+import { useState, useMemo, useCallback, useEffect, useRef, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Search, Loader2, Sparkles, X, Globe } from "lucide-react";
 import { usePoolLeads, useClaimLead } from "@/lib/hooks/use-leads";
+import { useForms } from "@/lib/hooks/use-forms";
 import { Toast } from "@/components/ui/Toast";
 import { ExportPopover } from "@/components/export/ExportPopover";
 import { AIBulkUpdateModal } from "@/components/export/AIBulkUpdateModal";
@@ -89,6 +90,15 @@ function PoolRow({
     >
       <td className="px-4 py-3">
         <p className="font-semibold text-sm text-ink">{lead.company_name}</p>
+        {lead.source_form_name && (
+          <span
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono text-brand-accent-text bg-brand-soft"
+            title="Источник заявки"
+          >
+            <Globe size={9} aria-hidden />
+            {lead.source_form_name}
+          </span>
+        )}
       </td>
       <td className="px-4 py-3 text-sm text-muted-2">{lead.city ?? "—"}</td>
       <td className="px-4 py-3 text-sm text-muted-2">{lead.segment ? segmentLabel(lead.segment) : "—"}</td>
@@ -128,7 +138,8 @@ function PoolRow({
 const TIER_OPTIONS = ["A", "B", "C", "D"];
 const PRIORITY_OPTIONS = ["A", "B", "C", "D"];
 
-export default function LeadsPoolPage() {
+function LeadsPoolPageInner() {
+  const searchParams = useSearchParams();
   const [cityFilters, setCityFilters] = useState<string[]>([]);
   const [segmentFilters, setSegmentFilters] = useState<string[]>([]);
   const [priorityFilters, setPriorityFilters] = useState<string[]>([]);
@@ -140,10 +151,20 @@ export default function LeadsPoolPage() {
   const [search, setSearch] = useState("");
   const [hasEmailOnly, setHasEmailOnly] = useState(false);
   const [hasPhoneOnly, setHasPhoneOnly] = useState(false);
+  const [formId, setFormId] = useState<string | undefined>(undefined);
   const [toasts, setToasts] = useState<ToastState[]>([]);
   // Track which lead IDs are currently being claimed (for optimistic UI)
   const [claimingIds, setClaimingIds] = useState<Set<string>>(new Set());
   const [aiUpdateOpen, setAiUpdateOpen] = useState(false);
+
+  // Pre-select form filter from ?form_id= URL param (set by Lead Card chip links).
+  const didMountRef = useRef(false);
+  useEffect(() => {
+    if (didMountRef.current) return;
+    didMountRef.current = true;
+    const presetFormId = searchParams.get("form_id") ?? undefined;
+    if (presetFormId) setFormId(presetFormId);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeFilterCount =
     (cityFilters.length > 0 ? 1 : 0) +
@@ -156,7 +177,8 @@ export default function LeadsPoolPage() {
     (fitMin > 0 ? 1 : 0) +
     (search ? 1 : 0) +
     (hasEmailOnly ? 1 : 0) +
-    (hasPhoneOnly ? 1 : 0);
+    (hasPhoneOnly ? 1 : 0) +
+    (formId ? 1 : 0);
 
   function resetAllFilters() {
     setCityFilters([]);
@@ -170,6 +192,7 @@ export default function LeadsPoolPage() {
     setSearch("");
     setHasEmailOnly(false);
     setHasPhoneOnly(false);
+    setFormId(undefined);
   }
 
   const addToast = useCallback((message: string, type: "error" | "success" = "success") => {
@@ -183,8 +206,13 @@ export default function LeadsPoolPage() {
   // backend means each chip would just show the size of the active filter
   // (or zero for non-active ones). 216 leads ≈ 50KB, fine for one fetch;
   // revisit if pool grows past a few thousand.
-  const poolQuery = usePoolLeads({ page_size: 500 });
+  // form_id is server-side filtered because it scopes the whole pool
+  // to a specific landing source.
+  const poolQuery = usePoolLeads({ page_size: 500, form_id: formId });
   const claimMutation = useClaimLead();
+
+  const formsQuery = useForms();
+  const forms = formsQuery.data?.items ?? [];
 
   const allItems = poolQuery.data?.items ?? [];
 
@@ -503,6 +531,21 @@ export default function LeadsPoolPage() {
             />
           )}
 
+          <select
+            value={formId ?? ""}
+            onChange={(e) => setFormId(e.target.value || undefined)}
+            className="text-sm px-2 py-1.5 rounded-lg bg-canvas border border-black/5 outline-none focus:border-brand-accent"
+          >
+            <option value="">Все источники</option>
+            {forms
+              .filter((f) => f.is_active)
+              .map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+          </select>
+
           {tags.length > 0 && (
             <MultiSelectDropdown
               label="Теги"
@@ -623,6 +666,15 @@ export default function LeadsPoolPage() {
         ))}
       </div>
     </>
+  );
+}
+
+// useSearchParams requires a Suspense boundary in Next 15 App Router.
+export default function LeadsPoolPage() {
+  return (
+    <Suspense fallback={null}>
+      <LeadsPoolPageInner />
+    </Suspense>
   );
 }
 

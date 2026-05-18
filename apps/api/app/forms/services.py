@@ -219,3 +219,78 @@ async def delete_form(
         session, form_id=form_id, workspace_id=workspace_id
     )
     return await repo.soft_delete(session, form=form)
+
+
+async def get_form_stats(
+    db: AsyncSession,
+    *,
+    form_id: uuid.UUID,
+) -> "FormStatsOut":
+    """Aggregate per-form metrics for the admin /forms stats card.
+
+    Four queries instead of one CTE — each is trivially cheap because
+    `form_submissions` is indexed on `web_form_id` and the counts hit
+    that index directly. Ordering matters: 7d → 30d → claimed → by_stage
+    to mirror the tests.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import func, select
+
+    from app.forms.models import FormSubmission
+    from app.forms.schemas import FormStatsOut
+    from app.leads.models import Lead
+    from app.pipelines.models import Stage
+
+    now = datetime.now(timezone.utc)
+    cutoff_7d = now - timedelta(days=7)
+    cutoff_30d = now - timedelta(days=30)
+
+    r_7d = await db.execute(
+        select(func.count()).select_from(FormSubmission).where(
+            FormSubmission.web_form_id == form_id,
+            FormSubmission.created_at >= cutoff_7d,
+        )
+    )
+    r_30d = await db.execute(
+        select(func.count()).select_from(FormSubmission).where(
+            FormSubmission.web_form_id == form_id,
+            FormSubmission.created_at >= cutoff_30d,
+        )
+    )
+
+    # `claimed` = distinct leads (via submissions) that have been taken
+    # out of pool. DISTINCT guards against hypothetical duplicate rows;
+    # explicit IS NOT NULL mirrors spec and makes the NULL exclusion
+    # intentional rather than implicit via INNER JOIN.
+    r_claimed = await db.execute(
+        select(func.count(FormSubmission.lead_id.distinct()))
+        .select_from(FormSubmission)
+        .join(Lead, Lead.id == FormSubmission.lead_id)
+        .where(
+            FormSubmission.web_form_id == form_id,
+            FormSubmission.lead_id.isnot(None),
+            Lead.assignment_status == "assigned",
+        )
+    )
+
+    # LEFT OUTER JOIN so leads with stage_id=NULL are not silently
+    # excluded — they surface under "Без этапа" instead of vanishing.
+    r_stage = await db.execute(
+        select(
+            func.coalesce(Stage.name, "Без этапа").label("stage_name"),
+            func.count(Lead.id),
+        )
+        .select_from(FormSubmission)
+        .join(Lead, Lead.id == FormSubmission.lead_id)
+        .outerjoin(Stage, Stage.id == Lead.stage_id)
+        .where(FormSubmission.web_form_id == form_id)
+        .group_by(func.coalesce(Stage.name, "Без этапа"))
+    )
+
+    return FormStatsOut(
+        submissions_7d=int(r_7d.scalar_one() or 0),
+        submissions_30d=int(r_30d.scalar_one() or 0),
+        claimed_count=int(r_claimed.scalar_one() or 0),
+        by_stage={name: int(count) for name, count in r_stage.all()},
+    )

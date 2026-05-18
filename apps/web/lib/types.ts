@@ -120,6 +120,11 @@ export interface LeadOut {
   // Primary contact pin (Sprint Lead Card Redesign).
   primary_contact_id: string | null;
   primary_contact_name: string | null;
+  // Sprint 3.6 G1 — landing-form attribution. Backend resolves these
+  // at the read path; they are read-only on the frontend.
+  source_form_id: string | null;
+  source_form_name: string | null;
+  latest_utm: Record<string, string> | null;
   // Open work counters, surfaced on the pipeline card. Splits
   // (manager-kind = task) vs (auto_email / ai_hint = followup).
   open_followups_count: number;
@@ -1479,4 +1484,12 @@ export interface SearchResponse {
   total: number;
   query: string;
   mode: "ilike" | "trgm" | "empty";
+}
+
+// Sprint 3.6 G3 — per-form stats card.
+export interface FormStatsOut {
+  submissions_7d: number;
+  submissions_30d: number;
+  claimed_count: number;
+  by_stage: Record<string, number>;
 }

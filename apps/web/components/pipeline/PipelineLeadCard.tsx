@@ -3,7 +3,7 @@ import { memo } from "react";
 import { useRouter } from "next/navigation";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Bell, ClipboardList, Star } from "lucide-react";
+import { Bell, ClipboardList, Globe, Star } from "lucide-react";
 import type { LeadOut } from "@/lib/types";
 import { C } from "@/lib/design-system";
 import { segmentShortLabel } from "@/lib/i18n";
@@ -72,9 +72,21 @@ function PipelineLeadCardImpl({ lead }: Props) {
       onKeyDown={handleKey}
       className="font-sans bg-white border border-brand-border rounded-md p-3 h-[88px] flex flex-col justify-between cursor-pointer select-none transition-opacity duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg"
     >
-      {/* Row 1 — company name (bold, single line) */}
-      <p className={`type-caption font-bold ${C.color.text} truncate leading-snug`}>
-        {lead.company_name}
+      {/* Row 1 — company name (bold, single line). Sprint 3.6 G7:
+          attribution Globe icon for form-sourced leads — operationally
+          important during Q3 paid campaigns (paid leads need faster
+          response than cold ones). One-character visual cost. */}
+      <p className={`type-caption font-bold ${C.color.text} truncate leading-snug flex items-center gap-1`}>
+        {lead.source?.startsWith("form:") && (
+          <span
+            title={lead.source_form_name ?? "Заявка с формы"}
+            className="text-brand-accent-text shrink-0 inline-flex"
+            aria-label="Заявка с лендинга"
+          >
+            <Globe size={10} aria-hidden />
+          </span>
+        )}
+        <span className="truncate">{lead.company_name}</span>
       </p>
 
       {/* Row 2 — primary contact name with star prefix. Always

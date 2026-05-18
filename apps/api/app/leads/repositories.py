@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+import structlog
 from sqlalchemy import and_, func, nullslast, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
@@ -13,11 +14,72 @@ from app.contacts.models import Contact
 from app.followups.models import Followup
 from app.leads.models import Lead
 
+log = structlog.get_logger()
+
 
 # Reminder kinds that count as «задача» (manual work) vs «followup»
 # (automated touch). Pre-flight decision — see Sprint spec.
 _TASK_KINDS = ("manager",)
 _FOLLOWUP_KINDS = ("auto_email", "ai_hint")
+
+
+def parse_form_slug_from_source(source: str | None) -> str | None:
+    """Extract the form slug from `lead.source` if it carries one.
+
+    `lead_factory.create_lead_from_submission` writes
+    `source = f"form:{slug}"` for form-originated leads. Returns the
+    slug (no prefix) or None for non-form / malformed sources.
+    """
+    if not source:
+        return None
+    prefix = "form:"
+    if not source.startswith(prefix):
+        return None
+    slug = source[len(prefix):].strip()
+    return slug or None
+
+
+async def resolve_form_for_source(
+    db: AsyncSession, source: str | None
+) -> tuple[uuid.UUID, str] | None:
+    """Look up the WebForm by slug parsed from `source`. Returns
+    (form_id, form_name) or None when the source is not a form or the
+    form has been deleted (FK SET NULL on the foreign key path)."""
+    slug = parse_form_slug_from_source(source)
+    if slug is None:
+        return None
+
+    from app.forms.models import WebForm
+
+    result = await db.execute(
+        select(WebForm.id, WebForm.name).where(WebForm.slug == slug).limit(1)
+    )
+    row = result.first()
+    if row is None:
+        return None
+    return (row[0], row[1])
+
+
+async def latest_form_utm_for_lead(
+    db: AsyncSession, lead_id: uuid.UUID
+) -> dict | None:
+    """Return the UTM dict from the most recent `form_submission`
+    Activity for the lead, or None when no such Activity exists."""
+    from app.activity.models import Activity
+
+    result = await db.execute(
+        select(Activity.payload_json)
+        .where(Activity.lead_id == lead_id, Activity.type == "form_submission")
+        .order_by(Activity.created_at.desc())
+        .limit(1)
+    )
+    payload = result.scalar_one_or_none()
+    if not payload:
+        return None
+    utm = payload.get("utm") if isinstance(payload, dict) else None
+    if not utm or not isinstance(utm, dict):
+        return None
+    return dict(utm)
 
 
 def _open_count_subquery(reminder_kinds: tuple[str, ...]):
@@ -35,18 +97,120 @@ def _open_count_subquery(reminder_kinds: tuple[str, ...]):
     )
 
 
-def _populate_extras(rows: list[tuple]) -> list[Lead]:
+async def _resolve_forms_batch(
+    db: AsyncSession, slugs: list[str]
+) -> dict[str, tuple[uuid.UUID, str]]:
+    """One SELECT to resolve a list of form slugs → {slug: (form_id, form_name)}.
+
+    Used by the list path so the whole page costs one query instead of N.
+    """
+    if not slugs:
+        return {}
+
+    from app.forms.models import WebForm
+
+    result = await db.execute(
+        select(WebForm.slug, WebForm.id, WebForm.name).where(
+            WebForm.slug.in_(slugs)
+        )
+    )
+    return {row[0]: (row[1], row[2]) for row in result.all()}
+
+
+async def _latest_utms_batch(
+    db: AsyncSession, lead_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, dict]:
+    """One SELECT DISTINCT ON (lead_id) to get the latest form_submission
+    UTM payload for each lead. Returns {lead_id: utm_dict}.
+
+    Used by the list path so the whole page costs one query instead of N.
+    """
+    if not lead_ids:
+        return {}
+
+    from app.activity.models import Activity
+
+    result = await db.execute(
+        select(Activity.lead_id, Activity.payload_json)
+        .where(
+            Activity.lead_id.in_(lead_ids),
+            Activity.type == "form_submission",
+        )
+        .distinct(Activity.lead_id)
+        .order_by(Activity.lead_id, Activity.created_at.desc())
+    )
+    utms: dict[uuid.UUID, dict] = {}
+    for lead_id, payload in result.all():
+        if not payload or not isinstance(payload, dict):
+            continue
+        utm = payload.get("utm")
+        if utm and isinstance(utm, dict):
+            utms[lead_id] = dict(utm)
+    return utms
+
+
+async def _populate_extras(
+    rows: list,
+    *,
+    db: AsyncSession | None = None,
+) -> list[Lead]:
     """Walk the (Lead, primary_contact_name, open_tasks, open_followups)
-    rows produced by the list queries and hang the joined values onto
-    the Lead instance so Pydantic `from_attributes=True` picks them up
-    without a second pass."""
-    out: list[Lead] = []
-    for lead, contact_name, tasks_count, followups_count in rows:
+    tuples and attach the joined values to the Lead instance so the
+    Pydantic schema can read them as if they were ORM columns.
+
+    Sprint 3.6: also resolves `source_form_id`/`source_form_name` via
+    a batched WebForm query and `latest_utm` via a single batched
+    form_submission Activity query. Both are best-effort — if the form
+    was deleted or the Activity row is missing, the fields stay None. A
+    transient DB error is caught and logged rather than surfacing a 500.
+    """
+    leads: list[Lead] = []
+    for lead, contact_name, open_tasks, open_followups in rows:
         lead.primary_contact_name = contact_name  # type: ignore[attr-defined]
-        lead.open_tasks_count = int(tasks_count or 0)  # type: ignore[attr-defined]
-        lead.open_followups_count = int(followups_count or 0)  # type: ignore[attr-defined]
-        out.append(lead)
-    return out
+        lead.open_tasks_count = open_tasks  # type: ignore[attr-defined]
+        lead.open_followups_count = open_followups  # type: ignore[attr-defined]
+        # Defaults so Pydantic doesn't complain even if `db` is None.
+        lead.source_form_id = None  # type: ignore[attr-defined]
+        lead.source_form_name = None  # type: ignore[attr-defined]
+        lead.latest_utm = None  # type: ignore[attr-defined]
+        leads.append(lead)
+
+    if db is not None:
+        try:
+            # ── Batch 1: resolve form slugs → (form_id, form_name) ──────────
+            slug_to_lead: dict[str, list[Lead]] = {}
+            for lead in leads:
+                slug = parse_form_slug_from_source(lead.source)
+                if slug is not None:
+                    slug_to_lead.setdefault(slug, []).append(lead)
+
+            if slug_to_lead:
+                form_map = await _resolve_forms_batch(db, list(slug_to_lead.keys()))
+                for slug, form_leads in slug_to_lead.items():
+                    if slug in form_map:
+                        form_id, form_name = form_map[slug]
+                        for lead in form_leads:
+                            lead.source_form_id = form_id  # type: ignore[attr-defined]
+                            lead.source_form_name = form_name  # type: ignore[attr-defined]
+
+            # ── Batch 2: fetch latest UTMs for form-sourced leads ────────────
+            form_lead_ids = [
+                lead.id for lead in leads if lead.source_form_id is not None
+            ]
+            if form_lead_ids:
+                utm_map = await _latest_utms_batch(db, form_lead_ids)
+                for lead in leads:
+                    if lead.id in utm_map:
+                        lead.latest_utm = utm_map[lead.id]  # type: ignore[attr-defined]
+        except Exception:
+            log.warning(
+                "leads.enrich.error",
+                lead_count=len(leads),
+                exc_info=True,
+            )
+            # Fields remain at None defaults — don't crash the list response.
+
+    return leads
 
 
 async def get_by_id(db: AsyncSession, lead_id: uuid.UUID, workspace_id: uuid.UUID) -> Lead | None:
@@ -71,8 +235,26 @@ async def get_by_id(db: AsyncSession, lead_id: uuid.UUID, workspace_id: uuid.UUI
     row = (await db.execute(stmt)).first()
     if row is None:
         return None
-    populated = _populate_extras([row])
+    populated = await _populate_extras([row], db=db)
     return populated[0]
+
+
+async def _slug_for_form_id(
+    db: AsyncSession,
+    form_id: uuid.UUID,
+    workspace_id: uuid.UUID,
+) -> str | None:
+    """Lookup the slug for a given form_id, scoped to a workspace. Returns
+    None when the form has been deleted OR belongs to a different workspace
+    (the filter then short-circuits to empty)."""
+    from app.forms.models import WebForm
+
+    result = await db.execute(
+        select(WebForm.slug)
+        .where(WebForm.id == form_id, WebForm.workspace_id == workspace_id)
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
 
 
 async def list_leads(
@@ -87,6 +269,7 @@ async def list_leads(
     deal_type: str | None = None,
     assigned_to: uuid.UUID | None = None,
     q: str | None = None,
+    form_id: uuid.UUID | None = None,
     page: int = 1,
     page_size: int = 50,
 ) -> tuple[list[Lead], int]:
@@ -101,6 +284,11 @@ async def list_leads(
         Lead.workspace_id == workspace_id,
         Lead.assignment_status == "assigned",
     )
+    if form_id is not None:
+        slug = await _slug_for_form_id(db, form_id, workspace_id)
+        if slug is None:
+            return [], 0  # unknown / deleted form → nothing matches
+        base = base.where(Lead.source == f"form:{slug}")
     if stage_id is not None:
         base = base.where(Lead.stage_id == stage_id)
     if pipeline_id is not None:
@@ -138,7 +326,7 @@ async def list_leads(
         .limit(page_size)
     )
     rows_result = await db.execute(list_stmt)
-    return _populate_extras(list(rows_result.all())), total
+    return await _populate_extras(list(rows_result.all()), db=db), total
 
 
 async def list_pool(
@@ -148,6 +336,7 @@ async def list_pool(
     city: str | None = None,
     segment: str | None = None,
     fit_min: float | None = None,
+    form_id: uuid.UUID | None = None,
     page: int = 1,
     page_size: int = 50,
 ) -> tuple[list[Lead], int]:
@@ -156,6 +345,11 @@ async def list_pool(
         Lead.workspace_id == workspace_id,
         Lead.assignment_status == "pool",
     )
+    if form_id is not None:
+        slug = await _slug_for_form_id(db, form_id, workspace_id)
+        if slug is None:
+            return [], 0  # unknown / deleted form → nothing matches
+        base = base.where(Lead.source == f"form:{slug}")
     if city is not None:
         base = base.where(Lead.city == city)
     if segment is not None:
@@ -179,7 +373,7 @@ async def list_pool(
         .limit(page_size)
     )
     rows_result = await db.execute(list_stmt)
-    return _populate_extras(list(rows_result.all())), total
+    return await _populate_extras(list(rows_result.all()), db=db), total
 
 
 async def create_lead(

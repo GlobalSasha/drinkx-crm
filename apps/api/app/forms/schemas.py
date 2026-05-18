@@ -85,3 +85,11 @@ class FormSubmissionPageOut(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class FormStatsOut(BaseModel):
+    """Per-form stats card — Sprint 3.6 G3."""
+    submissions_7d: int
+    submissions_30d: int
+    claimed_count: int
+    by_stage: dict[str, int]

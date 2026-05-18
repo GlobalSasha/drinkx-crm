@@ -25,6 +25,8 @@ export interface LeadFilters {
   priority?: string;
   deal_type?: string;
   q?: string;
+  // Sprint 3.6 G4 — filter by landing-form source.
+  form_id?: string;
   page?: number;
   page_size?: number;
 }
@@ -38,6 +40,7 @@ function buildQuery(filters: LeadFilters): string {
   if (filters.priority) p.set("priority", filters.priority);
   if (filters.deal_type) p.set("deal_type", filters.deal_type);
   if (filters.q) p.set("q", filters.q);
+  if (filters.form_id) p.set("form_id", filters.form_id);
   if (filters.page) p.set("page", String(filters.page));
   p.set("page_size", String(filters.page_size ?? 200));
   const qs = p.toString();
@@ -52,11 +55,12 @@ export function useLeads(filters: LeadFilters = {}) {
 }
 
 export function usePoolLeads(
-  filters: { city?: string; segment?: string; page_size?: number } = {},
+  filters: { city?: string; segment?: string; page_size?: number; form_id?: string } = {},
 ) {
   const p = new URLSearchParams();
   if (filters.city) p.set("city", filters.city);
   if (filters.segment) p.set("segment", filters.segment);
+  if (filters.form_id) p.set("form_id", filters.form_id);
   p.set("page_size", String(filters.page_size ?? 200));
   const qs = p.toString();
   const path = qs ? `/leads/pool?${qs}` : "/leads/pool";

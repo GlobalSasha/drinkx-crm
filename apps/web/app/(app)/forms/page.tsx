@@ -20,6 +20,7 @@ import {
 } from "@/lib/hooks/use-forms";
 import { relativeTime } from "@/lib/relative-time";
 import { FormEditor } from "@/components/forms/FormEditor";
+import { FormStatsCard } from "@/components/forms/FormStatsCard";
 import type { WebFormOut } from "@/lib/types";
 
 
@@ -202,6 +203,7 @@ function FormRow({
             → {form.redirect_url}
           </div>
         )}
+        <FormStatsCard formId={form.id} />
       </div>
       <span className={`${T.mono} text-muted-2 truncate`}>
         /{form.slug}
