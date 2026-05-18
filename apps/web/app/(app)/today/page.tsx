@@ -19,7 +19,6 @@ import {
   Phone,
   Mail,
   Calendar,
-  CheckCircle2,
   ArrowUpRight,
   Check,
 } from "lucide-react";
@@ -43,7 +42,7 @@ import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { C } from "@/lib/design-system";
 import { api } from "@/lib/api-client";
-import { useTodayPlan } from "@/lib/hooks/use-daily-plan";
+import { useTodayPlan, useCompletePlanItem } from "@/lib/hooks/use-daily-plan";
 import { useFollowupsPending } from "@/lib/hooks/use-followups";
 import { useLeads } from "@/lib/hooks/use-leads";
 import { usePipelines } from "@/lib/hooks/use-pipelines";
@@ -425,11 +424,20 @@ function TaskListWidget() {
   const { data: leadsData } = useLeads(TODAY_LEADS_FILTER);
   const qc = useQueryClient();
   const planDate = data?.plan_date;
+  const completeItem = useCompletePlanItem();
 
   const items = useMemo(() => {
     const all = data?.items ?? [];
     return [...all].sort((a, b) => a.position - b.position);
   }, [data]);
+
+  // G4 — day progress. «X из Y» drives both the header pill and the
+  // capacity bar at the bottom of the widget. `done` mirrors the
+  // backend completed_at flag exposed on the plan item.
+  const doneCount = items.filter((t) => t.done).length;
+  const totalCount = items.length;
+  const progressPct =
+    totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
   // Default target lead for the inline quick-add — same ranking as the
   // FocusWidget so what the user sees in Focus is what gets the new task.
@@ -492,6 +500,19 @@ function TaskListWidget() {
           <p className={`type-caption ${C.color.mutedLight} mt-0.5`}>
             Расставлено по таймблокам Чаком
           </p>
+          {totalCount > 0 && (
+            <div className="mt-3 flex items-center gap-2">
+              <div className="flex-1 h-1.5 rounded-full bg-brand-bg overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-brand-accent transition-all"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              <span className="type-caption font-mono tabular-nums text-brand-muted shrink-0">
+                {doneCount}/{totalCount}
+              </span>
+            </div>
+          )}
         </div>
         <Link
           href="/today?tab=tasks"
@@ -525,7 +546,30 @@ function TaskListWidget() {
           const due = buildPlanItemDueAt(planDate, t.time_block);
           const rowClass =
             "flex items-center gap-3 px-3 py-2 rounded-2xl bg-brand-bg";
-          const inner = (
+          // G4 — inline checkbox completes the plan item without
+          // navigating to the lead card. Stop propagation so the
+          // surrounding row Link doesn't fire.
+          const checkbox = (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (t.done || completeItem.isPending) return;
+                completeItem.mutate(t.id);
+              }}
+              disabled={t.done || completeItem.isPending}
+              aria-label={t.done ? "Задача выполнена" : "Отметить выполненной"}
+              className={`shrink-0 w-5 h-5 rounded-full border-[1.5px] flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
+                t.done
+                  ? "border-success bg-success cursor-default"
+                  : "border-brand-border hover:border-brand-accent hover:bg-brand-soft/40"
+              } disabled:opacity-60`}
+            >
+              {t.done && <Check size={12} className="text-white" />}
+            </button>
+          );
+          const body = (
             <>
               <span
                 className={`type-caption ${C.color.mutedLight} uppercase tracking-wide tabular-nums w-16 shrink-0`}
@@ -551,26 +595,26 @@ function TaskListWidget() {
                   {t.lead_company_name ?? "—"}
                 </p>
               </div>
-              <CheckCircle2
-                size={14}
-                className={t.done ? "text-success" : "text-brand-muted"}
-              />
             </>
           );
           // Daily-plan items can have a null lead_id (general / standalone
           // tasks). Render those as a non-clickable row so we don't link
-          // to a broken `/leads/null` route.
-          return t.lead_id ? (
-            <Link
-              key={t.id}
-              href={`/leads/${t.lead_id}?tab=activity&task=${t.id}`}
-              className={`${rowClass} cursor-pointer`}
-            >
-              {inner}
-            </Link>
-          ) : (
+          // to a broken `/leads/null` route. Checkbox is always live.
+          return (
             <div key={t.id} className={rowClass}>
-              {inner}
+              {checkbox}
+              {t.lead_id ? (
+                <Link
+                  href={`/leads/${t.lead_id}?tab=activity&task=${t.id}`}
+                  className="flex items-center gap-3 flex-1 min-w-0"
+                >
+                  {body}
+                </Link>
+              ) : (
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  {body}
+                </div>
+              )}
             </div>
           );
         })}

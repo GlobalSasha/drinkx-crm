@@ -97,16 +97,22 @@ feedback contradicts.
 
 ### G4 — Today inline actions
 
-- [ ] Inline checkbox on each /today task row — toggles `task.status` in
-      place without opening the lead card. Existing mutation hook does this;
-      needs the UI binding on the row.
-- [ ] Day progress bar in the /today header — «X из Y задач» using the
-      already-fetched task array.
+- [x] Inline checkbox on each /today task row — restructured the row so
+      the checkbox button lives outside the row Link (so clicking it
+      doesn't navigate). Uses the existing `useCompletePlanItem` mutation
+      (`POST /daily-plans/items/{id}/complete`) instead of forcing the
+      manager into the lead card.
+- [x] Day progress bar in the TaskListWidget header — «X/Y» pill +
+      thin orange bar, fed by `items.filter(t => t.done).length /
+      items.length`. Hidden when there are no items.
 
 ### G5 — Mobile pipeline navigation
 
-- [ ] Horizontal scrollable chip-bar of stages above the mobile list view
-      (`< 768px`), so a manager can filter the collapsed kanban by stage.
+- [x] Sticky horizontal scrollable chip-bar of stages at the top of the
+      mobile `PipelineList` view. «Все» shows every section (prior
+      behaviour); selecting a stage collapses the list to that stage
+      only. Each chip carries the stage colour dot + lead count. Empty
+      filtered state has a «Показать все этапы» reset link.
 
 ---
 
