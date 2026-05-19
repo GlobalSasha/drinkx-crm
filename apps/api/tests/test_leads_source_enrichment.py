@@ -252,3 +252,39 @@ async def test_list_pool_form_id_filter_short_circuits_for_unknown_form():
 
     assert rows == []
     assert total == 0
+
+
+def test_lead_out_has_needs_review_field():
+    """Sprint 3.7 G1 — schema exposes needs_review flag so the pool UI
+    can render the «⚠️ AI создал» pill on auto-created leads."""
+    from app.leads.schemas import LeadOut, LeadListItemOut
+
+    assert "needs_review" in LeadOut.model_fields
+    assert LeadOut.model_fields["needs_review"].default is False
+    assert "needs_review" in LeadListItemOut.model_fields
+    assert LeadListItemOut.model_fields["needs_review"].default is False
+
+
+@pytest.mark.asyncio
+async def test_list_pool_needs_review_filter_applies():
+    """list_pool with needs_review=True must add the column filter and
+    proceed to count + list queries (no short-circuit)."""
+    from app.leads import repositories as repo
+
+    db = MagicMock()
+    db.execute = AsyncMock(
+        side_effect=[
+            MagicMock(scalar_one=lambda: 0),  # count
+            MagicMock(all=lambda: []),  # list — empty after filter
+        ]
+    )
+
+    rows, total = await repo.list_pool(
+        db,
+        workspace_id=uuid.uuid4(),
+        needs_review=True,
+    )
+
+    assert rows == []
+    assert total == 0
+    assert db.execute.await_count >= 2

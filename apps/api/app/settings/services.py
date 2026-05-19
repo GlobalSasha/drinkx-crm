@@ -88,6 +88,7 @@ async def get_ai_settings(
 
     daily_budget = float(ai.get("daily_budget_usd", env_cap))
     primary_model = str(ai.get("primary_model", env_primary))
+    auto_refresh = bool(ai.get("auto_lead_agent_refresh_on_inbound", False))
 
     spend = await get_daily_spend_usd(workspace_id)
 
@@ -96,6 +97,7 @@ async def get_ai_settings(
         "primary_model": primary_model,
         "current_spend_usd_today": float(spend),
         "available_models": list(AI_MODEL_CHOICES),
+        "auto_lead_agent_refresh_on_inbound": auto_refresh,
     }
 
 
@@ -109,6 +111,7 @@ async def update_ai_settings(
     workspace_id: uuid.UUID,
     daily_budget_usd: float | None = None,
     primary_model: str | None = None,
+    auto_lead_agent_refresh_on_inbound: bool | None = None,
 ) -> dict:
     """Mutate `workspace.settings_json["ai"]` and return the resolved
     AISettingsOut payload. Caller commits.
@@ -141,6 +144,10 @@ async def update_ai_settings(
         ai["daily_budget_usd"] = float(daily_budget_usd)
     if primary_model is not None:
         ai["primary_model"] = primary_model
+    if auto_lead_agent_refresh_on_inbound is not None:
+        ai["auto_lead_agent_refresh_on_inbound"] = bool(
+            auto_lead_agent_refresh_on_inbound
+        )
 
     settings_json["ai"] = ai
     # Reassign the whole dict — SQLAlchemy's mutation tracking on JSON
@@ -157,4 +164,7 @@ async def update_ai_settings(
         "primary_model": str(ai.get("primary_model", env_primary)),
         "current_spend_usd_today": float(spend),
         "available_models": list(AI_MODEL_CHOICES),
+        "auto_lead_agent_refresh_on_inbound": bool(
+            ai.get("auto_lead_agent_refresh_on_inbound", False)
+        ),
     }

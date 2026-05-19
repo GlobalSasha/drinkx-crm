@@ -129,10 +129,14 @@ def verify_state(state: str) -> UUID | None:
 
 
 def build_post_callback_redirect(*, success: bool, error: str | None = None) -> str:
-    """Where the SPA lands after callback. Always /inbox; success/error in query."""
+    """Where the SPA lands after the Gmail OAuth callback.
+
+    Sprint 3.7: /inbox was retired; redirect to /settings?section=channels
+    so the user sees their connected accounts immediately after authorising.
+    """
     s = get_settings()
     base = s.frontend_base_url.rstrip("/")
     params = {"connect": "gmail", "status": "ok" if success else "error"}
     if error:
         params["error"] = error[:200]
-    return f"{base}/inbox?{urlencode(params)}"
+    return f"{base}/settings?section=channels&{urlencode(params)}"

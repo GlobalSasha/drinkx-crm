@@ -34,6 +34,7 @@ from app.inbox.schemas import (
     OutboundMessage,
     WebhookPayload,
 )
+from app.auth.models import Workspace
 from app.leads.models import Lead
 
 log = structlog.get_logger()
@@ -218,7 +219,16 @@ async def receive(
             )
         )
         if payload.direction == "inbound":
-            _enqueue_lead_agent_refresh(lead_id, countdown=900)
+            # Sprint 3.7 G1 — gate the optional AI-comment refresh
+            # behind a workspace setting. Default OFF so matched
+            # inbound is truly no-LLM unless an admin opts in.
+            ws_res = await session.execute(
+                select(Workspace).where(Workspace.id == workspace_id)
+            )
+            ws = ws_res.scalar_one_or_none()
+            ai_block = (ws.settings_json or {}).get("ai", {}) if ws else {}
+            if bool(ai_block.get("auto_lead_agent_refresh_on_inbound", False)):
+                _enqueue_lead_agent_refresh(lead_id, countdown=900)
 
     # Phone calls that landed with a recording → kick the transcription
     # job (G4b). Missed calls and recording-less rows skip this — there

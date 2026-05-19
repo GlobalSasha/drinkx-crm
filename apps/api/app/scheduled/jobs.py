@@ -15,6 +15,7 @@ from uuid import UUID, uuid4
 import structlog
 
 from app.db import get_session_factory  # noqa: F401  # kept for tests that monkeypatch this symbol
+from app.enrichment.providers.factory import complete_with_fallback  # noqa: F401 — patched in tests
 from app.scheduled.celery_app import celery_app
 
 log = structlog.get_logger()
@@ -65,11 +66,33 @@ def gmail_incremental_sync() -> dict:
     return asyncio.run(_run("gmail_incremental_sync", incremental_sync_for_all))
 
 
-@celery_app.task(name="app.scheduled.jobs.generate_inbox_suggestion")
-def generate_inbox_suggestion(inbox_item_id: str) -> dict:
-    """AI prefilter for an unmatched InboxItem — proposes create_lead /
-    add_contact / match_lead. Failures are silent (suggested_action stays NULL)."""
-    return asyncio.run(_run_inbox_suggestion(UUID(inbox_item_id)))
+@celery_app.task(name="app.scheduled.jobs.auto_create_lead_from_email")
+def auto_create_lead_from_email(
+    workspace_id: str,
+    channel_user_id: str,
+    from_email: str,
+    subject: str,
+    body_preview: str,
+    gmail_message_id: str,
+    received_at_iso: str,
+) -> dict:
+    """Sprint 3.7 G3 — AI prefilter for an unmatched email.
+
+    Decides: silent drop OR create Lead with needs_review=True.
+    No InboxItem row is written under any branch — manager triage
+    happens in /leads-pool, not /inbox.
+    """
+    return asyncio.run(
+        _run_auto_create_or_ignore(
+            workspace_id=UUID(workspace_id),
+            channel_user_id=UUID(channel_user_id),
+            from_email=from_email,
+            subject=subject,
+            body_preview=body_preview,
+            gmail_message_id=gmail_message_id,
+            received_at_iso=received_at_iso,
+        )
+    )
 
 
 @celery_app.task(name="app.scheduled.jobs.run_export")
@@ -198,82 +221,249 @@ _INBOX_SUGGESTION_USER = """Email отправителя: {from_email}
 Это потенциальный клиент DrinkX? Верни JSON по схеме."""
 
 
-async def _run_inbox_suggestion(inbox_item_id: UUID) -> dict:
-    """Best-effort AI prefilter for an unmatched email.
+# Confidence threshold — auto-create only above this number. Below the
+# threshold the email disappears silently. 0.85 was chosen so a false
+# positive needs the AI to be both highly confident AND wrong; tighten
+# (or loosen) once we have a feedback loop.
+_AUTO_CREATE_CONFIDENCE_THRESHOLD = 0.85
 
-    Never raises — on any failure leaves InboxItem.suggested_action=None.
+
+async def _run_auto_create_or_ignore(
+    *,
+    workspace_id: UUID,
+    channel_user_id: UUID,
+    from_email: str,
+    subject: str,
+    body_preview: str,
+    gmail_message_id: str,
+    received_at_iso: str,
+) -> dict:
+    """Best-effort auto-create. Never raises.
+
+    Flow:
+      1. Ask the AI classifier (same prompt as the retired
+         generate_inbox_suggestion).
+      2. If confidence < threshold OR action != "create_lead" → drop.
+      3. Otherwise materialise Company + Contact + Lead + Activity in
+         one transaction via _create_lead_from_email_payload.
     """
     import json as _json
-    from sqlalchemy import select
-    from app.inbox.models import InboxItem
+
     from app.enrichment.providers.base import LLMError, TaskType
-    from app.enrichment.providers.factory import complete_with_fallback
+
+    user_prompt = _INBOX_SUGGESTION_USER.format(
+        from_email=from_email or "",
+        subject=subject or "",
+        body_preview=(body_preview or "")[:500],
+    )
+    try:
+        completion = await complete_with_fallback(
+            system=_INBOX_SUGGESTION_SYSTEM,
+            user=user_prompt,
+            task_type=TaskType.prefilter,
+            max_tokens=200,
+            temperature=0.2,
+        )
+    except LLMError as exc:
+        log.warning(
+            "auto_create.llm_failed",
+            from_email=from_email,
+            error=str(exc)[:200],
+        )
+        return {
+            "job": "auto_create_lead_from_email",
+            "action": "ignore_llm_error",
+        }
+
+    try:
+        cleaned = _json.loads(completion.text or "{}")
+    except Exception as exc:  # noqa: BLE001
+        log.warning(
+            "auto_create.parse_failed",
+            from_email=from_email,
+            error=str(exc)[:200],
+        )
+        return {
+            "job": "auto_create_lead_from_email",
+            "action": "ignore_parse_error",
+        }
+
+    confidence = float(cleaned.get("confidence") or 0.0)
+    action = str(cleaned.get("action") or "ignore")
+
+    if confidence < _AUTO_CREATE_CONFIDENCE_THRESHOLD:
+        return {
+            "job": "auto_create_lead_from_email",
+            "action": "ignore_low_confidence",
+            "confidence": confidence,
+        }
+    if action != "create_lead":
+        return {
+            "job": "auto_create_lead_from_email",
+            "action": "ignore_ai",
+            "ai_action": action,
+        }
+
+    try:
+        lead_id = await _create_lead_from_email_payload(
+            workspace_id=workspace_id,
+            channel_user_id=channel_user_id,
+            company_name=str(cleaned.get("company_name") or "").strip(),
+            contact_name=str(cleaned.get("contact_name") or "").strip(),
+            from_email=from_email,
+            subject=subject,
+            body_preview=body_preview,
+            gmail_message_id=gmail_message_id,
+            received_at_iso=received_at_iso,
+            confidence=confidence,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning(
+            "auto_create.factory_failed",
+            from_email=from_email,
+            error=str(exc)[:200],
+        )
+        return {
+            "job": "auto_create_lead_from_email",
+            "action": "ignore_factory_error",
+        }
+
+    return {
+        "job": "auto_create_lead_from_email",
+        "action": "lead_created",
+        "lead_id": str(lead_id),
+        "confidence": confidence,
+    }
+
+
+async def _create_lead_from_email_payload(
+    *,
+    workspace_id: UUID,
+    channel_user_id: UUID,
+    company_name: str,
+    contact_name: str,
+    from_email: str,
+    subject: str,
+    body_preview: str,
+    gmail_message_id: str,
+    received_at_iso: str,
+    confidence: float,
+) -> UUID:
+    """Materialise Company + Contact + Lead + Activity in one transaction.
+
+    Idempotent on gmail_message_id — if an Activity already references
+    this id, return the existing lead and skip creation.
+    """
+    from datetime import datetime
+    from sqlalchemy import select
+
+    from app.activity.models import Activity
+    from app.companies.models import Company
+    from app.contacts.models import Contact
+    from app.leads.models import Lead
+    from app.pipelines import repositories as pipelines_repo
 
     engine, factory = _build_task_engine_and_factory()
     try:
         async with factory() as session:
-            res = await session.execute(
-                select(InboxItem).where(InboxItem.id == inbox_item_id)
+            # Idempotency check
+            existing = await session.execute(
+                select(Activity.lead_id)
+                .where(Activity.gmail_message_id == gmail_message_id)
+                .limit(1)
             )
-            item = res.scalar_one_or_none()
-            if item is None:
-                return {"job": "generate_inbox_suggestion", "error": "not_found"}
+            prior = existing.scalar_one_or_none()
+            if prior is not None:
+                return prior
 
-            user_prompt = _INBOX_SUGGESTION_USER.format(
-                from_email=item.from_email or "",
-                subject=item.subject or "",
-                body_preview=(item.body_preview or "")[:500],
+            # 1. Domain → Company (find or create)
+            domain = (from_email.split("@", 1)[1] if "@" in from_email else "").lower().strip()
+            company_id: UUID | None = None
+            if domain:
+                row = await session.execute(
+                    select(Company.id).where(
+                        Company.workspace_id == workspace_id,
+                        Company.domain == domain,
+                    ).limit(1)
+                )
+                company_id = row.scalar_one_or_none()
+            if company_id is None:
+                company = Company(
+                    workspace_id=workspace_id,
+                    name=(company_name or domain or from_email)[:255],
+                    domain=domain or None,
+                )
+                session.add(company)
+                await session.flush()
+                company_id = company.id
+
+            # 2. Email → Contact (find or create)
+            row = await session.execute(
+                select(Contact.id).where(
+                    Contact.workspace_id == workspace_id,
+                    Contact.email == from_email.lower(),
+                ).limit(1)
             )
-            try:
-                completion = await complete_with_fallback(
-                    system=_INBOX_SUGGESTION_SYSTEM,
-                    user=user_prompt,
-                    task_type=TaskType.prefilter,
-                    max_tokens=300,
-                    temperature=0.2,
+            contact_id = row.scalar_one_or_none()
+            if contact_id is None:
+                contact = Contact(
+                    workspace_id=workspace_id,
+                    company_id=company_id,
+                    name=(contact_name or from_email.split("@", 1)[0])[:255],
+                    email=from_email.lower(),
+                    source="auto_email",
                 )
-            except LLMError as e:
-                log.warning(
-                    "inbox.suggestion.llm_failed",
-                    inbox_item_id=str(inbox_item_id),
-                    error=str(e)[:200],
+                session.add(contact)
+                await session.flush()
+                contact_id = contact.id
+
+            # 3. Resolve target pipeline + first stage
+            first = await pipelines_repo.get_default_first_stage(
+                session, workspace_id
+            )
+            pipeline_id, stage_id = (first or (None, None))
+
+            # 4. Lead
+            lead = Lead(
+                workspace_id=workspace_id,
+                pipeline_id=pipeline_id,
+                stage_id=stage_id,
+                company_id=company_id,
+                primary_contact_id=contact_id,
+                company_name=(company_name or domain or from_email)[:255],
+                email=from_email.lower(),
+                assignment_status="pool",
+                tags_json=[],
+                source="auto_email",
+                needs_review=True,
+                ai_data={"auto_create_confidence": confidence},
+            )
+            session.add(lead)
+            await session.flush()
+            lead_id = lead.id
+
+            # 5. Activity row — received_at stored in payload_json per codebase
+            # convention (Activity model has no direct received_at column).
+            session.add(
+                Activity(
+                    lead_id=lead_id,
+                    user_id=None,
+                    type="email",
+                    direction="inbound",
+                    body=body_preview,
+                    subject=subject,
+                    from_identifier=from_email,
+                    gmail_message_id=gmail_message_id,
+                    payload_json={
+                        "received_at": received_at_iso,
+                        "confidence": confidence,
+                        "source": "auto_create_lead_from_email",
+                    },
                 )
-                return {"job": "generate_inbox_suggestion", "error": "llm_failed"}
+            )
 
-            text = (completion.text or "").strip()
-            if text.startswith("```"):
-                lines = text.splitlines()
-                text = "\n".join(lines[1:-1]) if len(lines) > 2 else text
-            try:
-                parsed = _json.loads(text)
-            except (ValueError, _json.JSONDecodeError):
-                log.warning(
-                    "inbox.suggestion.parse_failed",
-                    inbox_item_id=str(inbox_item_id),
-                    raw_preview=text[:200],
-                )
-                return {"job": "generate_inbox_suggestion", "error": "parse_failed"}
-
-            if not isinstance(parsed, dict) or "action" not in parsed:
-                return {"job": "generate_inbox_suggestion", "error": "bad_shape"}
-
-            cleaned = {
-                "action": str(parsed.get("action", "ignore")),
-                "company_name": str(parsed.get("company_name") or "")[:200],
-                "contact_name": str(parsed.get("contact_name") or "")[:200],
-                "confidence": float(parsed.get("confidence") or 0.0),
-                "lead_id": None,
-            }
-            item.suggested_action = cleaned
             await session.commit()
-            return {"job": "generate_inbox_suggestion", "action": cleaned["action"]}
-    except Exception as exc:
-        log.exception(
-            "inbox.suggestion.task_failed",
-            inbox_item_id=str(inbox_item_id),
-            error=str(exc)[:200],
-        )
-        return {"job": "generate_inbox_suggestion", "error": str(exc)[:200]}
+            return lead_id
     finally:
         await engine.dispose()
 

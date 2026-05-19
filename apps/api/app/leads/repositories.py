@@ -337,6 +337,7 @@ async def list_pool(
     segment: str | None = None,
     fit_min: float | None = None,
     form_id: uuid.UUID | None = None,
+    needs_review: bool | None = None,
     page: int = 1,
     page_size: int = 50,
 ) -> tuple[list[Lead], int]:
@@ -356,6 +357,10 @@ async def list_pool(
         base = base.where(Lead.segment == segment)
     if fit_min is not None:
         base = base.where(Lead.fit_score >= fit_min)
+    if needs_review is True:
+        base = base.where(Lead.needs_review.is_(True))
+    elif needs_review is False:
+        base = base.where(Lead.needs_review.is_(False))
 
     count_result = await db.execute(select(func.count()).select_from(base.subquery()))
     total: int = count_result.scalar_one()

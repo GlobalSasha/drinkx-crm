@@ -6,8 +6,9 @@ backfill + every-5-min incremental tick).
 Behaviour:
 - Dedup against `activities.gmail_message_id` AND `inbox_items.gmail_message_id`.
 - Match via `matcher.match_email`. Confidence ≥ 0.8 → write an Activity row
-  attached to the matched lead. Lower confidence (or no match) → write an
-  InboxItem for human review and queue an AI suggestion task.
+  attached to the matched lead. Lower confidence (or no match) →
+  unmatched senders dispatch the auto-create Celery task without writing
+  an InboxItem row.
 - Per-message try/except: ANY failure returns False without raising.
 
 ADR-019: Activity.user_id records the channel's owner (audit trail).
@@ -77,6 +78,19 @@ _NOREPLY_SUBSTRINGS: tuple[str, ...] = (
     "no-reply",
     "donotreply",
     "do-not-reply",
+)
+
+# Local-parts that are almost always service / marketing addresses on
+# unknown corporate domains: catalog blasts, webinar invites, "наши
+# спецпредложения" mailings. Override applies when the sender is a
+# known contact / known company — then this is a real touchpoint.
+_SERVICE_LOCAL_PARTS: frozenset[str] = frozenset(
+    {
+        "info", "support", "hello", "hi", "team",
+        "marketing", "news", "newsletter", "contact",
+        "press", "media", "events", "webinar", "academy",
+        "billing", "invoice", "accounts", "finance",
+    }
 )
 
 # Substrings that, if present in subject or body preview, mark the message
@@ -189,6 +203,12 @@ def route_email(
     local_part = sender.split("@", 1)[0] if "@" in sender else sender
     if any(s in local_part for s in _NOREPLY_SUBSTRINGS):
         return RoutingDecision("ignore", "noreply_substring")
+
+    # Service local-parts from unknown corporate domains — bulk-mail
+    # senders that didn't bother shipping List-Unsubscribe. Known
+    # senders are exempt (attach path wins below).
+    if local_part in _SERVICE_LOCAL_PARTS and not has_known_contact and not has_known_company:
+        return RoutingDecision("ignore", "service_local_part")
 
     text = _haystack(subject, body_preview)
     if any(k in text for k in _UNSUB_KEYWORDS):
@@ -368,7 +388,8 @@ async def process_message(
            back to the company's single linked lead if the matcher comes
            up empty. Write Activity, ensure a Contact row exists for the
            sender, fan out automations + lead-agent refresh.
-         inbox → write InboxItem and queue an AI suggestion task.
+         inbox → dispatch auto_create_lead_from_email task (no InboxItem
+           row written, manager triage happens in /leads-pool).
     """
     bound_log = log.bind(
         workspace_id=str(workspace_id),
@@ -556,39 +577,35 @@ async def process_message(
             )
 
         # ---- inbox (or attach-fallback) --------------------------------------
-        item = InboxItem(
-            workspace_id=workspace_id,
-            user_id=user_id,
-            gmail_message_id=gmail_message_id,
-            from_email=from_email or "",
-            to_emails=to_emails,
-            subject=subject or None,
-            body_preview=body_preview,
-            received_at=received_at,
-            direction=direction,
-            status="pending",
-        )
-        session.add(item)
-        await session.commit()
-        await session.refresh(item)
-
+        # Sprint 3.7 G3: no InboxItem row is written. The Celery task
+        # carries the payload directly and decides drop-vs-auto-create
+        # from the AI verdict. Manager triage happens in /leads-pool
+        # via the needs_review pill, not on a separate /inbox page.
         try:
             from app.scheduled.celery_app import celery_app
 
             celery_app.send_task(
-                "app.scheduled.jobs.generate_inbox_suggestion",
-                args=[str(item.id)],
+                "app.scheduled.jobs.auto_create_lead_from_email",
+                args=[
+                    str(workspace_id),
+                    str(user_id),
+                    from_email or "",
+                    subject or "",
+                    body_preview or "",
+                    gmail_message_id,
+                    received_at.isoformat() if received_at else "",
+                ],
             )
         except Exception as exc:
             bound_log.warning(
-                "inbox.suggestion_dispatch_failed",
-                inbox_item_id=str(item.id),
+                "inbox.auto_create_dispatch_failed",
+                gmail_message_id=gmail_message_id,
                 error=str(exc)[:200],
             )
 
         bound_log.info(
-            "inbox.process_message.parked_pending",
-            inbox_item_id=str(item.id),
+            "inbox.process_message.dispatched_auto_create",
+            gmail_message_id=gmail_message_id,
             route_reason=decision.reason,
         )
         return True

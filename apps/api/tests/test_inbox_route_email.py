@@ -208,3 +208,53 @@ def test_headers_kwarg_optional():
 
     assert decision.route == "ignore"
     assert decision.reason == "noreply_sender"
+
+
+def test_service_local_part_routes_to_ignore_when_unknown_domain():
+    """Gate 3 — info@/support@/news@ from an unknown corporate domain
+    is almost always a B2B marketing blast, not a lead. Drop before AI."""
+    from app.inbox import processor as p
+
+    decision = p.route_email(
+        from_email="info@unknown-corp.ru",
+        subject="Каталог 2026",
+        body_preview="Представляем нашу новую линейку...",
+        has_known_company=False,
+        has_known_contact=False,
+    )
+
+    assert decision.route == "ignore"
+    assert decision.reason == "service_local_part"
+
+
+def test_service_local_part_passes_when_known_contact():
+    """Override: info@known-customer.ru is still a real client touchpoint
+    when the contact is tracked. Gate 3 must NOT block it."""
+    from app.inbox import processor as p
+
+    decision = p.route_email(
+        from_email="info@known-customer.ru",
+        subject="Re: КП по DrinkX",
+        body_preview="Спасибо за коммерческое...",
+        has_known_company=True,
+        has_known_contact=True,
+    )
+
+    assert decision.route == "attach_to_lead"
+
+
+def test_real_corporate_local_part_passes_gate_3():
+    """Personal-name local-parts (not in the service list) reach the
+    AI classifier as before — regression guard."""
+    from app.inbox import processor as p
+
+    decision = p.route_email(
+        from_email="ivan.petrov@coffee-roastery-zarya.ru",
+        subject="Запрос коммерческого предложения",
+        body_preview="Здравствуйте, рассматриваем DrinkX...",
+        has_known_company=False,
+        has_known_contact=False,
+    )
+
+    assert decision.route == "inbox"
+    assert decision.reason == "unknown_corporate_domain"

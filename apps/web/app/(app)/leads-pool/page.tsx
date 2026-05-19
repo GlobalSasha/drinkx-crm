@@ -3,6 +3,7 @@ import { useState, useMemo, useCallback, useEffect, useRef, Suspense } from "rea
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, Loader2, Sparkles, X, Globe } from "lucide-react";
 import { usePoolLeads, useClaimLead } from "@/lib/hooks/use-leads";
+import { NeedsReviewRow } from "@/components/leads-pool/NeedsReviewRow";
 import { useForms } from "@/lib/hooks/use-forms";
 import { Toast } from "@/components/ui/Toast";
 import { ExportPopover } from "@/components/export/ExportPopover";
@@ -99,6 +100,9 @@ function PoolRow({
             {lead.source_form_name}
           </span>
         )}
+        {lead.needs_review && (
+          <NeedsReviewRow lead={lead} />
+        )}
       </td>
       <td className="px-4 py-3 text-sm text-muted-2">{lead.city ?? "—"}</td>
       <td className="px-4 py-3 text-sm text-muted-2">{lead.segment ? segmentLabel(lead.segment) : "—"}</td>
@@ -152,6 +156,7 @@ function LeadsPoolPageInner() {
   const [hasEmailOnly, setHasEmailOnly] = useState(false);
   const [hasPhoneOnly, setHasPhoneOnly] = useState(false);
   const [formId, setFormId] = useState<string | undefined>(undefined);
+  const [needsReview, setNeedsReview] = useState<boolean | undefined>(undefined);
   const [toasts, setToasts] = useState<ToastState[]>([]);
   // Track which lead IDs are currently being claimed (for optimistic UI)
   const [claimingIds, setClaimingIds] = useState<Set<string>>(new Set());
@@ -178,7 +183,8 @@ function LeadsPoolPageInner() {
     (search ? 1 : 0) +
     (hasEmailOnly ? 1 : 0) +
     (hasPhoneOnly ? 1 : 0) +
-    (formId ? 1 : 0);
+    (formId ? 1 : 0) +
+    (needsReview !== undefined ? 1 : 0);
 
   function resetAllFilters() {
     setCityFilters([]);
@@ -193,6 +199,7 @@ function LeadsPoolPageInner() {
     setHasEmailOnly(false);
     setHasPhoneOnly(false);
     setFormId(undefined);
+    setNeedsReview(undefined);
   }
 
   const addToast = useCallback((message: string, type: "error" | "success" = "success") => {
@@ -208,7 +215,7 @@ function LeadsPoolPageInner() {
   // revisit if pool grows past a few thousand.
   // form_id is server-side filtered because it scopes the whole pool
   // to a specific landing source.
-  const poolQuery = usePoolLeads({ page_size: 500, form_id: formId });
+  const poolQuery = usePoolLeads({ page_size: 500, form_id: formId, needs_review: needsReview });
   const claimMutation = useClaimLead();
 
   const formsQuery = useForms();
@@ -545,6 +552,18 @@ function LeadsPoolPageInner() {
                 </option>
               ))}
           </select>
+
+          <button
+            type="button"
+            onClick={() => setNeedsReview((v) => (v === true ? undefined : true))}
+            className={`text-[11px] px-2 py-1 rounded ${
+              needsReview === true
+                ? "bg-amber-600 text-white"
+                : "bg-canvas border border-black/5 text-muted-2 hover:border-amber-400"
+            }`}
+          >
+            Только AI-созданные
+          </button>
 
           {tags.length > 0 && (
             <MultiSelectDropdown
