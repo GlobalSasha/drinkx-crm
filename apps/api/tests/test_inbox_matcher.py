@@ -342,26 +342,12 @@ async def test_processor_creates_activity_on_high_confidence_match():
 
 
 @pytest.mark.asyncio
-async def test_processor_creates_inbox_item_on_no_match():
-    """No match (or low confidence) → InboxItem with status='pending';
-    no Activity row; AI suggestion task is dispatched (best-effort)."""
+async def test_processor_dispatches_auto_create_on_unmatched():
+    """Unmatched sender from unknown corporate domain → inbox route →
+    auto_create_lead_from_email dispatched; no InboxItem row written."""
     db = _make_db()
-    no_match = matcher_mod.MatchResult(
-        lead_id=None, confidence=0.0, match_type="none"
-    )
-
-    activity_calls: list[dict] = []
-    inbox_item_calls: list[dict] = []
-    fake_item = MagicMock()
-    fake_item.id = uuid.uuid4()
-
-    class _ActivitySpy:
-        def __init__(self, **kw):
-            activity_calls.append(kw)
-
-    def _inbox_factory(**kw):
-        inbox_item_calls.append(kw)
-        return fake_item
+    workspace_id = WS
+    user_id = None  # workspace-level conn
 
     fake_celery = MagicMock()
     fake_celery.send_task = MagicMock()
@@ -371,30 +357,27 @@ async def test_processor_creates_inbox_item_on_no_match():
     with patch.object(processor_mod, "_already_processed", new=AsyncMock(return_value=False)), \
          patch.object(processor_mod, "_company_domain_match", new=AsyncMock(return_value=False)), \
          patch.object(processor_mod, "_contact_email_match", new=AsyncMock(return_value=False)), \
-         patch.object(processor_mod, "match_email", new=AsyncMock(return_value=no_match)), \
-         patch.object(processor_mod, "Activity", _ActivitySpy), \
-         patch.object(processor_mod, "InboxItem", _inbox_factory), \
          patch.dict(sys.modules, {"app.scheduled.celery_app": celery_module}):
         out = await processor_mod.process_message(
             db,
-            raw_message=_gmail_message(msg_id="g-200", from_addr="hello@unknown.example"),
-            user_id=None,  # workspace-level conn → user_id is None
-            workspace_id=WS,
+            raw_message=_gmail_message(msg_id="g-200", from_addr="ceo@unknown-corp.example"),
+            user_id=user_id,
+            workspace_id=workspace_id,
         )
 
     assert out is True
-    assert len(inbox_item_calls) == 1
-    assert len(activity_calls) == 0
-    kw = inbox_item_calls[0]
-    assert kw["workspace_id"] == WS
-    assert kw["user_id"] is None
-    assert kw["gmail_message_id"] == "g-200"
-    assert kw["from_email"] == "hello@unknown.example"
-    assert kw["status"] == "pending"
     fake_celery.send_task.assert_called_once()
-    args, kwargs = fake_celery.send_task.call_args
-    assert args[0] == "app.scheduled.jobs.generate_inbox_suggestion"
-    assert kwargs["args"] == [str(fake_item.id)]
+    _call_args, call_kwargs = fake_celery.send_task.call_args
+    assert _call_args[0] == "app.scheduled.jobs.auto_create_lead_from_email"
+    payload = call_kwargs["args"]
+    assert len(payload) == 7
+    assert payload[0] == str(workspace_id)
+    assert payload[1] == str(user_id)
+    assert payload[2] == "ceo@unknown-corp.example"
+    assert payload[3] == "Hi"
+    assert payload[4] == "hello"
+    assert payload[5] == "g-200"
+    assert payload[6] == "2026-05-05T10:00:00+00:00"
 
 
 @pytest.mark.asyncio

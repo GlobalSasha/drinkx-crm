@@ -6,8 +6,9 @@ backfill + every-5-min incremental tick).
 Behaviour:
 - Dedup against `activities.gmail_message_id` AND `inbox_items.gmail_message_id`.
 - Match via `matcher.match_email`. Confidence ≥ 0.8 → write an Activity row
-  attached to the matched lead. Lower confidence (or no match) → write an
-  InboxItem for human review and queue an AI suggestion task.
+  attached to the matched lead. Lower confidence (or no match) →
+  unmatched senders dispatch the auto-create Celery task without writing
+  an InboxItem row.
 - Per-message try/except: ANY failure returns False without raising.
 
 ADR-019: Activity.user_id records the channel's owner (audit trail).
@@ -387,7 +388,8 @@ async def process_message(
            back to the company's single linked lead if the matcher comes
            up empty. Write Activity, ensure a Contact row exists for the
            sender, fan out automations + lead-agent refresh.
-         inbox → write InboxItem and queue an AI suggestion task.
+         inbox → dispatch auto_create_lead_from_email task (no InboxItem
+           row written, manager triage happens in /leads-pool).
     """
     bound_log = log.bind(
         workspace_id=str(workspace_id),
