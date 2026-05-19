@@ -364,7 +364,6 @@ function FocusWidget() {
     <div className="bg-white border border-brand-border rounded-[2rem] p-5 h-full flex flex-col">
       <WidgetHeader
         title="Фокус дня"
-        subtitle="Чак рекомендует начать с этих лидов"
         icon={<Sparkles size={16} className="text-brand-accent" />}
       />
       <div className="flex flex-col gap-2 mt-6 flex-1">
@@ -796,7 +795,7 @@ function FunnelWidget() {
             className="flex items-center gap-3 cursor-pointer"
           >
             <span
-              className={`type-caption ${C.color.mutedLight} w-24 shrink-0 truncate`}
+              className={`type-caption ${C.color.mutedLight} w-28 shrink-0 leading-tight line-clamp-2`}
             >
               {s.name}
             </span>
