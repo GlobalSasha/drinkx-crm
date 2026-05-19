@@ -68,6 +68,17 @@ _NOREPLY_PREFIXES: tuple[str, ...] = (
     "postmaster@",
 )
 
+# Substrings in the local-part that mark the address as automated even when
+# a prefix doesn't match. Catches `workspace-noreply@google.com`,
+# `email-noreply@playstation.com`, `noreply-orders@...`, etc. — Gmail
+# screenshots showed AI burning tokens on these.
+_NOREPLY_SUBSTRINGS: tuple[str, ...] = (
+    "noreply",
+    "no-reply",
+    "donotreply",
+    "do-not-reply",
+)
+
 # Substrings that, if present in subject or body preview, mark the message
 # as bulk/marketing. Case-insensitive match.
 _UNSUB_KEYWORDS: tuple[str, ...] = (
@@ -134,26 +145,50 @@ def route_email(
     body_preview: str | None,
     has_known_company: bool,
     has_known_contact: bool,
+    headers: dict[str, str] | None = None,
 ) -> RoutingDecision:
     """Decide where this email goes before any DB writes.
 
     Pure function — no side effects, no I/O. The caller resolves
     `has_known_company` (workspace's companies.domain) and
     `has_known_contact` (workspace's contacts.email) and applies the
-    returned decision afterwards.
+    returned decision afterwards. `headers` is the lowercase-keyed dict
+    from `headers_to_dict`; passed-through so we can read RFC bulk-mail
+    headers without parsing the raw payload twice.
 
     Priority (first match wins):
-      1. Sender prefix in `_NOREPLY_PREFIXES`              → ignore
-      2. Subject/body contains an unsubscribe keyword      → ignore
-      3. Known company-domain OR known contact-email       → attach
-      4. Personal mailbox provider + topical keyword       → inbox
-      5. Unknown corporate domain                          → inbox
-      6. Personal mailbox provider, no topical keyword     → ignore
+      1. RFC bulk-mail headers (`List-Unsubscribe`, `Precedence: bulk`,
+         `Auto-Submitted`)                                  → ignore
+      2. Sender prefix in `_NOREPLY_PREFIXES`               → ignore
+      3. Sender local-part contains noreply / no-reply / ... → ignore
+      4. Subject/body contains an unsubscribe keyword       → ignore
+      5. Known company-domain OR known contact-email        → attach
+      6. Personal mailbox provider + topical keyword        → inbox
+      7. Unknown corporate domain                           → inbox
+      8. Personal mailbox provider, no topical keyword      → ignore
     """
     sender = (from_email or "").strip().lower()
 
+    # RFC 2369 / RFC 3834 — explicit bulk-mail signals. Catches Substack,
+    # PlayStation Plus, Google Workspace, iiko webinar invites and 99% of
+    # marketing mail before we even consider running AI over them.
+    h = headers or {}
+    if h.get("list-unsubscribe") or h.get("list-unsubscribe-post"):
+        return RoutingDecision("ignore", "list_unsubscribe_header")
+    precedence = (h.get("precedence") or "").strip().lower()
+    if precedence in ("bulk", "list", "junk"):
+        return RoutingDecision("ignore", "precedence_bulk")
+    auto_submitted = (h.get("auto-submitted") or "").strip().lower()
+    if auto_submitted and auto_submitted != "no":
+        return RoutingDecision("ignore", "auto_submitted")
+
     if any(sender.startswith(p) for p in _NOREPLY_PREFIXES):
         return RoutingDecision("ignore", "noreply_sender")
+
+    # Substring catch — workspace-noreply@google.com, email-noreply@...
+    local_part = sender.split("@", 1)[0] if "@" in sender else sender
+    if any(s in local_part for s in _NOREPLY_SUBSTRINGS):
+        return RoutingDecision("ignore", "noreply_substring")
 
     text = _haystack(subject, body_preview)
     if any(k in text for k in _UNSUB_KEYWORDS):
@@ -377,6 +412,7 @@ async def process_message(
             body_preview=body_preview,
             has_known_company=has_known_company,
             has_known_contact=has_known_contact,
+            headers=headers,
         )
 
         if decision.route == "ignore":
