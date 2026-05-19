@@ -82,6 +82,10 @@ class AISettingsOut(BaseModel):
     # Allowed values for the selector — keeps the frontend honest
     # without hardcoding the same list in two places.
     available_models: list[str]
+    # Sprint 3.7 G1 — when TRUE, matched inbound emails fire a Чак
+    # comment refresh via _enqueue_lead_agent_refresh. Default OFF so
+    # Layer 1 (auto-attach) is truly no-LLM by default.
+    auto_lead_agent_refresh_on_inbound: bool = False
 
 
 class AISettingsUpdateIn(BaseModel):
@@ -89,3 +93,5 @@ class AISettingsUpdateIn(BaseModel):
     only the field it's changing. None means «leave as-is»."""
     daily_budget_usd: float | None = None
     primary_model: str | None = None
+    # Sprint 3.7 G1 — toggle for the Чак-comment-on-inbound job.
+    auto_lead_agent_refresh_on_inbound: bool | None = None
