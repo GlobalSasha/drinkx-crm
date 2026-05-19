@@ -101,11 +101,11 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     # loading the user is done in the service layer via a JOIN to avoid coupling the
     # leads domain to the auth domain (package-per-domain, ADR-009).
     assignment_status: Mapped[str] = mapped_column(String(20), default="pool", nullable=False)
-    # Sprint 3.7 G3 — AI auto-create safety net. TRUE on leads created
+    # Sprint 3.7 G1 — AI auto-create safety net. TRUE on leads created
     # by the auto_create_lead_from_email Celery task. Manager confirms
     # (sets FALSE) or soft-deletes the lead from /leads-pool.
     needs_review: Mapped[bool] = mapped_column(
-        sa.Boolean,
+        Boolean,
         nullable=False,
         server_default=sa.false(),
         default=False,

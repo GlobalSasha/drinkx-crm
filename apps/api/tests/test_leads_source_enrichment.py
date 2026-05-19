@@ -255,7 +255,7 @@ async def test_list_pool_form_id_filter_short_circuits_for_unknown_form():
 
 
 def test_lead_out_has_needs_review_field():
-    """Sprint 3.7 G3 — schema exposes needs_review flag so the pool UI
+    """Sprint 3.7 G1 — schema exposes needs_review flag so the pool UI
     can render the «⚠️ AI создал» pill on auto-created leads."""
     from app.leads.schemas import LeadOut, LeadListItemOut
 
