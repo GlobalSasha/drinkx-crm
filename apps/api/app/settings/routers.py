@@ -157,6 +157,7 @@ async def update_ai_settings_endpoint(
         delta={
             "daily_budget_usd": payload.daily_budget_usd,
             "primary_model": payload.primary_model,
+            "auto_lead_agent_refresh_on_inbound": payload.auto_lead_agent_refresh_on_inbound,
         },
     )
     await db.commit()

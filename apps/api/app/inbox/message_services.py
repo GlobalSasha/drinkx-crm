@@ -34,6 +34,7 @@ from app.inbox.schemas import (
     OutboundMessage,
     WebhookPayload,
 )
+from app.auth.models import Workspace
 from app.leads.models import Lead
 
 log = structlog.get_logger()
@@ -221,10 +222,8 @@ async def receive(
             # Sprint 3.7 G1 — gate the optional AI-comment refresh
             # behind a workspace setting. Default OFF so matched
             # inbound is truly no-LLM unless an admin opts in.
-            from app.auth.models import Workspace as _Workspace
-
             ws_res = await session.execute(
-                select(_Workspace).where(_Workspace.id == workspace_id)
+                select(Workspace).where(Workspace.id == workspace_id)
             )
             ws = ws_res.scalar_one_or_none()
             ai_block = (ws.settings_json or {}).get("ai", {}) if ws else {}
