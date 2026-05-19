@@ -41,6 +41,30 @@ from app.leads.services import (
 router = APIRouter(prefix="/leads", tags=["leads"])
 
 
+def _scope_assigned_to(
+    explicit: UUID | None,
+    user_id: UUID,
+    q: str | None,
+) -> UUID | None:
+    """Sprint 3.8 hotfix — default the `assigned_to` filter to the current
+    user when the caller doesn't pass it and isn't searching by text.
+
+    `GET /leads` powers two very different consumers:
+      - /pipeline kanban + /today counter widgets → no `q`, want MY leads
+      - `UnmatchedMessagesSection`'s picker (assign Telegram message to a
+        lead) → passes `q`, wants the whole workspace to be searchable
+
+    So: explicit value wins; otherwise scope to user UNLESS the request
+    is a text search (then leave the filter off so any colleague's lead
+    is findable).
+    """
+    if explicit is not None:
+        return explicit
+    if q:
+        return None  # text search → full workspace scope
+    return user_id
+
+
 @router.get("", response_model=LeadListOut)
 async def list_leads(
     stage_id: UUID | None = None,
@@ -64,7 +88,8 @@ async def list_leads(
         city=city,
         priority=priority,
         deal_type=deal_type,
-        assigned_to=assigned_to,
+        # Sprint 3.8 hotfix — see `_scope_assigned_to` docstring.
+        assigned_to=_scope_assigned_to(assigned_to, user.id, q),
         q=q,
         form_id=form_id,
         page=page,
