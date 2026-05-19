@@ -38,7 +38,13 @@ function truncate(s: string | null | undefined, n: number): string {
 }
 
 function suggestionChipLabel(s: SuggestedAction | null): string | null {
-  if (!s || !s.action || s.action === "ignore") return null;
+  // Returns null ONLY when AI has not yet produced a suggestion. A completed
+  // "ignore" verdict gets its own chip so the row stops showing the «AI
+  // анализирует…» spinner indefinitely — that bug surfaced on prod inbox
+  // where rassyalki (PlayStation, Google Workspace, вебинары) sat with the
+  // spinner forever because AI marked them ignore but the chip was suppressed.
+  if (!s || !s.action) return null;
+  if (s.action === "ignore") return "Не лид — игнор";
   if (s.action === "create_lead") {
     return s.company_name
       ? `Создать карточку: ${s.company_name}`
@@ -57,6 +63,7 @@ function suggestionChipTone(s: SuggestedAction | null): string {
   if (!s) return "bg-black/5 text-muted-2";
   if (s.action === "create_lead") return "bg-emerald-500/10 text-emerald-700";
   if (s.action === "add_contact") return "bg-info/100/10 text-info";
+  if (s.action === "ignore") return "bg-black/5 text-muted-3";
   if (s.action === "match_lead") return "bg-black/5 text-muted-2";
   return "bg-black/5 text-muted-2";
 }
