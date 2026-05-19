@@ -7,15 +7,14 @@ import type { LeadOut } from "@/lib/types";
 
 interface Props {
   lead: LeadOut;
-  onSoftDelete: () => void; // open the existing delete-confirm modal
 }
 
 /**
  * Sprint 3.7 G4 — pill + two-button tray surfaced on leads with
- * `needs_review=true`. «Подтвердить» clears the flag; «Не лид» fires
- * the parent's soft-delete confirm flow.
+ * `needs_review=true`. «Подтвердить» clears the flag; «Не лид» soft-deletes
+ * the lead by setting assignment_status to "deleted".
  */
-export function NeedsReviewRow({ lead, onSoftDelete }: Props) {
+export function NeedsReviewRow({ lead }: Props) {
   const qc = useQueryClient();
   const confidence = Number(
     (lead.ai_data as Record<string, unknown> | null)?.auto_create_confidence ?? 0,
@@ -25,6 +24,14 @@ export function NeedsReviewRow({ lead, onSoftDelete }: Props) {
   const confirm = useMutation({
     mutationFn: () =>
       api.patch(`/leads/${lead.id}`, { needs_review: false }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["leads-pool"] });
+    },
+  });
+
+  const dismiss = useMutation({
+    mutationFn: () =>
+      api.patch(`/leads/${lead.id}`, { assignment_status: "deleted" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["leads-pool"] });
     },
@@ -54,9 +61,12 @@ export function NeedsReviewRow({ lead, onSoftDelete }: Props) {
         type="button"
         onClick={(e) => {
           e.stopPropagation();
-          onSoftDelete();
+          if (window.confirm("Удалить этого лида? AI ошибся — он не похож на B2B-обращение.")) {
+            dismiss.mutate();
+          }
         }}
-        className="text-[11px] px-2 py-0.5 rounded text-rose-700 bg-rose-50 hover:bg-rose-100"
+        disabled={dismiss.isPending}
+        className="text-[11px] px-2 py-0.5 rounded text-rose-700 bg-rose-50 hover:bg-rose-100 disabled:opacity-50"
       >
         Не лид
       </button>

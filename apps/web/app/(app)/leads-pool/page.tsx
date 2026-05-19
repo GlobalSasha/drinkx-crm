@@ -49,12 +49,10 @@ function PoolRow({
   lead,
   onClaim,
   claiming,
-  onSoftDelete,
 }: {
   lead: LeadOut;
   onClaim: (id: string) => void;
   claiming: boolean;
-  onSoftDelete: (lead: LeadOut) => void;
 }) {
   const router = useRouter();
   const tier = tierFromScore(lead.score);
@@ -103,10 +101,7 @@ function PoolRow({
           </span>
         )}
         {lead.needs_review && (
-          <NeedsReviewRow
-            lead={lead}
-            onSoftDelete={() => onSoftDelete(lead)}
-          />
+          <NeedsReviewRow lead={lead} />
         )}
       </td>
       <td className="px-4 py-3 text-sm text-muted-2">{lead.city ?? "—"}</td>
@@ -419,11 +414,6 @@ function LeadsPoolPageInner() {
     });
   }
 
-  function handleSoftDelete(lead: LeadOut) {
-    // TODO: soft-delete confirm modal — Sprint 3.7 follow-up
-    alert(`TODO: soft-delete confirm modal — Sprint 3.7 follow-up (lead: ${lead.id})`);
-  }
-
   const isLoading = poolQuery.isLoading;
   const isError = poolQuery.isError;
 
@@ -680,7 +670,6 @@ function LeadsPoolPageInner() {
                     lead={lead}
                     onClaim={handleClaim}
                     claiming={claimingIds.has(lead.id)}
-                    onSoftDelete={handleSoftDelete}
                   />
                 ))}
               </tbody>
