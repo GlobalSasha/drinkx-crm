@@ -79,6 +79,19 @@ _NOREPLY_SUBSTRINGS: tuple[str, ...] = (
     "do-not-reply",
 )
 
+# Local-parts that are almost always service / marketing addresses on
+# unknown corporate domains: catalog blasts, webinar invites, "наши
+# спецпредложения" mailings. Override applies when the sender is a
+# known contact / known company — then this is a real touchpoint.
+_SERVICE_LOCAL_PARTS: frozenset[str] = frozenset(
+    {
+        "info", "support", "hello", "hi", "team",
+        "marketing", "news", "newsletter", "contact",
+        "press", "media", "events", "webinar", "academy",
+        "billing", "invoice", "accounts", "finance",
+    }
+)
+
 # Substrings that, if present in subject or body preview, mark the message
 # as bulk/marketing. Case-insensitive match.
 _UNSUB_KEYWORDS: tuple[str, ...] = (
@@ -189,6 +202,12 @@ def route_email(
     local_part = sender.split("@", 1)[0] if "@" in sender else sender
     if any(s in local_part for s in _NOREPLY_SUBSTRINGS):
         return RoutingDecision("ignore", "noreply_substring")
+
+    # Service local-parts from unknown corporate domains — bulk-mail
+    # senders that didn't bother shipping List-Unsubscribe. Known
+    # senders are exempt (attach path wins below).
+    if local_part in _SERVICE_LOCAL_PARTS and not has_known_contact and not has_known_company:
+        return RoutingDecision("ignore", "service_local_part")
 
     text = _haystack(subject, body_preview)
     if any(k in text for k in _UNSUB_KEYWORDS):
