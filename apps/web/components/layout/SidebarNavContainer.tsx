@@ -5,7 +5,6 @@ import {
   CalendarDays,
   Kanban,
   Target,
-  Inbox,
   BookOpen,
   Users,
   Settings,
@@ -13,9 +12,9 @@ import {
   History,
   ClipboardList,
   Workflow,
+  MessageCircle,
 } from "lucide-react";
 import { useNotificationsBadge } from "@/lib/hooks/use-notifications";
-import { useInboxCount } from "@/lib/hooks/use-inbox";
 import { useMe } from "@/lib/hooks/use-me";
 import { SidebarNav, type NavItem } from "./SidebarNav";
 
@@ -23,7 +22,7 @@ interface SidebarNavContainerProps {
   onNotificationsClick: () => void;
 }
 
-// Owns the polling hooks (notifications badge, inbox count, /me).
+// Owns the polling hooks (notifications badge, /me).
 // Sits between AppShell and SidebarNav so that 30s polling re-renders
 // stop here instead of cascading through AppShell's drawer/search/content.
 export function SidebarNavContainer({
@@ -31,11 +30,9 @@ export function SidebarNavContainer({
 }: SidebarNavContainerProps) {
   const pathname = usePathname();
   const { data: badge } = useNotificationsBadge();
-  const { data: inboxCount } = useInboxCount();
   const { data: me } = useMe();
 
   const unreadCount = badge?.unread ?? 0;
-  const inboxPending = inboxCount?.pending ?? 0;
   const isAdmin = me?.role === "admin";
   const isAdminOrHead = me?.role === "admin" || me?.role === "head";
 
@@ -47,14 +44,7 @@ export function SidebarNavContainer({
       { id: "today",      label: "Сегодня",   href: "/today",      icon: <CalendarDays size={18} /> },
       { id: "pipeline",   label: "Воронка",   href: "/pipeline",   icon: <Kanban size={18} /> },
       { id: "leads-pool", label: "База лидов", href: "/leads-pool", icon: <Target size={18} /> },
-      {
-        id: "inbox",
-        label: "Входящие",
-        href: "/inbox",
-        icon: <Inbox size={18} />,
-        badge: inboxPending,
-        ariaLabel: `Входящие${inboxPending > 0 ? ` (${inboxPending} ожидают)` : ""}`,
-      },
+      { id: "triage",     label: "Мессенджеры", href: "/triage",    icon: <MessageCircle size={18} /> },
     ];
     if (isAdminOrHead) {
       base.push({ id: "forms",       label: "Формы",         href: "/forms",       icon: <ClipboardList size={18} /> });
@@ -80,7 +70,7 @@ export function SidebarNavContainer({
     });
     base.push({ id: "settings", label: "Настройки", href: "/settings", icon: <Settings size={18} /> });
     return base;
-  }, [isAdmin, isAdminOrHead, inboxPending, unreadCount, onNotificationsClick]);
+  }, [isAdmin, isAdminOrHead, unreadCount, onNotificationsClick]);
 
   // The active item is whichever route currently matches. Notifications
   // (no href) can never be "active" — only highlighted on hover.

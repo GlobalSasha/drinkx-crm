@@ -1,66 +1,19 @@
 "use client";
 
+// Sprint 3.7: /inbox Gmail triage retired. useInboxCount, useInboxPending,
+// useConfirmItem, useDismissItem removed — /inbox page deleted.
+// InboxItem model kept on backend for audit only.
+// auto_create_lead_from_email is the new email entry-point (see processor.py).
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api-client";
 import type {
-  InboxConfirmIn,
-  InboxCountOut,
-  InboxItemOut,
   InboxMessageOut,
-  InboxPageOut,
 } from "@/lib/types";
 
 interface InboxUnmatchedMessagesOut {
   items: InboxMessageOut[];
   total: number;
-}
-
-const COUNT_POLL_MS = 30_000;
-const PAGE_SIZE = 20;
-
-/** Sidebar badge — pending items count, polled every 30s. */
-export function useInboxCount() {
-  return useQuery({
-    queryKey: ["inbox", "count"],
-    queryFn: () => api.get<InboxCountOut>("/api/inbox/count"),
-    refetchInterval: COUNT_POLL_MS,
-    refetchIntervalInBackground: false,
-  });
-}
-
-/** Inbox page body — pending items, paginated. */
-export function useInboxPending(page: number = 1) {
-  return useQuery({
-    queryKey: ["inbox", "pending", page],
-    queryFn: () =>
-      api.get<InboxPageOut>(
-        `/api/inbox?status=pending&page=${page}&page_size=${PAGE_SIZE}`,
-      ),
-    refetchInterval: COUNT_POLL_MS,
-    refetchIntervalInBackground: false,
-  });
-}
-
-export function useConfirmItem() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, body }: { id: string; body: InboxConfirmIn }) =>
-      api.post<InboxItemOut>(`/api/inbox/${id}/confirm`, body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["inbox"] });
-    },
-  });
-}
-
-export function useDismissItem() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) =>
-      api.post<InboxItemOut>(`/api/inbox/${id}/dismiss`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["inbox"] });
-    },
-  });
 }
 
 /** Start the Gmail OAuth flow — backend returns the consent URL.
