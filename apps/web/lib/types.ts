@@ -137,6 +137,9 @@ export interface LeadOut {
   // `app.leads.scoring.priority_label`. The LeadCard reads this
   // instead of the raw letter so the UI never has to translate.
   priority_label: string | null;
+  // Sprint 3.7 G3 — TRUE on AI auto-created leads. Surfaced as a pill
+  // in /leads-pool with one-click confirm / reject buttons.
+  needs_review: boolean;
   created_at: string;
   updated_at: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

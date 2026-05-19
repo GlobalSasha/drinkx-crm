@@ -105,6 +105,9 @@ class LeadOut(LeadBase):
     # `app.leads.scoring.priority_label`. Frontend reads this instead
     # of the raw letter so the LeadCard never has to translate.
     priority_label: str | None = None
+    # Sprint 3.7 G3 — set TRUE on AI auto-created leads, FALSE everywhere
+    # else (form submissions, manual creates, CSV imports, claim-from-pool).
+    needs_review: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -148,6 +151,9 @@ class LeadListItemOut(LeadBase):
     deal_quantity: int | None = None
     deal_equipment: str | None = None
     priority_label: str | None = None
+    # Sprint 3.7 G3 — set TRUE on AI auto-created leads, FALSE everywhere
+    # else (form submissions, manual creates, CSV imports, claim-from-pool).
+    needs_review: bool = False
     created_at: datetime
     updated_at: datetime
 
