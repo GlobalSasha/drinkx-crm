@@ -575,39 +575,35 @@ async def process_message(
             )
 
         # ---- inbox (or attach-fallback) --------------------------------------
-        item = InboxItem(
-            workspace_id=workspace_id,
-            user_id=user_id,
-            gmail_message_id=gmail_message_id,
-            from_email=from_email or "",
-            to_emails=to_emails,
-            subject=subject or None,
-            body_preview=body_preview,
-            received_at=received_at,
-            direction=direction,
-            status="pending",
-        )
-        session.add(item)
-        await session.commit()
-        await session.refresh(item)
-
+        # Sprint 3.7 G3: no InboxItem row is written. The Celery task
+        # carries the payload directly and decides drop-vs-auto-create
+        # from the AI verdict. Manager triage happens in /leads-pool
+        # via the needs_review pill, not on a separate /inbox page.
         try:
             from app.scheduled.celery_app import celery_app
 
             celery_app.send_task(
-                "app.scheduled.jobs.generate_inbox_suggestion",
-                args=[str(item.id)],
+                "app.scheduled.jobs.auto_create_lead_from_email",
+                args=[
+                    str(workspace_id),
+                    str(user_id),
+                    from_email or "",
+                    subject or "",
+                    body_preview or "",
+                    gmail_message_id,
+                    received_at.isoformat() if received_at else "",
+                ],
             )
         except Exception as exc:
             bound_log.warning(
-                "inbox.suggestion_dispatch_failed",
-                inbox_item_id=str(item.id),
+                "inbox.auto_create_dispatch_failed",
+                gmail_message_id=gmail_message_id,
                 error=str(exc)[:200],
             )
 
         bound_log.info(
-            "inbox.process_message.parked_pending",
-            inbox_item_id=str(item.id),
+            "inbox.process_message.dispatched_auto_create",
+            gmail_message_id=gmail_message_id,
             route_reason=decision.reason,
         )
         return True
