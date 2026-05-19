@@ -91,6 +91,7 @@ async def list_pool(
     segment: str | None = None,
     fit_min: float | None = None,
     form_id: UUID | None = Query(None),
+    needs_review: bool | None = Query(None),
     page: int = Query(1, ge=1),
     # Hotfix 2026-05-08: cap raised 200 → 500 to match the frontend's
     # intent. /leads-pool fetches the whole pool once and filters
@@ -103,7 +104,7 @@ async def list_pool(
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
     user: Annotated[User, Depends(current_user)] = ...,
 ) -> LeadListOut:
-    filters = dict(city=city, segment=segment, fit_min=fit_min, form_id=form_id, page=page, page_size=page_size)
+    filters = dict(city=city, segment=segment, fit_min=fit_min, form_id=form_id, needs_review=needs_review, page=page, page_size=page_size)
     items, total = await services.list_pool(db, user.workspace_id, filters)
     return LeadListOut(items=items, total=total, page=page, page_size=page_size)
 
