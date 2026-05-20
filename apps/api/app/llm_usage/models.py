@@ -15,7 +15,7 @@ class LlmUsage(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     __tablename__ = "llm_usage"
 
     workspace_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), nullable=False, index=True
+        UUID(as_uuid=True), nullable=False
     )
     task_type: Mapped[str] = mapped_column(String(40), nullable=False)
     provider: Mapped[str] = mapped_column(String(40), nullable=False)
