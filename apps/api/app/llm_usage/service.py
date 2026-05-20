@@ -55,14 +55,10 @@ async def get_costs(db, *, workspace_id, period: Period) -> LlmCostsOut:
     start, end = period_bounds(period)
     rows = await aggregate_by_provider(db, workspace_id=workspace_id, start=start, end=end)
     found = {provider: (cost, calls) for provider, cost, calls in rows}
-    by_provider = [
-        ProviderCostOut(
-            provider=p,
-            cost_usd=round(found.get(p, (0.0, 0))[0], 6),
-            calls=found.get(p, (0.0, 0))[1],
-        )
-        for p in PROVIDER_ORDER
-    ]
+    by_provider: list[ProviderCostOut] = []
+    for p in PROVIDER_ORDER:
+        cost, calls = found.get(p, (0.0, 0))
+        by_provider.append(ProviderCostOut(provider=p, cost_usd=round(cost, 6), calls=calls))
     # Include any provider seen in data but not in PROVIDER_ORDER (defensive).
     for p, (cost, calls) in found.items():
         if p not in PROVIDER_ORDER:

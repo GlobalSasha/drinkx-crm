@@ -27,3 +27,21 @@ async def test_get_costs_zero_fills_and_totals():
     assert providers["deepseek"].calls == 0
     assert out.total_usd == round(40.2 + 5.1, 6)
     assert out.period == "all"
+
+
+@pytest.mark.asyncio
+async def test_get_costs_appends_unknown_provider():
+    from app.llm_usage import service
+
+    with patch.object(
+        service, "aggregate_by_provider",
+        new=AsyncMock(return_value=[("openai", 12.0, 5)]),
+    ):
+        out = await service.get_costs(object(), workspace_id=uuid.uuid4(), period="all")
+
+    providers = {p.provider: p for p in out.by_provider}
+    assert "openai" in providers
+    assert providers["openai"].cost_usd == 12.0
+    assert providers["openai"].calls == 5
+    assert providers["mimo"].cost_usd == 0.0  # known providers still zero-filled
+    assert out.total_usd == round(12.0, 6)
