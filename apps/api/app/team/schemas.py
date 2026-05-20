@@ -55,3 +55,34 @@ class ManagerStatsOut(BaseModel):
     daily: list[TeamStatsDailyRow]
 
     model_config = ConfigDict(populate_by_name=True)
+
+
+# ---------------------------------------------------------------------------
+# Manager workload (T2)
+# ---------------------------------------------------------------------------
+
+class WorkloadStageOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    position: int
+    color: str
+
+
+class WorkloadCellOut(BaseModel):
+    count: int
+    sum_amount: float
+
+
+class WorkloadManagerOut(BaseModel):
+    user_id: uuid.UUID
+    name: str
+    email: str
+    by_stage: dict[str, WorkloadCellOut]
+    open_count: int
+    pipeline_sum: float
+    stuck_count: int
+
+
+class WorkloadOut(BaseModel):
+    stages: list[WorkloadStageOut]
+    managers: list[WorkloadManagerOut]

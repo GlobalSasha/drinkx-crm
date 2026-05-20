@@ -229,3 +229,56 @@ async def daily_breakdown(
         }
         for r in rows
     ]
+
+
+# ---------------------------------------------------------------------------
+# Manager workload (T2)
+# ---------------------------------------------------------------------------
+
+async def workload_rows(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+) -> list[tuple[uuid.UUID, uuid.UUID, int, float, int]]:
+    """Per (assigned_to, stage_id): (count, sum_amount, stuck_count) over
+    active assigned leads. Terminal stages are filtered out by the caller."""
+    sql = text("""
+        SELECT assigned_to,
+               stage_id,
+               count(*)                                   AS cnt,
+               COALESCE(sum(deal_amount), 0)              AS sum_amount,
+               sum(CASE WHEN is_rotting_stage OR is_rotting_next_step
+                        THEN 1 ELSE 0 END)                AS stuck
+        FROM leads
+        WHERE workspace_id = :wid
+          AND assignment_status = 'assigned'
+          AND archived_at IS NULL
+          AND stage_id IS NOT NULL
+          AND assigned_to IS NOT NULL
+        GROUP BY assigned_to, stage_id
+    """)
+    rows = (await db.execute(sql, {"wid": workspace_id})).all()
+    return [
+        (r.assigned_to, r.stage_id, int(r.cnt), float(r.sum_amount), int(r.stuck))
+        for r in rows
+    ]
+
+
+async def non_terminal_stages(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+) -> list[tuple[uuid.UUID, str, int, str]]:
+    """Non won/lost stages for the workspace, ordered by position:
+    (id, name, position, color)."""
+    sql = text("""
+        SELECT s.id, s.name, s.position, s.color
+        FROM stages s
+        JOIN pipelines p ON p.id = s.pipeline_id
+        WHERE p.workspace_id = :wid
+          AND s.is_won = false
+          AND s.is_lost = false
+        ORDER BY s.position, s.name
+    """)
+    rows = (await db.execute(sql, {"wid": workspace_id})).all()
+    return [(r.id, r.name, int(r.position), r.color) for r in rows]
