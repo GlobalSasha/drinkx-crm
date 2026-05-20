@@ -7,10 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from tests.test_webforms import _stub_sqlalchemy  # type: ignore
-
-_stub_sqlalchemy()
-
 
 def _rss_xml(items: list[tuple[str, str, str]]) -> str:
     """items = list of (title, link, pubdate_rfc822)."""
@@ -98,3 +94,26 @@ async def test_inherit_resolves_parent_feeds():
                 items = await src.fetch_segment_news("qsr")
 
     assert [i.title for i in items] == ["Retail item"]
+
+
+@pytest.mark.asyncio
+async def test_company_name_no_match_falls_back_to_all_items():
+    """company_name given but no item matches → return all segment items
+    (don't return empty)."""
+    from app.enrichment.sources.rss_feed import RssFeedSource
+
+    src = RssFeedSource(config={"retail": {"rss": [{"url": "u", "name": "n"}]}})
+    fresh = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S +0000")
+    xml = (
+        "<rss><channel>"
+        f"<item><title>Generic retail news</title><link>https://x/1</link>"
+        f"<description>nothing relevant</description><pubDate>{fresh}</pubDate></item>"
+        "</channel></rss>"
+    )
+    with patch.object(src, "_http_get", new=AsyncMock(return_value=xml)):
+        with patch.object(src, "_cache_get", new=AsyncMock(return_value=None)):
+            with patch.object(src, "_cache_set", new=AsyncMock()):
+                items = await src.fetch_segment_news("retail", company_name="Acme Corp")
+
+    # No title/summary contains "acme corp" → fallback returns all items
+    assert [i.title for i in items] == ["Generic retail news"]

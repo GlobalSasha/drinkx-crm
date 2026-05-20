@@ -7,7 +7,7 @@ crashes enrichment.
 """
 from __future__ import annotations
 
-import time
+import calendar
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -164,6 +164,6 @@ def _entry_datetime(entry) -> datetime | None:
     if st is None:
         return None
     try:
-        return datetime.fromtimestamp(time.mktime(st), tz=timezone.utc)
+        return datetime.fromtimestamp(calendar.timegm(st), tz=timezone.utc)
     except Exception:  # noqa: BLE001
         return None
