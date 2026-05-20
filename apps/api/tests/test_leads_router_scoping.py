@@ -63,11 +63,12 @@ def test_scope_assigned_to_respects_explicit_value():
     assert _resolve_assignee_scope(
         explicit=explicit, all_assignees=False, q=None, user_id=user_id, role="admin"
     ) == explicit
-    # Text search always widens scope to whole workspace regardless of
-    # explicit — q carve-out now takes priority (new behaviour vs Sprint 3.8).
+    # Admin who explicitly picked a manager keeps that scope even with a
+    # text query — the q text filter applies on top (manager-scoped search).
+    # The q carve-out only widens to whole-workspace when no explicit pick.
     assert _resolve_assignee_scope(
         explicit=explicit, all_assignees=False, q="Coffee", user_id=user_id, role="admin"
-    ) is None
+    ) == explicit
 
 
 def test_scope_assigned_to_skips_default_when_text_search():

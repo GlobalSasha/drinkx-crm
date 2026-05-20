@@ -54,16 +54,24 @@ def _resolve_assignee_scope(
     `GET /leads` powers the pipeline kanban, /today widgets, and the
     message-to-lead picker. Scoping rules:
 
-      - Text search (`q`) → whole workspace (None), unchanged: the picker
-        must find any colleague's lead by name. (Pre-existing carve-out.)
+      - Text search (`q`) → whole workspace (None): the picker must find
+        any colleague's lead by name. EXCEPTION: an admin/head who has
+        explicitly picked a manager keeps that scope — the q text filter
+        still applies on top, giving a manager-scoped search rather than
+        workspace-wide.
       - admin/head + all_assignees → whole workspace (None) — the «Все» option.
       - admin/head + explicit id → that manager.
       - admin/head + nothing → self.
       - regular user → ALWAYS self (explicit/all_assignees ignored). This
         closes the prior leak where any user could pass ?assigned_to=<colleague>.
     """
-    if q:
+    # Text search → whole-workspace assignee scope (the message-to-lead picker
+    # must find any colleague's lead by name). EXCEPTION: an admin/head who has
+    # explicitly picked a manager keeps that scope — the q text filter still
+    # applies on top, giving a manager-scoped search rather than workspace-wide.
+    if q and not (role in ("admin", "head") and explicit is not None):
         return None
+    # Privileged role set mirrors app/auth/models.py USER_ROLES ("admin","head","manager").
     privileged = role in ("admin", "head")
     if privileged:
         if all_assignees:

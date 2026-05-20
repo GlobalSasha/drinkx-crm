@@ -62,3 +62,20 @@ def test_scope_text_search_unchanged_whole_workspace():
     assert _resolve_assignee_scope(
         explicit=None, all_assignees=False, q="кофейня", user_id=me, role="manager"
     ) is None
+
+
+def test_scope_admin_q_with_explicit_keeps_manager():
+    from app.leads.routers import _resolve_assignee_scope
+    me, other = uuid.uuid4(), uuid.uuid4()
+    # admin searching within a specific manager's book → keep that manager
+    assert _resolve_assignee_scope(
+        explicit=other, all_assignees=False, q="кофейня", user_id=me, role="head"
+    ) == other
+
+
+def test_scope_admin_q_without_explicit_is_whole_workspace():
+    from app.leads.routers import _resolve_assignee_scope
+    me = uuid.uuid4()
+    assert _resolve_assignee_scope(
+        explicit=None, all_assignees=False, q="кофейня", user_id=me, role="admin"
+    ) is None
