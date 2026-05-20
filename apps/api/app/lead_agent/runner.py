@@ -158,13 +158,13 @@ async def chat(
 
     recent = history[-HISTORY_TURNS_FOR_PROMPT:]
     history_block = "\n".join(
-        f"{'Менеджер' if m.role == 'user' else 'Чак'}: {m.content}"
+        f"{'Менеджер' if m.role == 'user' else 'Блейк'}: {m.content}"
         for m in recent
     )
     if history_block:
-        user = f"{history_block}\nМенеджер: {message}\nЧак:"
+        user = f"{history_block}\nМенеджер: {message}\nБлейк:"
     else:
-        user = f"Менеджер: {message}\nЧак:"
+        user = f"Менеджер: {message}\nБлейк:"
 
     try:
         completion = await complete_with_fallback(

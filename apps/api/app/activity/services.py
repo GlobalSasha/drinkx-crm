@@ -83,10 +83,10 @@ async def complete_task(
 
 
 # Author-name resolution for the unified feed. Anything written by the
-# AI runner / chat handler is presented as «Чак» regardless of the
+# AI runner / chat handler is presented as «Блейк» regardless of the
 # user_id stamped on the row (some chat answers carry the asking
 # manager's id for audit; the visible author is still the AI).
-_AI_AUTHOR_NAME = "Чак"
+_AI_AUTHOR_NAME = "Блейк"
 _AI_TYPES = {ActivityType.ai_suggestion.value}
 
 

@@ -6,7 +6,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api-client";
-import type { AskChakOut, FeedItemOut, FeedListOut } from "@/lib/types";
+import type { AskBlakeOut, FeedItemOut, FeedListOut } from "@/lib/types";
 
 /**
  * Cursor-paginated unified activity feed for a lead.
@@ -81,16 +81,16 @@ export function useCompleteTask(leadId: string) {
 }
 
 /**
- * Send a question to Чак. The backend writes both the question
+ * Send a question to Блейк. The backend writes both the question
  * (as `comment`) and the answer (as `ai_suggestion`) into the feed.
  * We prepend both to the cache so the user sees them appear without
  * a refetch.
  */
-export function useAskChak(leadId: string) {
+export function useAskBlake(leadId: string) {
   const qc = useQueryClient();
-  return useMutation<AskChakOut, ApiError, string>({
+  return useMutation<AskBlakeOut, ApiError, string>({
     mutationFn: (question) =>
-      api.post<AskChakOut>(`/leads/${leadId}/feed/ask-chak`, { question }),
+      api.post<AskBlakeOut>(`/leads/${leadId}/feed/ask-blake`, { question }),
     onSuccess: ({ question_activity, answer_activity }) => {
       qc.setQueryData(["feed", leadId], (data: unknown) => {
         if (!data || typeof data !== "object") return data;

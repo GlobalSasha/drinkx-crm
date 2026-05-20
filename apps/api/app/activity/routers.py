@@ -12,8 +12,8 @@ from app.activity.schemas import (
     ActivityCreate,
     ActivityListOut,
     ActivityOut,
-    AskChakIn,
-    AskChakOut,
+    AskBlakeIn,
+    AskBlakeOut,
     FeedItemOut,
     FeedListOut,
 )
@@ -61,16 +61,16 @@ async def get_lead_feed(
     )
 
 
-@feed_router.post("/ask-chak", response_model=AskChakOut)
-async def ask_chak(
+@feed_router.post("/ask-blake", response_model=AskBlakeOut)
+async def ask_blake(
     lead_id: UUID,
-    payload: AskChakIn,
+    payload: AskBlakeIn,
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
     user: Annotated[User, Depends(current_user)] = ...,
-) -> AskChakOut:
-    """Send a question to the lead-AI assistant (Чак). The question
+) -> AskBlakeOut:
+    """Send a question to the lead-AI assistant (Блейк). The question
     is written into the feed as a `comment` from the asking manager;
-    Чак's answer follows as an `ai_suggestion`. Both rows commit in
+    Блейк answer follows as an `ai_suggestion`. Both rows commit in
     one transaction so the feed never shows one without the other.
 
     Frontend appends the returned activities optimistically — no
@@ -109,14 +109,14 @@ async def ask_chak(
         user_id=user.id,
         type=ActivityType.comment.value,
         body=payload.question,
-        payload_json={"source": "ask_chak"},
+        payload_json={"source": "ask_blake"},
     )
     answer_row = Activity(
         lead_id=lead_id,
         user_id=None,
         type=ActivityType.ai_suggestion.value,
         body=response.reply,
-        payload_json={"source": "chak_chat"},
+        payload_json={"source": "blake_chat"},
     )
     db.add(question_row)
     db.add(answer_row)
@@ -124,9 +124,9 @@ async def ask_chak(
     await db.refresh(question_row)
     await db.refresh(answer_row)
 
-    return AskChakOut(
+    return AskBlakeOut(
         question_activity=_to_feed_item(question_row, user.name),
-        answer_activity=_to_feed_item(answer_row, "Чак"),
+        answer_activity=_to_feed_item(answer_row, "Блейк"),
     )
 
 

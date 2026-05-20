@@ -609,10 +609,10 @@ export function LeadCard({ leadId }: Props) {
         />
       )}
 
-      {/* AgentBanner + SalesCoachDrawer + FAB removed — Чак now
+      {/* AgentBanner + SalesCoachDrawer + FAB removed — Блейк now
           lives inside the unified Activity feed as a participant
           (Sprint Unified Activity Feed). Use the feed composer
-          with «@Чак ...» to ask a question. */}
+          with «@Блейк ...» to ask a question. */}
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-brand-primary text-white type-caption font-semibold px-5 py-2.5 rounded-full z-50 transition-all">

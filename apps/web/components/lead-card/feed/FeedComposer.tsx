@@ -10,11 +10,11 @@ import {
   Phone,
   Send,
 } from "lucide-react";
-import { useAskChak, useCreateActivity } from "@/lib/hooks/use-feed";
+import { useAskBlake, useCreateActivity } from "@/lib/hooks/use-feed";
 
 interface Props {
   leadId: string;
-  /** Seed value pushed in by callers (e.g. «@Чак » from FeedItemAI button). */
+  /** Seed value pushed in by callers (e.g. «@Блейк » from FeedItemAI button). */
   seed?: string;
   onSeedConsumed?: () => void;
   /** Lead Card v2 — switch the composer into a specific mode and
@@ -31,8 +31,8 @@ type Mode = "comment" | "task" | "call" | "file";
  * Bottom-of-feed composer with 4 modes. Default mode is `comment`; the
  * mode switcher buttons live to the right of the input.
  *
- * «@Чак» (case-insensitive, at the start of the text) routes the
- * submission to the ask-chak endpoint instead of creating a regular
+ * «@Блейк» (case-insensitive, at the start of the text) routes the
+ * submission to the ask-blake endpoint instead of creating a regular
  * comment. The marker is stripped before the question is sent.
  */
 export function FeedComposer({
@@ -49,13 +49,13 @@ export function FeedComposer({
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const create = useCreateActivity(leadId);
-  const ask = useAskChak(leadId);
+  const ask = useAskBlake(leadId);
   const isPending = create.isPending || ask.isPending;
 
   // External seed (e.g. «Спросить подробнее» button on an AI message)
   useEffect(() => {
     if (seed === undefined) return;
-    setText(`@Чак ${seed}`.trim());
+    setText(`@Блейк ${seed}`.trim());
     setMode("comment");
     setTimeout(() => inputRef.current?.focus(), 30);
     onSeedConsumed?.();
@@ -75,10 +75,10 @@ export function FeedComposer({
     setCallMinutes("");
   }
 
-  function isAskChak(value: string): { match: boolean; question: string } {
-    // Match @Чак at start (with optional space), case-insensitive on the
+  function isAskBlake(value: string): { match: boolean; question: string } {
+    // Match @Блейк at start (with optional space), case-insensitive on the
     // word. Strip the marker so the question is just the user's text.
-    const m = value.match(/^@?Чак\s*[:,—-]?\s*/i);
+    const m = value.match(/^@?Блейк\s*[:,—-]?\s*/i);
     if (m) return { match: true, question: value.slice(m[0].length).trim() };
     return { match: false, question: value };
   }
@@ -89,7 +89,7 @@ export function FeedComposer({
     if (!value) return;
 
     if (mode === "comment") {
-      const { match, question } = isAskChak(value);
+      const { match, question } = isAskBlake(value);
       if (match) {
         if (!question) return;
         try {
@@ -184,7 +184,7 @@ export function FeedComposer({
           onKeyDown={handleKeyDown}
           placeholder={
             mode === "comment"
-              ? "Написать комментарий или @Чак..."
+              ? "Написать комментарий или @Блейк..."
               : mode === "task"
                 ? "Название задачи..."
                 : mode === "call"

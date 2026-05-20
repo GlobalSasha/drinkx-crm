@@ -82,7 +82,7 @@ const WIDGET_LABELS: Record<WidgetId, string> = {
   "w-pipeline": "В воронке",
   "w-focus":    "Фокус дня",
   "w-tasklist": "Список задач",
-  "w-chak":     "Инсайты Чака",
+  "w-chak":     "Инсайты Блейка",
   "w-funnel":   "Стадии воронки",
   "w-notif":    "Уведомления",
 };
@@ -497,7 +497,7 @@ function TaskListWidget() {
             </h3>
           </div>
           <p className={`type-caption ${C.color.mutedLight} mt-0.5`}>
-            Расставлено по таймблокам Чаком
+            Расставлено по таймблокам Блейком
           </p>
           {totalCount > 0 && (
             <div className="mt-3 flex items-center gap-2">
@@ -696,9 +696,9 @@ function TaskListWidget() {
   );
 }
 
-// ─── Чак insights widget — mock for now ────────────────────
+// ─── Блейк insights widget — mock for now ────────────────────
 
-function ChakWidget() {
+function BlakeWidget() {
   const insights = [
     {
       icon: <Sparkles size={14} className="text-brand-accent" />,
@@ -716,8 +716,8 @@ function ChakWidget() {
   return (
     <div className="bg-brand-soft border border-brand-accent/20 rounded-[2rem] p-5 h-full flex flex-col">
       <WidgetHeader
-        title="Инсайты от Чака"
-        subtitle="Что Чак заметил в твоих лидах сегодня"
+        title="Инсайты от Блейка"
+        subtitle="Что Блейк заметил в твоих лидах сегодня"
         icon={<Sparkles size={16} className="text-brand-accent-text" />}
         accent
       />
@@ -997,7 +997,7 @@ function TodayPageInner() {
     user?.email?.split("@")[0] ??
     "коллега";
 
-  // Pull the today plan once at the page level so the Чак subline
+  // Pull the today plan once at the page level so the Блейк subline
   // can include the live task count without re-fetching.
   const { data: plan } = useTodayPlan();
   const todayTotal = plan?.items?.length ?? 0;
@@ -1101,8 +1101,8 @@ function TodayPageInner() {
   // connections.
   const chakSummary =
     todayTotal > 0
-      ? `Чак подготовил план · ${todayTotal} ${pluralRu(todayTotal, ["задача", "задачи", "задач"])} на сегодня`
-      : "Чак готовит план на сегодня";
+      ? `Блейк подготовил план · ${todayTotal} ${pluralRu(todayTotal, ["задача", "задачи", "задач"])} на сегодня`
+      : "Блейк готовит план на сегодня";
 
   function renderWidget(id: WidgetId) {
     switch (id) {
@@ -1138,7 +1138,7 @@ function TodayPageInner() {
         );
       case "w-focus":    return <FocusWidget />;
       case "w-tasklist": return <TaskListWidget />;
-      case "w-chak":     return <ChakWidget />;
+      case "w-chak":     return <BlakeWidget />;
       case "w-funnel":   return <FunnelWidget />;
       case "w-notif":    return <NotifWidget />;
     }
