@@ -22,7 +22,7 @@ from app.leads.services import LeadNotFound
 
 router = APIRouter(prefix="/leads/{lead_id}/enrichment", tags=["enrichment"])
 
-EnrichmentMode = Literal["full", "append"]
+EnrichmentMode = Literal["full", "append", "lightweight"]
 
 
 async def _bg_run(run_id: UUID, mode: EnrichmentMode = "full") -> None:
@@ -100,7 +100,7 @@ async def trigger(
     user: Annotated[User, Depends(current_user)],
     mode: EnrichmentMode = Query(
         "full",
-        description="'full' overwrites lead.ai_data; 'append' merges only into empty keys.",
+        description="'full' overwrites lead.ai_data; 'append' merges only into empty keys; 'lightweight' is free (RSS+HH+web_fetch, no Brave).",
     ),
 ) -> EnrichmentTriggerOut:
     """Trigger enrichment for a lead. Returns 202 immediately; runs in background."""
