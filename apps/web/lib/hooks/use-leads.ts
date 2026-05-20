@@ -27,6 +27,10 @@ export interface LeadFilters {
   q?: string;
   // Sprint 3.6 G4 — filter by landing-form source.
   form_id?: string;
+  // Manager workload: admin/head can scope the board to one manager
+  // (assigned_to) or the whole workspace (all_assignees).
+  assigned_to?: string;
+  all_assignees?: boolean;
   page?: number;
   page_size?: number;
 }
@@ -41,6 +45,8 @@ function buildQuery(filters: LeadFilters): string {
   if (filters.deal_type) p.set("deal_type", filters.deal_type);
   if (filters.q) p.set("q", filters.q);
   if (filters.form_id) p.set("form_id", filters.form_id);
+  if (filters.assigned_to) p.set("assigned_to", filters.assigned_to);
+  if (filters.all_assignees) p.set("all_assignees", "true");
   if (filters.page) p.set("page", String(filters.page));
   p.set("page_size", String(filters.page_size ?? 200));
   const qs = p.toString();
