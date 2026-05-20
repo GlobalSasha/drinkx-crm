@@ -124,6 +124,9 @@ def create_app() -> FastAPI:
     from app.audit.routers import router as audit_router
     app.include_router(audit_router)
 
+    from app.llm_usage.routers import router as llm_costs_router
+    app.include_router(llm_costs_router)
+
     from app.inbox.routers import (
         lead_inbox_router,
         router as inbox_router,
