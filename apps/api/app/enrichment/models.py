@@ -3,9 +3,8 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Integer, JSON, Numeric, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -24,9 +23,6 @@ class EnrichmentRun(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     status: Mapped[str] = mapped_column(String(20), default="running", nullable=False, index=True)
     provider: Mapped[str | None] = mapped_column(String(40), nullable=True)
     model: Mapped[str | None] = mapped_column(String(80), nullable=True)
-    prompt_tokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    completion_tokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    cost_usd: Mapped[Decimal] = mapped_column(Numeric(8, 4), default=Decimal("0"), nullable=False)
     duration_ms: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     sources_used: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)

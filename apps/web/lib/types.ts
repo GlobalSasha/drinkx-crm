@@ -435,9 +435,6 @@ export interface EnrichmentRun {
   status: EnrichmentStatus;
   provider: string | null;
   model: string | null;
-  prompt_tokens: number;
-  completion_tokens: number;
-  cost_usd: number; // Decimal serialized as string by pydantic; coerce on read
   duration_ms: number;
   sources_used: string[];
   error: string | null;

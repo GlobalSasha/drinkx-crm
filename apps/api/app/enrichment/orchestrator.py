@@ -16,7 +16,6 @@ import asyncio
 import json
 import time
 from datetime import datetime, timezone
-from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
@@ -814,9 +813,6 @@ async def run_enrichment(
         run.status = "succeeded"
         run.provider = completion.provider
         run.model = completion.model
-        run.prompt_tokens = completion.prompt_tokens
-        run.completion_tokens = completion.completion_tokens
-        run.cost_usd = Decimal(str(round(completion.cost_usd, 4)))
         run.duration_ms = duration_ms
         run.sources_used = sources_used
         run.result_json = research_output.model_dump()
@@ -883,7 +879,7 @@ async def run_enrichment(
         bound_log.info(
             "enrichment.succeeded",
             provider=run.provider,
-            cost_usd=float(run.cost_usd),
+            cost_usd=completion.cost_usd,
             duration_ms=run.duration_ms,
             sources=sources_used,
         )

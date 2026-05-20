@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -16,9 +15,6 @@ class EnrichmentRunOut(BaseModel):
     status: str
     provider: str | None
     model: str | None
-    prompt_tokens: int
-    completion_tokens: int
-    cost_usd: Decimal
     duration_ms: int
     sources_used: list[str]
     error: str | None
