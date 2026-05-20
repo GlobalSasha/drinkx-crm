@@ -248,6 +248,8 @@ async def generate_for_user(
                     task_type=TaskType.daily_plan,
                     max_tokens=120,
                     temperature=0.3,
+                    db=db,
+                    workspace_id=lead.workspace_id,
                 )
                 hint = completion.text.strip()[:80]
                 total_cost_usd += completion.cost_usd

@@ -365,6 +365,8 @@ async def _extract_contacts_from_sources(
     hh_result: SourceResult,
     web_result: SourceResult | None,
     segment: str | None = None,
+    db: AsyncSession | None = None,
+    workspace_id: Any = None,
 ) -> list[FoundContact]:
     """Focused second LLM call to pull named people out of the raw sources.
 
@@ -393,6 +395,8 @@ async def _extract_contacts_from_sources(
             task_type=TaskType.research_synthesis,
             max_tokens=1000,
             temperature=0.2,
+            db=db,
+            workspace_id=workspace_id,
         )
     except LLMError as e:
         log.warning("enrichment.contact_extraction_failed", reason=str(e)[:200])
@@ -751,6 +755,8 @@ async def run_enrichment(
             task_type=TaskType.research_synthesis,
             max_tokens=2048,
             temperature=0.3,
+            db=db,
+            workspace_id=lead.workspace_id,
         )
 
         # --- Step 5: Parse output ---
@@ -792,6 +798,8 @@ async def run_enrichment(
             hh_result=hh_result,
             web_result=web_result,
             segment=lead.segment,
+            db=db,
+            workspace_id=lead.workspace_id,
         )
         bound_log.info(
             "enrichment.contacts_extracted",

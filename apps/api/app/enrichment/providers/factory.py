@@ -43,6 +43,8 @@ async def complete_with_fallback(
     temperature: float = 0.4,
     timeout_seconds: float = 30.0,
     chain: list[str] | None = None,
+    db=None,
+    workspace_id=None,
 ) -> CompletionResult:
     """Try each provider in the chain until one succeeds. Raises LLMError if all fail.
 
@@ -79,6 +81,13 @@ async def complete_with_fallback(
                 cost_usd=round(result.cost_usd, 5),
                 duration_ms=int((time.perf_counter() - attempt_start) * 1000),
             )
+            if db is not None and workspace_id is not None:
+                # Lazy import avoids a providers↔llm_usage circular import.
+                from app.llm_usage.service import record_llm_usage
+
+                await record_llm_usage(
+                    db, workspace_id=workspace_id, task_type=task_type.value, result=result
+                )
             return result
         except LLMError as e:
             duration_ms = int((time.perf_counter() - attempt_start) * 1000)
