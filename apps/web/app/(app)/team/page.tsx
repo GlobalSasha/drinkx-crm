@@ -104,6 +104,7 @@ export default function TeamPage() {
               <button
                 key={v.value}
                 type="button"
+                aria-pressed={view === v.value}
                 onClick={() => setView(v.value)}
                 className={
                   "px-3 py-1.5 rounded-pill text-xs font-semibold transition-colors " +

@@ -28,7 +28,7 @@ export function WorkloadTable() {
       <table className="min-w-full text-sm">
         <thead>
           <tr className="border-b border-black/5 text-left text-xs text-muted-2">
-            <th className="px-4 py-3 font-semibold sticky left-0 bg-white">Менеджер</th>
+            <th className="px-4 py-3 font-semibold sticky left-0 z-10 bg-white">Менеджер</th>
             {data.stages.map((s) => (
               <th key={s.id} className="px-3 py-3 font-semibold whitespace-nowrap">
                 {s.name}
@@ -41,7 +41,7 @@ export function WorkloadTable() {
         <tbody>
           {data.managers.map((m) => (
             <tr key={m.user_id} className="border-b border-black/5 hover:bg-black/[0.02]">
-              <td className="px-4 py-3 font-medium sticky left-0 bg-white">
+              <td className="px-4 py-3 font-medium sticky left-0 z-10 bg-white">
                 <Link
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   href={`/pipeline?assigned_to=${m.user_id}` as any}
@@ -74,8 +74,9 @@ export function WorkloadTable() {
               <td className="px-3 py-3">
                 {m.stuck_count > 0 ? (
                   <Link
+                    // filter=rotting is a no-op until the pipeline gains a rotting quick-filter
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    href={`/pipeline?assigned_to=${m.user_id}` as any}
+                    href={`/pipeline?assigned_to=${m.user_id}&filter=rotting` as any}
                     className="font-semibold text-warning hover:underline"
                   >
                     {m.stuck_count}
