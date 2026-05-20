@@ -49,7 +49,8 @@ def period_bounds(
     period: Period, *, now: _dt.datetime | None = None
 ) -> tuple[_dt.datetime | None, _dt.datetime | None]:
     """Return [start, end) UTC bounds for a period. `all` → (None, None)."""
-    now = now or _dt.datetime.now(tz=_dt.timezone.utc)
+    if now is None:
+        now = _dt.datetime.now(tz=_dt.timezone.utc)
     if period == "all":
         return None, None
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -71,14 +72,15 @@ def period_bounds(
 async def aggregate_by_provider(
     db,
     *,
-    workspace_id,
+    workspace_id: uuid.UUID,
     start: _dt.datetime | None,
     end: _dt.datetime | None,
 ) -> list[tuple[str, float, int]]:
     """Return [(provider, total_cost_usd, call_count), ...] for the window."""
     stmt = select(
         LlmUsage.provider,
-        func.coalesce(func.sum(LlmUsage.cost_usd), 0),
+        # a bare GROUP BY row always has >=1 record, so the coalesce arm is only a type anchor
+        func.coalesce(func.sum(LlmUsage.cost_usd), Decimal("0")),
         func.count(LlmUsage.id),
     ).where(LlmUsage.workspace_id == workspace_id)
     if start is not None:
