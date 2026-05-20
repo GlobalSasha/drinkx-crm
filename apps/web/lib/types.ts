@@ -1493,3 +1493,16 @@ export interface FormStatsOut {
   claimed_count: number;
   by_stage: Record<string, number>;
 }
+
+// Sprint 4.0 G7 — admin LLM cost counter (Settings → Расходы).
+export interface ProviderCost {
+  provider: string;
+  cost_usd: number;
+  calls: number;
+}
+
+export interface LlmCosts {
+  period: "this_month" | "last_month" | "all";
+  total_usd: number;
+  by_provider: ProviderCost[];
+}

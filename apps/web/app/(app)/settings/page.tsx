@@ -12,6 +12,7 @@ import {
   BellRing,
   Bot,
   ChevronDown,
+  Coins,
   ChevronRight,
   KeyRound,
   Paintbrush,
@@ -28,6 +29,7 @@ import clsx from "clsx";
 import { AISection } from "@/components/settings/AISection";
 import { AppearanceSection } from "@/components/settings/AppearanceSection";
 import { ChannelsSection } from "@/components/settings/ChannelsSection";
+import { CostsSection } from "@/components/settings/CostsSection";
 import { CustomFieldsSection } from "@/components/settings/CustomFieldsSection";
 import { PipelinesSection } from "@/components/settings/PipelinesSection";
 import { TeamSection } from "@/components/settings/TeamSection";
@@ -38,6 +40,7 @@ type SectionKey =
   | "team"
   | "channels"
   | "ai"
+  | "costs"
   | "custom_fields"
   | "templates"
   | "appearance"
@@ -57,6 +60,7 @@ const SECTIONS: SectionDef[] = [
   { key: "team",          label: "Команда",      icon: <Users size={15} />,    ready: true  },
   { key: "channels",      label: "Каналы",       icon: <Plug size={15} />,     ready: true  },
   { key: "ai",            label: "AI",           icon: <Bot size={15} />,      ready: true  },
+  { key: "costs",         label: "Расходы",      icon: <Coins size={15} />,    ready: true  },
   { key: "custom_fields", label: "Кастомные поля", icon: <Sparkles size={15} />, ready: true },
   { key: "templates",     label: "Шаблоны",      icon: <ScrollText size={15} />, ready: true },
   { key: "appearance",    label: "Внешний вид",  icon: <Paintbrush size={15} />, ready: true },
@@ -197,6 +201,7 @@ function SettingsPageInner() {
           {active === "team" && <TeamSection />}
           {active === "channels" && <ChannelsSection />}
           {active === "ai" && <AISection />}
+          {active === "costs" && <CostsSection />}
           {active === "custom_fields" && <CustomFieldsSection />}
           {active === "templates" && <TemplatesSection />}
           {active === "appearance" && <AppearanceSection />}
@@ -204,6 +209,7 @@ function SettingsPageInner() {
             active !== "team" &&
             active !== "channels" &&
             active !== "ai" &&
+            active !== "costs" &&
             active !== "custom_fields" &&
             active !== "templates" &&
             active !== "appearance" && (
