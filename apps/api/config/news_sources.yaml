@@ -1,0 +1,37 @@
+# segment → RSS feeds. Keys match normalized lead.segment (lowercased).
+# Verified live on 2026-05-20 (see Task 1 Step 1.1). Unverified feeds
+# marked — they're retried at runtime with graceful fallback.
+#
+# URL validation results (2026-05-20, dev box):
+#   200  https://restoranoved.ru/feed          ← confirmed real RSS
+#   404  https://www.retail.ru/rss/all.xml     ← unverified
+#   403  https://www.pitportal.ru/feed         ← unverified
+#   404  https://neftegaz.ru/rss/              ← unverified
+#   000  https://www.cofer.ru/feed             ← unreachable from dev box
+# All unverified feeds are retried at runtime with graceful fallback.
+
+"кофейни и кафе":
+  rss:
+    - { url: "https://restoranoved.ru/feed", name: "Ресторановед" }
+
+"продуктовый ритейл":
+  rss:
+    # unverified from dev box — retried at runtime with graceful fallback
+    - { url: "https://www.retail.ru/rss/all.xml", name: "retail.ru" }
+
+"horeca":
+  rss:
+    - { url: "https://restoranoved.ru/feed", name: "Ресторановед" }
+    # unverified from dev box — retried at runtime with graceful fallback
+    - { url: "https://www.pitportal.ru/feed", name: "ПитПортал" }
+
+"азс":
+  rss:
+    # unverified from dev box — retried at runtime with graceful fallback
+    - { url: "https://neftegaz.ru/rss/", name: "Нефтегаз" }
+
+"qsr / fast food":
+  inherit: ["продуктовый ритейл", "horeca"]
+
+"непродуктовый ритейл":
+  inherit: ["продуктовый ритейл"]
