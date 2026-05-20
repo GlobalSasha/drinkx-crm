@@ -24,7 +24,7 @@ export function ResearchGapsCard({ lead }: Props) {
       <header className="flex items-center gap-2 mb-2">
         <Search size={14} className={C.color.muted} />
         <h3 className={`type-card-title ${C.color.text}`}>
-          Research gaps
+          Что ещё нужно уточнить
         </h3>
       </header>
       <p className={`type-caption ${C.color.muted} leading-relaxed`}>{gaps}</p>
