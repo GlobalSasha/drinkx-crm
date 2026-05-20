@@ -154,4 +154,6 @@ async def lead_chat(
         message=payload.message,
         history=payload.history,
         stage_name=stage_name,
+        db=db,
+        workspace_id=lead.workspace_id,
     )
