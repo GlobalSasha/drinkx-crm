@@ -15,7 +15,6 @@ _stub_sqlalchemy()
 # Stub the model module so insert_usage can instantiate it in tests.
 import sys
 from types import ModuleType
-from unittest.mock import MagicMock
 
 def _stub_llm_usage_models():
     if "app.llm_usage.models" in sys.modules:

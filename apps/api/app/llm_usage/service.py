@@ -28,7 +28,7 @@ async def record_llm_usage(
     result: CompletionResult,
 ) -> None:
     if db is None or workspace_id is None:
-        log.warning("llm_usage.skip", provider=result.provider, task_type=task_type)
+        log.debug("llm_usage.skip", provider=result.provider, task_type=task_type)
         return
     try:
         insert_usage(  # sync add-only; persists with the caller's transaction
