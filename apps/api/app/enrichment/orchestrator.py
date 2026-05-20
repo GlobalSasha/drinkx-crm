@@ -79,6 +79,9 @@ SYNTHESIS_SYSTEM = """Ты — sales-аналитик DrinkX (умные коф�
 7. urgency — "high" | "medium" | "low" | "".
 8. score_rationale — 2–3 предложения, почему такой fit_score. Опирайся на конкретные
    сигналы из Brave / HH.ru / сайта. Используй шкалу из KB · icp_definition.
+9. research_gaps — что НЕ удалось подтвердить по источникам (контакты ЛПР, точное
+   число точек, модель франшизы, тендерные контакты и т.п.). По-русски, кратко,
+   одним абзацем. Если всё подтверждено — пустая строка "".
 
 СХЕМА:
 {
@@ -97,7 +100,8 @@ SYNTHESIS_SYSTEM = """Ты — sales-аналитик DrinkX (умные коф�
   "next_steps": [str, ...],
   "urgency": str,
   "sources_used": [str, ...],
-  "notes": str
+  "notes": str,
+  "research_gaps": str
 }"""
 
 # Segment-specific role lists for contact extraction. Lead.segment is a
@@ -221,6 +225,9 @@ HH.ru вакансии:
 Сайт компании (фрагмент):
 {web_block}
 
+Отраслевые новости (RSS):
+{rss_block}
+
 Верни JSON по схеме. Только JSON, без объяснений."""
 
 
@@ -280,6 +287,17 @@ def _format_web_block(result: SourceResult | None) -> str:
     item = result.items[0]
     text = item.get("text", "")
     return text[:3000] if text else "(пустой сайт)"
+
+
+def _format_rss_block(items: list) -> str:
+    """Render RSS FeedItems for the synthesis prompt. Empty → marker."""
+    if not items:
+        return "(нет свежих отраслевых новостей)"
+    lines = []
+    for it in items[:8]:
+        date = it.published.strftime("%Y-%m-%d")
+        lines.append(f"- [{date}] {it.title} ({it.source_name})")
+    return "\n".join(lines)
 
 
 # Float confidence threshold for auto-creating a Contact from FoundContact.
@@ -637,13 +655,17 @@ async def run_enrichment(
             raise ValueError(f"Lead {run.lead_id} not found")
 
         # --- Step 1: Build queries ---
-        brave_queries = _build_queries(lead)
         hh_query = lead.company_name or ""
+        use_brave = mode != "lightweight"
+        brave_queries = _build_queries(lead) if use_brave else []
 
         # --- Step 2: Parallel fetch ---
         brave_source = BraveSearch()
         hh_source = HHRu()
         web_source = WebFetch()
+
+        from app.enrichment.sources.rss_feed import RssFeedSource
+        rss_source = RssFeedSource()
 
         fetch_tasks: list[Any] = [
             brave_source.fetch(q, use_cache=True) for q in brave_queries
@@ -653,6 +675,14 @@ async def run_enrichment(
         has_website = bool(lead.website and lead.website.strip())
         if has_website:
             fetch_tasks.append(web_source.fetch(lead.website, use_cache=True))  # type: ignore[arg-type]
+
+        # RSS fetched separately (different return type — list[FeedItem]).
+        # Failure-tolerant inside RssFeedSource; never raises.
+        rss_items = await rss_source.fetch_segment_news(
+            segment=lead.segment or "",
+            company_name=lead.company_name,
+            max_items=8,
+        )
 
         raw_results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
 
@@ -674,6 +704,8 @@ async def run_enrichment(
                 web_result = r
 
         sources_used = _collect_sources_used(brave_results, hh_result, web_result)
+        if rss_items and "rss" not in sources_used:
+            sources_used.append("rss")
 
         # --- Step 3: Compose synthesis prompt ---
         # Re-enrichment of large retailers can blow past the model's context
@@ -694,6 +726,7 @@ async def run_enrichment(
             brave_block=brave_block,
             hh_block=hh_block,
             web_block=web_block,
+            rss_block=_format_rss_block(rss_items),
         )
 
         # --- Step 4: LLM synthesis ---

@@ -177,6 +177,33 @@ def lead_agent_scan_silence() -> dict:
     return asyncio.run(scan_silence_async())
 
 
+@celery_app.task(name="app.scheduled.jobs.pool_auto_enrich_batch")
+def pool_auto_enrich_batch() -> dict:
+    """Sprint 3.9 G5 — daily beat. Lightweight-enrich pool leads stale >30 days."""
+    from app.enrichment.tasks import _run_pool_auto_enrich_batch
+
+    return asyncio.run(_run_pool_auto_enrich_batch(limit=20))
+
+
+@celery_app.task(name="app.scheduled.jobs.run_enrichment_task")
+def run_enrichment_task(run_id: str, mode: str = "full") -> dict:
+    """Celery entry-point for enrichment (used by pool_auto_enrich_batch)."""
+    from uuid import UUID
+
+    from app.enrichment.orchestrator import run_enrichment
+
+    async def _core():
+        engine, factory = _build_task_engine_and_factory()
+        try:
+            async with factory() as db:
+                await run_enrichment(db=db, run_id=UUID(run_id), mode=mode)
+        finally:
+            await engine.dispose()
+        return {"job": "run_enrichment_task", "run_id": run_id, "mode": mode}
+
+    return asyncio.run(_core())
+
+
 def _build_task_engine_and_factory():
     """Each Celery task needs its own engine because asyncio.run() creates a
     fresh event loop per invocation, while asyncpg connections are bound to

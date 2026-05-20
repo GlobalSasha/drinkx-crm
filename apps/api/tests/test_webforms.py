@@ -34,6 +34,7 @@ def _stub_sqlalchemy():
         def __le__(self, other): return _Callable()
         def __gt__(self, other): return _Callable()
         def __ge__(self, other): return _Callable()
+        def __invert__(self): return _Callable()
 
     sa = ModuleType("sqlalchemy")
     for name in (

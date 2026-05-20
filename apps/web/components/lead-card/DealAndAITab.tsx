@@ -193,7 +193,7 @@ function AIBriefCard({
     setTimeout(() => setToast(null), 2500);
   }
 
-  function handleRun(mode: "full" | "append") {
+  function handleRun(mode: "full" | "append" | "lightweight") {
     trigger.mutate(mode, {
       onSuccess: () => {
         showToast("AI Бриф в очереди — обычно 5–10 сек");
@@ -228,15 +228,26 @@ function AIBriefCard({
           </span>
         </div>
         {hasAiData ? (
-          <button
-            type="button"
-            onClick={() => handleRun("append")}
-            disabled={isRunning}
-            className={`inline-flex items-center gap-1.5 px-4 py-1.5 type-body font-semibold ${C.button.ghost} disabled:opacity-50 transition-opacity`}
-          >
-            {isRunning ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-            Дополнить
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleRun("lightweight")}
+              disabled={isRunning}
+              title="Бесплатное обновление: новости отрасли + сайт + вакансии, без Brave"
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 type-body font-semibold ${C.button.ghost} disabled:opacity-50 transition-opacity`}
+            >
+              Обновить (быстро)
+            </button>
+            <button
+              type="button"
+              onClick={() => handleRun("append")}
+              disabled={isRunning}
+              className={`inline-flex items-center gap-1.5 px-4 py-1.5 type-body font-semibold ${C.button.ghost} disabled:opacity-50 transition-opacity`}
+            >
+              {isRunning ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+              Дополнить
+            </button>
+          </div>
         ) : null}
       </header>
 

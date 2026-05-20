@@ -80,4 +80,11 @@ celery_app.conf.beat_schedule = {
         "task": "app.scheduled.jobs.lead_agent_scan_silence",
         "schedule": crontab(minute=0, hour="*/6"),
     },
+    "pool-auto-enrich": {
+        # Sprint 3.9 G5 — daily at 03:00 UTC (06:00 MSK). Selects pool
+        # leads with no succeeded run in 30 days and enqueues lightweight
+        # enrichment for each, staggered 3 s apart.
+        "task": "app.scheduled.jobs.pool_auto_enrich_batch",
+        "schedule": crontab(hour=3, minute=0),
+    },
 }
