@@ -381,6 +381,40 @@ async def list_pool(
     return await _populate_extras(list(rows_result.all()), db=db), total
 
 
+async def get_pool_leads_needing_enrichment(
+    db: AsyncSession, limit: int = 20
+) -> list[Lead]:
+    """Sprint 3.9 G4 — pool leads with no succeeded EnrichmentRun in the
+    last 30 days. Imported leads (zero runs) are selected first. Drives
+    the monthly-per-lead auto-enrich beat."""
+    import datetime as _dt
+
+    from app.enrichment.models import EnrichmentRun
+
+    cutoff = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=30)
+    recent_run_exists = (
+        select(EnrichmentRun.id)
+        .where(
+            EnrichmentRun.lead_id == Lead.id,
+            EnrichmentRun.status == "succeeded",
+            EnrichmentRun.finished_at >= cutoff,
+        )
+        .exists()
+    )
+    stmt = (
+        select(Lead)
+        .where(
+            Lead.assignment_status == "pool",
+            Lead.archived_at.is_(None),
+            ~recent_run_exists,
+        )
+        .order_by(Lead.created_at.asc())
+        .limit(limit)
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+
 async def create_lead(
     db: AsyncSession,
     workspace_id: uuid.UUID,
