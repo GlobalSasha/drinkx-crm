@@ -34,7 +34,15 @@ export function CostsSection() {
 
   const isAdmin = me.data?.role === "admin";
 
-  if (me.data && !isAdmin) {
+  if (me.isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 size={20} className="animate-spin text-muted-2" />
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
     return (
       <div className="bg-canvas/60 border border-black/5 rounded-2xl px-6 py-12 text-center">
         <ShieldAlert size={20} className="text-muted mx-auto mb-2" />
@@ -82,25 +90,29 @@ export function CostsSection() {
             </div>
           </div>
 
-          <ul className="divide-y divide-black/5 rounded-2xl border border-black/5 bg-white">
-            {data.by_provider.map((p) => (
-              <li
-                key={p.provider}
-                className={
-                  "flex items-center justify-between px-4 py-3 " +
-                  (p.cost_usd === 0 ? "text-muted-3" : "")
-                }
-              >
-                <span className="font-semibold">
-                  {PROVIDER_LABELS[p.provider] ?? p.provider}
-                </span>
-                <span className="flex items-center gap-3">
-                  <span className="text-sm text-muted">{p.calls} выз.</span>
-                  <span className="font-mono">{fmt(p.cost_usd)}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
+          {data.by_provider.length === 0 ? (
+            <p className="text-sm text-muted">Нет данных за период</p>
+          ) : (
+            <ul className="divide-y divide-black/5 rounded-2xl border border-black/5 bg-white">
+              {data.by_provider.map((p) => (
+                <li
+                  key={p.provider}
+                  className={
+                    "flex items-center justify-between px-4 py-3 " +
+                    (p.cost_usd === 0 ? "text-muted-3" : "")
+                  }
+                >
+                  <span className="font-semibold">
+                    {PROVIDER_LABELS[p.provider] ?? p.provider}
+                  </span>
+                  <span className="flex items-center gap-3">
+                    <span className="text-sm text-muted">{p.calls} выз.</span>
+                    <span className="font-mono">{fmt(p.cost_usd)}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </>
       )}
     </div>
