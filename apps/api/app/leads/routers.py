@@ -41,27 +41,36 @@ from app.leads.services import (
 router = APIRouter(prefix="/leads", tags=["leads"])
 
 
-def _scope_assigned_to(
+def _resolve_assignee_scope(
+    *,
     explicit: UUID | None,
-    user_id: UUID,
+    all_assignees: bool,
     q: str | None,
+    user_id: UUID,
+    role: str,
 ) -> UUID | None:
-    """Sprint 3.8 hotfix — default the `assigned_to` filter to the current
-    user when the caller doesn't pass it and isn't searching by text.
+    """Return the `assigned_to` filter for GET /leads (None = no assignee filter).
 
-    `GET /leads` powers two very different consumers:
-      - /pipeline kanban + /today counter widgets → no `q`, want MY leads
-      - `UnmatchedMessagesSection`'s picker (assign Telegram message to a
-        lead) → passes `q`, wants the whole workspace to be searchable
+    `GET /leads` powers the pipeline kanban, /today widgets, and the
+    message-to-lead picker. Scoping rules:
 
-    So: explicit value wins; otherwise scope to user UNLESS the request
-    is a text search (then leave the filter off so any colleague's lead
-    is findable).
+      - Text search (`q`) → whole workspace (None), unchanged: the picker
+        must find any colleague's lead by name. (Pre-existing carve-out.)
+      - admin/head + all_assignees → whole workspace (None) — the «Все» option.
+      - admin/head + explicit id → that manager.
+      - admin/head + nothing → self.
+      - regular user → ALWAYS self (explicit/all_assignees ignored). This
+        closes the prior leak where any user could pass ?assigned_to=<colleague>.
     """
-    if explicit is not None:
-        return explicit
     if q:
-        return None  # text search → full workspace scope
+        return None
+    privileged = role in ("admin", "head")
+    if privileged:
+        if all_assignees:
+            return None
+        if explicit is not None:
+            return explicit
+        return user_id
     return user_id
 
 
@@ -75,6 +84,7 @@ async def list_leads(
     deal_type: str | None = None,
     assigned_to: UUID | None = None,
     q: str | None = None,
+    all_assignees: bool = False,
     form_id: UUID | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
@@ -88,8 +98,13 @@ async def list_leads(
         city=city,
         priority=priority,
         deal_type=deal_type,
-        # Sprint 3.8 hotfix — see `_scope_assigned_to` docstring.
-        assigned_to=_scope_assigned_to(assigned_to, user.id, q),
+        assigned_to=_resolve_assignee_scope(
+            explicit=assigned_to,
+            all_assignees=all_assignees,
+            q=q,
+            user_id=user.id,
+            role=user.role,
+        ),
         q=q,
         form_id=form_id,
         page=page,
