@@ -12,7 +12,6 @@ from __future__ import annotations
 import json
 import sys
 import uuid
-from decimal import Decimal
 from types import ModuleType
 from unittest.mock import AsyncMock, MagicMock
 
@@ -135,9 +134,6 @@ def _make_run(lead_id=None):
     run.status = "running"
     run.provider = None
     run.model = None
-    run.prompt_tokens = 0
-    run.completion_tokens = 0
-    run.cost_usd = Decimal("0")
     run.duration_ms = 0
     run.sources_used = []
     run.error = None
@@ -227,9 +223,6 @@ async def test_run_enrichment_happy_path(monkeypatch):
 
     assert run.status == "succeeded"
     assert run.provider == "mimo"
-    assert run.prompt_tokens == 100
-    assert run.completion_tokens == 50
-    assert run.cost_usd == Decimal("0.002")
     assert run.finished_at is not None
     assert lead.ai_data["company_profile"] == "Отличная компания"
     db.commit.assert_called()

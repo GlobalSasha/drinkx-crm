@@ -93,7 +93,13 @@ async def ask_blake(
     stage_name = await _resolve_stage_name(db, lead)
 
     try:
-        response = await chat(lead, payload.question, stage_name=stage_name)
+        response = await chat(
+            lead,
+            payload.question,
+            stage_name=stage_name,
+            db=db,
+            workspace_id=lead.workspace_id,
+        )
     except Exception:
         # `chat` itself swallows LLMError and returns a polite Russian
         # fallback, so any exception here is unexpected (programmer

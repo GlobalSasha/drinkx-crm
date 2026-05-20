@@ -61,6 +61,8 @@ async def get_suggestion(
     lead: Any,
     *,
     stage_name: str | None = None,
+    db=None,
+    workspace_id=None,
 ) -> AgentSuggestion | None:
     """Background banner — short JSON recommendation. Flash model.
 
@@ -86,6 +88,8 @@ async def get_suggestion(
             task_type=TaskType.prefilter,
             max_tokens=400,
             temperature=0.3,
+            db=db,
+            workspace_id=workspace_id,
         )
     except LLMError as exc:
         log.warning(
@@ -140,6 +144,8 @@ async def chat(
     history: list[ChatMessage] | None = None,
     *,
     stage_name: str | None = None,
+    db=None,
+    workspace_id=None,
 ) -> ChatResponse:
     """Sales Coach chat — long-form RU answer. Pro model.
 
@@ -173,6 +179,8 @@ async def chat(
             task_type=TaskType.sales_coach,
             max_tokens=1200,
             temperature=0.7,
+            db=db,
+            workspace_id=workspace_id,
         )
         reply = completion.text.strip()
     except LLMError as exc:

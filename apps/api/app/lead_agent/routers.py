@@ -149,9 +149,16 @@ async def lead_chat(
     )
     stage_name = await _resolve_stage_name(db, lead)
 
-    return await agent_chat(
+    response = await agent_chat(
         lead,
         message=payload.message,
         history=payload.history,
         stage_name=stage_name,
+        db=db,
+        workspace_id=lead.workspace_id,
     )
+    # Persist the best-effort LlmUsage row staged by complete_with_fallback.
+    # get_db does not commit on success, so without this the chat-drawer
+    # spend would be rolled back on session exit (sibling ask_blake commits).
+    await db.commit()
+    return response

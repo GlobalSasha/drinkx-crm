@@ -16,7 +16,6 @@ import asyncio
 import json
 import time
 from datetime import datetime, timezone
-from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
@@ -365,6 +364,8 @@ async def _extract_contacts_from_sources(
     hh_result: SourceResult,
     web_result: SourceResult | None,
     segment: str | None = None,
+    db: AsyncSession | None = None,
+    workspace_id: Any = None,
 ) -> list[FoundContact]:
     """Focused second LLM call to pull named people out of the raw sources.
 
@@ -393,6 +394,8 @@ async def _extract_contacts_from_sources(
             task_type=TaskType.research_synthesis,
             max_tokens=1000,
             temperature=0.2,
+            db=db,
+            workspace_id=workspace_id,
         )
     except LLMError as e:
         log.warning("enrichment.contact_extraction_failed", reason=str(e)[:200])
@@ -751,6 +754,8 @@ async def run_enrichment(
             task_type=TaskType.research_synthesis,
             max_tokens=2048,
             temperature=0.3,
+            db=db,
+            workspace_id=lead.workspace_id,
         )
 
         # --- Step 5: Parse output ---
@@ -792,6 +797,8 @@ async def run_enrichment(
             hh_result=hh_result,
             web_result=web_result,
             segment=lead.segment,
+            db=db,
+            workspace_id=lead.workspace_id,
         )
         bound_log.info(
             "enrichment.contacts_extracted",
@@ -806,9 +813,6 @@ async def run_enrichment(
         run.status = "succeeded"
         run.provider = completion.provider
         run.model = completion.model
-        run.prompt_tokens = completion.prompt_tokens
-        run.completion_tokens = completion.completion_tokens
-        run.cost_usd = Decimal(str(round(completion.cost_usd, 4)))
         run.duration_ms = duration_ms
         run.sources_used = sources_used
         run.result_json = research_output.model_dump()
@@ -875,7 +879,7 @@ async def run_enrichment(
         bound_log.info(
             "enrichment.succeeded",
             provider=run.provider,
-            cost_usd=float(run.cost_usd),
+            cost_usd=completion.cost_usd,
             duration_ms=run.duration_ms,
             sources=sources_used,
         )

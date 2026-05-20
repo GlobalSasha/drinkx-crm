@@ -143,6 +143,8 @@ async def transcribe_call_async(message_id: UUID) -> dict:
                     max_tokens=200,
                     temperature=0.3,
                     timeout_seconds=30.0,
+                    db=session,
+                    workspace_id=msg.workspace_id,
                 )
                 summary = (completion.text or "").strip()
             except Exception as exc:  # noqa: BLE001 — LLM down must not lose transcript

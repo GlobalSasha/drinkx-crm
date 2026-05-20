@@ -87,7 +87,12 @@ async def refresh_suggestion_async(lead_id: UUID) -> dict:
                 return {"job": "lead_agent_refresh_suggestion", "status": "lead_not_found"}
 
             stage_name = await _resolve_stage_name(session, lead)
-            suggestion = await get_suggestion(lead, stage_name=stage_name)
+            suggestion = await get_suggestion(
+                lead,
+                stage_name=stage_name,
+                db=session,
+                workspace_id=lead.workspace_id,
+            )
 
             if suggestion is None:
                 log.info(

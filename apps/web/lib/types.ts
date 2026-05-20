@@ -435,9 +435,6 @@ export interface EnrichmentRun {
   status: EnrichmentStatus;
   provider: string | null;
   model: string | null;
-  prompt_tokens: number;
-  completion_tokens: number;
-  cost_usd: number; // Decimal serialized as string by pydantic; coerce on read
   duration_ms: number;
   sources_used: string[];
   error: string | null;
@@ -1495,4 +1492,17 @@ export interface FormStatsOut {
   submissions_30d: number;
   claimed_count: number;
   by_stage: Record<string, number>;
+}
+
+// Sprint 4.0 G7 — admin LLM cost counter (Settings → Расходы).
+export interface ProviderCost {
+  provider: string;
+  cost_usd: number;
+  calls: number;
+}
+
+export interface LlmCosts {
+  period: "this_month" | "last_month" | "all";
+  total_usd: number;
+  by_provider: ProviderCost[];
 }
