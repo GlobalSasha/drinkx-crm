@@ -35,3 +35,12 @@ def test_format_rss_block_empty_and_populated():
     assert "Сеть открыла 5 точек" in block
     assert "2026-05-01" in block
     assert "retail.ru" in block
+
+
+def test_synthesis_prompt_includes_research_gaps():
+    """research_gaps is in the Pydantic schema but was missing from the
+    prompt's СХЕМА block — re-enrich never produced it in Russian. Guard
+    so a future prompt edit doesn't silently drop it again."""
+    from app.enrichment.orchestrator import SYNTHESIS_SYSTEM
+
+    assert "research_gaps" in SYNTHESIS_SYSTEM
