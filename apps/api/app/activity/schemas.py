@@ -53,9 +53,9 @@ class FeedItemOut(ActivityOut):
     feed repository so the frontend doesn't N+1 across the page.
 
     For `type='ai_suggestion'` rows, `author_name` is forced to
-    "Чак" regardless of `user_id` (the runner / chat handler may
+    "Блейк" regardless of `user_id` (the runner / chat handler may
     leave user_id NULL or stamp the manager who triggered the
-    refresh; either way the feed presents Чак as the speaker).
+    refresh; either way the feed presents Блейк as the speaker).
     """
 
     author_name: str | None = None
@@ -67,13 +67,13 @@ class FeedListOut(BaseModel):
     has_more: bool
 
 
-class AskChakIn(BaseModel):
-    """Body for POST /leads/{id}/feed/ask-chak."""
+class AskBlakeIn(BaseModel):
+    """Body for POST /leads/{id}/feed/ask-blake."""
 
     question: str = Field(min_length=1, max_length=4000)
 
 
-class AskChakOut(BaseModel):
+class AskBlakeOut(BaseModel):
     """Returns both freshly-inserted activities so the frontend can
     append them optimistically (without a feed refetch round-trip)."""
 

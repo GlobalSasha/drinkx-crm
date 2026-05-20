@@ -610,7 +610,7 @@ export interface FeedItemOut {
   lead_id: string;
   user_id: string | null;
   type: FeedItemType | string;
-  // Resolved on the backend via LEFT JOIN on users; "Чак" for AI rows.
+  // Resolved on the backend via LEFT JOIN on users; "Блейк" for AI rows.
   author_name: string | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload_json: Record<string, any>;
@@ -637,7 +637,7 @@ export interface FeedListOut {
   has_more: boolean;
 }
 
-export interface AskChakOut {
+export interface AskBlakeOut {
   question_activity: FeedItemOut;
   answer_activity: FeedItemOut;
 }

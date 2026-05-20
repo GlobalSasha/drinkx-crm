@@ -6,12 +6,12 @@ import { formatTimeShort } from "./_time";
 
 interface Props {
   item: FeedItemOut;
-  /** Pre-fills the composer with «@Чак ...» for follow-up questions. */
+  /** Pre-fills the composer with «@Блейк ...» for follow-up questions. */
   onAskFollowUp?: (seed: string) => void;
 }
 
 /**
- * AI suggestion / Чак's chat answer rendered as a native feed message.
+ * AI suggestion / Блейк's chat answer rendered as a native feed message.
  *
  * - Background: subtle brand-soft tint so AI messages stand out from
  *   manager comments without being loud.
@@ -19,7 +19,7 @@ interface Props {
  *   AND confidence ≥ 0.4 (server already strips action_label below
  *   that threshold, so this is mostly defensive on the client).
  * - "Спросить подробнее" fires the parent callback with an empty seed
- *   so the composer focuses with the "@Чак " prefix.
+ *   so the composer focuses with the "@Блейк " prefix.
  */
 export function FeedItemAI({ item, onAskFollowUp }: Props) {
   const actionLabel = item.payload_json?.action_label as string | null | undefined;
@@ -34,7 +34,7 @@ export function FeedItemAI({ item, onAskFollowUp }: Props) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="type-caption text-brand-muted">
-          <span className="font-semibold text-brand-accent-text">Чак</span>
+          <span className="font-semibold text-brand-accent-text">Блейк</span>
           <span className="mx-1.5">·</span>
           <span>{formatTimeShort(item.created_at)}</span>
         </p>
