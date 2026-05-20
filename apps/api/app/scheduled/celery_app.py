@@ -29,6 +29,7 @@ from app.inbox import models as _inbox_models  # noqa: F401, E402
 from app.import_export import models as _import_export_models  # noqa: F401, E402
 from app.forms import models as _forms_models  # noqa: F401, E402
 from app.automation_builder import models as _automation_builder_models  # noqa: F401, E402
+from app.llm_usage import models as _llm_usage_models  # noqa: F401, E402
 
 _s = get_settings()
 
