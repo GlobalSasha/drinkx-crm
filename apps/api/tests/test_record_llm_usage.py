@@ -2,28 +2,13 @@
 from __future__ import annotations
 
 import uuid
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from tests.test_webforms import _stub_sqlalchemy  # type: ignore
 
 _stub_sqlalchemy()
-
-# Under the SQLAlchemy stub, DeclarativeBase has no metaclass so LlmUsage
-# doesn't get an auto-generated __init__ that accepts keyword args.
-# Stub the model module so insert_usage can instantiate it in tests.
-import sys
-from types import ModuleType
-
-def _stub_llm_usage_models():
-    if "app.llm_usage.models" in sys.modules:
-        return
-    mod = ModuleType("app.llm_usage.models")
-    mod.LlmUsage = MagicMock  # accepts any kwargs; db.add() receives the mock instance
-    sys.modules["app.llm_usage.models"] = mod
-
-_stub_llm_usage_models()
 
 
 def _result():
@@ -43,9 +28,12 @@ async def test_record_llm_usage_stages_row_no_commit():
     db.commit = AsyncMock()
 
     ws = uuid.uuid4()
-    await service.record_llm_usage(
-        db, workspace_id=ws, task_type="research_synthesis", result=_result()
-    )
+    # Patch the symbol insert_usage looks up so LlmUsage(...) accepts kwargs
+    # under the SQLAlchemy stub; auto-restored on context exit (no global leak).
+    with patch("app.llm_usage.repositories.LlmUsage", MagicMock()):
+        await service.record_llm_usage(
+            db, workspace_id=ws, task_type="research_synthesis", result=_result()
+        )
 
     db.add.assert_called_once()        # row staged on the caller's session
     db.commit.assert_not_called()      # MUST NOT commit the caller's transaction
@@ -59,9 +47,10 @@ async def test_record_llm_usage_swallows_add_error():
     db.add = MagicMock(side_effect=RuntimeError("session poisoned"))
 
     # Must NOT raise — telemetry failure cannot break the LLM path.
-    await service.record_llm_usage(
-        db, workspace_id=uuid.uuid4(), task_type="sales_coach", result=_result()
-    )
+    with patch("app.llm_usage.repositories.LlmUsage", MagicMock()):
+        await service.record_llm_usage(
+            db, workspace_id=uuid.uuid4(), task_type="sales_coach", result=_result()
+        )
 
 
 @pytest.mark.asyncio

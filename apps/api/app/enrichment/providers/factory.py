@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import time
+import uuid
 
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.enrichment.providers.anthropic import AnthropicProvider
@@ -43,8 +45,8 @@ async def complete_with_fallback(
     temperature: float = 0.4,
     timeout_seconds: float = 30.0,
     chain: list[str] | None = None,
-    db=None,
-    workspace_id=None,
+    db: AsyncSession | None = None,
+    workspace_id: uuid.UUID | None = None,
 ) -> CompletionResult:
     """Try each provider in the chain until one succeeds. Raises LLMError if all fail.
 
