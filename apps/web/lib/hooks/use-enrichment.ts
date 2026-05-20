@@ -40,7 +40,7 @@ export function useLatestEnrichment(leadId: string | null | undefined) {
   return query;
 }
 
-export type EnrichmentMode = "full" | "append";
+export type EnrichmentMode = "full" | "append" | "lightweight";
 
 export function useTriggerEnrichment(leadId: string) {
   const qc = useQueryClient();
