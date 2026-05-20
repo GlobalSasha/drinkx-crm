@@ -1110,6 +1110,35 @@ export interface ManagerStatsOut {
   daily: TeamDailyRow[];
 }
 
+// ---- Team → Загрузка (manager × stage workload) ----
+
+export interface WorkloadStage {
+  id: string;
+  name: string;
+  position: number;
+  color: string;
+}
+
+export interface WorkloadCell {
+  count: number;
+  sum_amount: number;
+}
+
+export interface WorkloadManager {
+  user_id: string;
+  name: string;
+  email: string;
+  by_stage: Record<string, WorkloadCell>;
+  open_count: number;
+  pipeline_sum: number;
+  stuck_count: number;
+}
+
+export interface Workload {
+  stages: WorkloadStage[];
+  managers: WorkloadManager[];
+}
+
 // ---- Settings → Каналы (Sprint 2.4 G2) ----
 
 export interface GmailChannelOut {
