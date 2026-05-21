@@ -121,6 +121,9 @@ def create_app() -> FastAPI:
     from app.notifications.routers import router as notifications_router
     app.include_router(notifications_router)
 
+    from app.reminders.routers import router as reminders_router
+    app.include_router(reminders_router)
+
     from app.audit.routers import router as audit_router
     app.include_router(audit_router)
 

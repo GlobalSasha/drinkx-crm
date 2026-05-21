@@ -25,6 +25,7 @@ import { useMe } from "@/lib/hooks/use-me";
 import type { Stage } from "@/lib/types";
 import { DealAndAITab } from "./DealAndAITab";
 import { ContactsTab } from "./ContactsTab";
+import { TasksTab } from "./TasksTab";
 import { UnifiedFeed } from "./feed/UnifiedFeed";
 import { FollowupsRail } from "./FollowupsRail";
 import { CustomFieldsPanel } from "./CustomFieldsPanel";
@@ -82,12 +83,13 @@ function formatWonLostDate(iso: string | null | undefined): string {
 // appear inside «Активность» as collapsed cards alongside comments /
 // tasks / AI messages. Telegram + phone messages stay in `inbox_messages`
 // for now — separate sprint will surface them again.
-type TabKey = "activity" | "deal-ai" | "contacts";
+type TabKey = "activity" | "deal-ai" | "contacts" | "tasks";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "activity", label: "Активность" },
   { key: "deal-ai", label: "Сделка и AI" },
   { key: "contacts", label: "Контакты" },
+  { key: "tasks", label: "Задачи" },
 ];
 
 interface Props {
@@ -556,6 +558,7 @@ export function LeadCard({ leadId }: Props) {
             {activeTab === "activity" && <UnifiedFeed leadId={lead.id} />}
             {activeTab === "deal-ai" && <DealAndAITab lead={lead} />}
             {activeTab === "contacts" && <ContactsTab lead={lead} />}
+            {activeTab === "tasks" && <TasksTab leadId={lead.id} />}
           </div>
 
           {/* Right column */}

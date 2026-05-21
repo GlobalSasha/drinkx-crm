@@ -12,13 +12,7 @@ import {
   X,
   Plus,
   LayoutGrid,
-  Sparkles,
   Bell,
-  TrendingUp,
-  ChevronRight,
-  Phone,
-  Mail,
-  Calendar,
   ArrowUpRight,
   Check,
 } from "lucide-react";
@@ -48,115 +42,69 @@ import { useLeads } from "@/lib/hooks/use-leads";
 import { usePipelines } from "@/lib/hooks/use-pipelines";
 import { useNotificationsList, useMarkRead } from "@/lib/hooks/use-notifications";
 import { relativeTime } from "@/lib/relative-time";
-import type { LeadOut, Priority, TaskKind, TimeBlock } from "@/lib/types";
+import { TaskTable } from "@/components/tasks/TaskTable";
+import { RemindersWidget } from "@/components/today/RemindersWidget";
+import {
+  dailyPlanItemToRow,
+  isOverdue,
+  isToday,
+  type TaskRow,
+} from "@/lib/tasks";
+import type { LeadOut, Priority } from "@/lib/types";
 
 // ─── Widget registry ────────────────────────────────────────
 
 type WidgetId =
-  | "w-tasks"
   | "w-followup"
   | "w-rotting"
   | "w-pipeline"
-  | "w-focus"
   | "w-tasklist"
-  | "w-chak"
+  | "w-reminders"
   | "w-funnel"
   | "w-notif";
 
 const DEFAULT_ORDER: WidgetId[] = [
-  "w-tasks",
   "w-followup",
   "w-rotting",
   "w-pipeline",
-  "w-focus",
   "w-tasklist",
-  "w-chak",
+  "w-reminders",
   "w-funnel",
   "w-notif",
 ];
 
 const WIDGET_LABELS: Record<WidgetId, string> = {
-  "w-tasks":    "Задачи",
-  "w-followup": "Follow-up",
-  "w-rotting":  "Устаревает",
-  "w-pipeline": "В воронке",
-  "w-focus":    "Фокус дня",
-  "w-tasklist": "Список задач",
-  "w-chak":     "Инсайты Блейка",
-  "w-funnel":   "Стадии воронки",
-  "w-notif":    "Уведомления",
+  "w-followup":  "Follow-up",
+  "w-rotting":   "Устаревает",
+  "w-pipeline":  "В воронке",
+  "w-tasklist":  "Список задач",
+  "w-reminders": "Напоминания",
+  "w-funnel":    "Стадии воронки",
+  "w-notif":     "Уведомления",
 };
 
 // Grid spans per widget. Counter widgets are 1 column on the auto-fit
 // grid; main widgets occupy 2; the notifications strip stretches across.
 const WIDGET_SPAN: Record<WidgetId, string> = {
-  "w-tasks":    "",
-  "w-followup": "",
-  "w-rotting":  "",
-  "w-pipeline": "",
-  "w-focus":    "sm:col-span-2",
-  "w-tasklist": "sm:col-span-2",
-  "w-chak":     "sm:col-span-2",
-  "w-funnel":   "sm:col-span-2",
-  "w-notif":    "col-span-full",
+  "w-followup":  "",
+  "w-rotting":   "",
+  "w-pipeline":  "",
+  "w-tasklist":  "sm:col-span-2",
+  "w-reminders": "sm:col-span-2",
+  "w-funnel":    "sm:col-span-2",
+  "w-notif":     "col-span-full",
 };
 
 // Single shared filter object for `useLeads`. TanStack Query dedupes
-// identical query keys, so the four widgets that consume this share
-// one network request.
+// identical query keys, so the widgets that consume this share one
+// network request.
 const TODAY_LEADS_FILTER = { page_size: 200 } as const;
 
-// DailyPlanItem only exposes a coarse `time_block`. To render a clock-time
-// in the task list we map each block to a representative hour and combine
-// it with the plan's `plan_date` to synthesise an ISO datetime.
-const TIME_BLOCK_HOUR: Record<TimeBlock, number> = {
-  morning:   9,
-  midday:    12,
-  afternoon: 15,
-  evening:   18,
-};
-
-function buildPlanItemDueAt(
-  planDate: string | undefined,
-  timeBlock: TimeBlock | null,
-): string | null {
-  if (!planDate || !timeBlock) return null;
-  const d = new Date(`${planDate}T00:00:00`);
-  d.setHours(TIME_BLOCK_HOUR[timeBlock], 0, 0, 0);
-  return d.toISOString();
-}
-
-function formatTaskTime(due_at: string | null): string {
-  if (!due_at) return "—";
-  const d = new Date(due_at);
-  const today = new Date();
-  const isToday = d.toDateString() === today.toDateString();
-  const isTomorrow =
-    d.toDateString() === new Date(today.getTime() + 86400000).toDateString();
-
-  const time = d.toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" });
-  if (isToday) return time;
-  if (isTomorrow) return `завтра ${time}`;
-  return (
-    d.toLocaleDateString("ru", { day: "numeric", month: "short" }) + " " + time
-  );
-}
-
-const TASK_KIND_ICON: Record<TaskKind, React.ReactNode> = {
-  call:      <Phone size={13} />,
-  email:     <Mail size={13} />,
-  meeting:   <Calendar size={13} />,
-  research:  <Sparkles size={13} />,
-  follow_up: <AlarmClock size={13} />,
-};
-
 // Priority A is the strongest signal; D weakest. Used as a tiebreaker
-// after `score` for the focus-of-the-day ordering.
+// after `score` for the quick-add focus-lead target.
 const PRIORITY_RANK: Record<Priority, number> = { A: 4, B: 3, C: 2, D: 1 };
 
 function leadFocusSortKey(l: LeadOut): number {
-  // Higher value = earlier. score is 0..100; priority adds up to 5
-  // points so it nudges ties without overpowering.
   return l.score + (l.priority ? PRIORITY_RANK[l.priority] : 0);
 }
 
@@ -257,32 +205,6 @@ function WidgetHeader({
 
 // ─── Counter wrappers (data-aware) ─────────────────────────
 
-function TasksCounter() {
-  const { data, isLoading, isError } = useTodayPlan();
-  const items = data?.items ?? [];
-  const total = items.length;
-  const undone = items.filter((i) => !i.done).length;
-  // DailyPlanItem has no `overdue` flag and no due-time — count
-  // undone items as the «остаётся» metric so the widget still
-  // communicates urgency without inventing data.
-  const note = isError
-    ? "—"
-    : total === 0
-      ? "пока пусто"
-      : undone === 0
-        ? "всё выполнено"
-        : `${undone} ${pluralRu(undone, ["осталась", "остались", "осталось"])}`;
-  return (
-    <CounterWidget
-      label="Задачи"
-      icon={<ListChecks size={14} />}
-      value={isError ? null : total}
-      note={note}
-      loading={isLoading}
-    />
-  );
-}
-
 function FollowupCounter() {
   const { data, isLoading, isError } = useFollowupsPending();
   const pending = data?.pending_count ?? 0;
@@ -348,75 +270,34 @@ function PipelineCounter() {
   );
 }
 
-// ─── Focus widget ─────────────────────────────────────────
+// ─── Task-list widget (table) ──────────────────────────────
 
-function FocusWidget() {
-  const { data, isLoading, isError } = useLeads(TODAY_LEADS_FILTER);
-  const top = useMemo(() => {
-    const leads = (data?.items ?? []).filter(
-      (l) => l.assignment_status === "assigned",
-    );
-    return [...leads]
-      .sort((a, b) => leadFocusSortKey(b) - leadFocusSortKey(a))
-      .slice(0, 4);
-  }, [data]);
+type PeriodFilter = "all" | "today" | "overdue";
+type TypeFilter = "all" | "task" | "followup";
+
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="bg-white border border-brand-border rounded-[2rem] p-5 h-full flex flex-col">
-      <WidgetHeader
-        title="Фокус дня"
-        icon={<Sparkles size={16} className="text-brand-accent" />}
-      />
-      <div className="flex flex-col gap-2 mt-6 flex-1">
-        {isLoading && (
-          <>
-            <Skeleton className="h-12" />
-            <Skeleton className="h-12" />
-            <Skeleton className="h-12" />
-          </>
-        )}
-        {!isLoading && isError && (
-          <p className={`type-caption ${C.color.mutedLight}`}>—</p>
-        )}
-        {!isLoading && !isError && top.length === 0 && (
-          <p className={`type-caption ${C.color.mutedLight}`}>
-            Нет лидов в работе
-          </p>
-        )}
-        {!isLoading && !isError && top.map((l) => (
-          <Link
-            key={l.id}
-            href={`/leads/${l.id}`}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-brand-bg cursor-pointer"
-          >
-            {l.priority && (
-              <span className="bg-brand-accent text-white text-[10px] font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0">
-                {l.priority}
-              </span>
-            )}
-            <div className="min-w-0 flex-1">
-              <p className={`type-caption font-semibold ${C.color.text} truncate`}>
-                {l.company_name}
-              </p>
-              <p className={`type-caption ${C.color.mutedLight} truncate`}>
-                {[l.segment, l.city].filter(Boolean).join(" · ") || "—"}
-              </p>
-            </div>
-            <span
-              className={`type-caption font-mono font-bold tabular-nums bg-brand-soft text-brand-accent-text px-2 py-0.5 rounded-full shrink-0`}
-            >
-              {l.score}
-            </span>
-            <ChevronRight size={14} className="text-brand-muted shrink-0" />
-          </Link>
-        ))}
-      </div>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-3 py-1 rounded-full type-caption font-semibold transition-colors ${
+        active
+          ? "bg-brand-accent text-white"
+          : "bg-brand-panel text-brand-muted-strong hover:bg-brand-border"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
-
-// ─── Task-list widget ──────────────────────────────────────
-
-const TASKS_PER_PAGE = 4;
 
 function TaskListWidget() {
   const { data, isLoading, isError } = useTodayPlan();
@@ -425,55 +306,68 @@ function TaskListWidget() {
   const planDate = data?.plan_date;
   const completeItem = useCompletePlanItem();
 
-  const items = useMemo(() => {
-    const all = data?.items ?? [];
-    return [...all].sort((a, b) => a.position - b.position);
-  }, [data]);
+  const allRows: TaskRow[] = useMemo(() => {
+    const items = [...(data?.items ?? [])].sort((a, b) => a.position - b.position);
+    return items.map((it) => dailyPlanItemToRow(it, planDate));
+  }, [data, planDate]);
 
-  // G4 — day progress. «X из Y» drives both the header pill and the
-  // capacity bar at the bottom of the widget. `done` mirrors the
-  // backend completed_at flag exposed on the plan item.
-  const doneCount = items.filter((t) => t.done).length;
-  const totalCount = items.length;
+  const [period, setPeriod] = useState<PeriodFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+
+  // Client-side filtering only — no extra API calls.
+  const rows = useMemo(
+    () =>
+      allRows.filter((r) => {
+        if (period === "today" && !isToday(r.due)) return false;
+        if (period === "overdue" && !isOverdue(r)) return false;
+        if (typeFilter !== "all" && r.type !== typeFilter) return false;
+        return true;
+      }),
+    [allRows, period, typeFilter],
+  );
+
+  const doneCount = allRows.filter((r) => r.done).length;
+  const totalCount = allRows.length;
   const progressPct =
     totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
-  // Default target lead for the inline quick-add — same ranking as the
-  // FocusWidget so what the user sees in Focus is what gets the new task.
+  // Quick-add target: top-priority assigned lead. There is no
+  // backend endpoint for unattached tasks (activities are lead-scoped),
+  // so we attach to the focus lead until a `POST /me/tasks` exists.
   const focusLead = useMemo(() => {
     const leads = (leadsData?.items ?? []).filter(
       (l) => l.assignment_status === "assigned",
     );
     if (leads.length === 0) return null;
-    return [...leads].sort(
-      (a, b) => leadFocusSortKey(b) - leadFocusSortKey(a),
-    )[0];
+    return [...leads].sort((a, b) => leadFocusSortKey(b) - leadFocusSortKey(a))[0];
   }, [leadsData]);
-
-  const [taskPage, setTaskPage] = useState(0);
-  const totalPages = Math.max(1, Math.ceil(items.length / TASKS_PER_PAGE));
-  // Clamp the page when items shrink (e.g. after refetch) so we don't
-  // render an empty slice.
-  const safePage = Math.min(taskPage, totalPages - 1);
-  const visibleTasks = items.slice(
-    safePage * TASKS_PER_PAGE,
-    (safePage + 1) * TASKS_PER_PAGE,
-  );
 
   const [addingTask, setAddingTask] = useState(false);
   const [newTaskText, setNewTaskText] = useState("");
+  const [newTaskDue, setNewTaskDue] = useState("");
 
   const addTask = useMutation({
-    mutationFn: ({ leadId, name }: { leadId: string; name: string }) =>
+    mutationFn: ({
+      leadId,
+      name,
+      dueIso,
+    }: {
+      leadId: string;
+      name: string;
+      dueIso: string | null;
+    }) =>
       api.post(`/leads/${leadId}/activities`, {
         type: "task",
-        payload_json: { name },
-        task_due_at: new Date().toISOString(),
+        body: name,
+        task_due_at: dueIso,
+        payload_json: { title: name, source: "today_widget" },
       }),
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ["daily-plan", "today"] });
-      qc.invalidateQueries({ queryKey: ["activities", vars.leadId] });
+      qc.invalidateQueries({ queryKey: ["feed", vars.leadId] });
+      qc.invalidateQueries({ queryKey: ["activities", vars.leadId, "task"] });
       setNewTaskText("");
+      setNewTaskDue("");
       setAddingTask(false);
     },
   });
@@ -481,173 +375,148 @@ function TaskListWidget() {
   function handleAddTask() {
     const name = newTaskText.trim();
     if (!name || !focusLead || addTask.isPending) return;
-    addTask.mutate({ leadId: focusLead.id, name });
+    let dueIso: string | null = null;
+    if (newTaskDue) {
+      const d = new Date(newTaskDue);
+      d.setHours(23, 59, 0, 0);
+      dueIso = d.toISOString();
+    }
+    addTask.mutate({ leadId: focusLead.id, name, dueIso });
+  }
+
+  function handleComplete(row: TaskRow) {
+    if (!row.done && !completeItem.isPending) completeItem.mutate(row.id);
   }
 
   return (
     <div className="bg-white border border-brand-border rounded-[2rem] p-5 h-full flex flex-col">
-      {/* Inline header — replaces the shared WidgetHeader so the
-          up-right arrow can be a Link instead of a static icon. */}
+      {/* Header */}
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <ListChecks size={16} className="text-brand-muted" />
-            <h3 className={`type-caption font-bold italic ${C.color.text}`}>
-              Список задач
-            </h3>
-          </div>
-          <p className={`type-caption ${C.color.mutedLight} mt-0.5`}>
-            Расставлено по таймблокам Блейком
-          </p>
-          {totalCount > 0 && (
-            <div className="mt-3 flex items-center gap-2">
-              <div className="flex-1 h-1.5 rounded-full bg-brand-bg overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-brand-accent transition-all"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-              <span className="type-caption font-mono tabular-nums text-brand-muted shrink-0">
-                {doneCount}/{totalCount}
-              </span>
-            </div>
-          )}
+        <div className="flex items-center gap-2">
+          <ListChecks size={16} className="text-brand-muted" />
+          <h3 className={`type-caption font-bold italic ${C.color.text}`}>
+            Список задач
+          </h3>
         </div>
         <Link
-          href="/today?tab=tasks"
-          title="Все задачи"
-          aria-label="Открыть все задачи"
-          className={`${C.color.mutedLight} mt-0.5 shrink-0`}
+          href="/tasks"
+          className="inline-flex items-center gap-1 type-caption font-semibold text-brand-accent-text hover:underline shrink-0"
         >
-          <ArrowUpRight size={14} />
+          Все задачи <ArrowUpRight size={13} />
         </Link>
       </div>
 
-      <div className="flex flex-col gap-1.5 mt-6 flex-1">
+      {/* Progress */}
+      {totalCount > 0 && (
+        <div className="mt-3 flex items-center gap-2">
+          <div className="flex-1 h-1.5 rounded-full bg-brand-bg overflow-hidden">
+            <div
+              className="h-full rounded-full bg-brand-accent transition-all"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <span className="type-caption font-mono tabular-nums text-brand-muted shrink-0">
+            {doneCount} из {totalCount} выполнено
+          </span>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2 mt-4">
+        <FilterChip active={period === "all"} onClick={() => setPeriod("all")}>
+          Все
+        </FilterChip>
+        <FilterChip active={period === "today"} onClick={() => setPeriod("today")}>
+          Сегодня
+        </FilterChip>
+        <FilterChip
+          active={period === "overdue"}
+          onClick={() => setPeriod("overdue")}
+        >
+          Просрочено
+        </FilterChip>
+        <span className="w-px h-4 bg-brand-border mx-1" aria-hidden />
+        <FilterChip
+          active={typeFilter === "all"}
+          onClick={() => setTypeFilter("all")}
+        >
+          Все типы
+        </FilterChip>
+        <FilterChip
+          active={typeFilter === "task"}
+          onClick={() => setTypeFilter("task")}
+        >
+          Задача
+        </FilterChip>
+        <FilterChip
+          active={typeFilter === "followup"}
+          onClick={() => setTypeFilter("followup")}
+        >
+          Follow-up
+        </FilterChip>
+      </div>
+
+      {/* Table */}
+      <div className="mt-3 flex-1">
         {isLoading && (
-          <>
-            <Skeleton className="h-10" />
-            <Skeleton className="h-10" />
-            <Skeleton className="h-10" />
-            <Skeleton className="h-10" />
-          </>
+          <div className="flex flex-col gap-1.5">
+            <Skeleton className="h-9" />
+            <Skeleton className="h-9" />
+            <Skeleton className="h-9" />
+          </div>
         )}
         {!isLoading && isError && (
           <p className={`type-caption ${C.color.mutedLight}`}>—</p>
         )}
-        {!isLoading && !isError && items.length === 0 && (
-          <p className={`type-caption ${C.color.mutedLight}`}>
-            На сегодня задач нет
-          </p>
-        )}
-        {!isLoading && !isError && visibleTasks.map((t) => {
-          const taskTitle = t.hint_one_liner || "Задача";
-          const due = buildPlanItemDueAt(planDate, t.time_block);
-          const rowClass =
-            "flex items-center gap-3 px-3 py-2 rounded-2xl bg-brand-bg";
-          // G4 — inline checkbox completes the plan item without
-          // navigating to the lead card. Stop propagation so the
-          // surrounding row Link doesn't fire.
-          const checkbox = (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (t.done || completeItem.isPending) return;
-                completeItem.mutate(t.id);
-              }}
-              disabled={t.done || completeItem.isPending}
-              aria-label={t.done ? "Задача выполнена" : "Отметить выполненной"}
-              className={`shrink-0 w-5 h-5 rounded-full border-[1.5px] flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
-                t.done
-                  ? "border-success bg-success cursor-default"
-                  : "border-brand-border hover:border-brand-accent hover:bg-brand-soft/40"
-              } disabled:opacity-60`}
-            >
-              {t.done && <Check size={12} className="text-white" />}
-            </button>
-          );
-          const body = (
-            <>
-              <span
-                className={`type-caption ${C.color.mutedLight} uppercase tracking-wide tabular-nums w-16 shrink-0`}
-              >
-                {formatTaskTime(due)}
-              </span>
-              <span className="text-brand-muted shrink-0">
-                {TASK_KIND_ICON[t.task_kind]}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p
-                  className={`type-caption font-medium ${C.color.text} truncate max-w-[280px] ${
-                    t.done ? "line-through opacity-60" : ""
-                  }`}
-                  title={taskTitle}
-                >
-                  {taskTitle}
-                </p>
-                <p
-                  className={`type-caption ${C.color.mutedLight} truncate max-w-[280px]`}
-                  title={t.lead_company_name ?? undefined}
-                >
-                  {t.lead_company_name ?? "—"}
-                </p>
-              </div>
-            </>
-          );
-          // Daily-plan items can have a null lead_id (general / standalone
-          // tasks). Render those as a non-clickable row so we don't link
-          // to a broken `/leads/null` route. Checkbox is always live.
-          return (
-            <div key={t.id} className={rowClass}>
-              {checkbox}
-              {t.lead_id ? (
-                <Link
-                  href={`/leads/${t.lead_id}?tab=activity&task=${t.id}`}
-                  className="flex items-center gap-3 flex-1 min-w-0"
-                >
-                  {body}
-                </Link>
-              ) : (
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  {body}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {/* Quick add: trigger button or inline form. Hidden while
-            initial data is loading or errored so we don't render
-            controls without context. */}
         {!isLoading && !isError && (
-          addingTask ? (
-            <div className="mt-2 flex gap-2 items-center">
-              <input
-                autoFocus
-                value={newTaskText}
-                onChange={(e) => setNewTaskText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && newTaskText.trim()) handleAddTask();
-                  if (e.key === "Escape") {
-                    setAddingTask(false);
-                    setNewTaskText("");
-                  }
-                }}
-                placeholder={
-                  focusLead
-                    ? `Задача для ${focusLead.company_name}…`
-                    : "Название задачи…"
+          <TaskTable
+            rows={rows}
+            onComplete={handleComplete}
+            isCompleting={completeItem.isPending}
+            emptyText={
+              allRows.length === 0
+                ? "На сегодня задач нет"
+                : "Нет задач под фильтр"
+            }
+          />
+        )}
+      </div>
+
+      {/* Quick add */}
+      {!isLoading && !isError && (
+        addingTask ? (
+          <div className="mt-3 flex flex-col sm:flex-row gap-2 sm:items-center">
+            <input
+              autoFocus
+              value={newTaskText}
+              onChange={(e) => setNewTaskText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && newTaskText.trim()) handleAddTask();
+                if (e.key === "Escape") {
+                  setAddingTask(false);
+                  setNewTaskText("");
+                  setNewTaskDue("");
                 }
-                disabled={addTask.isPending}
-                className={`flex-1 ${C.form.field} py-2 text-sm`}
-              />
+              }}
+              placeholder={
+                focusLead
+                  ? `Задача для ${focusLead.company_name}…`
+                  : "Название задачи…"
+              }
+              disabled={addTask.isPending}
+              className={`flex-1 ${C.form.field} py-2 text-sm`}
+            />
+            <input
+              type="date"
+              value={newTaskDue}
+              onChange={(e) => setNewTaskDue(e.target.value)}
+              disabled={addTask.isPending}
+              className={`${C.form.field} py-2 text-sm sm:w-40`}
+            />
+            <div className="flex gap-2">
               <button
                 onClick={handleAddTask}
-                disabled={
-                  !newTaskText.trim() || !focusLead || addTask.isPending
-                }
+                disabled={!newTaskText.trim() || !focusLead || addTask.isPending}
                 aria-label="Сохранить задачу"
                 className={`${C.button.primary} type-body px-3 py-2 disabled:opacity-40`}
               >
@@ -657,6 +526,7 @@ function TaskListWidget() {
                 onClick={() => {
                   setAddingTask(false);
                   setNewTaskText("");
+                  setNewTaskDue("");
                 }}
                 aria-label="Отменить"
                 className={`${C.button.ghost} type-body px-3 py-2`}
@@ -664,73 +534,18 @@ function TaskListWidget() {
                 <X size={14} />
               </button>
             </div>
-          ) : (
-            <button
-              onClick={() => setAddingTask(true)}
-              disabled={!focusLead}
-              title={focusLead ? undefined : "Нет лида для привязки"}
-              className="w-full mt-2 py-2 rounded-xl border border-dashed border-brand-border text-brand-muted type-caption flex items-center justify-center gap-1 disabled:opacity-40"
-            >
-              <Plus size={12} aria-hidden /> добавить задачу
-            </button>
-          )
-        )}
-      </div>
-
-      {/* Pagination dots — only when there's more than one page. */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-1.5 mt-3 pt-3 border-t border-brand-border">
-          {Array.from({ length: totalPages }).map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setTaskPage(i)}
-              aria-label={`Страница ${i + 1}`}
-              className={`h-1.5 rounded-full transition-all ${
-                i === safePage ? "bg-brand-accent w-4" : "bg-brand-border w-1.5"
-              }`}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Блейк insights widget — mock for now ────────────────────
-
-function BlakeWidget() {
-  const insights = [
-    {
-      icon: <Sparkles size={14} className="text-brand-accent" />,
-      text: "3 лида готовы к закрытию — score выше 85, нет блокеров",
-    },
-    {
-      icon: <TrendingUp size={14} className="text-brand-accent" />,
-      text: "Конверсия из «Подогрев» в «КП» выросла на 18% за неделю",
-    },
-    {
-      icon: <Flame size={14} className="text-brand-accent" />,
-      text: "Coffee Lab Moscow — 5 дней без касания, рекомендую напомнить",
-    },
-  ];
-  return (
-    <div className="bg-brand-soft border border-brand-accent/20 rounded-[2rem] p-5 h-full flex flex-col">
-      <WidgetHeader
-        title="Инсайты от Блейка"
-        subtitle="Что Блейк заметил в твоих лидах сегодня"
-        icon={<Sparkles size={16} className="text-brand-accent-text" />}
-        accent
-      />
-      <div className="flex flex-col gap-2.5 mt-6 flex-1">
-        {insights.map((it, i) => (
-          <div key={i} className="flex items-start gap-3">
-            <span className="mt-0.5 shrink-0">{it.icon}</span>
-            <p className={`type-caption ${C.color.text} leading-snug`}>
-              {it.text}
-            </p>
           </div>
-        ))}
-      </div>
+        ) : (
+          <button
+            onClick={() => setAddingTask(true)}
+            disabled={!focusLead}
+            title={focusLead ? undefined : "Нет лида для привязки"}
+            className="w-full mt-3 py-2 rounded-xl border border-dashed border-brand-border text-brand-muted type-caption flex items-center justify-center gap-1 disabled:opacity-40"
+          >
+            <Plus size={12} aria-hidden /> Добавить задачу
+          </button>
+        )
+      )}
     </div>
   );
 }
@@ -850,14 +665,6 @@ function NotifWidget() {
         {!isLoading && !isError && items.map((n) => {
           const isUnread = n.read_at == null;
           const dotColor = isUnread ? "bg-brand-accent" : "bg-brand-muted";
-          // Lead-bound notifications open the lead. There's no
-          // `/notifications` route yet — system rows fall back to
-          // `/today` so the link doesn't 404. Replace this once the
-          // notifications drawer is liftable from outside AppShell.
-          // The ternary is inlined into `href` so Next.js typed routes
-          // can infer the union of valid routes at build time —
-          // hoisting it into a `const` widens the type to `string` and
-          // breaks `next build`.
           return (
             <Link
               key={n.id}
@@ -960,8 +767,7 @@ function pluralRu(n: number, forms: [string, string, string]): string {
 
 export default function TodayPage() {
   // `useSearchParams` (deep-link `?tab=tasks` reader) bails the page
-  // out of static rendering unless it sits under a Suspense boundary —
-  // wrap the body so `next build` can prerender the shell.
+  // out of static rendering unless it sits under a Suspense boundary.
   return (
     <Suspense fallback={null}>
       <TodayPageInner />
@@ -974,12 +780,8 @@ function TodayPageInner() {
   const [order, setOrder] = useState<WidgetId[]>(DEFAULT_ORDER);
   const [hidden, setHidden] = useState<Set<WidgetId>>(new Set());
   const [editing, setEditing] = useState(false);
-  // Track when localStorage has been hydrated so we don't overwrite
-  // saved layout with the initial defaults during the persistence
-  // effect below.
   const [hydrated, setHydrated] = useState(false);
 
-  // Load Supabase user — same pattern AppShell uses for displayName.
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
@@ -997,14 +799,11 @@ function TodayPageInner() {
     user?.email?.split("@")[0] ??
     "коллега";
 
-  // Pull the today plan once at the page level so the Блейк subline
-  // can include the live task count without re-fetching.
   const { data: plan } = useTodayPlan();
   const todayTotal = plan?.items?.length ?? 0;
 
   // Deep-link support: `/today?tab=tasks` scrolls the task-list widget
-  // into view. The hash is read once on mount; subsequent client-side
-  // nav back to `/today` (no query) doesn't re-trigger the scroll.
+  // into view.
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
   useEffect(() => {
@@ -1013,8 +812,7 @@ function TodayPageInner() {
     el?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [tabParam]);
 
-  // Load saved layout from localStorage. Runs whenever userId changes
-  // (e.g. after auth resolves).
+  // Load saved layout from localStorage.
   useEffect(() => {
     try {
       const saved = localStorage.getItem(`today_widgets_${userId}`);
@@ -1029,8 +827,6 @@ function TodayPageInner() {
         const filteredOrder = parsed.order?.filter((id) =>
           validIds.has(id),
         ) ?? [];
-        // Append any new widgets that were added since the save —
-        // otherwise they'd never appear for users with old layouts.
         const missing = DEFAULT_ORDER.filter((id) => !filteredOrder.includes(id));
         setOrder([...filteredOrder, ...missing]);
         setHidden(new Set(parsed.hidden?.filter((id) => validIds.has(id)) ?? []));
@@ -1039,14 +835,12 @@ function TodayPageInner() {
         setHidden(new Set());
       }
     } catch {
-      // Corrupt entry — fall back to defaults.
       setOrder(DEFAULT_ORDER);
       setHidden(new Set());
     }
     setHydrated(true);
   }, [userId]);
 
-  // Persist on change, but only after the initial load has completed.
   useEffect(() => {
     if (!hydrated) return;
     try {
@@ -1096,9 +890,6 @@ function TodayPageInner() {
   const dateTimeCaption = getDateTimeCaption();
   const visible = order.filter((id) => !hidden.has(id));
 
-  // Live subtitle. Uses task count when the plan resolves; falls back
-  // to a generic line otherwise so the header doesn't twitch on slow
-  // connections.
   const chakSummary =
     todayTotal > 0
       ? `Блейк подготовил план · ${todayTotal} ${pluralRu(todayTotal, ["задача", "задачи", "задач"])} на сегодня`
@@ -1106,16 +897,10 @@ function TodayPageInner() {
 
   function renderWidget(id: WidgetId) {
     switch (id) {
-      case "w-tasks":
-        return (
-          <Link href="/today?tab=tasks" className="block h-full cursor-pointer">
-            <TasksCounter />
-          </Link>
-        );
       case "w-followup":
         return (
           <Link
-            href="/pipeline?filter=followup_overdue"
+            href="/tasks?type=followup"
             className="block h-full cursor-pointer"
           >
             <FollowupCounter />
@@ -1136,11 +921,10 @@ function TodayPageInner() {
             <PipelineCounter />
           </Link>
         );
-      case "w-focus":    return <FocusWidget />;
-      case "w-tasklist": return <TaskListWidget />;
-      case "w-chak":     return <BlakeWidget />;
-      case "w-funnel":   return <FunnelWidget />;
-      case "w-notif":    return <NotifWidget />;
+      case "w-tasklist":  return <TaskListWidget />;
+      case "w-reminders": return <RemindersWidget />;
+      case "w-funnel":    return <FunnelWidget />;
+      case "w-notif":     return <NotifWidget />;
     }
   }
 
