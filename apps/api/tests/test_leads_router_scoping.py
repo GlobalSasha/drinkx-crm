@@ -6,17 +6,17 @@ surface MY assigned leads, not every manager's. Before this fix the
 None was passed through to the repo no filter was applied → every
 manager saw the whole workspace's assigned pile.
 
-Fix: a small pure helper `_scope_assigned_to(explicit, user_id)`
-defaults to `user_id` when explicit is None, and respects the
-explicit value otherwise. Router uses it to construct the filters
-dict.
+Fix: `_resolve_assignee_scope` (replaced the old role-naive
+`_scope_assigned_to`) defaults to `user_id` when explicit is None, and
+respects the explicit value for privileged roles otherwise.
+
+Note: tests below use role="admin" to preserve the original semantics of
+the pre-role-aware helper (explicit wins; q carve-out intact).
 """
 from __future__ import annotations
 
 import sys
 import uuid
-
-import pytest
 
 
 # Reuse the sqlalchemy stub helper from test_webforms.py so the routers
@@ -40,25 +40,35 @@ def test_scope_assigned_to_falls_back_to_user_when_not_set():
     """No explicit ?assigned_to= and no text search → server scopes to
     the current user. That's how a new manager with zero assigned leads
     ends up with an empty pipeline instead of seeing the team's pile."""
-    from app.leads.routers import _scope_assigned_to
+    from app.leads.routers import _resolve_assignee_scope
 
     user_id = uuid.uuid4()
-    assert _scope_assigned_to(None, user_id, None) == user_id
+    assert _resolve_assignee_scope(
+        explicit=None, all_assignees=False, q=None, user_id=user_id, role="admin"
+    ) == user_id
     # Empty string q is also "no search"
-    assert _scope_assigned_to(None, user_id, "") == user_id
+    assert _resolve_assignee_scope(
+        explicit=None, all_assignees=False, q="", user_id=user_id, role="admin"
+    ) == user_id
 
 
 def test_scope_assigned_to_respects_explicit_value():
     """Admin who wants a cross-user view can still pass ?assigned_to=
     explicitly and override the default. Used by future admin / team
     views — current consumers don't pass it."""
-    from app.leads.routers import _scope_assigned_to
+    from app.leads.routers import _resolve_assignee_scope
 
     explicit = uuid.uuid4()
     user_id = uuid.uuid4()
-    assert _scope_assigned_to(explicit, user_id, None) == explicit
-    # Explicit value wins over text-search exemption too.
-    assert _scope_assigned_to(explicit, user_id, "Coffee") == explicit
+    assert _resolve_assignee_scope(
+        explicit=explicit, all_assignees=False, q=None, user_id=user_id, role="admin"
+    ) == explicit
+    # Admin who explicitly picked a manager keeps that scope even with a
+    # text query — the q text filter applies on top (manager-scoped search).
+    # The q carve-out only widens to whole-workspace when no explicit pick.
+    assert _resolve_assignee_scope(
+        explicit=explicit, all_assignees=False, q="Coffee", user_id=user_id, role="admin"
+    ) == explicit
 
 
 def test_scope_assigned_to_skips_default_when_text_search():
@@ -67,7 +77,9 @@ def test_scope_assigned_to_skips_default_when_text_search():
     Telegram message to a colleague's lead) relies on this — without
     the exemption, a manager couldn't find another manager's lead by
     company name."""
-    from app.leads.routers import _scope_assigned_to
+    from app.leads.routers import _resolve_assignee_scope
 
     user_id = uuid.uuid4()
-    assert _scope_assigned_to(None, user_id, "Coffee Roastery") is None
+    assert _resolve_assignee_scope(
+        explicit=None, all_assignees=False, q="Coffee Roastery", user_id=user_id, role="admin"
+    ) is None

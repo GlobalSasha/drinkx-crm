@@ -18,7 +18,7 @@ from app.auth.dependencies import require_admin_or_head
 from app.auth.models import User
 from app.db import get_db
 from app.team import services as svc
-from app.team.schemas import ManagerStatsOut, TeamStatsOut
+from app.team.schemas import ManagerStatsOut, TeamStatsOut, WorkloadOut
 
 router = APIRouter(prefix="/team", tags=["team"])
 
@@ -59,3 +59,14 @@ async def get_manager_stats(
             detail="пользователь не найден",
         ) from exc
     return ManagerStatsOut(**data)
+
+
+@router.get("/workload", response_model=WorkloadOut)
+async def get_workload(
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(require_admin_or_head)] = ...,
+) -> WorkloadOut:
+    """Admin/head only. Manager × stage load over active assigned leads,
+    scoped to the caller's workspace."""
+    data = await svc.workload(db, workspace_id=user.workspace_id)
+    return WorkloadOut(**data)

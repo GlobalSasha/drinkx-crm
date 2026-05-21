@@ -11,6 +11,7 @@ import { Users, Loader2, ShieldAlert } from "lucide-react";
 
 import { useMe } from "@/lib/hooks/use-me";
 import { useTeamStats } from "@/lib/hooks/use-team-stats";
+import { WorkloadTable } from "@/components/team/WorkloadTable";
 import { relativeTime } from "@/lib/relative-time";
 import type {
   TeamManagerStats,
@@ -21,6 +22,11 @@ const PERIODS: { value: TeamPeriod; label: string }[] = [
   { value: "today", label: "Сегодня" },
   { value: "week",  label: "Неделя" },
   { value: "month", label: "Месяц" },
+];
+
+const VIEWS: { value: "activity" | "workload"; label: string }[] = [
+  { value: "activity", label: "Активность" },
+  { value: "workload", label: "Загрузка" },
 ];
 
 const ROLE_LABEL: Record<string, string> = {
@@ -40,6 +46,7 @@ function formatRange(from: string, to: string): string {
 export default function TeamPage() {
   const me = useMe();
   const [period, setPeriod] = useState<TeamPeriod>("week");
+  const [view, setView] = useState<"activity" | "workload">("activity");
   const stats = useTeamStats(period);
 
   if (me.isLoading || !me.data) {
@@ -84,61 +91,90 @@ export default function TeamPage() {
         <div className="flex items-center gap-2">
           <Users size={20} className="text-muted" />
           <h1 className="text-xl font-bold tracking-tight">Команда</h1>
-          {stats.data && (
+          {view === "activity" && stats.data && (
             <span className="text-xs font-mono text-muted-3 ml-2">
               {formatRange(stats.data.from, stats.data.to)}
             </span>
           )}
         </div>
 
-        <div className="flex gap-1 bg-canvas/80 rounded-pill p-1">
-          {PERIODS.map((p) => (
-            <button
-              key={p.value}
-              type="button"
-              onClick={() => setPeriod(p.value)}
-              className={
-                "px-3 py-1.5 rounded-pill text-xs font-semibold transition-colors " +
-                (period === p.value
-                  ? "bg-white shadow-sm text-ink"
-                  : "text-muted-2 hover:text-ink")
-              }
-            >
-              {p.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1 bg-canvas/80 rounded-pill p-1">
+            {VIEWS.map((v) => (
+              <button
+                key={v.value}
+                type="button"
+                aria-pressed={view === v.value}
+                onClick={() => setView(v.value)}
+                className={
+                  "px-3 py-1.5 rounded-pill text-xs font-semibold transition-colors " +
+                  (view === v.value
+                    ? "bg-white shadow-sm text-ink"
+                    : "text-muted-2 hover:text-ink")
+                }
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+
+          {view === "activity" && (
+            <div className="flex gap-1 bg-canvas/80 rounded-pill p-1">
+              {PERIODS.map((p) => (
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={() => setPeriod(p.value)}
+                  className={
+                    "px-3 py-1.5 rounded-pill text-xs font-semibold transition-colors " +
+                    (period === p.value
+                      ? "bg-white shadow-sm text-ink"
+                      : "text-muted-2 hover:text-ink")
+                  }
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </header>
 
-      {stats.isLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[0, 1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="bg-white border border-black/5 rounded-2xl shadow-soft p-5 animate-pulse h-[148px]"
-            />
-          ))}
-        </div>
-      )}
+      {view === "workload" && <WorkloadTable />}
 
-      {stats.isError && (
-        <p className="text-sm text-rose py-8 text-center">
-          Не удалось загрузить статистику.
-        </p>
-      )}
+      {view === "activity" && (
+        <>
+          {stats.isLoading && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[0, 1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="bg-white border border-black/5 rounded-2xl shadow-soft p-5 animate-pulse h-[148px]"
+                />
+              ))}
+            </div>
+          )}
 
-      {stats.data && stats.data.managers.length === 0 && (
-        <div className="bg-white border border-black/5 rounded-2xl p-12 text-center">
-          <p className="text-sm text-muted-2">В команде пока нет участников.</p>
-        </div>
-      )}
+          {stats.isError && (
+            <p className="text-sm text-rose py-8 text-center">
+              Не удалось загрузить статистику.
+            </p>
+          )}
 
-      {stats.data && stats.data.managers.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {stats.data.managers.map((m) => (
-            <ManagerCard key={m.user_id} m={m} />
-          ))}
-        </div>
+          {stats.data && stats.data.managers.length === 0 && (
+            <div className="bg-white border border-black/5 rounded-2xl p-12 text-center">
+              <p className="text-sm text-muted-2">В команде пока нет участников.</p>
+            </div>
+          )}
+
+          {stats.data && stats.data.managers.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {stats.data.managers.map((m) => (
+                <ManagerCard key={m.user_id} m={m} />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

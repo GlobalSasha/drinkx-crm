@@ -70,7 +70,7 @@ function LeadSearchPicker({
   onClose: () => void;
 }) {
   const [q, setQ] = useState("");
-  const { data } = useLeads({ q: q || undefined, page_size: 12 });
+  const { data } = useLeads({ q: q || undefined, workspace_search: true, page_size: 12 });
   const items = data?.items ?? [];
 
   return (

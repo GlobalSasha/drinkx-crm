@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useEffect, useMemo } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { PipelineHeader } from "@/components/pipeline/PipelineHeader";
@@ -10,6 +10,7 @@ import { CreateLeadModal } from "@/components/pipeline/CreateLeadModal";
 import { usePipelines } from "@/lib/hooks/use-pipelines";
 import { useLeads } from "@/lib/hooks/use-leads";
 import { useMe } from "@/lib/hooks/use-me";
+import { useUsers } from "@/lib/hooks/use-users";
 import { usePipelineStore } from "@/lib/store/pipeline-store";
 
 export default function PipelinePage() {
@@ -34,6 +35,21 @@ function PipelinePageInner() {
   const filterParam = searchParams.get("filter");
   const meQuery = useMe();
   const pipelinesQuery = usePipelines();
+
+  // Manager workload: admin/head can scope the board to «Мои» (self —
+  // default, empty string), a specific manager (their user id), or «Все»
+  // (the whole workspace, `all`). Regular users never see the control.
+  const isPrivileged =
+    meQuery.data?.role === "admin" || meQuery.data?.role === "head";
+  const usersQuery = useUsers();
+
+  // Deep-link from /team workload table: /pipeline?assigned_to=<id>.
+  // `useSearchParams()` is synchronous on the client, so we seed the
+  // scope directly from the URL — no extra leads fetch on cold load.
+  // Holding a user id while not privileged is harmless: the
+  // `isPrivileged &&` guards on the `useLeads` params suppress it.
+  const assignedParam = searchParams.get("assigned_to") ?? "";
+  const [ownerScope, setOwnerScope] = useState<string>(assignedParam);
 
   // Resolve which pipeline to render the board for. The switcher
   // hydrates `selectedPipelineId` on mount; before that lands we
@@ -60,6 +76,11 @@ function PipelinePageInner() {
   const leadsQuery = useLeads({
     pipeline_id: activePipelineId ?? undefined,
     q: filters.q || undefined,
+    assigned_to:
+      isPrivileged && ownerScope && ownerScope !== "all"
+        ? ownerScope
+        : undefined,
+    all_assignees: isPrivileged && ownerScope === "all" ? true : undefined,
     page_size: 200,
   });
 
@@ -107,6 +128,31 @@ function PipelinePageInner() {
         leads={rawLeads}
         totalCount={allLeads.length}
       />
+
+      {/* Owner scope — admin/head only. «Мои» = self (default), «Все» =
+          whole workspace, otherwise a specific manager's leads. Deep-linked
+          to from the /team workload table via ?assigned_to=<id>. */}
+      {!meQuery.isLoading && isPrivileged && (
+        <div className="flex items-center gap-2 px-4 sm:px-6 py-2 bg-white border-b border-black/5">
+          <label htmlFor="owner-scope" className="text-muted-2 text-xs">
+            Ответственный
+          </label>
+          <select
+            id="owner-scope"
+            value={ownerScope}
+            onChange={(e) => setOwnerScope(e.target.value)}
+            className="h-8 px-3 text-sm bg-canvas border border-black/10 rounded-pill outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300"
+          >
+            <option value="">Мои</option>
+            <option value="all">Все</option>
+            {(usersQuery.data?.items ?? []).map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name || u.email}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {isLoading && (
         <div className="flex-1 flex items-center justify-center">

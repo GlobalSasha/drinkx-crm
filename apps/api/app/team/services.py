@@ -146,3 +146,52 @@ async def manager_stats(
         },
         "daily": daily,
     }
+
+
+async def workload(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+) -> dict:
+    """Assemble the manager × stage workload table (active assigned leads,
+    non-terminal stages only). Managers with no active leads appear as zero
+    rows; cells are keyed only to non-terminal stages."""
+    users, _total = await users_repo.list_for_workspace(db, workspace_id=workspace_id)
+    stages = await repo.non_terminal_stages(db, workspace_id=workspace_id)
+    valid_stage_ids = {sid for (sid, _n, _p, _c) in stages}
+
+    rows = await repo.workload_rows(db, workspace_id=workspace_id)
+
+    per_user: dict[uuid.UUID, dict[uuid.UUID, tuple[int, float, int]]] = {}
+    for assigned_to, stage_id, cnt, sum_amount, stuck in rows:
+        if stage_id not in valid_stage_ids:  # drop won/lost
+            continue
+        per_user.setdefault(assigned_to, {})[stage_id] = (cnt, sum_amount, stuck)
+
+    managers = []
+    for u in users:
+        cells = per_user.get(u.id, {})
+        by_stage = {
+            str(sid): {"count": cnt, "sum_amount": s}
+            for sid, (cnt, s, _stuck) in cells.items()
+        }
+        open_count = sum(cnt for (cnt, _s, _st) in cells.values())
+        pipeline_sum = sum(s for (_c, s, _st) in cells.values())
+        stuck_count = sum(st for (_c, _s, st) in cells.values())
+        managers.append({
+            "user_id": u.id,
+            "name": u.name or u.email,
+            "email": u.email,
+            "by_stage": by_stage,
+            "open_count": open_count,
+            "pipeline_sum": pipeline_sum,
+            "stuck_count": stuck_count,
+        })
+
+    return {
+        "stages": [
+            {"id": sid, "name": n, "position": p, "color": c}
+            for (sid, n, p, c) in stages
+        ],
+        "managers": managers,
+    }
