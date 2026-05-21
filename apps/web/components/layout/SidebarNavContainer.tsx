@@ -13,6 +13,7 @@ import {
   ClipboardList,
   Workflow,
   MessageCircle,
+  LifeBuoy,
 } from "lucide-react";
 import { useNotificationsBadge } from "@/lib/hooks/use-notifications";
 import { useMe } from "@/lib/hooks/use-me";
@@ -57,6 +58,7 @@ export function SidebarNavContainer({
       icon: <Users size={18} />,
     });
     base.push({ id: "knowledge", label: "База знаний", href: "/knowledge", icon: <BookOpen size={18} /> });
+    base.push({ id: "guide", label: "Руководство", href: "/guide", icon: <LifeBuoy size={18} /> });
     if (isAdmin) {
       base.push({ id: "audit", label: "Журнал", href: "/audit", icon: <History size={18} /> });
     }
