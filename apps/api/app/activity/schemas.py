@@ -67,6 +67,21 @@ class FeedListOut(BaseModel):
     has_more: bool
 
 
+class MyTaskOut(BaseModel):
+    """A single manager-created task (Activity type=task) for the
+    cross-lead task list (`GET /me/tasks`). No AI fields — tasks are
+    purely manager-entered."""
+
+    id: UUID
+    lead_id: UUID
+    lead_company_name: str | None = None
+    text: str
+    task_due_at: datetime | None = None
+    task_done: bool
+    task_completed_at: datetime | None = None
+    created_at: datetime
+
+
 class AskBlakeIn(BaseModel):
     """Body for POST /leads/{id}/feed/ask-blake."""
 

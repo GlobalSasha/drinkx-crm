@@ -140,6 +140,8 @@ export interface LeadOut {
   // Sprint 3.7 G1 — TRUE on AI auto-created leads. Surfaced as a pill
   // in /leads-pool with one-click confirm / reject buttons.
   needs_review: boolean;
+  // Days on the current stage — populated on the single-lead read path.
+  current_stage_days: number | null;
   created_at: string;
   updated_at: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -314,6 +316,31 @@ export interface ActivityCreate {
 export interface ActivityListOut {
   items: ActivityOut[];
   next_cursor: string | null;
+}
+
+// ---- My tasks (cross-lead, manager-entered only) ----
+
+export interface MyTaskOut {
+  id: string;
+  lead_id: string;
+  lead_company_name: string | null;
+  text: string;
+  task_due_at: string | null;
+  task_done: boolean;
+  task_completed_at: string | null;
+  created_at: string;
+}
+
+// ---- Lead notes ----
+
+export interface NoteOut {
+  id: string;
+  lead_id: string;
+  text: string;
+  created_at: string;
+  updated_at: string;
+  author_id: string | null;
+  author_name: string;
 }
 
 // ---- Followups ----

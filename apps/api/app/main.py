@@ -99,8 +99,10 @@ def create_app() -> FastAPI:
 
     from app.activity.routers import router as activity_router
     from app.activity.routers import feed_router as activity_feed_router
+    from app.activity.routers import me_router as activity_me_router
     app.include_router(activity_router)
     app.include_router(activity_feed_router)
+    app.include_router(activity_me_router)
 
     from app.followups.routers import (
         me_router as followups_me_router,
@@ -120,6 +122,12 @@ def create_app() -> FastAPI:
 
     from app.notifications.routers import router as notifications_router
     app.include_router(notifications_router)
+
+    from app.reminders.routers import router as reminders_router
+    app.include_router(reminders_router)
+
+    from app.notes.routers import router as notes_router
+    app.include_router(notes_router)
 
     from app.audit.routers import router as audit_router
     app.include_router(audit_router)

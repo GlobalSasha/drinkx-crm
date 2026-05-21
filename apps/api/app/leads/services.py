@@ -119,6 +119,43 @@ async def get_lead(
     return lead
 
 
+async def current_stage_days(db: AsyncSession, lead: Lead) -> int:
+    """Days the lead has spent on its current stage.
+
+    Source: the open `lead_stage_history` row (exited_at IS NULL) for
+    the lead's current stage. Fallback to `lead.created_at` when there
+    is no history row (older leads / pre-history-tracking).
+    floor((now - entered_at) / 86400).
+    """
+    import math
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from app.leads.models import LeadStageHistory
+
+    start = None
+    if lead.stage_id is not None:
+        row = (
+            await db.execute(
+                select(LeadStageHistory)
+                .where(
+                    LeadStageHistory.lead_id == lead.id,
+                    LeadStageHistory.stage_id == lead.stage_id,
+                    LeadStageHistory.exited_at.is_(None),
+                )
+                .order_by(LeadStageHistory.entered_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if row is not None:
+            start = row.entered_at
+    if start is None:
+        start = lead.created_at
+    elapsed = (datetime.now(timezone.utc) - start).total_seconds()
+    return max(0, int(math.floor(elapsed / 86400)))
+
+
 async def create_lead(
     db: AsyncSession,
     workspace_id: uuid.UUID,

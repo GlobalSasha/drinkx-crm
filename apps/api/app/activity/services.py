@@ -27,6 +27,57 @@ def _validate_type(type_: str) -> None:
         raise ValueError(f"Invalid activity type '{type_}'. Allowed: {_VALID_TYPES}")
 
 
+async def list_my_tasks(
+    db: AsyncSession, *, workspace_id: uuid.UUID, user_id: uuid.UUID
+) -> list[dict]:
+    """All manager-created tasks (Activity type=task) across leads
+    assigned to the user. No AI — purely manual tasks. Ordered by due
+    date ascending (nulls last), then newest first. Returns dicts
+    shaped for MyTaskOut (text resolved from payload_json.title / body)."""
+    from sqlalchemy import select
+
+    from app.leads.models import Lead
+
+    rows = (
+        await db.execute(
+            select(Activity, Lead.company_name)
+            .join(Lead, Activity.lead_id == Lead.id)
+            .where(
+                Lead.workspace_id == workspace_id,
+                Lead.assigned_to == user_id,
+                Lead.archived_at.is_(None),
+                Activity.type == ActivityType.task.value,
+            )
+            .order_by(
+                Activity.task_due_at.asc().nulls_last(),
+                Activity.created_at.desc(),
+            )
+            .limit(500)
+        )
+    ).all()
+
+    out: list[dict] = []
+    for activity, company_name in rows:
+        text = (
+            (activity.payload_json or {}).get("title")
+            or activity.body
+            or "Задача"
+        )
+        out.append(
+            {
+                "id": activity.id,
+                "lead_id": activity.lead_id,
+                "lead_company_name": company_name,
+                "text": text,
+                "task_due_at": activity.task_due_at,
+                "task_done": activity.task_done,
+                "task_completed_at": activity.task_completed_at,
+                "created_at": activity.created_at,
+            }
+        )
+    return out
+
+
 async def _get_lead_or_raise(
     db: AsyncSession, lead_id: uuid.UUID, workspace_id: uuid.UUID
 ) -> None:

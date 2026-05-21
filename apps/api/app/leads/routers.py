@@ -193,6 +193,8 @@ async def get_lead(
     lead = await get_by_id(db, lead_id, user.workspace_id)
     if lead is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+    # Attach days-on-current-stage for the lead card stages bar.
+    lead.current_stage_days = await services.current_stage_days(db, lead)  # type: ignore[attr-defined]
     return lead  # type: ignore[return-value]
 
 

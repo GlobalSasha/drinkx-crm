@@ -1,25 +1,28 @@
 "use client";
 
+import { useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { useStageDurations } from "@/lib/hooks/use-lead-v2";
 
 interface Props {
   leadId: string;
+  // Authoritative days-on-current-stage from LeadOut (read path). Falls
+  // back to the per-stage `days` from the durations endpoint if absent.
+  currentStageDays?: number | null;
 }
 
+type StageStatus = "done" | "current" | "pending";
+
 /**
- * Horizontal stage progress for the LeadCard header. One dot per stage
- * in the lead's pipeline + days-per-stage label.
+ * Stage progress for the LeadCard header.
  *
- * - `done` — green check dot, "N дней" muted under name
- * - `current` — accent dot with glow, days shown in larger font
- * - `pending` — empty white dot with border, no days
- *
- * Pipelines wider than the viewport: container scrolls horizontally,
- * never wraps to a second row (spec).
+ * Default = COLLAPSED context view: previous stage · CURRENT (large,
+ * with days) · next 1–2 stages, then a «показать все этапы» link.
+ * Expanded = the full horizontal scrollable row with every stage.
  */
-export function StagesStepper({ leadId }: Props) {
+export function StagesStepper({ leadId, currentStageDays }: Props) {
   const { data: stages, isLoading, isError } = useStageDurations(leadId);
+  const [expanded, setExpanded] = useState(false);
 
   if (isLoading) {
     return (
@@ -31,6 +34,98 @@ export function StagesStepper({ leadId }: Props) {
   }
   if (isError || !stages || stages.length === 0) return null;
 
+  const currentIdx = stages.findIndex((s) => s.status === "current");
+
+  // No current stage (won/lost/detached) — just show the full row.
+  if (expanded || currentIdx === -1) {
+    return (
+      <div>
+        <FullRow stages={stages} />
+        {currentIdx !== -1 && (
+          <button
+            type="button"
+            onClick={() => setExpanded(false)}
+            className="mt-1 type-caption font-semibold text-brand-accent-text hover:underline"
+          >
+            свернуть
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // Collapsed context window: prev · current · next · next+1
+  const windowItems = [
+    currentIdx - 1,
+    currentIdx,
+    currentIdx + 1,
+    currentIdx + 2,
+  ]
+    .filter((i) => i >= 0 && i < stages.length)
+    .map((i) => stages[i]);
+
+  const remaining = stages.length - (currentIdx + 3);
+  const curDays =
+    currentStageDays != null ? currentStageDays : stages[currentIdx].days;
+
+  return (
+    <div className="flex items-end flex-wrap gap-x-1 gap-y-2">
+      {windowItems.map((s, idx) => {
+        const isCurrent = s.status === "current";
+        const isLast = idx === windowItems.length - 1;
+        return (
+          <div key={s.stage_id} className="flex items-end">
+            <div
+              className={`flex flex-col items-center ${
+                isCurrent ? "w-[132px]" : "w-[92px]"
+              }`}
+            >
+              <Dot status={s.status as StageStatus} large={isCurrent} />
+              <p
+                className={`mt-1.5 text-center px-1 truncate w-full ${
+                  isCurrent
+                    ? "type-label font-semibold text-brand-accent-text"
+                    : "type-caption text-brand-muted"
+                }`}
+                title={s.stage_name}
+              >
+                {s.stage_name}
+              </p>
+              {isCurrent && curDays != null && (
+                <p className="type-caption font-semibold text-brand-accent-text mt-0.5">
+                  {curDays} {pluralDays(curDays)}
+                </p>
+              )}
+            </div>
+            {!isLast && (
+              <div className="mb-6 h-px w-5 bg-brand-border" aria-hidden="true" />
+            )}
+          </div>
+        );
+      })}
+
+      <button
+        type="button"
+        onClick={() => setExpanded(true)}
+        className="mb-6 ml-1 type-caption font-semibold text-brand-accent-text hover:underline whitespace-nowrap"
+      >
+        {remaining > 0 ? `ещё ${remaining} →` : "показать все этапы"}
+      </button>
+    </div>
+  );
+}
+
+// Full scrollable row — every stage with its days.
+function FullRow({
+  stages,
+}: {
+  stages: {
+    stage_id: string;
+    stage_name: string;
+    days: number | null;
+    status: string;
+  }[];
+}) {
   return (
     <div className="overflow-x-auto -mx-2 px-2">
       <ol className="flex items-start gap-0 min-w-max">
@@ -41,7 +136,7 @@ export function StagesStepper({ leadId }: Props) {
           return (
             <li key={s.stage_id} className="flex items-start">
               <div className="flex flex-col items-center w-[120px] shrink-0">
-                <Dot status={s.status} />
+                <Dot status={s.status as StageStatus} />
                 <p
                   className={`mt-1.5 type-caption text-center px-1 truncate w-full ${
                     isCurrent
@@ -82,18 +177,21 @@ export function StagesStepper({ leadId }: Props) {
   );
 }
 
-function Dot({ status }: { status: "done" | "current" | "pending" }) {
+function Dot({ status, large }: { status: StageStatus; large?: boolean }) {
+  const size = large ? "w-8 h-8" : "w-6 h-6";
   if (status === "done") {
     return (
-      <span className="w-6 h-6 rounded-full bg-success text-white flex items-center justify-center shrink-0">
-        <Check size={12} strokeWidth={3} />
+      <span
+        className={`${size} rounded-full bg-success text-white flex items-center justify-center shrink-0`}
+      >
+        <Check size={large ? 14 : 12} strokeWidth={3} />
       </span>
     );
   }
   if (status === "current") {
     return (
       <span
-        className="w-6 h-6 rounded-full bg-brand-accent text-white flex items-center justify-center shrink-0"
+        className={`${size} rounded-full bg-brand-accent text-white flex items-center justify-center shrink-0`}
         style={{ boxShadow: "0 0 0 4px rgba(255, 78, 0, 0.18)" }}
         aria-current="step"
       >
@@ -102,7 +200,9 @@ function Dot({ status }: { status: "done" | "current" | "pending" }) {
     );
   }
   return (
-    <span className="w-6 h-6 rounded-full bg-white border border-brand-border shrink-0" />
+    <span
+      className={`${size} rounded-full bg-white border border-brand-border shrink-0`}
+    />
   );
 }
 
