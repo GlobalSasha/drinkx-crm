@@ -29,15 +29,26 @@ jobs:
 
       - name: Verify health
         run: |
-          sleep 5
-          # Web: HTTP 200
-          STATUS=$(curl -s -o /dev/null -w '%{http_code}' https://crm.drinkx.tech/)
-          echo "Web HTTP $STATUS"
-          test "$STATUS" = "200" || (echo "Web is not 200" && exit 1)
+          # Poll with retries: the API container runs `alembic upgrade head`
+          # before uvicorn starts, so on deploys with migrations it can take
+          # more than a few seconds to answer. A single early check raced that
+          # boot and produced false-negative 502s.
+          check() {
+            # $1 = label, $2 = url
+            for i in $(seq 1 20); do
+              CODE=$(curl -s -o /dev/null -w '%{http_code}' "$2" || echo 000)
+              if [ "$CODE" = "200" ]; then
+                echo "$1 HTTP 200 (attempt $i)"
+                return 0
+              fi
+              echo "$1 HTTP $CODE — retry $i/20"
+              sleep 3
+            done
+            echo "$1 did not become healthy" >&2
+            return 1
+          }
 
-          # API: /api/health → {"status":"ok"}
-          API_STATUS=$(curl -s -o /dev/null -w '%{http_code}' https://crm.drinkx.tech/api/health)
-          echo "API HTTP $API_STATUS"
-          test "$API_STATUS" = "200" || (echo "API health failed" && exit 1)
+          check "Web" https://crm.drinkx.tech/ || exit 1
+          check "API" https://crm.drinkx.tech/api/health || exit 1
 
           echo "✅ Deploy verified"
