@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   ListChecks,
-  AlarmClock,
   Flame,
   BarChart3,
   GripVertical,
@@ -36,26 +35,19 @@ import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { C } from "@/lib/design-system";
 import { api } from "@/lib/api-client";
-import { useTodayPlan, useCompletePlanItem } from "@/lib/hooks/use-daily-plan";
-import { useFollowupsPending } from "@/lib/hooks/use-followups";
 import { useLeads } from "@/lib/hooks/use-leads";
 import { usePipelines } from "@/lib/hooks/use-pipelines";
 import { useNotificationsList, useMarkRead } from "@/lib/hooks/use-notifications";
+import { useMyTasks, useCompleteMyTask } from "@/lib/hooks/use-my-tasks";
 import { relativeTime } from "@/lib/relative-time";
 import { TaskTable } from "@/components/tasks/TaskTable";
 import { RemindersWidget } from "@/components/today/RemindersWidget";
-import {
-  dailyPlanItemToRow,
-  isOverdue,
-  isToday,
-  type TaskRow,
-} from "@/lib/tasks";
+import { myTaskToRow, isOverdue, isToday, type TaskRow } from "@/lib/tasks";
 import type { LeadOut, Priority } from "@/lib/types";
 
 // ─── Widget registry ────────────────────────────────────────
 
 type WidgetId =
-  | "w-followup"
   | "w-rotting"
   | "w-pipeline"
   | "w-tasklist"
@@ -64,7 +56,6 @@ type WidgetId =
   | "w-notif";
 
 const DEFAULT_ORDER: WidgetId[] = [
-  "w-followup",
   "w-rotting",
   "w-pipeline",
   "w-tasklist",
@@ -74,7 +65,6 @@ const DEFAULT_ORDER: WidgetId[] = [
 ];
 
 const WIDGET_LABELS: Record<WidgetId, string> = {
-  "w-followup":  "Follow-up",
   "w-rotting":   "Устаревает",
   "w-pipeline":  "В воронке",
   "w-tasklist":  "Список задач",
@@ -86,7 +76,6 @@ const WIDGET_LABELS: Record<WidgetId, string> = {
 // Grid spans per widget. Counter widgets are 1 column on the auto-fit
 // grid; main widgets occupy 2; the notifications strip stretches across.
 const WIDGET_SPAN: Record<WidgetId, string> = {
-  "w-followup":  "",
   "w-rotting":   "",
   "w-pipeline":  "",
   "w-tasklist":  "sm:col-span-2",
@@ -205,29 +194,6 @@ function WidgetHeader({
 
 // ─── Counter wrappers (data-aware) ─────────────────────────
 
-function FollowupCounter() {
-  const { data, isLoading, isError } = useFollowupsPending();
-  const pending = data?.pending_count ?? 0;
-  const overdue = data?.overdue_count ?? 0;
-  const note = isError
-    ? "—"
-    : pending === 0
-      ? "никто не ждёт ответа"
-      : overdue > 0
-        ? `${overdue} ${pluralRu(overdue, ["просрочен", "просрочено", "просрочено"])}`
-        : "требуют ответа";
-  return (
-    <CounterWidget
-      label="Follow-up"
-      icon={<AlarmClock size={14} />}
-      value={isError ? null : pending}
-      note={note}
-      accent
-      loading={isLoading}
-    />
-  );
-}
-
 function RottingCounter() {
   const { data, isLoading, isError } = useLeads(TODAY_LEADS_FILTER);
   const leads = data?.items ?? [];
@@ -273,7 +239,6 @@ function PipelineCounter() {
 // ─── Task-list widget (table) ──────────────────────────────
 
 type PeriodFilter = "all" | "today" | "overdue";
-type TypeFilter = "all" | "task" | "followup";
 
 function FilterChip({
   active,
@@ -300,19 +265,17 @@ function FilterChip({
 }
 
 function TaskListWidget() {
-  const { data, isLoading, isError } = useTodayPlan();
+  const { data, isLoading, isError } = useMyTasks();
   const { data: leadsData } = useLeads(TODAY_LEADS_FILTER);
   const qc = useQueryClient();
-  const planDate = data?.plan_date;
-  const completeItem = useCompletePlanItem();
+  const completeTask = useCompleteMyTask();
 
-  const allRows: TaskRow[] = useMemo(() => {
-    const items = [...(data?.items ?? [])].sort((a, b) => a.position - b.position);
-    return items.map((it) => dailyPlanItemToRow(it, planDate));
-  }, [data, planDate]);
+  const allRows: TaskRow[] = useMemo(
+    () => (data ?? []).map(myTaskToRow),
+    [data],
+  );
 
   const [period, setPeriod] = useState<PeriodFilter>("all");
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
 
   // Client-side filtering only — no extra API calls.
   const rows = useMemo(
@@ -320,10 +283,9 @@ function TaskListWidget() {
       allRows.filter((r) => {
         if (period === "today" && !isToday(r.due)) return false;
         if (period === "overdue" && !isOverdue(r)) return false;
-        if (typeFilter !== "all" && r.type !== typeFilter) return false;
         return true;
       }),
-    [allRows, period, typeFilter],
+    [allRows, period],
   );
 
   const doneCount = allRows.filter((r) => r.done).length;
@@ -363,7 +325,7 @@ function TaskListWidget() {
         payload_json: { title: name, source: "today_widget" },
       }),
     onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: ["daily-plan", "today"] });
+      qc.invalidateQueries({ queryKey: ["my-tasks"] });
       qc.invalidateQueries({ queryKey: ["feed", vars.leadId] });
       qc.invalidateQueries({ queryKey: ["activities", vars.leadId, "task"] });
       setNewTaskText("");
@@ -385,7 +347,8 @@ function TaskListWidget() {
   }
 
   function handleComplete(row: TaskRow) {
-    if (!row.done && !completeItem.isPending) completeItem.mutate(row.id);
+    if (!row.done && !completeTask.isPending)
+      completeTask.mutate({ leadId: row.leadId, taskId: row.id });
   }
 
   return (
@@ -435,25 +398,6 @@ function TaskListWidget() {
         >
           Просрочено
         </FilterChip>
-        <span className="w-px h-4 bg-brand-border mx-1" aria-hidden />
-        <FilterChip
-          active={typeFilter === "all"}
-          onClick={() => setTypeFilter("all")}
-        >
-          Все типы
-        </FilterChip>
-        <FilterChip
-          active={typeFilter === "task"}
-          onClick={() => setTypeFilter("task")}
-        >
-          Задача
-        </FilterChip>
-        <FilterChip
-          active={typeFilter === "followup"}
-          onClick={() => setTypeFilter("followup")}
-        >
-          Follow-up
-        </FilterChip>
       </div>
 
       {/* Table */}
@@ -472,10 +416,10 @@ function TaskListWidget() {
           <TaskTable
             rows={rows}
             onComplete={handleComplete}
-            isCompleting={completeItem.isPending}
+            isCompleting={completeTask.isPending}
             emptyText={
               allRows.length === 0
-                ? "На сегодня задач нет"
+                ? "Задач пока нет"
                 : "Нет задач под фильтр"
             }
           />
@@ -799,9 +743,6 @@ function TodayPageInner() {
     user?.email?.split("@")[0] ??
     "коллега";
 
-  const { data: plan } = useTodayPlan();
-  const todayTotal = plan?.items?.length ?? 0;
-
   // Deep-link support: `/today?tab=tasks` scrolls the task-list widget
   // into view.
   const searchParams = useSearchParams();
@@ -890,22 +831,10 @@ function TodayPageInner() {
   const dateTimeCaption = getDateTimeCaption();
   const visible = order.filter((id) => !hidden.has(id));
 
-  const chakSummary =
-    todayTotal > 0
-      ? `Блейк подготовил план · ${todayTotal} ${pluralRu(todayTotal, ["задача", "задачи", "задач"])} на сегодня`
-      : "Блейк готовит план на сегодня";
+  const chakSummary = "Ваши задачи и клиенты на сегодня";
 
   function renderWidget(id: WidgetId) {
     switch (id) {
-      case "w-followup":
-        return (
-          <Link
-            href="/tasks?type=followup"
-            className="block h-full cursor-pointer"
-          >
-            <FollowupCounter />
-          </Link>
-        );
       case "w-rotting":
         return (
           <Link

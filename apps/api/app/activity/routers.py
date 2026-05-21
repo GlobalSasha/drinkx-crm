@@ -16,6 +16,7 @@ from app.activity.schemas import (
     AskBlakeOut,
     FeedItemOut,
     FeedListOut,
+    MyTaskOut,
 )
 from app.auth.dependencies import current_user
 from app.auth.models import User
@@ -23,6 +24,23 @@ from app.db import get_db
 from app.leads.services import LeadNotFound
 
 router = APIRouter(prefix="/leads/{lead_id}/activities", tags=["activities"])
+
+# Cross-lead aggregate for the manager's own tasks (Today widget +
+# /tasks page). Not lead-scoped, so it sits on its own router.
+me_router = APIRouter(tags=["activities"])
+
+
+@me_router.get("/me/tasks", response_model=list[MyTaskOut])
+async def list_my_tasks(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(current_user)],
+) -> list[MyTaskOut]:
+    """All manager-created tasks across the user's leads. Manager-only,
+    no AI ordering."""
+    rows = await services.list_my_tasks(
+        db, workspace_id=user.workspace_id, user_id=user.id
+    )
+    return [MyTaskOut.model_validate(r) for r in rows]
 
 # Separate router mounted at /leads/{lead_id}/feed — the unified
 # activity feed (Sprint «Unified Activity Feed»). Lives in the same

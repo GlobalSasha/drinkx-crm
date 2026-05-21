@@ -12,20 +12,13 @@ interface Props {
   emptyText?: string;
 }
 
-// Type/status badge for the «Тип» column. Overdue trumps the row type
-// (per spec): an overdue row shows a red «просрочено» badge.
+// «Тип» column. Tasks are all manager-entered (no follow-up / no AI),
+// so the badge only distinguishes overdue vs a normal task.
 function TypeBadge({ row }: { row: TaskRow }) {
   if (isOverdue(row)) {
     return (
       <span className="inline-block type-caption font-semibold px-2 py-0.5 rounded-full bg-rose/10 text-rose">
         просрочено
-      </span>
-    );
-  }
-  if (row.type === "followup") {
-    return (
-      <span className="inline-block type-caption font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-        follow-up
       </span>
     );
   }
@@ -47,10 +40,6 @@ export function TaskTable({ rows, onComplete, isCompleting, emptyText }: Props) 
     );
   }
 
-  function goToLead(row: TaskRow) {
-    if (row.leadId) router.push(`/leads/${row.leadId}?tab=tasks`);
-  }
-
   return (
     <div className="overflow-x-auto -mx-1">
       <table className="w-full border-collapse">
@@ -70,10 +59,8 @@ export function TaskTable({ rows, onComplete, isCompleting, emptyText }: Props) 
             return (
               <tr
                 key={row.id}
-                onClick={() => goToLead(row)}
-                className={`group border-t border-brand-border ${
-                  row.leadId ? "cursor-pointer hover:bg-brand-bg" : ""
-                }`}
+                onClick={() => router.push(`/leads/${row.leadId}?tab=tasks`)}
+                className="group border-t border-brand-border cursor-pointer hover:bg-brand-bg"
               >
                 {/* Checkbox */}
                 <td className="px-1 py-2.5 align-top">
@@ -134,12 +121,10 @@ export function TaskTable({ rows, onComplete, isCompleting, emptyText }: Props) 
 
                 {/* Action */}
                 <td className="px-1 py-2.5 align-top text-right">
-                  {row.leadId && (
-                    <ArrowUpRight
-                      size={15}
-                      className="text-brand-muted opacity-0 group-hover:opacity-100 transition-opacity inline-block"
-                    />
-                  )}
+                  <ArrowUpRight
+                    size={15}
+                    className="text-brand-muted opacity-0 group-hover:opacity-100 transition-opacity inline-block"
+                  />
                 </td>
               </tr>
             );

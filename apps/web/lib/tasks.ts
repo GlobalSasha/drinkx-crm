@@ -1,57 +1,29 @@
-// Shared task-row model + helpers used by the Today task-list widget
-// and the /tasks page. A "task row" is the unified view over the data
-// we currently have: DailyPlanItem rows from GET /me/today.
+// Shared task-row model + helpers for the Today task-list widget and
+// the /tasks page.
 //
-// TODO: a dedicated `GET /me/tasks` endpoint would let us aggregate
-// real task-activities + followups across all of the user's leads.
-// Until then the list is fed by the daily plan, and the row "type" is
-// derived from DailyPlanItem.task_kind (follow_up → followup).
+// Tasks are MANAGER-ENTERED ONLY — no AI anywhere. The data source is
+// GET /me/tasks (manual Activity(type=task) across the user's leads),
+// NOT the AI daily plan. Due dates are the manager's own values.
 
-import type { DailyPlanItem, TimeBlock } from "@/lib/types";
-
-export type TaskRowType = "task" | "followup";
+import type { MyTaskOut } from "@/lib/types";
 
 export interface TaskRow {
   id: string;
+  leadId: string;
   name: string;
-  leadId: string | null;
   company: string | null;
-  due: string | null; // ISO datetime, synthesised from time_block
+  due: string | null; // real task_due_at, manager-set
   done: boolean;
-  type: TaskRowType;
 }
 
-// DailyPlanItem only exposes a coarse `time_block`. Map each block to a
-// representative hour so the table can show a clock time + detect overdue.
-const TIME_BLOCK_HOUR: Record<TimeBlock, number> = {
-  morning: 9,
-  midday: 12,
-  afternoon: 15,
-  evening: 18,
-};
-
-export function synthesizeDue(
-  planDate: string | undefined,
-  timeBlock: TimeBlock | null,
-): string | null {
-  if (!planDate || !timeBlock) return null;
-  const d = new Date(`${planDate}T00:00:00`);
-  d.setHours(TIME_BLOCK_HOUR[timeBlock], 0, 0, 0);
-  return d.toISOString();
-}
-
-export function dailyPlanItemToRow(
-  item: DailyPlanItem,
-  planDate: string | undefined,
-): TaskRow {
+export function myTaskToRow(t: MyTaskOut): TaskRow {
   return {
-    id: item.id,
-    name: item.hint_one_liner || "Задача",
-    leadId: item.lead_id,
-    company: item.lead_company_name,
-    due: synthesizeDue(planDate, item.time_block),
-    done: item.done,
-    type: item.task_kind === "follow_up" ? "followup" : "task",
+    id: t.id,
+    leadId: t.lead_id,
+    name: t.text,
+    company: t.lead_company_name,
+    due: t.task_due_at,
+    done: t.task_done,
   };
 }
 
@@ -74,6 +46,13 @@ export function formatDueDateTime(due: string | null): string {
 
 export function isToday(due: string | null): boolean {
   if (!due) return false;
-  const d = new Date(due);
-  return d.toDateString() === new Date().toDateString();
+  return new Date(due).toDateString() === new Date().toDateString();
+}
+
+export function withinThisWeek(due: string | null): boolean {
+  if (!due) return false;
+  const d = new Date(due).getTime();
+  const now = Date.now();
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  return d >= now - weekMs && d <= now + weekMs;
 }

@@ -26,13 +26,11 @@ import type { Stage } from "@/lib/types";
 import { DealAndAITab } from "./DealAndAITab";
 import { ContactsTab } from "./ContactsTab";
 import { TasksTab } from "./TasksTab";
+import { NotesTab } from "./NotesTab";
 import { UnifiedFeed } from "./feed/UnifiedFeed";
-import { FollowupsRail } from "./FollowupsRail";
 import { CustomFieldsPanel } from "./CustomFieldsPanel";
-import { ClientScoreCard } from "./ClientScoreCard";
 import { DealValueStrip } from "./DealValueStrip";
 import { StagesStepper } from "./StagesStepper";
-import { ResearchGapsCard } from "./ResearchGapsCard";
 import { GateModal } from "./GateModal";
 import { LostModal } from "./LostModal";
 import { TransferModal } from "./TransferModal";
@@ -83,13 +81,14 @@ function formatWonLostDate(iso: string | null | undefined): string {
 // appear inside «Активность» as collapsed cards alongside comments /
 // tasks / AI messages. Telegram + phone messages stay in `inbox_messages`
 // for now — separate sprint will surface them again.
-type TabKey = "activity" | "deal-ai" | "contacts" | "tasks";
+type TabKey = "activity" | "deal-ai" | "contacts" | "tasks" | "notes";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "activity", label: "Активность" },
   { key: "deal-ai", label: "Сделка и AI" },
   { key: "contacts", label: "Контакты" },
   { key: "tasks", label: "Задачи" },
+  { key: "notes", label: "Заметки" },
 ];
 
 interface Props {
@@ -358,7 +357,7 @@ export function LeadCard({ leadId }: Props) {
               <button
                 type="button"
                 onClick={() => setDeleteOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-rose hover:bg-rose/10 rounded-full transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 type-body font-semibold text-rose hover:bg-rose/10 rounded-full transition-colors"
               >
                 <Trash2 size={13} />
                 Удалить
@@ -510,7 +509,10 @@ export function LeadCard({ leadId }: Props) {
               self-fetching (their own queries) so they don't bloat
               this component. */}
           <div className="mt-4">
-            <StagesStepper leadId={lead.id} />
+            <StagesStepper
+              leadId={lead.id}
+              currentStageDays={lead.current_stage_days}
+            />
           </div>
           <div className="mt-3">
             <DealValueStrip lead={lead} />
@@ -559,13 +561,11 @@ export function LeadCard({ leadId }: Props) {
             {activeTab === "deal-ai" && <DealAndAITab lead={lead} />}
             {activeTab === "contacts" && <ContactsTab lead={lead} />}
             {activeTab === "tasks" && <TasksTab leadId={lead.id} />}
+            {activeTab === "notes" && <NotesTab leadId={lead.id} />}
           </div>
 
           {/* Right column */}
           <aside className="w-full md:w-[296px] md:shrink-0 flex flex-col gap-4 order-1 md:order-2">
-            <FollowupsRail leadId={lead.id} />
-            <ClientScoreCard lead={lead} />
-            <ResearchGapsCard lead={lead} />
             <CustomFieldsPanel leadId={lead.id} />
           </aside>
         </div>

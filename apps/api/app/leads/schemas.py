@@ -110,6 +110,11 @@ class LeadOut(LeadBase):
     # Sprint 3.7 G1 — set TRUE on AI auto-created leads, FALSE everywhere
     # else (form submissions, manual creates, CSV imports, claim-from-pool).
     needs_review: bool = False
+    # Days the lead has spent on its CURRENT stage. Computed at the
+    # single-lead read path from the open lead_stage_history row
+    # (fallback: lead.created_at). Other LeadOut-returning endpoints
+    # leave it None (default).
+    current_stage_days: int | None = None
     created_at: datetime
     updated_at: datetime
 
