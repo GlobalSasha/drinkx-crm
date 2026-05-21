@@ -31,6 +31,10 @@ export interface LeadFilters {
   // (assigned_to) or the whole workspace (all_assignees).
   assigned_to?: string;
   all_assignees?: boolean;
+  // Opt-in for whole-workspace text search (the message-to-lead picker).
+  // The kanban search box deliberately does NOT set this, so a regular
+  // user's q stays scoped to their own leads.
+  workspace_search?: boolean;
   page?: number;
   page_size?: number;
 }
@@ -47,6 +51,7 @@ function buildQuery(filters: LeadFilters): string {
   if (filters.form_id) p.set("form_id", filters.form_id);
   if (filters.assigned_to) p.set("assigned_to", filters.assigned_to);
   if (filters.all_assignees) p.set("all_assignees", "true");
+  if (filters.workspace_search) p.set("workspace_search", "true");
   if (filters.page) p.set("page", String(filters.page));
   p.set("page_size", String(filters.page_size ?? 200));
   const qs = p.toString();

@@ -56,11 +56,33 @@ def test_scope_regular_default_returns_self():
     ) == me
 
 
-def test_scope_text_search_unchanged_whole_workspace():
+def test_scope_picker_optin_is_whole_workspace():
     from app.leads.routers import _resolve_assignee_scope
     me = uuid.uuid4()
+    # the message-to-lead picker opts in via workspace_search → whole workspace
     assert _resolve_assignee_scope(
-        explicit=None, all_assignees=False, q="кофейня", user_id=me, role="manager"
+        explicit=None, all_assignees=False, q="кофейня", user_id=me, role="manager",
+        workspace_search=True,
+    ) is None
+
+
+def test_scope_regular_q_without_optin_stays_self():
+    from app.leads.routers import _resolve_assignee_scope
+    me = uuid.uuid4()
+    # regular user typing in the KANBAN search (no workspace_search) → self, not workspace
+    assert _resolve_assignee_scope(
+        explicit=None, all_assignees=False, q="кофейня", user_id=me, role="manager",
+        workspace_search=False,
+    ) == me
+
+
+def test_scope_regular_q_with_optin_is_whole_workspace():
+    from app.leads.routers import _resolve_assignee_scope
+    me = uuid.uuid4()
+    # the picker opts in → whole-workspace search, as before
+    assert _resolve_assignee_scope(
+        explicit=None, all_assignees=False, q="кофейня", user_id=me, role="manager",
+        workspace_search=True,
     ) is None
 
 

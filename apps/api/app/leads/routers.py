@@ -48,6 +48,7 @@ def _resolve_assignee_scope(
     q: str | None,
     user_id: UUID,
     role: str,
+    workspace_search: bool = False,
 ) -> UUID | None:
     """Return the `assigned_to` filter for GET /leads (None = no assignee filter).
 
@@ -65,14 +66,14 @@ def _resolve_assignee_scope(
       - regular user → ALWAYS self (explicit/all_assignees ignored). This
         closes the prior leak where any user could pass ?assigned_to=<colleague>.
     """
-    # Text search → whole-workspace assignee scope (the message-to-lead picker
-    # must find any colleague's lead by name). EXCEPTION: an admin/head who has
-    # explicitly picked a manager keeps that scope — the q text filter still
-    # applies on top, giving a manager-scoped search rather than workspace-wide.
-    if q and not (role in ("admin", "head") and explicit is not None):
-        return None
     # Privileged role set mirrors app/auth/models.py USER_ROLES ("admin","head","manager").
     privileged = role in ("admin", "head")
+    # Whole-workspace text search: the message-to-lead picker opts in explicitly
+    # via workspace_search; privileged users also get it. A regular user's q on
+    # the kanban (no opt-in) stays self-scoped — closes the q scope leak.
+    # Never overrides a privileged user's explicit manager selection.
+    if q and (workspace_search or privileged) and not (privileged and explicit is not None):
+        return None
     if privileged:
         if all_assignees:
             return None
@@ -93,6 +94,7 @@ async def list_leads(
     assigned_to: UUID | None = None,
     q: str | None = None,
     all_assignees: bool = False,
+    workspace_search: bool = False,
     form_id: UUID | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
@@ -112,6 +114,7 @@ async def list_leads(
             q=q,
             user_id=user.id,
             role=user.role,
+            workspace_search=workspace_search,
         ),
         q=q,
         form_id=form_id,
