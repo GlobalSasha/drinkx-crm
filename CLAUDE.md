@@ -151,3 +151,9 @@ For backend changes: `python -m py_compile` on touched modules + `pytest`
 - Production repo: TBD
 - PRD: `docs/PRD-v2.0.md`
 - Source data: `~/Downloads/drinkx-client-map-v0.5-linkedin-industry-enriched/`
+
+## Design & UI Rules
+- Always follow anthropic/frontend-design skill for any UI work
+- Use vercel-labs/agent-skills rules for React and Next.js components
+- Spacing scale: 4-8-12-16-24-32px only, no arbitrary values
+- No Inter, Roboto, or Arial fonts
