@@ -13,7 +13,6 @@ import {
   LayoutGrid,
   Bell,
   ArrowUpRight,
-  Check,
 } from "lucide-react";
 import {
   DndContext,
@@ -30,11 +29,9 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { C } from "@/lib/design-system";
-import { api } from "@/lib/api-client";
 import { useLeads } from "@/lib/hooks/use-leads";
 import { usePipelines } from "@/lib/hooks/use-pipelines";
 import { useNotificationsList, useMarkRead } from "@/lib/hooks/use-notifications";
@@ -43,7 +40,6 @@ import { relativeTime } from "@/lib/relative-time";
 import { TaskTable } from "@/components/tasks/TaskTable";
 import { RemindersWidget } from "@/components/today/RemindersWidget";
 import { myTaskToRow, isOverdue, isToday, type TaskRow } from "@/lib/tasks";
-import type { LeadOut, Priority } from "@/lib/types";
 
 // ─── Widget registry ────────────────────────────────────────
 
@@ -88,14 +84,6 @@ const WIDGET_SPAN: Record<WidgetId, string> = {
 // identical query keys, so the widgets that consume this share one
 // network request.
 const TODAY_LEADS_FILTER = { page_size: 200 } as const;
-
-// Priority A is the strongest signal; D weakest. Used as a tiebreaker
-// after `score` for the quick-add focus-lead target.
-const PRIORITY_RANK: Record<Priority, number> = { A: 4, B: 3, C: 2, D: 1 };
-
-function leadFocusSortKey(l: LeadOut): number {
-  return l.score + (l.priority ? PRIORITY_RANK[l.priority] : 0);
-}
 
 // ─── Greeting ──────────────────────────────────────────────
 
@@ -266,8 +254,6 @@ function FilterChip({
 
 function TaskListWidget() {
   const { data, isLoading, isError } = useMyTasks();
-  const { data: leadsData } = useLeads(TODAY_LEADS_FILTER);
-  const qc = useQueryClient();
   const completeTask = useCompleteMyTask();
 
   const allRows: TaskRow[] = useMemo(
@@ -292,59 +278,6 @@ function TaskListWidget() {
   const totalCount = allRows.length;
   const progressPct =
     totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
-
-  // Quick-add target: top-priority assigned lead. There is no
-  // backend endpoint for unattached tasks (activities are lead-scoped),
-  // so we attach to the focus lead until a `POST /me/tasks` exists.
-  const focusLead = useMemo(() => {
-    const leads = (leadsData?.items ?? []).filter(
-      (l) => l.assignment_status === "assigned",
-    );
-    if (leads.length === 0) return null;
-    return [...leads].sort((a, b) => leadFocusSortKey(b) - leadFocusSortKey(a))[0];
-  }, [leadsData]);
-
-  const [addingTask, setAddingTask] = useState(false);
-  const [newTaskText, setNewTaskText] = useState("");
-  const [newTaskDue, setNewTaskDue] = useState("");
-
-  const addTask = useMutation({
-    mutationFn: ({
-      leadId,
-      name,
-      dueIso,
-    }: {
-      leadId: string;
-      name: string;
-      dueIso: string | null;
-    }) =>
-      api.post(`/leads/${leadId}/activities`, {
-        type: "task",
-        body: name,
-        task_due_at: dueIso,
-        payload_json: { title: name, source: "today_widget" },
-      }),
-    onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: ["my-tasks"] });
-      qc.invalidateQueries({ queryKey: ["feed", vars.leadId] });
-      qc.invalidateQueries({ queryKey: ["activities", vars.leadId, "task"] });
-      setNewTaskText("");
-      setNewTaskDue("");
-      setAddingTask(false);
-    },
-  });
-
-  function handleAddTask() {
-    const name = newTaskText.trim();
-    if (!name || !focusLead || addTask.isPending) return;
-    let dueIso: string | null = null;
-    if (newTaskDue) {
-      const d = new Date(newTaskDue);
-      d.setHours(23, 59, 0, 0);
-      dueIso = d.toISOString();
-    }
-    addTask.mutate({ leadId: focusLead.id, name, dueIso });
-  }
 
   function handleComplete(row: TaskRow) {
     if (!row.done && !completeTask.isPending)
@@ -426,70 +359,9 @@ function TaskListWidget() {
         )}
       </div>
 
-      {/* Quick add */}
-      {!isLoading && !isError && (
-        addingTask ? (
-          <div className="mt-3 flex flex-col sm:flex-row gap-2 sm:items-center">
-            <input
-              autoFocus
-              value={newTaskText}
-              onChange={(e) => setNewTaskText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && newTaskText.trim()) handleAddTask();
-                if (e.key === "Escape") {
-                  setAddingTask(false);
-                  setNewTaskText("");
-                  setNewTaskDue("");
-                }
-              }}
-              placeholder={
-                focusLead
-                  ? `Задача для ${focusLead.company_name}…`
-                  : "Название задачи…"
-              }
-              disabled={addTask.isPending}
-              className={`flex-1 ${C.form.field} py-2 text-sm`}
-            />
-            <input
-              type="date"
-              value={newTaskDue}
-              onChange={(e) => setNewTaskDue(e.target.value)}
-              disabled={addTask.isPending}
-              className={`${C.form.field} py-2 text-sm sm:w-40`}
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={handleAddTask}
-                disabled={!newTaskText.trim() || !focusLead || addTask.isPending}
-                aria-label="Сохранить задачу"
-                className={`${C.button.primary} type-body px-3 py-2 disabled:opacity-40`}
-              >
-                <Check size={14} />
-              </button>
-              <button
-                onClick={() => {
-                  setAddingTask(false);
-                  setNewTaskText("");
-                  setNewTaskDue("");
-                }}
-                aria-label="Отменить"
-                className={`${C.button.ghost} type-body px-3 py-2`}
-              >
-                <X size={14} />
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setAddingTask(true)}
-            disabled={!focusLead}
-            title={focusLead ? undefined : "Нет лида для привязки"}
-            className="w-full mt-3 py-2 rounded-xl border border-dashed border-brand-border text-brand-muted type-caption flex items-center justify-center gap-1 disabled:opacity-40"
-          >
-            <Plus size={12} aria-hidden /> Добавить задачу
-          </button>
-        )
-      )}
+      {/* Tasks are created inside a lead card («Задачи» tab), never here —
+          a task must belong to a lead. A standalone-tasks block is a
+          separate sprint. */}
     </div>
   );
 }
