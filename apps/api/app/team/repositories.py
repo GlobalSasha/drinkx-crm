@@ -160,8 +160,12 @@ async def daily_breakdown(
     """
     sql = text("""
         WITH params AS (
-            SELECT :wid::uuid AS wid, :uid::uuid AS uid,
-                   :from_::timestamptz AS d_from, :to::timestamptz AS d_to
+            -- Bind params must use CAST(name AS type), never the double-colon
+            -- cast form next to a bind param — that form makes SQLAlchemy
+            -- mis-parse the param name (drops its last char), leaving the
+            -- passed values unbound and 500-ing the query at execution time.
+            SELECT CAST(:wid AS uuid) AS wid, CAST(:uid AS uuid) AS uid,
+                   CAST(:from_ AS timestamptz) AS d_from, CAST(:to AS timestamptz) AS d_to
         ),
         kp AS (
             SELECT (a.created_at AT TIME ZONE 'UTC')::date AS d, count(*) AS n
