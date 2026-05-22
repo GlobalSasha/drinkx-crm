@@ -44,7 +44,7 @@ export function FeedComposer({
 }: Props) {
   const [mode, setMode] = useState<Mode>("comment");
   const [text, setText] = useState("");
-  const [taskDue, setTaskDue] = useState<string>(""); // yyyy-mm-dd
+  const [taskDue, setTaskDue] = useState<string>(""); // datetime-local: yyyy-mm-ddTHH:mm
   const [callMinutes, setCallMinutes] = useState<string>("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -111,9 +111,8 @@ export function FeedComposer({
 
     if (mode === "task") {
       if (!taskDue) return;
-      const due = new Date(taskDue);
-      // Snap to end-of-day so a "до 20 мая" task isn't due at midnight.
-      due.setHours(23, 59, 0, 0);
+      const due = new Date(taskDue); // datetime-local — exact time the manager set
+      if (Number.isNaN(due.getTime())) return;
       try {
         await create.mutateAsync({
           type: "task",
@@ -228,9 +227,10 @@ export function FeedComposer({
           <label className="inline-flex items-center gap-1.5 type-caption text-brand-muted">
             <Calendar size={12} />
             <input
-              type="date"
+              type="datetime-local"
               value={taskDue}
               onChange={(e) => setTaskDue(e.target.value)}
+              aria-label="Срок и время задачи"
               className="bg-transparent outline-none type-caption text-brand-primary"
             />
           </label>
