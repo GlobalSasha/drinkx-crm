@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
@@ -16,6 +17,7 @@ interface Props {
  */
 export function NeedsReviewRow({ lead }: Props) {
   const qc = useQueryClient();
+  const [confirmingDismiss, setConfirmingDismiss] = useState(false);
   const confidence = Number(
     (lead.ai_data as Record<string, unknown> | null)?.auto_create_confidence ?? 0,
   );
@@ -40,7 +42,7 @@ export function NeedsReviewRow({ lead }: Props) {
   return (
     <div className="mt-1 flex items-center gap-2 flex-wrap">
       <span
-        className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono text-amber-700 bg-amber-50 border border-amber-200"
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono text-warning bg-warning/10 border border-warning/20"
         title="AI создал этого лида автоматически из входящего письма"
       >
         <Sparkles size={10} aria-hidden />
@@ -53,23 +55,48 @@ export function NeedsReviewRow({ lead }: Props) {
           confirm.mutate();
         }}
         disabled={confirm.isPending}
-        className="text-[11px] px-2 py-0.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+        className="text-xs px-2 py-0.5 rounded bg-success text-white hover:bg-success/90 disabled:opacity-50"
       >
         Подтвердить
       </button>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          if (window.confirm("Удалить этого лида? AI ошибся — он не похож на B2B-обращение.")) {
-            dismiss.mutate();
-          }
-        }}
-        disabled={dismiss.isPending}
-        className="text-[11px] px-2 py-0.5 rounded text-rose-700 bg-rose-50 hover:bg-rose-100 disabled:opacity-50"
-      >
-        Не лид
-      </button>
+      {confirmingDismiss ? (
+        <span className="inline-flex items-center gap-1.5 text-xs">
+          <span className="text-brand-muted">Точно не лид?</span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              dismiss.mutate();
+            }}
+            disabled={dismiss.isPending}
+            className="px-2 py-0.5 rounded text-rose bg-rose/10 hover:bg-rose/15 font-semibold disabled:opacity-50"
+          >
+            Да, удалить
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setConfirmingDismiss(false);
+            }}
+            className="px-2 py-0.5 rounded text-brand-muted hover:bg-brand-panel"
+          >
+            Отмена
+          </button>
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setConfirmingDismiss(true);
+          }}
+          disabled={dismiss.isPending}
+          className="text-xs px-2 py-0.5 rounded text-rose bg-rose/10 hover:bg-rose/15 disabled:opacity-50"
+        >
+          Не лид
+        </button>
+      )}
     </div>
   );
 }
