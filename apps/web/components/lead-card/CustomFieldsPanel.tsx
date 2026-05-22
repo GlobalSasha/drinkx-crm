@@ -60,32 +60,27 @@ export function CustomFieldsPanel({ leadId }: Props) {
   const listQuery = useLeadAttributes(leadId);
   const items = listQuery.data ?? [];
 
-  if (listQuery.isLoading) {
-    return (
-      <div className="flex items-center gap-2 px-2 py-3 text-xs text-muted-3">
-        <Loader2 size={12} className="animate-spin" />
-        Загрузка кастомных полей…
-      </div>
-    );
-  }
-
-  if (items.length === 0) {
-    // No definitions in this workspace — render nothing rather than
-    // an empty section. Admin can add fields in /settings → Кастомные.
+  // Collapse the entire right column when there's nothing to show — while
+  // loading or when the workspace has no custom-field definitions — so the
+  // lead card doesn't render an empty 296px gutter. Admin can add fields
+  // in /settings → Кастомные.
+  if (listQuery.isLoading || items.length === 0) {
     return null;
   }
 
   return (
-    <section className="bg-white border border-black/5 rounded-2xl shadow-soft p-4">
-      <h3 className="type-caption text-brand-muted mb-3">
-        Кастомные поля
-      </h3>
-      <div className="divide-y divide-black/5">
-        {items.map((attr) => (
-          <CustomFieldRow key={attr.definition_id} leadId={leadId} attr={attr} />
-        ))}
-      </div>
-    </section>
+    <aside className="w-full md:w-[296px] md:shrink-0 flex flex-col gap-4 order-1 md:order-2">
+      <section className="bg-white border border-black/5 rounded-2xl shadow-soft p-4">
+        <h3 className="type-caption text-brand-muted mb-3">
+          Кастомные поля
+        </h3>
+        <div className="divide-y divide-black/5">
+          {items.map((attr) => (
+            <CustomFieldRow key={attr.definition_id} leadId={leadId} attr={attr} />
+          ))}
+        </div>
+      </section>
+    </aside>
   );
 }
 

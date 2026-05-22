@@ -564,10 +564,9 @@ export function LeadCard({ leadId }: Props) {
             {activeTab === "notes" && <NotesTab leadId={lead.id} />}
           </div>
 
-          {/* Right column */}
-          <aside className="w-full md:w-[296px] md:shrink-0 flex flex-col gap-4 order-1 md:order-2">
-            <CustomFieldsPanel leadId={lead.id} />
-          </aside>
+          {/* Right column — renders only when the workspace has custom
+              fields; otherwise it collapses and the tab body spans full width. */}
+          <CustomFieldsPanel leadId={lead.id} />
         </div>
       </div>
 
