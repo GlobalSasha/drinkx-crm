@@ -14,6 +14,7 @@ import {
   Send,
   Lock,
   Trash2,
+  MoreHorizontal,
   Star,
   Calendar,
   Activity as ActivityIcon,
@@ -122,6 +123,7 @@ export function LeadCard({ leadId }: Props) {
   // grid. Won → straight call into useMoveStage; Lost → opens the
   // existing LostModal with the required reason field.
   const [closeMenuOpen, setCloseMenuOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -354,14 +356,39 @@ export function LeadCard({ leadId }: Props) {
                   </>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() => setDeleteOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 type-body font-semibold text-rose hover:bg-rose/10 rounded-full transition-colors"
-              >
-                <Trash2 size={13} />
-                Удалить
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setMoreMenuOpen((v) => !v)}
+                  aria-label="Ещё действия"
+                  aria-haspopup="menu"
+                  aria-expanded={moreMenuOpen}
+                  className={`inline-flex items-center justify-center w-9 h-9 ${C.button.ghost} transition-opacity`}
+                >
+                  <MoreHorizontal size={16} />
+                </button>
+                {moreMenuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setMoreMenuOpen(false)}
+                    />
+                    <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-brand-border rounded-2xl shadow-soft z-20 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMoreMenuOpen(false);
+                          setDeleteOpen(true);
+                        }}
+                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left type-caption text-rose hover:bg-rose/5"
+                      >
+                        <Trash2 size={13} />
+                        <span className="font-semibold">Удалить лида</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
