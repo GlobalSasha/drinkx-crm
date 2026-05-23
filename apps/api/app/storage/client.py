@@ -96,6 +96,18 @@ class SupabaseStorageClient:
         data = resp.json()
         return data if isinstance(data, list) else []
 
+    async def download(self, *, key: str) -> bytes:
+        """GET /object/{bucket}/{key} — returns the raw file bytes.
+        Used by content-extraction jobs that need to read uploaded files.
+        404 raises StorageError (the orphan-purger handles missing keys; if
+        an extraction job sees one, that's a real problem)."""
+        url = f"{self._base}/storage/v1/object/{self._bucket}/{key}"
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.get(url, headers=self._headers())
+        if resp.status_code // 100 != 2:
+            raise StorageError(f"download failed [{resp.status_code}]: {resp.text[:200]}")
+        return resp.content
+
     async def delete(self, *, key: str) -> None:
         """DELETE /object/{bucket}/{key} — best-effort. 404 (already gone) is swallowed."""
         url = f"{self._base}/storage/v1/object/{self._bucket}/{key}"

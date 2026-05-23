@@ -131,6 +131,23 @@ async def upload(
         caption=caption,
     )
     await db.commit()
+
+    # Kick off content extraction (best-effort, runs in Celery).
+    # Failure here must not break the upload response — the upload itself
+    # is already persisted + the file is in storage.
+    try:
+        from app.scheduled.celery_app import celery_app
+        celery_app.send_task(
+            "app.scheduled.jobs.extract_task_file_content",
+            args=[str(activity.id)],
+        )
+    except Exception as exc:  # noqa: BLE001
+        import logging
+        logging.getLogger(__name__).warning(
+            "extraction.dispatch_failed",
+            extra={"activity_id": str(activity.id), "error": str(exc)[:200]},
+        )
+
     return TaskFileOut.from_activity(activity)
 
 
