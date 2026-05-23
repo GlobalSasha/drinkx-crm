@@ -6,6 +6,7 @@ import { ExportPopover } from "@/components/export/ExportPopover";
 import { PipelineSwitcher } from "@/components/pipeline/PipelineSwitcher";
 import { MultiSelectDropdown } from "@/components/ui/MultiSelectDropdown";
 import { SEGMENT_OPTIONS } from "@/lib/i18n";
+import { Button } from "@/components/ui/Button";
 import type { LeadOut } from "@/lib/types";
 
 interface Props {
@@ -82,13 +83,14 @@ export function PipelineHeader({ leads, totalCount }: Props) {
 
         <div className="flex flex-wrap items-center gap-2">
           <PipelineSwitcher />
-          <button
+          <Button
+            variant="primary"
             onClick={openCreateLeadModal}
-            className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-brand-accent/90 active:scale-[0.98]"
+            className="font-semibold transition-all duration-700 ease-soft hover:bg-brand-accent/90 active:scale-[0.98]"
           >
             <Plus size={15} />
             Лид
-          </button>
+          </Button>
           <button
             onClick={openImportWizard}
             className="inline-flex items-center gap-1.5 bg-canvas text-ink border border-black/10 rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-canvas-2 hover:border-black/20 active:scale-[0.98]"
@@ -106,14 +108,15 @@ export function PipelineHeader({ leads, totalCount }: Props) {
             }}
             leadCount={totalCount}
           />
-          <button
+          <Button
+            variant="ghost"
             onClick={openSprintModal}
-            className="inline-flex items-center gap-1.5 bg-transparent text-brand-accent border border-brand-accent/40 rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-brand-soft hover:border-brand-accent active:scale-[0.98]"
+            className="text-brand-accent border-brand-accent/40 font-semibold transition-all duration-700 ease-soft hover:bg-brand-soft hover:border-brand-accent active:scale-[0.98]"
           >
             <CalendarRange size={15} />
             <span className="hidden sm:inline">Сформировать план на неделю</span>
             <span className="sm:hidden">План на неделю</span>
-          </button>
+          </Button>
         </div>
       </div>
 

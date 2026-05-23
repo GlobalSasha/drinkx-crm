@@ -39,6 +39,7 @@ import { LostModal } from "./LostModal";
 import { TransferModal } from "./TransferModal";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
 import { C } from "@/lib/design-system";
+import { Button } from "@/components/ui/Button";
 
 // Priority pill colors keyed on the letter (A/B/C/D). Lead Card v2:
 // the visible label is now the Russian word from `lead.priority_label`
@@ -299,47 +300,51 @@ export function LeadCard({ leadId }: Props) {
 
             <div className="flex flex-wrap items-center gap-2 shrink-0">
               {lead.assignment_status === "pool" && (
-                <button
-                  type="button"
+                <Button
+                  variant="primary"
+                  size="sm"
                   onClick={handleClaim}
                   disabled={claim.isPending}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 type-body font-semibold bg-brand-accent text-white rounded-full disabled:opacity-40 transition-opacity hover:bg-brand-accent/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg"
+                  className="font-semibold hover:bg-brand-accent/90 active:scale-[0.98]"
                 >
                   {claim.isPending ? (
                     <Loader2 size={13} className="animate-spin" />
                   ) : null}
                   Взять в работу
-                </button>
+                </Button>
               )}
               {lead.assigned_to === me?.id && (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={handleReturnToPool}
                   disabled={unclaim.isPending}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 type-body font-semibold ${C.button.ghost} disabled:opacity-40 transition-opacity`}
+                  className="font-semibold"
                 >
                   Вернуть в базу
-                </button>
+                </Button>
               )}
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setTransferOpen(true)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 type-body font-semibold ${C.button.ghost} transition-opacity`}
+                className="font-semibold"
               >
                 <Send size={13} />
                 Передать
-              </button>
+              </Button>
               <div className="relative">
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setCloseMenuOpen((v) => !v)}
                   disabled={isClosed}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 type-body font-semibold ${C.button.ghost} disabled:opacity-40 disabled:cursor-not-allowed transition-opacity`}
+                  className="font-semibold disabled:cursor-not-allowed"
                 >
                   <Lock size={13} />
                   Закрыть сделку
                   <ChevronDown size={11} />
-                </button>
+                </Button>
                 {closeMenuOpen && (
                   <>
                     <div
@@ -374,16 +379,16 @@ export function LeadCard({ leadId }: Props) {
                 )}
               </div>
               <div className="relative">
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={() => setMoreMenuOpen((v) => !v)}
                   aria-label="Ещё действия"
                   aria-haspopup="menu"
                   aria-expanded={moreMenuOpen}
-                  className={`inline-flex items-center justify-center w-9 h-9 ${C.button.ghost} transition-opacity`}
                 >
                   <MoreHorizontal size={16} />
-                </button>
+                </Button>
                 {moreMenuOpen && (
                   <>
                     <div
