@@ -1,11 +1,14 @@
 """File content extraction for the task-attachment search index.
 
 Given the bytes of an uploaded file, produces a plain-text excerpt that
-the database can ILIKE-match against. Three modes:
+the database can ILIKE-match against. Four modes:
 * PDF — pypdf.PdfReader, concatenate page text.
 * Text-ish (.txt / .md / .csv / .rtf) — decode utf-8 with replace.
-* Anything else (image / audio / xlsx / doc / docx) — return None;
-  the search just won't match content for these formats in v1.
+* Audio (.mp3 / .wav / .m4a / .ogg) — OpenAI Whisper transcription
+  via httpx (no SDK dep). Requires OPENAI_API_KEY in settings; if
+  the key isn't set, audio extraction is a noop.
+* Anything else (image / xlsx / doc / docx) — return None; the
+  search just won't match content for these formats in v1.
 
 All functions are best-effort: any exception is caught + logged + an
 empty/None result is returned. Search degrades gracefully; the upload
@@ -16,14 +19,26 @@ from __future__ import annotations
 import io
 import logging
 
+import httpx
+
+from app.config import get_settings
+
 log = logging.getLogger(__name__)
 
 # Cap extracted text at 100 KB per file. Anything beyond that is unlikely
 # to be useful in an ILIKE-based search and would bloat payload_json.
 MAX_EXTRACT_BYTES = 100 * 1024
 
+# Whisper API rejects files > 25 MB. Matches our overall upload cap
+# (MAX_FILE_BYTES = 25 * 1024 * 1024 in app.activity.files).
+MAX_AUDIO_BYTES_FOR_WHISPER = 25 * 1024 * 1024
+WHISPER_TIMEOUT_SECONDS = 120.0
+WHISPER_URL = "https://api.openai.com/v1/audio/transcriptions"
+WHISPER_MODEL = "whisper-1"
+
 _TEXT_LIKE_KINDS = {"text"}
 _PDF_KINDS = {"pdf"}
+_AUDIO_KINDS = {"audio"}
 
 
 def extract_content(*, file_kind: str | None, file_name: str, content: bytes) -> str | None:
@@ -37,7 +52,10 @@ def extract_content(*, file_kind: str | None, file_name: str, content: bytes) ->
             return _truncate(_extract_text(content))
         if file_kind in _PDF_KINDS:
             return _truncate(_extract_pdf(content, filename=file_name))
-        # Image, audio, spreadsheet, document — not yet supported.
+        if file_kind in _AUDIO_KINDS:
+            transcript = _extract_audio(content, filename=file_name)
+            return _truncate(transcript) if transcript else None
+        # Image, spreadsheet, document — not yet supported.
         log.info(
             "extraction.skipped",
             extra={"file_name": file_name, "file_kind": file_kind, "reason": "unsupported_kind"},
@@ -83,3 +101,51 @@ def _extract_pdf(content: bytes, *, filename: str) -> str:
             # one bad page shouldn't kill the whole extraction
             continue
     return "\n".join(p.strip() for p in pages if p.strip())
+
+
+def _extract_audio(content: bytes, *, filename: str) -> str:
+    """POST the audio file to OpenAI Whisper for transcription.
+
+    Uses httpx directly (no SDK dep). Returns an empty string when the
+    API key isn't configured (graceful degradation in dev environments).
+    Any non-2xx response or network error is caught by the outer try
+    in extract_content() and turns into None.
+    """
+    if len(content) > MAX_AUDIO_BYTES_FOR_WHISPER:
+        log.info(
+            "extraction.skipped",
+            extra={"file_name": filename, "reason": "audio_too_large", "bytes": len(content)},
+        )
+        return ""
+
+    api_key = get_settings().openai_api_key
+    if not api_key:
+        log.info(
+            "extraction.skipped",
+            extra={"file_name": filename, "reason": "openai_api_key_unset"},
+        )
+        return ""
+
+    # Whisper expects multipart/form-data with the file + model. The browser
+    # sets the boundary itself in our frontend uploads; here we hand-roll
+    # it via httpx's files= argument.
+    response = httpx.post(
+        WHISPER_URL,
+        headers={"Authorization": f"Bearer {api_key}"},
+        files={"file": (filename, content)},
+        data={"model": WHISPER_MODEL, "response_format": "text"},
+        timeout=WHISPER_TIMEOUT_SECONDS,
+    )
+    if response.status_code // 100 != 2:
+        log.warning(
+            "extraction.whisper_failed",
+            extra={
+                "file_name": filename,
+                "status": response.status_code,
+                "body": response.text[:200],
+            },
+        )
+        return ""
+
+    # With response_format=text, Whisper returns plain text directly (not JSON).
+    return (response.text or "").strip()
