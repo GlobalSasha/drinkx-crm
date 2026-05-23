@@ -9,8 +9,10 @@ import {
   Paperclip,
   Phone,
   Send,
+  X,
 } from "lucide-react";
 import { useAskBlake, useCreateActivity } from "@/lib/hooks/use-feed";
+import { useUploadLeadFile } from "@/lib/hooks/use-task-files";
 
 interface Props {
   leadId: string;
@@ -46,11 +48,13 @@ export function FeedComposer({
   const [text, setText] = useState("");
   const [taskDue, setTaskDue] = useState<string>(""); // datetime-local: yyyy-mm-ddTHH:mm
   const [callMinutes, setCallMinutes] = useState<string>("");
+  const [picked, setPicked] = useState<File | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const create = useCreateActivity(leadId);
   const ask = useAskBlake(leadId);
-  const isPending = create.isPending || ask.isPending;
+  const uploadFile = useUploadLeadFile(leadId);
+  const isPending = create.isPending || ask.isPending || uploadFile.isPending;
 
   // External seed (e.g. «Спросить подробнее» button on an AI message)
   useEffect(() => {
@@ -73,6 +77,7 @@ export function FeedComposer({
     setText("");
     setTaskDue("");
     setCallMinutes("");
+    setPicked(null);
   }
 
   function isAskBlake(value: string): { match: boolean; question: string } {
@@ -86,7 +91,8 @@ export function FeedComposer({
   async function handleSubmit(e?: React.FormEvent) {
     if (e) e.preventDefault();
     const value = text.trim();
-    if (!value) return;
+    // File mode: a file must be picked; caption is optional (no text guard)
+    if (mode !== "file" && !value) return;
 
     if (mode === "comment") {
       const { match, question } = isAskBlake(value);
@@ -146,18 +152,15 @@ export function FeedComposer({
     }
 
     if (mode === "file") {
-      // File upload flow is not wired in this sprint — the composer
-      // still accepts a body so a manager can record a stub. Real
-      // upload arrives with the dedicated file-upload endpoint.
+      if (!picked) return;
       try {
-        await create.mutateAsync({
-          type: "file",
-          body: value,
-          payload_json: { source: "feed_composer", note: "upload_tbd" },
+        await uploadFile.mutateAsync({
+          file: picked,
+          caption: value || undefined,
         });
         reset();
       } catch {
-        /* keep text */
+        /* error surfaced via mutation state; keep state in place */
       }
       return;
     }
@@ -188,7 +191,7 @@ export function FeedComposer({
                 ? "Название задачи..."
                 : mode === "call"
                   ? "Заметка по звонку..."
-                  : "Описание файла..."
+                  : "Подпись к файлу (необязательно)"
           }
           rows={mode === "comment" ? 1 : 2}
           className="flex-1 min-w-0 resize-none bg-transparent outline-none type-body text-brand-primary placeholder:text-brand-muted px-2 py-1.5"
@@ -271,16 +274,41 @@ export function FeedComposer({
 
       {mode === "file" && (
         <div className="flex items-center gap-2 mt-2 px-2">
-          <span className="type-caption text-brand-muted">
-            Загрузка файлов появится в следующем спринте — пока сохраняется только описание.
-          </span>
+          {!picked ? (
+            <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-caption font-semibold cursor-pointer bg-brand-bg border border-brand-border hover:border-brand-accent transition-colors w-fit">
+              <Paperclip size={13} /> Выбрать файл
+              <input
+                type="file"
+                className="hidden"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.md,.rtf,.png,.jpg,.jpeg,.gif,.webp,.heic,.mp3,.wav,.m4a,.ogg"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) setPicked(f);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+          ) : (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full type-caption bg-brand-bg w-fit">
+              <Paperclip size={12} className="text-brand-muted" />
+              <span className="text-brand-primary">{picked.name}</span>
+              <button
+                type="button"
+                onClick={() => setPicked(null)}
+                aria-label="Отменить выбор"
+                className="text-brand-muted hover:text-rose-500"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          )}
           <button
             type="submit"
-            disabled={isPending || !text.trim()}
+            disabled={isPending || !picked}
             className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 type-caption font-semibold bg-brand-accent text-white rounded-full hover:bg-brand-accent/90 disabled:opacity-40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
           >
             {isPending && <Loader2 size={12} className="animate-spin" />}
-            Сохранить
+            Загрузить
           </button>
         </div>
       )}
