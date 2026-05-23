@@ -53,6 +53,7 @@ class Activity(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     task_done: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     task_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     reminder_trigger_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     file_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     file_kind: Mapped[str | None] = mapped_column(String(40), nullable=True)
     channel: Mapped[str | None] = mapped_column(String(20), nullable=True)

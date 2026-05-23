@@ -71,7 +71,7 @@ async def list_for_lead(
     page boundaries could silently skip rows. Sort + filter use
     lexicographic order on (sort_key DESC, id DESC).
     """
-    q = select(Activity).where(Activity.lead_id == lead_id)
+    q = select(Activity).where(Activity.lead_id == lead_id, Activity.archived_at.is_(None))
     if type_filter is not None:
         q = q.where(Activity.type == type_filter)
     if cursor is not None:
@@ -153,7 +153,7 @@ async def list_feed_for_lead(
         select(Activity, User.name)
         .select_from(Activity)
         .outerjoin(User, User.id == Activity.user_id)
-        .where(Activity.lead_id == lead_id)
+        .where(Activity.lead_id == lead_id, Activity.archived_at.is_(None))
     )
     if cursor is not None:
         cursor_ts, cursor_id = _decode_cursor(cursor)
@@ -210,4 +210,21 @@ async def find_files_by_parent_task(
             (text("payload_json->>'file_name' ILIKE :q").bindparams(q=like))
             | (Activity.body.ilike(like))
         )
+    return list((await db.execute(stmt)).scalars().all())
+
+
+async def list_archived_for_lead(
+    db: AsyncSession,
+    *,
+    lead_id: uuid.UUID,
+) -> list[Activity]:
+    """All archived (soft-deleted) Activity rows for a lead, newest-archived first."""
+    stmt = (
+        select(Activity)
+        .where(
+            Activity.lead_id == lead_id,
+            Activity.archived_at.is_not(None),
+        )
+        .order_by(Activity.archived_at.desc())
+    )
     return list((await db.execute(stmt)).scalars().all())

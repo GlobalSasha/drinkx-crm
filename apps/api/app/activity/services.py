@@ -47,6 +47,7 @@ async def list_my_tasks(
                 Lead.assigned_to == user_id,
                 Lead.archived_at.is_(None),
                 Activity.type == ActivityType.task.value,
+                Activity.archived_at.is_(None),
             )
             .order_by(
                 Activity.task_due_at.asc().nulls_last(),
@@ -113,6 +114,79 @@ async def create_activity(
     if payload_dict.get("type") == ActivityType.task.value and not payload_dict.get("task_due_at"):
         raise ValueError("task_due_at is required for task activities")
     return await repo.create(db, lead_id, user_id, payload_dict)
+
+
+async def update_task(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+    activity_id: uuid.UUID,
+    *,
+    body: str | None,
+    task_due_at: datetime | None,
+) -> Activity:
+    """Update body and/or task_due_at on a task-Activity. Raises
+    LeadNotFound / ActivityNotFound / ValueError if not a task."""
+    if body is None and task_due_at is None:
+        raise ValueError("at least one of body or task_due_at must be provided")
+    await _get_lead_or_raise(db, lead_id, workspace_id)
+    activity = await repo.get_by_id(db, activity_id, lead_id)
+    if activity is None:
+        raise ActivityNotFound(activity_id)
+    if activity.type != ActivityType.task.value:
+        raise ValueError("only task activities can be updated via this endpoint")
+    if body is not None:
+        cleaned = body.strip()
+        if not cleaned:
+            raise ValueError("body cannot be empty")
+        activity.body = cleaned
+        if activity.payload_json is None:
+            activity.payload_json = {}
+        activity.payload_json = {**activity.payload_json, "title": cleaned}
+    if task_due_at is not None:
+        activity.task_due_at = task_due_at
+    await db.flush()
+    await db.refresh(activity)
+    return activity
+
+
+async def archive_task(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+    activity_id: uuid.UUID,
+) -> Activity:
+    """Soft-archive a task-Activity. Sets archived_at = now() so the row is
+    hidden from active views but preserved (with its file attachments) in the
+    per-lead archive. File-attachment Activities are NOT cascade-archived;
+    they remain visible under the archived task in the archive view."""
+    await _get_lead_or_raise(db, lead_id, workspace_id)
+    activity = await repo.get_by_id(db, activity_id, lead_id)
+    if activity is None:
+        raise ActivityNotFound(activity_id)
+    if activity.type != ActivityType.task.value:
+        raise ValueError("only task activities can be archived via this endpoint")
+    if activity.archived_at is not None:
+        return activity  # already archived — no-op (idempotent)
+    activity.archived_at = datetime.now(timezone.utc)
+    return activity
+
+
+async def restore_task(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+    activity_id: uuid.UUID,
+) -> Activity:
+    """Restore an archived task. Sets archived_at = NULL."""
+    await _get_lead_or_raise(db, lead_id, workspace_id)
+    activity = await repo.get_by_id(db, activity_id, lead_id)
+    if activity is None:
+        raise ActivityNotFound(activity_id)
+    if activity.type != ActivityType.task.value:
+        raise ValueError("only task activities can be restored via this endpoint")
+    activity.archived_at = None
+    return activity
 
 
 async def complete_task(

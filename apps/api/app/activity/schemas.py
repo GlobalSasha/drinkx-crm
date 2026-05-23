@@ -31,12 +31,20 @@ class ActivityCreate(ActivityBase):
     pass
 
 
+class TaskUpdateIn(BaseModel):
+    model_config = ConfigDict()
+
+    body: str | None = Field(None, max_length=2000)
+    task_due_at: datetime | None = None
+
+
 class ActivityOut(ActivityBase):
     id: UUID
     lead_id: UUID
     user_id: UUID | None
     task_done: bool
     task_completed_at: datetime | None
+    archived_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
