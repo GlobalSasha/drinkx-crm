@@ -11,6 +11,7 @@ import { useState } from "react";
 import { Loader2, Plus, Star, Trash2 } from "lucide-react";
 
 import { T } from "@/lib/design-system";
+import { Badge } from "@/components/ui/Badge";
 import { ApiError } from "@/lib/api-client";
 import { useMe } from "@/lib/hooks/use-me";
 import {
@@ -198,10 +199,10 @@ export function PipelinesSection() {
                   </td>
                   <td className="px-4 py-3 align-middle">
                     {isDefault ? (
-                      <span className={`inline-flex items-center gap-1 ${T.mono} uppercase bg-brand-soft text-brand-accent rounded-pill px-2 py-0.5`}>
+                      <Badge variant="accent" className={T.mono + " uppercase"}>
                         <Star size={10} />
                         по умолчанию
-                      </span>
+                      </Badge>
                     ) : isAdminOrHead ? (
                       <button
                         onClick={() => onSetDefault(p)}
