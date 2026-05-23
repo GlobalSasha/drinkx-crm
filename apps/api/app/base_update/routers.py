@@ -22,9 +22,21 @@ async def create_job(
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(require_admin_or_head)],
 ) -> dto.IngestJobOut:
+    MAX_PER_FILE = 1 * 1024 * 1024  # 1 MB per file
+    total = 0
     raw_files: list[tuple[str, bytes]] = []
     for f in files:
-        raw_files.append((f.filename or "", await f.read()))
+        if not (f.filename or "").lower().endswith(".md"):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"только .md: {f.filename!r}")
+        chunk = await f.read(MAX_PER_FILE + 1)
+        if len(chunk) == 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"empty file: {f.filename!r}")
+        if len(chunk) > MAX_PER_FILE:
+            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=f"file too large (>1 MB): {f.filename!r}")
+        total += len(chunk)
+        if total > svc.MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="total upload exceeds 5 MB")
+        raw_files.append((f.filename or "", chunk))
     try:
         staged = svc._build_staged_files(raw_files)
     except ValueError as exc:
@@ -96,6 +108,8 @@ async def patch_conflict(
         )
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     await db.commit()
     return dto.IngestConflictOut.model_validate(cf)
 

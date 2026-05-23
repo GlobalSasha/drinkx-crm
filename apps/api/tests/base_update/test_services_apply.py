@@ -102,11 +102,11 @@ async def test_ambiguous_match_records_company_ambiguous_conflict(monkeypatch):
 async def test_pure_diff_company_fields_autofill_and_conflict():
     """Direct test of the pure _diff_company_fields helper."""
     card = ExtractedCard.model_validate({
-        "company": {"name": "X", "segment": "HoReCa", "city": "Москва", "website": "x.ru"},
+        "company": {"name": "X", "segment": "HoReCa", "city": "Москва", "website": "https://x.ru"},
     })
     base = SimpleNamespace(primary_segment="QSR", website=None, inn=None, city="Москва", phone=None, email=None)
     updates, conflicts = svc._diff_company_fields(card, base)
-    assert updates == {"website": "x.ru"}                          # base empty → autofill
+    assert updates == {"website": "https://x.ru"}                  # base empty → autofill
     assert ("primary_segment", "QSR", "HoReCa") in conflicts       # base differs → conflict
     # city matches (case-insensitive normalized), nothing happens
     assert all(f != "city" for f, _, _ in conflicts) and "city" not in updates
@@ -171,4 +171,30 @@ def test_decide_apply_contact_mismatch_is_deferred():
 
 def test_decide_apply_lead_target_is_deferred():
     op, _ = svc._decide_apply(_cf(c.C_LEAD_TARGET, resolution=c.R_PICK))
+    assert op == "deferred"
+
+
+# --- FIX-1: eager-load smoke ---
+
+def test_apply_resolutions_eager_loads_record():
+    """Smoke: the select used in apply_resolutions includes selectinload(IngestConflict.record)."""
+    import inspect
+    src = inspect.getsource(svc.apply_resolutions)
+    assert "selectinload" in src, "apply_resolutions must eager-load cf.record (avoids MissingGreenlet)"
+
+
+# --- FIX-3: R_MANUAL with empty/None resolved_value is deferred ---
+
+def test_decide_apply_field_manual_with_none_value_is_deferred():
+    op, _ = svc._decide_apply(_cf(c.C_FIELD_MISMATCH, field_name="city", resolution=c.R_MANUAL, resolved=None))
+    assert op == "deferred"
+
+
+def test_decide_apply_field_manual_with_empty_string_is_deferred():
+    op, _ = svc._decide_apply(_cf(c.C_FIELD_MISMATCH, field_name="city", resolution=c.R_MANUAL, resolved=""))
+    assert op == "deferred"
+
+
+def test_decide_apply_field_manual_with_whitespace_is_deferred():
+    op, _ = svc._decide_apply(_cf(c.C_FIELD_MISMATCH, field_name="city", resolution=c.R_MANUAL, resolved="   "))
     assert op == "deferred"

@@ -66,3 +66,64 @@ def test_routes_registered_in_app():
     }
     missing = expected - paths
     assert not missing, f"missing routes: {missing}"
+
+
+# --- FIX-5: IngestJobOut strips underscore-prefixed keys from stats_json ---
+
+def test_ingest_job_out_strips_underscored_keys():
+    from datetime import datetime, timezone
+    raw = {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "workspace_id": "00000000-0000-0000-0000-000000000002",
+        "user_id": None,
+        "status": "extracting",
+        "file_count": 1,
+        "source_filenames": ["a.md"],
+        "stats_json": {
+            "_staged_files": [{"filename": "a.md", "text": "secret content"}],
+            "files": 1,
+        },
+        "error": None,
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+    }
+    dto = IngestJobOut.model_validate(raw)
+    assert "_staged_files" not in (dto.stats_json or {})
+    assert (dto.stats_json or {}).get("files") == 1
+
+
+def test_ingest_job_out_all_internal_keys_stripped():
+    from datetime import datetime, timezone
+    raw = {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "workspace_id": "00000000-0000-0000-0000-000000000002",
+        "user_id": None,
+        "status": "ready",
+        "file_count": 2,
+        "source_filenames": ["a.md", "b.md"],
+        "stats_json": {"_staged_files": [], "_internal_debug": "secret", "records_created": 3},
+        "error": None,
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+    }
+    dto = IngestJobOut.model_validate(raw)
+    assert dto.stats_json == {"records_created": 3}
+
+
+def test_ingest_job_out_only_internal_keys_becomes_none():
+    from datetime import datetime, timezone
+    raw = {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "workspace_id": "00000000-0000-0000-0000-000000000002",
+        "user_id": None,
+        "status": "extracting",
+        "file_count": 1,
+        "source_filenames": ["a.md"],
+        "stats_json": {"_staged_files": [{"filename": "a.md", "text": "secret"}]},
+        "error": None,
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+    }
+    dto = IngestJobOut.model_validate(raw)
+    # All keys were internal → stats_json should be None (empty dict coerced to None)
+    assert dto.stats_json is None

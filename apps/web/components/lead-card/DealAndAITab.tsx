@@ -18,6 +18,7 @@ import { ApiError } from "@/lib/api-client";
 import type { LeadOut } from "@/lib/types";
 import { dealTypeLabel } from "@/lib/i18n";
 import { C } from "@/lib/design-system";
+import { safeHref } from "@/lib/safe-url";
 import { SourceSection } from "./SourceSection";
 
 interface Props {
@@ -100,16 +101,21 @@ export function DealAndAITab({ lead }: Props) {
           {lead.website && (
             <Row
               icon={<Globe size={16} className={C.color.muted} />}
-              primary={
-                <a
-                  href={lead.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`${C.color.accent} hover:underline truncate inline-block max-w-full`}
-                >
-                  {lead.website.replace(/^https?:\/\//, "")}
-                </a>
-              }
+              primary={(() => {
+                const url = safeHref(lead.website);
+                return url ? (
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`${C.color.accent} hover:underline truncate inline-block max-w-full`}
+                  >
+                    {lead.website.replace(/^https?:\/\//, "")}
+                  </a>
+                ) : (
+                  <span className="truncate inline-block max-w-full">{lead.website}</span>
+                );
+              })()}
             />
           )}
         </ul>

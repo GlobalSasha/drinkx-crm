@@ -12,6 +12,7 @@ from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.base_update import constants as c
 from app.base_update.matcher import is_low_confidence
@@ -358,6 +359,8 @@ def _decide_apply(cf: IngestConflict) -> tuple[str, dict]:
         if res == c.R_OVERWRITE:
             return ("update_company_field", {"field": cf.field_name, "value": cf.incoming_value})
         if res == c.R_MANUAL:
+            if cf.resolved_value is None or not str(cf.resolved_value).strip():
+                return ("deferred", {})
             return ("update_company_field", {"field": cf.field_name, "value": cf.resolved_value})
         if res in (c.R_KEEP, c.R_SKIP):
             return ("noop", {})
@@ -434,10 +437,13 @@ async def apply_resolutions(db: AsyncSession, *, workspace_id: uuid.UUID, job_id
     if job is None:
         raise ValueError(f"job {job_id} not found in workspace {workspace_id}")
 
-    # All conflicts marked CONFLICT_RESOLVED (admin has decided), join the record for FK + scoping
+    # All conflicts marked CONFLICT_RESOLVED (admin has decided), join the record for FK + scoping.
+    # selectinload prevents MissingGreenlet when _execute_op touches cf.record attributes
+    # (match_company_id, error) in an async session.
     conflicts = (
         await db.execute(
             select(IngestConflict)
+            .options(selectinload(IngestConflict.record))
             .join(IngestRecord, IngestRecord.id == IngestConflict.ingest_record_id)
             .where(
                 IngestConflict.ingest_job_id == job_id,
@@ -482,6 +488,9 @@ async def apply_resolutions(db: AsyncSession, *, workspace_id: uuid.UUID, job_id
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
 
+MAX_FILES_PER_JOB = 200
+
+
 def _build_staged_files(files: list[tuple[str, bytes]]) -> list[dict]:
     """Pure: validate + decode uploaded .md bytes into the staging shape.
 
@@ -490,6 +499,8 @@ def _build_staged_files(files: list[tuple[str, bytes]]) -> list[dict]:
     on bad bytes (LLM can still extract from a partly mangled file)."""
     if not files:
         raise ValueError("no files uploaded")
+    if len(files) > MAX_FILES_PER_JOB:
+        raise ValueError(f"too many files: {len(files)} > {MAX_FILES_PER_JOB}")
     total = 0
     staged: list[dict] = []
     for filename, raw in files:
@@ -580,6 +591,8 @@ async def resolve_conflict(
     resolved_value: str | None,
     resolved_by: uuid.UUID,
 ) -> IngestConflict:
+    if resolution == c.R_MANUAL and (resolved_value is None or not str(resolved_value).strip()):
+        raise ValueError("resolved_value is required for manual resolution")
     from datetime import datetime, timezone
     # Load the conflict joined with its job so we can workspace-scope cheaply
     from app.base_update.models import IngestJob
@@ -608,9 +621,19 @@ async def mark_resolving(
     db: AsyncSession, *, workspace_id: uuid.UUID, job_id: uuid.UUID
 ) -> "IngestJob":
     """Flip a READY job to RESOLVING (called from the apply endpoint right
-    before dispatch). Raises if the job isn't found or isn't in READY."""
-    job = await get_job(db, workspace_id=workspace_id, job_id=job_id)
-    if job.status not in (c.JOB_READY, c.JOB_RESOLVING):
+    before dispatch). Uses SELECT … FOR UPDATE to prevent double-apply races.
+    Raises LookupError if not found, ValueError if not in JOB_READY."""
+    from app.base_update.models import IngestJob
+    job = (
+        await db.execute(
+            select(IngestJob)
+            .where(IngestJob.id == job_id, IngestJob.workspace_id == workspace_id)
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if job is None:
+        raise LookupError(f"job {job_id} not found")
+    if job.status != c.JOB_READY:
         raise ValueError(f"cannot apply: job is in status {job.status!r}")
     job.status = c.JOB_RESOLVING
     await db.flush()

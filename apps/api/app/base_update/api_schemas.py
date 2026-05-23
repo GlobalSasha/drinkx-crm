@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class IngestJobOut(BaseModel):
@@ -20,6 +20,13 @@ class IngestJobOut(BaseModel):
     error: str | None = None
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("stats_json", mode="before")
+    @classmethod
+    def _strip_internal(cls, v: object) -> object:
+        if not isinstance(v, dict):
+            return v
+        return {k: val for k, val in v.items() if not k.startswith("_")} or None
 
 
 class IngestRecordOut(BaseModel):

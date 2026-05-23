@@ -37,11 +37,11 @@ def test_primary_card_has_most_fields():
     """When merging duplicates, the card with more filled fields is .primary."""
     sparse, _ = _card("Магнит")
     rich = ExtractedCard.model_validate({
-        "company": {"name": "Магнит", "city": "Краснодар", "segment": "retail", "website": "magnit.ru"},
+        "company": {"name": "Магнит", "city": "Краснодар", "segment": "retail", "website": "https://magnit.ru"},
     })
     groups = dedup_batch([(sparse, ["s.md"]), (rich, ["r.md"])])
     assert len(groups) == 1
-    assert groups[0].primary.company.website == "magnit.ru"
+    assert groups[0].primary.company.website == "https://magnit.ru"
 
 
 def test_empty_input_returns_empty_list():
