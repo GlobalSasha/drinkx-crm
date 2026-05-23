@@ -5,6 +5,7 @@ import { Check, ArrowUpRight, ListChecks } from "lucide-react";
 import { C } from "@/lib/design-system";
 import { type TaskRow, formatDueDateTime, isOverdue } from "@/lib/tasks";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/Empty";
+import { Badge } from "@/components/ui/Badge";
 
 interface Props {
   rows: TaskRow[];
@@ -17,17 +18,9 @@ interface Props {
 // so the badge only distinguishes overdue vs a normal task.
 function TypeBadge({ row }: { row: TaskRow }) {
   if (isOverdue(row)) {
-    return (
-      <span className="inline-block type-caption font-semibold px-2 py-0.5 rounded-full bg-rose/10 text-rose">
-        просрочено
-      </span>
-    );
+    return <Badge variant="rose">просрочено</Badge>;
   }
-  return (
-    <span className="inline-block type-caption font-semibold px-2 py-0.5 rounded-full bg-success/15 text-success">
-      задача
-    </span>
-  );
+  return <Badge variant="success">задача</Badge>;
 }
 
 export function TaskTable({ rows, onComplete, isCompleting, emptyText }: Props) {

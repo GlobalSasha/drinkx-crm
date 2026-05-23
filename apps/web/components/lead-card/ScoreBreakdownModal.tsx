@@ -10,6 +10,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
+import { Badge, type BadgeProps } from "@/components/ui/Badge";
 import {
   useScoreBreakdown,
   useUpdateScoreDetails,
@@ -20,24 +21,26 @@ interface Props {
   onClose: () => void;
 }
 
+type PriorityVariant = BadgeProps["variant"];
+
 // Mirrors `priority_from_score` + `priority_label` on the backend.
-const PRIORITY_TABLE: Array<[number, string, string, string]> = [
-  // [threshold, letter, label, pill-color-class]
-  [80, "A", "Стратегический", "bg-success/15 text-success"],
-  [60, "B", "Перспективный", "bg-success/10 text-success"],
-  [40, "C", "Низкий", "bg-warning/10 text-warning"],
-  [0, "D", "Архив", "bg-black/5 text-brand-muted"],
+const PRIORITY_TABLE: Array<[number, string, string, PriorityVariant]> = [
+  // [threshold, letter, label, badge-variant]
+  [80, "A", "Стратегический", "success"],
+  [60, "B", "Перспективный", "success2"],
+  [40, "C", "Низкий", "warning"],
+  [0, "D", "Архив", "neutral"],
 ];
 
 function priorityFromScore(total: number): {
   letter: string;
   label: string;
-  pill: string;
+  variant: PriorityVariant;
 } {
-  for (const [threshold, letter, label, pill] of PRIORITY_TABLE) {
-    if (total >= threshold) return { letter, label, pill };
+  for (const [threshold, letter, label, variant] of PRIORITY_TABLE) {
+    if (total >= threshold) return { letter, label, variant };
   }
-  return { letter: "D", label: "Архив", pill: "bg-black/5 text-brand-muted" };
+  return { letter: "D", label: "Архив", variant: "neutral" };
 }
 
 export function ScoreBreakdownModal({ leadId, onClose }: Props) {
@@ -95,11 +98,7 @@ export function ScoreBreakdownModal({ leadId, onClose }: Props) {
             <span className="type-body font-mono tabular-nums text-brand-primary">
               {liveTotal} / {data?.max ?? 100}
             </span>
-            <span
-              className={`type-caption font-semibold px-2.5 py-0.5 rounded-full ${livePriority.pill}`}
-            >
-              {livePriority.label}
-            </span>
+            <Badge variant={livePriority.variant}>{livePriority.label}</Badge>
           </div>
         </header>
 

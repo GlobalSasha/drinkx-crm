@@ -18,6 +18,7 @@ import type { ContactOut, LeadOut } from "@/lib/types";
 import { C } from "@/lib/design-system";
 import { safeHref } from "@/lib/safe-url";
 import { ContactEditModal } from "./ContactEditModal";
+import { Badge } from "@/components/ui/Badge";
 
 interface Props {
   lead: LeadOut;
@@ -201,9 +202,7 @@ function ContactRow({
                 </span>
               )}
               {!hasName ? (
-                <span className="type-caption font-semibold px-2 py-0.5 rounded-full bg-warning/10 text-warning">
-                  уточнить
-                </span>
+                <Badge variant="warning">уточнить</Badge>
               ) : (
                 <VerifyBadge status={contact.verified_status} confidence={contact.confidence} />
               )}
@@ -290,16 +289,10 @@ function VerifyBadge({
   if (status === "verified") return null;
   if (status === "invalid") {
     return (
-      <span className="type-caption font-semibold px-2 py-0.5 rounded-full bg-rose/10 text-rose">
-        invalid
-      </span>
+      <Badge variant="rose">invalid</Badge>
     );
   }
-  return (
-    <span className="type-caption font-semibold px-2 py-0.5 rounded-full bg-warning/10 text-warning">
-      уточнить
-    </span>
-  );
+  return <Badge variant="warning">уточнить</Badge>;
 }
 
 function LinkBtn({
