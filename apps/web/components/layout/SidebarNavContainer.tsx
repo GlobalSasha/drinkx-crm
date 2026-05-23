@@ -14,13 +14,16 @@ import {
   Workflow,
   MessageCircle,
   LifeBuoy,
+  Search,
 } from "lucide-react";
+import { Kbd } from "@/components/ui/Kbd";
 import { useNotificationsBadge } from "@/lib/hooks/use-notifications";
 import { useMe } from "@/lib/hooks/use-me";
 import { SidebarNav, type NavItem } from "./SidebarNav";
 
 interface SidebarNavContainerProps {
   onNotificationsClick: () => void;
+  onSearchClick: () => void;
 }
 
 // Owns the polling hooks (notifications badge, /me).
@@ -28,6 +31,7 @@ interface SidebarNavContainerProps {
 // stop here instead of cascading through AppShell's drawer/search/content.
 export function SidebarNavContainer({
   onNotificationsClick,
+  onSearchClick,
 }: SidebarNavContainerProps) {
   const pathname = usePathname();
   const { data: badge } = useNotificationsBadge();
@@ -42,6 +46,14 @@ export function SidebarNavContainer({
   // can't accidentally match a hidden row.
   const items: NavItem[] = useMemo(() => {
     const base: NavItem[] = [
+      {
+        id: "search",
+        label: "Поиск",
+        icon: <Search size={18} />,
+        ariaLabel: "Открыть глобальный поиск (⌘K)",
+        onClick: onSearchClick,
+        trailing: <Kbd>⌘K</Kbd>,
+      },
       { id: "today",      label: "Сегодня",   href: "/today",      icon: <CalendarDays size={18} /> },
       { id: "pipeline",   label: "Воронка",   href: "/pipeline",   icon: <Kanban size={18} /> },
       { id: "leads-pool", label: "База лидов", href: "/leads-pool", icon: <Target size={18} /> },
@@ -72,7 +84,7 @@ export function SidebarNavContainer({
     });
     base.push({ id: "settings", label: "Настройки", href: "/settings", icon: <Settings size={18} /> });
     return base;
-  }, [isAdmin, isAdminOrHead, unreadCount, onNotificationsClick]);
+  }, [isAdmin, isAdminOrHead, unreadCount, onNotificationsClick, onSearchClick]);
 
   // The active item is whichever route currently matches. Notifications
   // (no href) can never be "active" — only highlighted on hover.

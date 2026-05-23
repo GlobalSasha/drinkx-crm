@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckSquare, Square, Plus, Calendar, X, Loader2, Paperclip, Search, ChevronDown, Pencil, Archive } from "lucide-react";
+import { CheckSquare, Square, Plus, Calendar, X, Loader2, Paperclip, Search, ChevronDown, Pencil, Archive, ListChecks } from "lucide-react";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/Empty";
 import { TaskFilesList } from "./TaskFilesList";
 import { TaskFileDropzone } from "./TaskFileDropzone";
 import {
@@ -178,9 +179,17 @@ export function TasksTab({ leadId }: Props) {
       )}
 
       {!isLoading && !isError && rows.length === 0 && (
-        <p className={`type-body ${C.color.mutedLight} py-6 text-center`}>
-          Задач нет
-        </p>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon"><ListChecks /></EmptyMedia>
+            <EmptyTitle>{search.trim() ? "Ничего не найдено" : "Задач пока нет"}</EmptyTitle>
+            <EmptyDescription>
+              {search.trim()
+                ? "Попробуйте другой запрос или очистите поиск."
+                : "Поставьте первую задачу через кнопку «+ Добавить задачу»."}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
 
       {!isLoading && !isError && rows.length > 0 && (

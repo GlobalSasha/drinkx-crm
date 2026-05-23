@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Check, ArrowUpRight } from "lucide-react";
+import { Check, ArrowUpRight, ListChecks } from "lucide-react";
 import { C } from "@/lib/design-system";
 import { type TaskRow, formatDueDateTime, isOverdue } from "@/lib/tasks";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/Empty";
 
 interface Props {
   rows: TaskRow[];
@@ -34,9 +35,15 @@ export function TaskTable({ rows, onComplete, isCompleting, emptyText }: Props) 
 
   if (rows.length === 0) {
     return (
-      <p className={`type-body ${C.color.mutedLight} py-6 text-center`}>
-        {emptyText ?? "Задач нет"}
-      </p>
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon"><ListChecks /></EmptyMedia>
+          <EmptyTitle>{emptyText ?? "Задач нет"}</EmptyTitle>
+          <EmptyDescription>
+            Когда менеджер поставит задачу — она появится в этом списке.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 

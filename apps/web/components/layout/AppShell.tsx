@@ -48,6 +48,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Stable ref so SidebarNavContainer's items useMemo doesn't rebuild
   // on every AppShell render.
   const openNotifications = useCallback(() => setNotifOpen(true), []);
+  const openSearch = useCallback(() => setSearchOpen(true), []);
 
   const displayName =
     (user?.user_metadata?.full_name as string | undefined) ??
@@ -136,7 +137,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* Nav + sliding pill. Polling, hover state, and pill measurement
             all live in their own components so they don't re-render the
             rest of the shell. */}
-        <SidebarNavContainer onNotificationsClick={openNotifications} />
+        <SidebarNavContainer onNotificationsClick={openNotifications} onSearchClick={openSearch} />
 
         {/* User pill — links to /settings/profile */}
         <div
