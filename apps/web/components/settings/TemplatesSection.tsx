@@ -6,6 +6,7 @@
 // dispatch lives in 2.5. Read-open to every role; create/edit/delete
 // hidden for non-admins.
 import { useState } from "react";
+import { InlineConfirm } from "@/components/ui/InlineConfirm";
 import {
   Loader2,
   Mail,
@@ -71,13 +72,6 @@ export function TemplatesSection() {
   function openEdit(t: MessageTemplateOut) {
     setEditing(t);
     setEditorOpen(true);
-  }
-
-  function onDelete(t: MessageTemplateOut) {
-    if (!window.confirm(`Удалить шаблон «${t.name}»?`)) {
-      return;
-    }
-    del.mutate(t.id);
   }
 
   return (
@@ -163,15 +157,25 @@ export function TemplatesSection() {
                         >
                           <Pencil size={13} />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => onDelete(t)}
-                          disabled={del.isPending}
-                          className="text-muted hover:text-rose p-1.5 rounded-md hover:bg-rose/5 transition-colors disabled:opacity-40"
-                          title="Удалить"
+                        <InlineConfirm
+                          destructive
+                          prompt={`Удалить «${t.name}»?`}
+                          confirmLabel="Удалить"
+                          busy={del.isPending}
+                          onConfirm={() => del.mutate(t.id)}
                         >
-                          <Trash2 size={13} />
-                        </button>
+                          {(openConfirm) => (
+                            <button
+                              type="button"
+                              onClick={openConfirm}
+                              disabled={del.isPending}
+                              className="text-muted hover:text-rose p-1.5 rounded-md hover:bg-rose/5 transition-colors disabled:opacity-40"
+                              title="Удалить"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </InlineConfirm>
                       </div>
                     </td>
                   )}

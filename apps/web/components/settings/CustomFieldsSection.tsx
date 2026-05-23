@@ -9,6 +9,7 @@
 // the new ordered id list; backend writes `position = index` on
 // each row in one transaction.
 import { useEffect, useState } from "react";
+import { InlineConfirm } from "@/components/ui/InlineConfirm";
 import {
   DndContext,
   DragEndEvent,
@@ -83,13 +84,6 @@ export function CustomFieldsSection() {
   }
 
   function onDelete(def: CustomAttributeDefinitionOut) {
-    if (
-      !window.confirm(
-        `Удалить поле «${def.label}»? Все сохранённые значения тоже пропадут.`,
-      )
-    ) {
-      return;
-    }
     del.mutate(def.id);
   }
 
@@ -590,15 +584,25 @@ function SortableRow({
             >
               <Pencil size={13} />
             </button>
-            <button
-              type="button"
-              onClick={() => onDelete(def)}
-              disabled={deletePending}
-              className="text-muted hover:text-rose p-1.5 rounded-md hover:bg-rose/5 transition-colors disabled:opacity-40"
-              title="Удалить"
+            <InlineConfirm
+              destructive
+              prompt={`Удалить «${def.label}»?`}
+              confirmLabel="Удалить"
+              busy={deletePending}
+              onConfirm={() => onDelete(def)}
             >
-              <Trash2 size={13} />
-            </button>
+              {(openConfirm) => (
+                <button
+                  type="button"
+                  onClick={openConfirm}
+                  disabled={deletePending}
+                  className="text-muted hover:text-rose p-1.5 rounded-md hover:bg-rose/5 transition-colors disabled:opacity-40"
+                  title="Удалить"
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
+            </InlineConfirm>
           </span>
         </span>
       ) : (

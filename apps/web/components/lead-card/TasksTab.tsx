@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckSquare, Square, Plus, Calendar, X, Loader2, Paperclip, Search, ChevronDown, Pencil, Archive, ListChecks } from "lucide-react";
+import { CheckSquare, Square, Plus, Calendar, X, Loader2, Paperclip, Search, ChevronDown, Pencil, ListChecks, Trash2 } from "lucide-react";
+import { InlineConfirm } from "@/components/ui/InlineConfirm";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/Empty";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -339,18 +340,24 @@ export function TasksTab({ leadId }: Props) {
                           >
                             <Pencil size={12} /> Изменить
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (window.confirm(`Переместить задачу «${taskTitle(a)}» в архив?`)) {
-                                archiveTask.mutate(a.id);
-                              }
-                            }}
-                            disabled={archiveTask.isPending}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-caption font-semibold text-brand-muted bg-brand-bg hover:bg-brand-panel disabled:opacity-40 transition-colors"
+                          <InlineConfirm
+                            destructive
+                            prompt="Переместить в архив?"
+                            confirmLabel="Да, в архив"
+                            busy={archiveTask.isPending}
+                            onConfirm={() => archiveTask.mutate(a.id)}
                           >
-                            <Archive size={12} /> В архив
-                          </button>
+                            {(openConfirm) => (
+                              <button
+                                type="button"
+                                onClick={openConfirm}
+                                disabled={archiveTask.isPending}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-caption font-semibold text-rose bg-rose/10 hover:bg-rose/15 disabled:opacity-40 transition-colors"
+                              >
+                                <Trash2 size={12} /> В архив
+                              </button>
+                            )}
+                          </InlineConfirm>
                         </div>
                       </>
                     )}
