@@ -254,7 +254,7 @@ def purge_orphan_storage_files() -> dict:
     from datetime import datetime, timedelta, timezone
     from sqlalchemy import select
     from app.activity.models import Activity, ActivityType
-    from app.storage.client import get_storage_client
+    from app.storage.client import StorageError, get_storage_client
 
     async def _core():
         engine, factory = _build_task_engine_and_factory()
@@ -288,9 +288,13 @@ def purge_orphan_storage_files() -> dict:
                     try:
                         await client.delete(key=key)
                         deleted += 1
-                    except Exception:  # noqa: BLE001
-                        # best-effort; will retry next week
-                        pass
+                    except StorageError as exc:
+                        # Best-effort: the next weekly sweep retries. Log so a misconfigured
+                        # bucket isn't silently no-op.
+                        log.warning(
+                            "purge_orphan_storage_files.delete_failed",
+                            error=str(exc)[:120],
+                        )
         finally:
             await engine.dispose()
         return {"job": "purge_orphan_storage_files", "deleted": deleted, "kept_recent": kept}

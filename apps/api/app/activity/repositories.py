@@ -182,27 +182,32 @@ async def list_feed_for_lead(
 async def find_files_by_parent_task(
     db: AsyncSession,
     *,
-    workspace_id: uuid.UUID,
     lead_id: uuid.UUID,
     task_id: uuid.UUID,
     q: str | None = None,
 ) -> list[Activity]:
     """All file-activities whose payload_json.parent_task_id == task_id, optionally
-    ILIKE-filtered on filename or body."""
+    ILIKE-filtered on filename or body.
+
+    Caller must enforce workspace scope via _get_lead_or_raise(lead_id, workspace_id)
+    BEFORE invoking this — Activity has no workspace_id column, so scope is
+    transitive through Lead.
+    """
     from app.activity.models import ActivityType  # avoid module-level circular risk
 
-    conditions = [
-        Activity.lead_id == lead_id,
-        Activity.type == ActivityType.file.value,
-        text("payload_json->>'parent_task_id' = :tid").bindparams(tid=str(task_id)),
-    ]
-    if hasattr(Activity, "workspace_id"):
-        conditions.insert(0, Activity.workspace_id == workspace_id)
-    stmt = select(Activity).where(*conditions).order_by(Activity.created_at.desc())
+    stmt = (
+        select(Activity)
+        .where(
+            Activity.lead_id == lead_id,
+            Activity.type == ActivityType.file.value,
+            text("payload_json->>'parent_task_id' = :tid").bindparams(tid=str(task_id)),
+        )
+        .order_by(Activity.created_at.desc())
+    )
     if q and q.strip():
         like = f"%{q.strip()}%"
         stmt = stmt.where(
-            text("payload_json->>'file_name' ILIKE :q").bindparams(q=like)
-            | Activity.body.ilike(like)
+            (text("payload_json->>'file_name' ILIKE :q").bindparams(q=like))
+            | (Activity.body.ilike(like))
         )
     return list((await db.execute(stmt)).scalars().all())

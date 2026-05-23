@@ -95,7 +95,9 @@ class SupabaseStorageClient:
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             resp = await client.delete(url, headers=self._headers())
         if resp.status_code == 404:
-            log.info("storage.delete: object already gone", extra={"key": key})
+            # Redact the slug (last segment) — it may contain PII like a counterparty name
+            redacted = key.rsplit("/", 1)[0] + "/<redacted>" if "/" in key else "<redacted>"
+            log.info("storage.delete: object already gone", extra={"key": redacted})
             return
         if resp.status_code // 100 != 2:
             raise StorageError(f"delete failed [{resp.status_code}]: {resp.text[:200]}")

@@ -23,6 +23,7 @@ def _flushing_db(set_id_to=None):
         if added and set_id_to is not None:
             added[-1].id = set_id_to
     db.flush = fake_flush
+    db.refresh = AsyncMock()
     db._added = added
     return db
 

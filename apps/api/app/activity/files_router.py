@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -82,12 +82,23 @@ async def _get_file_activity_workspace_scoped(
 async def upload(
     lead_id: uuid.UUID,
     task_id: uuid.UUID,
+    request: Request,
     file: Annotated[UploadFile, File(...)],
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(current_user)],
     caption: Annotated[str | None, Form()] = None,
 ) -> TaskFileOut:
     await _get_lead_or_raise(db, lead_id, user.workspace_id)
+
+    # Cheap early-bail before Starlette buffers the multipart body to disk/memory.
+    # Nginx caps externally at 25MB; this is defense-in-depth for internal callers.
+    cl = request.headers.get("content-length")
+    if cl:
+        try:
+            if int(cl) > svc.MAX_FILE_BYTES + 65536:  # 64KB slack for multipart envelope
+                raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="file too large")
+        except ValueError:
+            pass  # malformed Content-Length — let the body read handle it
 
     # Bounded read (defends against header lying about size)
     raw = await file.read(svc.MAX_FILE_BYTES + 1)
@@ -136,7 +147,7 @@ async def list_files(
 ) -> list[TaskFileOut]:
     await _get_lead_or_raise(db, lead_id, user.workspace_id)
     rows = await find_files_by_parent_task(
-        db, workspace_id=user.workspace_id, lead_id=lead_id, task_id=task_id, q=q
+        db, lead_id=lead_id, task_id=task_id, q=q
     )
     return [TaskFileOut.from_activity(r) for r in rows]
 

@@ -93,11 +93,11 @@ async def upload_task_file(
 ) -> Activity:
     """Create an Activity(type=file) row and upload bytes to storage.
 
-    Persistence first (so storage isn't holding orphans on DB failure), THEN
-    storage upload. If storage fails, we surface the error to the caller and
-    rely on the orphan-purger to mop up the Activity. (A two-phase commit is
-    overkill for v1; the rare failure mode leaves an Activity with a dead
-    storage path, which the UI handles by showing a broken-link state.)
+    The router commits the transaction only after this function returns
+    cleanly. On StorageError we re-raise; the session rollback leaves the
+    DB clean — there is no Activity row to clean up. The weekly
+    orphan-purger handles the inverse case: the rare scenario where the
+    storage upload succeeded but the request died before db.commit().
     """
     activity_kwargs: dict = dict(
         lead_id=lead_id,
@@ -135,19 +135,16 @@ async def upload_task_file(
             extra={"activity_id": str(activity.id), "error": str(exc)[:200]},
         )
         raise
+    # Ensure server-default columns (created_at) are populated for the response DTO.
+    await db.refresh(activity)
     return activity
 
 
 async def list_task_files(
-    db: AsyncSession,
-    *,
-    workspace_id: uuid.UUID,
-    lead_id: uuid.UUID,
-    task_id: uuid.UUID,
-    q: str | None,
+    db: AsyncSession, *, lead_id: uuid.UUID, task_id: uuid.UUID, q: str | None
 ) -> list[Activity]:
     return await find_files_by_parent_task(
-        db, workspace_id=workspace_id, lead_id=lead_id, task_id=task_id, q=q
+        db, lead_id=lead_id, task_id=task_id, q=q
     )
 
 
