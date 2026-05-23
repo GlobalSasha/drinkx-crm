@@ -75,6 +75,77 @@ async def _get_file_activity_workspace_scoped(
 
 
 @router.post(
+    "/leads/{lead_id}/files",
+    response_model=TaskFileOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_lead_file(
+    lead_id: uuid.UUID,
+    request: Request,
+    file: Annotated[UploadFile, File(...)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(current_user)],
+    caption: Annotated[str | None, Form()] = None,
+) -> TaskFileOut:
+    """Upload a file as a lead-level feed attachment (no parent task)."""
+    await _get_lead_or_raise(db, lead_id, user.workspace_id)
+
+    cl = request.headers.get("content-length")
+    if cl:
+        try:
+            if int(cl) > svc.MAX_FILE_BYTES + 65536:
+                raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="file too large")
+        except ValueError:
+            pass
+
+    raw = await file.read(svc.MAX_FILE_BYTES + 1)
+    if len(raw) > svc.MAX_FILE_BYTES:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="file too large")
+    if not raw:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="empty file")
+
+    try:
+        kind, content_type = classify_upload(
+            filename=file.filename or "",
+            size=len(raw),
+            content_head=raw[:64],
+        )
+    except UnsupportedFileType as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except FileTooLarge as exc:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=str(exc)) from exc
+
+    activity = await svc.upload_lead_file(
+        db,
+        workspace_id=user.workspace_id,
+        lead_id=lead_id,
+        user_id=user.id,
+        parent_task_id=None,
+        filename=file.filename or "file",
+        content=raw,
+        content_type=content_type,
+        kind=kind,
+        caption=caption,
+    )
+    await db.commit()
+
+    try:
+        from app.scheduled.celery_app import celery_app
+        celery_app.send_task(
+            "app.scheduled.jobs.extract_task_file_content",
+            args=[str(activity.id)],
+        )
+    except Exception as exc:  # noqa: BLE001
+        import logging
+        logging.getLogger(__name__).warning(
+            "extraction.dispatch_failed",
+            extra={"activity_id": str(activity.id), "error": str(exc)[:200]},
+        )
+
+    return TaskFileOut.from_activity(activity)
+
+
+@router.post(
     "/leads/{lead_id}/tasks/{task_id}/files",
     response_model=TaskFileOut,
     status_code=status.HTTP_201_CREATED,

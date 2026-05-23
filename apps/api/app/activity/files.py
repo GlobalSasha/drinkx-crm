@@ -78,13 +78,13 @@ from app.storage.client import StorageError, get_storage_client
 from app.storage.paths import build_object_key
 
 
-async def upload_task_file(
+async def upload_lead_file(
     db: AsyncSession,
     *,
     workspace_id: uuid.UUID,
     lead_id: uuid.UUID,
     user_id: uuid.UUID,
-    parent_task_id: uuid.UUID,
+    parent_task_id: uuid.UUID | None,
     filename: str,
     content: bytes,
     content_type: str,
@@ -93,24 +93,31 @@ async def upload_task_file(
 ) -> Activity:
     """Create an Activity(type=file) row and upload bytes to storage.
 
+    If parent_task_id is None, the file is a lead-level feed attachment
+    (rendered in UnifiedFeed); otherwise it's attached to a task and
+    shows up in the TasksTab/ArchiveTab file panel.
+
     The router commits the transaction only after this function returns
     cleanly. On StorageError we re-raise; the session rollback leaves the
     DB clean — there is no Activity row to clean up. The weekly
     orphan-purger handles the inverse case: the rare scenario where the
     storage upload succeeded but the request died before db.commit().
     """
+    payload_json: dict = {
+        "file_name": filename,
+        "file_size": len(content),
+        "source": "lead_file_upload" if parent_task_id is None else "task_file_upload",
+    }
+    if parent_task_id is not None:
+        payload_json["parent_task_id"] = str(parent_task_id)
+
     activity_kwargs: dict = dict(
         lead_id=lead_id,
         user_id=user_id,
         type=ActivityType.file.value,
         body=(caption or "").strip() or None,
         file_kind=kind,
-        payload_json={
-            "parent_task_id": str(parent_task_id),
-            "file_name": filename,
-            "file_size": len(content),
-            "source": "task_file_upload",
-        },
+        payload_json=payload_json,
     )
     if hasattr(Activity, "workspace_id"):
         activity_kwargs["workspace_id"] = workspace_id
@@ -138,6 +145,34 @@ async def upload_task_file(
     # Ensure server-default columns (created_at) are populated for the response DTO.
     await db.refresh(activity)
     return activity
+
+
+async def upload_task_file(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+    user_id: uuid.UUID,
+    parent_task_id: uuid.UUID,
+    filename: str,
+    content: bytes,
+    content_type: str,
+    kind: str,
+    caption: str | None,
+) -> Activity:
+    """Thin wrapper around upload_lead_file for task-scoped file attachments."""
+    return await upload_lead_file(
+        db,
+        workspace_id=workspace_id,
+        lead_id=lead_id,
+        user_id=user_id,
+        parent_task_id=parent_task_id,
+        filename=filename,
+        content=content,
+        content_type=content_type,
+        kind=kind,
+        caption=caption,
+    )
 
 
 async def list_task_files(

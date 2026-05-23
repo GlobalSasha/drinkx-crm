@@ -35,6 +35,22 @@ export function useUploadTaskFile(leadId: string, taskId: string) {
   });
 }
 
+/** Upload a file as a lead-level feed attachment (no parent task). */
+export function useUploadLeadFile(leadId: string) {
+  const qc = useQueryClient();
+  return useMutation<TaskFileOut, Error, { file: File; caption?: string }>({
+    mutationFn: async ({ file, caption }) => {
+      const form = new FormData();
+      form.append("file", file);
+      if (caption) form.append("caption", caption);
+      return await api.postFormData<TaskFileOut>(`/leads/${leadId}/files`, form);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["feed", leadId] });
+    },
+  });
+}
+
 /** Fetch a 5-minute signed URL for an existing file Activity. */
 export function useDownloadTaskFile() {
   return useMutation<SignedDownloadOut, Error, string>({
