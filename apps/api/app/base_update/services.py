@@ -5,6 +5,7 @@ and resolution applier (Task 10) come next.
 """
 from __future__ import annotations
 
+import logging
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
@@ -335,3 +336,139 @@ async def apply_record(
         db.add(cf)
     record.action = c.ACTION_CONFLICT if (had_conflict or late_conflicts) else c.ACTION_UPDATED
     return record.action
+
+
+log = logging.getLogger(__name__)
+
+
+def _decide_apply(cf: IngestConflict) -> tuple[str, dict]:
+    """Pure: map a resolved conflict to an operation descriptor.
+
+    Returns `(op, args)`. `op` ∈
+        "update_company_field" — args: {field, value}
+        "set_match_company"    — args: {company_id}
+        "set_record_error"     — args: {message}
+        "noop"                 — no DB write
+        "deferred"             — handled by a later iteration (Task 16+)
+    """
+    type_ = cf.type
+    res = cf.resolution
+
+    if type_ == c.C_FIELD_MISMATCH and cf.target_kind == c.TK_COMPANY:
+        if res == c.R_OVERWRITE:
+            return ("update_company_field", {"field": cf.field_name, "value": cf.incoming_value})
+        if res == c.R_MANUAL:
+            return ("update_company_field", {"field": cf.field_name, "value": cf.resolved_value})
+        if res in (c.R_KEEP, c.R_SKIP):
+            return ("noop", {})
+
+    if type_ == c.C_COMPANY_AMBIGUOUS:
+        if res == c.R_PICK and cf.resolved_value:
+            return ("set_match_company", {"company_id": cf.resolved_value})
+        if res in (c.R_KEEP, c.R_SKIP):
+            return ("noop", {})
+
+    if type_ == c.C_LOW_CONFIDENCE:
+        if res == c.R_MANUAL:
+            return ("set_record_error", {"message": f"manual: {cf.resolved_value or ''}"})
+        if res == c.R_SKIP:
+            return ("noop", {})
+
+    if type_ == c.C_BATCH_DUPLICATE:
+        if res in (c.R_KEEP, c.R_SKIP):
+            return ("noop", {})
+        # R_ADD_SEPARATE for #6 needs a re-run; defer.
+
+    # TODO Task 16+: C_CONTACT_MISMATCH, C_LEAD_TARGET, brief overwrite
+    return ("deferred", {})
+
+
+async def _execute_op(db: AsyncSession, *, workspace_id, cf: IngestConflict, op: str, args: dict) -> bool:
+    """Run the op chosen by _decide_apply. Returns True on success, False on failure
+    (caller flips conflict status accordingly)."""
+    if op == "noop":
+        return True
+    if op == "deferred":
+        cf.record.error = f"resolution deferred: {cf.type}"
+        return False
+    if op == "update_company_field":
+        company_id = cf.record.match_company_id
+        if company_id is None:
+            cf.record.error = "cannot apply: record has no match_company_id"
+            return False
+        try:
+            await companies_svc.update_company(
+                db, workspace_id=workspace_id, company_id=company_id,
+                data=CompanyUpdate(**{args["field"]: args["value"]}),
+            )
+            return True
+        except Exception as exc:  # noqa: BLE001
+            log.warning("base_update.apply.update_company_failed", extra={"conflict": str(cf.id), "error": str(exc)[:200]})
+            cf.record.error = f"update_company failed: {str(exc)[:120]}"
+            return False
+    if op == "set_match_company":
+        try:
+            cf.record.match_company_id = uuid.UUID(args["company_id"])
+            return True
+        except (ValueError, TypeError):
+            cf.record.error = f"invalid company id: {args.get('company_id')!r}"
+            return False
+    if op == "set_record_error":
+        cf.record.error = args["message"]
+        return True
+    cf.record.error = f"unknown op: {op}"
+    return False
+
+
+async def apply_resolutions(db: AsyncSession, *, workspace_id: uuid.UUID, job_id: uuid.UUID) -> dict:
+    """Apply every conflict whose status is CONFLICT_RESOLVED. Returns a small
+    summary dict for the orchestrator/log."""
+    from app.base_update.models import IngestJob, IngestRecord  # local to avoid cycles
+
+    # Load the job (workspace-scoped)
+    job = (
+        await db.execute(
+            select(IngestJob).where(IngestJob.id == job_id, IngestJob.workspace_id == workspace_id)
+        )
+    ).scalar_one_or_none()
+    if job is None:
+        raise ValueError(f"job {job_id} not found in workspace {workspace_id}")
+
+    # All conflicts marked CONFLICT_RESOLVED (admin has decided), join the record for FK + scoping
+    conflicts = (
+        await db.execute(
+            select(IngestConflict)
+            .join(IngestRecord, IngestRecord.id == IngestConflict.ingest_record_id)
+            .where(
+                IngestConflict.ingest_job_id == job_id,
+                IngestConflict.status == c.CONFLICT_RESOLVED,
+            )
+        )
+    ).scalars().all()
+
+    applied = 0
+    failed = 0
+    deferred = 0
+    for cf in conflicts:
+        op, args = _decide_apply(cf)
+        ok = await _execute_op(db, workspace_id=workspace_id, cf=cf, op=op, args=args)
+        if op == "deferred":
+            deferred += 1
+        elif ok:
+            applied += 1
+        else:
+            failed += 1
+            cf.status = c.CONFLICT_OPEN  # bounce back so admin can retry
+
+    # Recount open after our writes (deferred + bounced-back contribute to "open")
+    open_count = (
+        await db.execute(
+            select(IngestConflict).where(
+                IngestConflict.ingest_job_id == job_id,
+                IngestConflict.status == c.CONFLICT_OPEN,
+            )
+        )
+    ).scalars().all()
+    job.status = c.JOB_DONE if len(open_count) == 0 else c.JOB_READY
+
+    return {"applied": applied, "failed": failed, "deferred": deferred, "open": len(open_count)}

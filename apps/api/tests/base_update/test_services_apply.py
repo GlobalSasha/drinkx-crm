@@ -110,3 +110,65 @@ async def test_pure_diff_company_fields_autofill_and_conflict():
     assert ("primary_segment", "QSR", "HoReCa") in conflicts       # base differs → conflict
     # city matches (case-insensitive normalized), nothing happens
     assert all(f != "city" for f, _, _ in conflicts) and "city" not in updates
+
+
+# --- _decide_apply pure dispatch tests ---
+from app.base_update import constants as c
+
+
+def _cf(type_, *, target_kind=c.TK_COMPANY, field_name=None, incoming=None, resolved=None, resolution=None):
+    """Tiny IngestConflict stand-in for the pure helper."""
+    return SimpleNamespace(
+        type=type_, target_kind=target_kind, field_name=field_name,
+        incoming_value=incoming, resolved_value=resolved, resolution=resolution,
+    )
+
+
+def test_decide_apply_field_overwrite():
+    op, args = svc._decide_apply(_cf(c.C_FIELD_MISMATCH, field_name="city", incoming="Москва", resolution=c.R_OVERWRITE))
+    assert op == "update_company_field"
+    assert args == {"field": "city", "value": "Москва"}
+
+
+def test_decide_apply_field_manual_uses_resolved_value():
+    op, args = svc._decide_apply(_cf(c.C_FIELD_MISMATCH, field_name="city", incoming="Москва", resolved="Санкт-Петербург", resolution=c.R_MANUAL))
+    assert op == "update_company_field"
+    assert args == {"field": "city", "value": "Санкт-Петербург"}
+
+
+def test_decide_apply_field_keep_and_skip_are_noop():
+    for r in (c.R_KEEP, c.R_SKIP):
+        op, _ = svc._decide_apply(_cf(c.C_FIELD_MISMATCH, field_name="city", resolution=r))
+        assert op == "noop"
+
+
+def test_decide_apply_company_pick():
+    op, args = svc._decide_apply(_cf(c.C_COMPANY_AMBIGUOUS, resolved="11111111-1111-1111-1111-111111111111", resolution=c.R_PICK))
+    assert op == "set_match_company"
+    assert args == {"company_id": "11111111-1111-1111-1111-111111111111"}
+
+
+def test_decide_apply_low_confidence_manual_sets_error():
+    op, args = svc._decide_apply(_cf(c.C_LOW_CONFIDENCE, resolved="скорректировано вручную", resolution=c.R_MANUAL))
+    assert op == "set_record_error"
+    assert "manual" in args["message"]
+
+
+def test_decide_apply_low_confidence_skip_is_noop():
+    op, _ = svc._decide_apply(_cf(c.C_LOW_CONFIDENCE, resolution=c.R_SKIP))
+    assert op == "noop"
+
+
+def test_decide_apply_batch_duplicate_keep_is_noop():
+    op, _ = svc._decide_apply(_cf(c.C_BATCH_DUPLICATE, resolution=c.R_KEEP))
+    assert op == "noop"
+
+
+def test_decide_apply_contact_mismatch_is_deferred():
+    op, _ = svc._decide_apply(_cf(c.C_CONTACT_MISMATCH, resolution=c.R_OVERWRITE))
+    assert op == "deferred"
+
+
+def test_decide_apply_lead_target_is_deferred():
+    op, _ = svc._decide_apply(_cf(c.C_LEAD_TARGET, resolution=c.R_PICK))
+    assert op == "deferred"
