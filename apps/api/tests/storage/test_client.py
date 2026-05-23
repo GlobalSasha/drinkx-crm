@@ -21,6 +21,9 @@ async def test_upload_object_posts_to_storage_with_service_key():
     await c.upload(key="ws/lead/act/file.pdf", content=b"PDF", content_type="application/pdf")
     assert route.called
     req = route.calls.last.request
+    # Both headers are required for new-format Supabase keys; legacy JWT keys
+    # accept either but harmless to send both.
+    assert req.headers["apikey"] == "srv-key"
     assert req.headers["Authorization"] == "Bearer srv-key"
     assert req.headers["Content-Type"] == "application/pdf"
     assert req.content == b"PDF"

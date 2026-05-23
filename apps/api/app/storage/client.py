@@ -28,7 +28,14 @@ class SupabaseStorageClient:
         self._timeout = timeout_seconds
 
     def _headers(self, extra: dict | None = None) -> dict:
-        h = {"Authorization": f"Bearer {self._service_key}"}
+        # Supabase Storage requires BOTH headers when the secret key is the
+        # new opaque `sb_secret_...` format (the legacy JWT-style service_role
+        # key only needed Authorization). Sending both works for either flavour
+        # — verified against the live prod project 2026-05-23.
+        h = {
+            "apikey": self._service_key,
+            "Authorization": f"Bearer {self._service_key}",
+        }
         if extra:
             h.update(extra)
         return h
