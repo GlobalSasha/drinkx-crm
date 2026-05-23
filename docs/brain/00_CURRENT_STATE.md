@@ -1,6 +1,6 @@
 # DrinkX CRM — Current State
 
-Last updated: 2026-05-16 (Lead Card Refresh arc shipped — PRs #41 Lead Card Redesign, #42 Unified Activity Feed, #45 Lead Card v2. LeadCard screen now has unified chronological feed with Чак as a native participant, horizontal stage stepper with days-per-stage, deal-value strip, editable 8-criteria manual scoring popup, primary contact pin. Migration head bumped 0026 → 0030. Two prod outages along the way — ORM mapper ambiguity after FK addition and `jsonb_extract_path_text` on a `json` column — both hot-fixed in <30 min.)
+Last updated: 2026-05-23 (Sprint «Audit quick-wins + base_update». PR #65 = task-time (datetime-local) + TaskTable a11y + NeedsReviewRow tokens + lead-card empty column + «Удалить» → ⋯ menu, frontend-only. NEW domain `base_update` on branch `feat/base-update` (52 backend tests + 1 e2e-on-CI, frontend Settings section + 6 conflict types) — see [docs/features/base-update.md](../features/base-update.md). Alembic head 0035 → 0036 (`ingest_jobs/records/conflicts`). Earlier: 2026-05-16 Lead Card Refresh (PRs #41/#42/#45 — unified feed, stage stepper, scoring popup, primary contact pin; migrations 0026 → 0030).
 
 ## Phase 0 — COMPLETED ✅ (lives in `crm-prototype` repo)
 

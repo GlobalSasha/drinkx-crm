@@ -204,6 +204,46 @@ def run_enrichment_task(run_id: str, mode: str = "full") -> dict:
     return asyncio.run(_core())
 
 
+@celery_app.task(name="app.scheduled.jobs.base_update_extract")
+def base_update_extract(job_id: str) -> dict:
+    """Celery wrapper around base_update.orchestrator.run_extract_and_match.
+
+    Builds a per-task NullPool engine + async session (no shared pool across
+    forks), runs the async core, then disposes. Best-effort per file is
+    handled by the orchestrator itself."""
+    from uuid import UUID
+    from app.base_update.orchestrator import run_extract_and_match
+
+    async def _core():
+        engine, factory = _build_task_engine_and_factory()
+        try:
+            async with factory() as db:
+                await run_extract_and_match(db=db, job_id=UUID(job_id))
+        finally:
+            await engine.dispose()
+        return {"job": "base_update_extract", "job_id": job_id}
+
+    return asyncio.run(_core())
+
+
+@celery_app.task(name="app.scheduled.jobs.base_update_apply")
+def base_update_apply(job_id: str) -> dict:
+    """Celery wrapper around base_update.orchestrator.run_apply_resolutions."""
+    from uuid import UUID
+    from app.base_update.orchestrator import run_apply_resolutions
+
+    async def _core():
+        engine, factory = _build_task_engine_and_factory()
+        try:
+            async with factory() as db:
+                await run_apply_resolutions(db=db, job_id=UUID(job_id))
+        finally:
+            await engine.dispose()
+        return {"job": "base_update_apply", "job_id": job_id}
+
+    return asyncio.run(_core())
+
+
 def _build_task_engine_and_factory():
     """Each Celery task needs its own engine because asyncio.run() creates a
     fresh event loop per invocation, while asyncpg connections are bound to

@@ -16,6 +16,7 @@ from app.config import get_settings
 # references in Lead → Contact / Activity / Followup fail to resolve at
 # task time with 'expression Contact failed to locate a name'.
 from app.auth import models as _auth_models  # noqa: F401, E402
+from app.base_update import models as _base_update_models  # noqa: F401
 from app.pipelines import models as _pipeline_models  # noqa: F401, E402
 from app.leads import models as _leads_models  # noqa: F401, E402
 from app.contacts import models as _contacts_models  # noqa: F401, E402

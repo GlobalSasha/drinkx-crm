@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from app.config import get_settings
 from app.common.models import Base
 from app.auth import models as _auth_models  # noqa: F401
+from app.base_update import models as _base_update_models  # noqa: F401
 from app.pipelines import models as _pipeline_models  # noqa: F401
 from app.leads import models as _leads_models        # noqa: F401
 from app.contacts import models as _contacts_models  # noqa: F401
