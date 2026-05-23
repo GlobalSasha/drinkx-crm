@@ -15,11 +15,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.base_update import constants as c
-from app.base_update.matcher import is_low_confidence
+from app.base_update.matcher import is_low_confidence, match_contact
 from app.base_update.models import IngestConflict, IngestRecord
 from app.base_update.schemas import ExtractedCard
 from app.companies import services as companies_svc
 from app.companies.models import Company
+from app.contacts.models import Contact
 from app.companies.schemas import CompanyCreate, CompanyUpdate
 from app.companies.utils import normalize_company_name
 from app.contacts import services as contacts_svc
@@ -333,6 +334,87 @@ async def apply_record(
             )
         )
 
+    # Contact-match loop (#3) — only meaningful when we resolved to an
+    # existing lead. New leads get their contacts populated in the
+    # CREATE path above; here we treat the lead's current contacts as
+    # the base and the card.contacts as incoming.
+    if record.match_lead_id is not None:
+        existing_contacts = (
+            await db.execute(
+                select(Contact).where(Contact.lead_id == record.match_lead_id)
+            )
+        ).scalars().all()
+        existing_dicts = [{"id": str(c_obj.id), "name": c_obj.name or ""} for c_obj in existing_contacts]
+
+        for ctc in card.contacts:
+            if not (ctc.name or "").strip():
+                continue
+            base_id = match_contact(existing_dicts, ctc.name)
+            if base_id is None:
+                # No name match — auto-add as a new contact (to_verify).
+                await contacts_svc.create_contact(
+                    db,
+                    workspace_id,
+                    record.match_lead_id,
+                    {
+                        "name": ctc.name,
+                        "title": ctc.title,
+                        "role_type": ctc.role_type,
+                        "email": ctc.email,
+                        "phone": ctc.phone,
+                        "telegram": ctc.telegram,
+                        "linkedin": ctc.linkedin,
+                        "source": "base_update",
+                        "verified_status": "to_verify",
+                    },
+                )
+                continue
+
+            # Name matched — check if any salient field differs.
+            base = next((c_obj for c_obj in existing_contacts if str(c_obj.id) == base_id), None)
+            if base is None:
+                continue  # shouldn't happen
+
+            for field_name in ("phone", "email", "telegram", "linkedin", "title", "role_type"):
+                incoming_v = getattr(ctc, field_name, None)
+                # For Contact model fields that differ in name (telegram_url, linkedin_url),
+                # map them when reading from the existing contact object.
+                if field_name == "telegram":
+                    base_v = getattr(base, "telegram_url", None)
+                elif field_name == "linkedin":
+                    base_v = getattr(base, "linkedin_url", None)
+                else:
+                    base_v = getattr(base, field_name, None)
+                if not (incoming_v or "") or not str(incoming_v).strip():
+                    continue
+                if not (base_v or "") or _norm(base_v) == _norm(incoming_v):
+                    continue
+                # Diverging detail — queue a #3 conflict carrying the FULL
+                # ExtractedContact dict so R_ADD_SEPARATE can replay it.
+                contact_payload = {
+                    "name": ctc.name,
+                    "title": ctc.title,
+                    "role_type": ctc.role_type,
+                    "email": ctc.email,
+                    "phone": ctc.phone,
+                    "telegram": ctc.telegram,
+                    "linkedin": ctc.linkedin,
+                }
+                late_conflicts.append(
+                    _conflict(
+                        record,
+                        type_=c.C_CONTACT_MISMATCH,
+                        target_kind=c.TK_CONTACT,
+                        field_name=field_name,
+                        base_value=str(base_v),
+                        incoming_value=str(incoming_v),
+                        candidates=[contact_payload],
+                    )
+                )
+                # Only one conflict per contact-pair — pick the first
+                # diverging field. Admin can re-extract if more rounds needed.
+                break
+
     for cf in late_conflicts:
         db.add(cf)
     record.action = c.ACTION_CONFLICT if (had_conflict or late_conflicts) else c.ACTION_UPDATED
@@ -350,14 +432,11 @@ def _decide_apply(cf: IngestConflict) -> tuple[str, dict]:
         "set_match_company"     — args: {company_id}
         "set_record_error"      — args: {message}
         "update_contact_field"  — args: {contact_id, field, value}  [v1.1 #3]
+        "add_contact"           — args: {contact_data: dict}         [v1.2 #3 R_ADD_SEPARATE]
         "set_match_lead"        — args: {lead_id}                   [v1.1 #4 R_PICK]
         "create_new_lead"       — args: {}                          [v1.1 #4 R_KEEP]
         "noop"                  — no DB write
-        "deferred"              — unrecognised combination (should not occur in
-                                  normal flow; C_CONTACT_MISMATCH R_ADD_SEPARATE
-                                  remains noop until v1.2 when the full
-                                  ExtractedContact payload is replayable from
-                                  the conflict row alone)
+        "deferred"              — unrecognised combination (should not occur in normal flow)
     """
     type_ = cf.type
     res = cf.resolution
@@ -404,9 +483,11 @@ def _decide_apply(cf: IngestConflict) -> tuple[str, dict]:
                 "value": cf.resolved_value,
             })
         if res == c.R_ADD_SEPARATE:
-            # Creating a new contact requires the original ExtractedContact payload
-            # which is not carried in the conflict row alone — deferred to v1.2.
-            return ("noop", {})
+            # The conflict carries the full ExtractedContact payload in
+            # candidates_json[0]. Executor uses it to create a NEW Contact
+            # alongside the existing same-name one.
+            data = (cf.candidates_json or [{}])[0]
+            return ("add_contact", {"contact_data": data})
         if res in (c.R_KEEP, c.R_SKIP):
             return ("noop", {})
 
@@ -509,6 +590,39 @@ async def _execute_op(db: AsyncSession, *, workspace_id, cf: IngestConflict, op:
         await db.flush()
         cf.record.match_lead_id = new_lead.id
         return True
+    if op == "add_contact":
+        data = args.get("contact_data") or {}
+        if not data.get("name"):
+            cf.record.error = "add_contact: missing name in contact_data"
+            return False
+        if not cf.record.match_lead_id:
+            cf.record.error = "add_contact: record has no match_lead_id"
+            return False
+        try:
+            await contacts_svc.create_contact(
+                db,
+                workspace_id,
+                cf.record.match_lead_id,
+                {
+                    "name": data["name"],
+                    "title": data.get("title"),
+                    "role_type": data.get("role_type"),
+                    "email": data.get("email"),
+                    "phone": data.get("phone"),
+                    "telegram": data.get("telegram"),
+                    "linkedin": data.get("linkedin"),
+                    "source": "base_update",
+                    "verified_status": "to_verify",
+                },
+            )
+            return True
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "base_update.apply.add_contact_failed",
+                extra={"conflict": str(cf.id), "error": str(exc)[:200]},
+            )
+            cf.record.error = f"add_contact failed: {str(exc)[:120]}"
+            return False
     cf.record.error = f"unknown op: {op}"
     return False
 

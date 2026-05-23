@@ -178,9 +178,22 @@ def test_decide_apply_contact_keep_and_skip_are_noop():
         assert op == "noop"
 
 
-def test_decide_apply_contact_add_separate_is_noop():
-    op, _ = svc._decide_apply(_cf(c.C_CONTACT_MISMATCH, target_kind=c.TK_CONTACT, resolution=c.R_ADD_SEPARATE))
-    assert op == "noop"
+def test_decide_apply_contact_add_separate_returns_add_contact():
+    payload = {"name": "Иван Петров", "phone": "+7 999"}
+    cf = _cf(c.C_CONTACT_MISMATCH, target_kind=c.TK_CONTACT, resolution=c.R_ADD_SEPARATE)
+    cf.candidates_json = [payload]
+    op, args = svc._decide_apply(cf)
+    assert op == "add_contact"
+    assert args == {"contact_data": payload}
+
+
+def test_decide_apply_contact_add_separate_empty_candidates():
+    """Defensive: no candidates_json → empty contact_data, but still add_contact op."""
+    cf = _cf(c.C_CONTACT_MISMATCH, target_kind=c.TK_CONTACT, resolution=c.R_ADD_SEPARATE)
+    cf.candidates_json = None
+    op, args = svc._decide_apply(cf)
+    assert op == "add_contact"
+    assert args == {"contact_data": {}}
 
 
 def test_decide_apply_lead_target_pick():
