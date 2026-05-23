@@ -1,13 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckSquare, Square, Plus, Calendar, X, Loader2, Paperclip, Search, ChevronDown } from "lucide-react";
+import { CheckSquare, Square, Plus, Calendar, X, Loader2, Paperclip, Search, ChevronDown, Pencil, Trash2 } from "lucide-react";
 import { TaskFilesList } from "./TaskFilesList";
 import { TaskFileDropzone } from "./TaskFileDropzone";
 import {
   useLeadTasks,
   useCreateLeadTask,
   useCompleteLeadTask,
+  useUpdateLeadTask,
+  useDeleteLeadTask,
 } from "@/lib/hooks/use-lead-tasks";
 import { C } from "@/lib/design-system";
 import type { ActivityOut } from "@/lib/types";
@@ -35,12 +37,17 @@ export function TasksTab({ leadId }: Props) {
   const { data: tasks, isLoading, isError } = useLeadTasks(leadId);
   const createTask = useCreateLeadTask(leadId);
   const completeTask = useCompleteLeadTask(leadId);
+  const updateTask = useUpdateLeadTask(leadId);
+  const deleteTask = useDeleteLeadTask(leadId);
 
   const [adding, setAdding] = useState(false);
   const [text, setText] = useState("");
   const [due, setDue] = useState(""); // datetime-local: yyyy-mm-ddTHH:mm
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [editDue, setEditDue] = useState("");
 
   // Open first, then by due date ascending (nulls last).
   const rows = useMemo(() => {
@@ -222,20 +229,121 @@ export function TasksTab({ leadId }: Props) {
                     type="button"
                     onClick={toggle}
                     aria-expanded={isExpanded}
-                    aria-label="Файлы"
-                    className="shrink-0 inline-flex items-center gap-1 type-caption text-brand-muted hover:text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 rounded"
+                    aria-label={isExpanded ? "Скрыть детали" : "Показать детали и файлы"}
+                    className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-caption font-semibold bg-white border border-brand-border text-brand-muted hover:text-brand-primary hover:border-brand-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                   >
-                    <Paperclip size={12} />
+                    <Paperclip size={13} />
                     <ChevronDown
-                      size={12}
+                      size={13}
                       className={`transition-transform ${isExpanded ? "rotate-180" : ""}`}
                     />
                   </button>
                 </div>
                 {isExpanded && (
-                  <div className="px-3 pb-3 space-y-2 border-t border-brand-border/50 pt-2">
-                    <TaskFilesList leadId={leadId} taskId={a.id} q={search.trim() || undefined} />
-                    <TaskFileDropzone leadId={leadId} taskId={a.id} />
+                  <div className="px-3 pb-3 border-t border-brand-border/50 pt-3 space-y-4">
+                    {editingId === a.id ? (
+                      <div className="space-y-2 bg-brand-bg rounded-2xl p-3">
+                        <input
+                          autoFocus
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          placeholder="Название задачи"
+                          className={`w-full ${C.form.field}`}
+                        />
+                        <input
+                          type="datetime-local"
+                          value={editDue}
+                          onChange={(e) => setEditDue(e.target.value)}
+                          aria-label="Срок и время"
+                          className={`w-full sm:w-72 ${C.form.field}`}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            disabled={!editText.trim() || updateTask.isPending}
+                            onClick={async () => {
+                              const trimmed = editText.trim();
+                              if (!trimmed) return;
+                              let iso: string | null = null;
+                              if (editDue) {
+                                const d = new Date(editDue);
+                                if (!Number.isNaN(d.getTime())) iso = d.toISOString();
+                              }
+                              try {
+                                await updateTask.mutateAsync({
+                                  activityId: a.id,
+                                  body: trimmed,
+                                  task_due_at: iso,
+                                });
+                                setEditingId(null);
+                              } catch {
+                                /* error surfaced via mutation state */
+                              }
+                            }}
+                            className={`${C.button.primary} type-caption px-4 py-1.5 disabled:opacity-40`}
+                          >
+                            {updateTask.isPending ? (
+                              <Loader2 size={12} className="animate-spin inline-block" />
+                            ) : (
+                              "Сохранить"
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingId(null)}
+                            disabled={updateTask.isPending}
+                            className={`${C.button.ghost} type-caption px-3 py-1.5`}
+                          >
+                            Отмена
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="space-y-2">
+                          <h4 className="type-caption text-brand-muted uppercase tracking-wide">Файлы</h4>
+                          <TaskFilesList leadId={leadId} taskId={a.id} q={search.trim() || undefined} />
+                          <TaskFileDropzone leadId={leadId} taskId={a.id} />
+                        </div>
+                        <div className="flex flex-wrap gap-2 border-t border-brand-border/50 pt-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingId(a.id);
+                              setEditText(taskTitle(a));
+                              if (a.task_due_at) {
+                                const d = new Date(a.task_due_at);
+                                if (!Number.isNaN(d.getTime())) {
+                                  const pad = (n: number) => String(n).padStart(2, "0");
+                                  setEditDue(
+                                    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+                                  );
+                                } else {
+                                  setEditDue("");
+                                }
+                              } else {
+                                setEditDue("");
+                              }
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-caption font-semibold bg-white border border-brand-border text-brand-primary hover:border-brand-accent transition-colors"
+                          >
+                            <Pencil size={12} /> Изменить
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Удалить задачу «${taskTitle(a)}»?`)) {
+                                deleteTask.mutate(a.id);
+                              }
+                            }}
+                            disabled={deleteTask.isPending}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-caption font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 disabled:opacity-40 transition-colors"
+                          >
+                            <Trash2 size={12} /> Удалить
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </li>

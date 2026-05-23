@@ -31,6 +31,13 @@ class ActivityCreate(ActivityBase):
     pass
 
 
+class TaskUpdateIn(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    body: str | None = None
+    task_due_at: datetime | None = None
+
+
 class ActivityOut(ActivityBase):
     id: UUID
     lead_id: UUID

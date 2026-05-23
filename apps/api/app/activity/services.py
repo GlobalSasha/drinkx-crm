@@ -115,6 +115,69 @@ async def create_activity(
     return await repo.create(db, lead_id, user_id, payload_dict)
 
 
+async def update_task(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+    activity_id: uuid.UUID,
+    *,
+    body: str | None,
+    task_due_at: datetime | None,
+) -> Activity:
+    """Update body and/or task_due_at on a task-Activity. Raises
+    LeadNotFound / ActivityNotFound / ValueError if not a task."""
+    await _get_lead_or_raise(db, lead_id, workspace_id)
+    activity = await repo.get_by_id(db, activity_id, lead_id)
+    if activity is None:
+        raise ActivityNotFound(activity_id)
+    if activity.type != ActivityType.task.value:
+        raise ValueError("only task activities can be updated via this endpoint")
+    if body is not None:
+        cleaned = body.strip()
+        if not cleaned:
+            raise ValueError("body cannot be empty")
+        activity.body = cleaned
+        if activity.payload_json is None:
+            activity.payload_json = {}
+        activity.payload_json = {**activity.payload_json, "title": cleaned}
+    if task_due_at is not None:
+        activity.task_due_at = task_due_at
+    await db.flush()
+    await db.refresh(activity)
+    return activity
+
+
+async def delete_task(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+    activity_id: uuid.UUID,
+) -> None:
+    """Delete a task-Activity row. Also deletes any file-attachment
+    Activities whose payload_json.parent_task_id points at this task;
+    storage objects are swept by the weekly orphan-purger."""
+    from sqlalchemy import delete
+    from sqlalchemy import text
+
+    await _get_lead_or_raise(db, lead_id, workspace_id)
+    activity = await repo.get_by_id(db, activity_id, lead_id)
+    if activity is None:
+        raise ActivityNotFound(activity_id)
+    if activity.type != ActivityType.task.value:
+        raise ValueError("only task activities can be deleted via this endpoint")
+    # Best-effort: delete file-attachment Activities pointing at this task.
+    await db.execute(
+        delete(Activity).where(
+            Activity.lead_id == lead_id,
+            Activity.type == ActivityType.file.value,
+            text("payload_json->>'parent_task_id' = :tid").bindparams(
+                tid=str(activity_id)
+            ),
+        )
+    )
+    await db.delete(activity)
+
+
 async def complete_task(
     db: AsyncSession,
     workspace_id: uuid.UUID,

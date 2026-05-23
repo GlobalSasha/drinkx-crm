@@ -17,6 +17,7 @@ from app.activity.schemas import (
     FeedItemOut,
     FeedListOut,
     MyTaskOut,
+    TaskUpdateIn,
 )
 from app.auth.dependencies import current_user
 from app.auth.models import User
@@ -213,3 +214,53 @@ async def complete_task(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     await db.commit()
     return activity  # type: ignore[return-value]
+
+
+@router.patch("/{activity_id}", response_model=ActivityOut)
+async def update_activity(
+    lead_id: UUID,
+    activity_id: UUID,
+    payload: TaskUpdateIn,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> ActivityOut:
+    try:
+        activity = await services.update_task(
+            db,
+            workspace_id=user.workspace_id,
+            lead_id=lead_id,
+            activity_id=activity_id,
+            body=payload.body,
+            task_due_at=payload.task_due_at,
+        )
+    except LeadNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="lead not found")
+    except services.ActivityNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="task not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    await db.commit()
+    return activity  # type: ignore[return-value]
+
+
+@router.delete("/{activity_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_activity(
+    lead_id: UUID,
+    activity_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> None:
+    try:
+        await services.delete_task(
+            db,
+            workspace_id=user.workspace_id,
+            lead_id=lead_id,
+            activity_id=activity_id,
+        )
+    except LeadNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="lead not found")
+    except services.ActivityNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="task not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    await db.commit()

@@ -70,3 +70,39 @@ export function useCompleteLeadTask(leadId: string) {
     },
   });
 }
+
+export interface UpdateLeadTaskIn {
+  activityId: string;
+  body?: string;
+  task_due_at?: string | null;
+}
+
+/** PATCH /leads/{id}/activities/{activityId} — update task title and/or due date. */
+export function useUpdateLeadTask(leadId: string) {
+  const qc = useQueryClient();
+  return useMutation<ActivityOut, ApiError, UpdateLeadTaskIn>({
+    mutationFn: ({ activityId, body, task_due_at }) =>
+      api.patch<ActivityOut>(`/leads/${leadId}/activities/${activityId}`, {
+        body,
+        task_due_at,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: TASKS_KEY(leadId) });
+      qc.invalidateQueries({ queryKey: ["feed", leadId] });
+    },
+  });
+}
+
+/** DELETE /leads/{id}/activities/{activityId} — delete a task and its file attachments. */
+export function useDeleteLeadTask(leadId: string) {
+  const qc = useQueryClient();
+  return useMutation<void, ApiError, string>({
+    mutationFn: (activityId) =>
+      api.delete<void>(`/leads/${leadId}/activities/${activityId}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: TASKS_KEY(leadId) });
+      qc.invalidateQueries({ queryKey: ["feed", leadId] });
+      qc.invalidateQueries({ queryKey: ["my-tasks"] });
+    },
+  });
+}
