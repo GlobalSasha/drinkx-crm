@@ -54,6 +54,38 @@ async function request<T>(
   return data as T;
 }
 
+async function postFormData<T>(path: string, form: FormData): Promise<T> {
+  let token: string | undefined;
+  if (typeof window !== "undefined") {
+    const supabase = getSupabaseBrowserClient();
+    const { data } = await supabase.auth.getSession();
+    token = data.session?.access_token ?? undefined;
+  }
+
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  // Don't set Content-Type — browser fills in `multipart/form-data; boundary=...`
+
+  const res = await fetch(`${API_URL}${path}`, {
+    method: "POST",
+    headers,
+    body: form,
+  });
+
+  const text = await res.text();
+  let data: unknown = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { detail: text.slice(0, 500) };
+    }
+  }
+
+  if (!res.ok) throw new ApiError(res.status, data);
+  return data as T;
+}
+
 export const api = {
   get: <T>(path: string, opts?: { token?: string; signal?: AbortSignal }) =>
     request<T>("GET", path, opts),
@@ -63,4 +95,6 @@ export const api = {
     request<T>("PATCH", path, { ...opts, body }),
   delete: <T>(path: string, opts?: { token?: string }) =>
     request<T>("DELETE", path, opts),
+  postFormData: <T>(path: string, form: FormData) =>
+    postFormData<T>(path, form),
 };

@@ -1562,3 +1562,78 @@ export interface LlmCosts {
   total_usd: number;
   by_provider: ProviderCost[];
 }
+
+// ---------- base_update domain ----------
+
+export type IngestJobStatus =
+  | "pending"
+  | "extracting"
+  | "matching"
+  | "ready"
+  | "resolving"
+  | "done"
+  | "failed";
+
+export interface IngestJobStats {
+  files?: number;
+  extracted?: number;
+  groups?: number;
+  records_created?: number;
+  records_updated?: number;
+  records_conflict?: number;
+  conflicts_total?: number;
+  extract_failures?: [string, string][];
+  // additional dynamic keys allowed
+  [k: string]: unknown;
+}
+
+export interface IngestJobOut {
+  id: string;
+  workspace_id: string;
+  user_id: string | null;
+  status: IngestJobStatus;
+  file_count: number;
+  source_filenames: string[] | null;
+  stats_json: IngestJobStats | null;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type IngestConflictType =
+  | "company_ambiguous"
+  | "field_mismatch"
+  | "contact_mismatch"
+  | "lead_target"
+  | "low_confidence"
+  | "batch_duplicate";
+
+export type IngestConflictResolution =
+  | "keep"
+  | "overwrite"
+  | "manual"
+  | "add_separate"
+  | "pick"
+  | "skip";
+
+export interface IngestConflictOut {
+  id: string;
+  ingest_job_id: string;
+  ingest_record_id: string;
+  type: IngestConflictType;
+  target_kind: "company" | "lead" | "contact" | "brief";
+  field_name: string | null;
+  base_value: string | null;
+  incoming_value: string | null;
+  candidates_json: { id: string; name: string }[] | null;
+  status: "open" | "resolved" | "skipped";
+  resolution: IngestConflictResolution | null;
+  resolved_value: string | null;
+  resolved_by: string | null;
+  resolved_at: string | null;
+}
+
+export interface ResolveConflictIn {
+  resolution: IngestConflictResolution;
+  resolved_value?: string | null;
+}
