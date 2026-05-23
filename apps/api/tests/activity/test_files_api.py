@@ -65,13 +65,17 @@ def test_task_file_out_handles_invalid_parent_uuid():
     assert dto.parent_task_id is None
 
 
-def test_routes_include_task_edit_delete():
+def test_routes_include_task_edit_delete_archive_restore():
     from app.main import app
     paths = {(r.path, tuple(sorted(getattr(r, "methods", set()) or set()))) for r in app.routes}
     activity_id_routes = {(p, m) for (p, m) in paths if "/activities/{activity_id}" in p}
     methods_seen = {m for _path, methods in activity_id_routes for m in methods}
     assert "PATCH" in methods_seen, f"PATCH missing in {activity_id_routes}"
     assert "DELETE" in methods_seen, f"DELETE missing in {activity_id_routes}"
+    restore_routes = [(p, m) for (p, m) in paths if p.endswith("/restore")]
+    assert any("POST" in m for _p, m in restore_routes), f"restore route missing, paths: {paths}"
+    archive_routes = [(p, m) for (p, m) in paths if p.endswith("/archive")]
+    assert any("GET" in m for _p, m in archive_routes), f"archive list route missing, paths: {paths}"
 
 
 def test_task_update_in_accepts_partial():

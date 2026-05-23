@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckSquare, Square, Plus, Calendar, X, Loader2, Paperclip, Search, ChevronDown, Pencil, Trash2 } from "lucide-react";
+import { CheckSquare, Square, Plus, Calendar, X, Loader2, Paperclip, Search, ChevronDown, Pencil, Archive } from "lucide-react";
 import { TaskFilesList } from "./TaskFilesList";
 import { TaskFileDropzone } from "./TaskFileDropzone";
 import {
@@ -9,7 +9,7 @@ import {
   useCreateLeadTask,
   useCompleteLeadTask,
   useUpdateLeadTask,
-  useDeleteLeadTask,
+  useArchiveLeadTask,
 } from "@/lib/hooks/use-lead-tasks";
 import { C } from "@/lib/design-system";
 import type { ActivityOut } from "@/lib/types";
@@ -38,7 +38,7 @@ export function TasksTab({ leadId }: Props) {
   const createTask = useCreateLeadTask(leadId);
   const completeTask = useCompleteLeadTask(leadId);
   const updateTask = useUpdateLeadTask(leadId);
-  const deleteTask = useDeleteLeadTask(leadId);
+  const archiveTask = useArchiveLeadTask(leadId);
 
   const [adding, setAdding] = useState(false);
   const [text, setText] = useState("");
@@ -332,14 +332,14 @@ export function TasksTab({ leadId }: Props) {
                           <button
                             type="button"
                             onClick={() => {
-                              if (window.confirm(`Удалить задачу «${taskTitle(a)}»?`)) {
-                                deleteTask.mutate(a.id);
+                              if (window.confirm(`Переместить задачу «${taskTitle(a)}» в архив?`)) {
+                                archiveTask.mutate(a.id);
                               }
                             }}
-                            disabled={deleteTask.isPending}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-caption font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 disabled:opacity-40 transition-colors"
+                            disabled={archiveTask.isPending}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-caption font-semibold text-brand-muted bg-brand-bg hover:bg-brand-panel disabled:opacity-40 transition-colors"
                           >
-                            <Trash2 size={12} /> Удалить
+                            <Archive size={12} /> В архив
                           </button>
                         </div>
                       </>

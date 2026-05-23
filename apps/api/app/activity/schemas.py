@@ -44,6 +44,7 @@ class ActivityOut(ActivityBase):
     user_id: UUID | None
     task_done: bool
     task_completed_at: datetime | None
+    archived_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 

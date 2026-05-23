@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.activity import services
+from app.activity import repositories, services
 from app.activity.schemas import (
     ActivityCreate,
     ActivityListOut,
@@ -195,6 +195,21 @@ async def create_activity(
     return activity  # type: ignore[return-value]
 
 
+@router.get("/archive", response_model=ActivityListOut)
+async def list_archived(
+    lead_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> ActivityListOut:
+    """List archived (soft-deleted) activities for a lead. Ordered by archived_at desc."""
+    try:
+        await services._get_lead_or_raise(db, lead_id, user.workspace_id)
+    except LeadNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="lead not found")
+    rows = await repositories.list_archived_for_lead(db, lead_id=lead_id)
+    return ActivityListOut(items=rows, next_cursor=None)  # type: ignore[arg-type]
+
+
 @router.post("/{activity_id}/complete-task", response_model=ActivityOut)
 async def complete_task(
     lead_id: UUID,
@@ -243,15 +258,17 @@ async def update_activity(
     return activity  # type: ignore[return-value]
 
 
-@router.delete("/{activity_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{activity_id}", response_model=ActivityOut)
 async def delete_activity(
     lead_id: UUID,
     activity_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
     user: Annotated[User, Depends(current_user)] = ...,
-) -> None:
+) -> ActivityOut:
+    """DELETE here means ARCHIVE — sets archived_at, preserves the row and
+    its file attachments. Use POST /restore to undo."""
     try:
-        await services.delete_task(
+        activity = await services.archive_task(
             db,
             workspace_id=user.workspace_id,
             lead_id=lead_id,
@@ -264,3 +281,28 @@ async def delete_activity(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     await db.commit()
+    return activity  # type: ignore[return-value]
+
+
+@router.post("/{activity_id}/restore", response_model=ActivityOut)
+async def restore_activity(
+    lead_id: UUID,
+    activity_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> ActivityOut:
+    try:
+        activity = await services.restore_task(
+            db,
+            workspace_id=user.workspace_id,
+            lead_id=lead_id,
+            activity_id=activity_id,
+        )
+    except LeadNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="lead not found")
+    except services.ActivityNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="task not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    await db.commit()
+    return activity  # type: ignore[return-value]

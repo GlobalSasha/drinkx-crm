@@ -95,17 +95,45 @@ export function useUpdateLeadTask(leadId: string) {
   });
 }
 
-/** DELETE /leads/{id}/activities/{activityId} — delete a task and its file attachments. */
-export function useDeleteLeadTask(leadId: string) {
+/** DELETE /leads/{id}/activities/{activityId} — archive a task (soft-delete).
+ *  The backend sets archived_at and returns the updated row. */
+export function useArchiveLeadTask(leadId: string) {
   const qc = useQueryClient();
-  return useMutation<void, ApiError, string>({
+  return useMutation<ActivityOut, ApiError, string>({
     mutationFn: (activityId) =>
-      api.delete<void>(`/leads/${leadId}/activities/${activityId}`),
+      api.delete<ActivityOut>(`/leads/${leadId}/activities/${activityId}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: TASKS_KEY(leadId) });
       qc.invalidateQueries({ queryKey: ["feed", leadId] });
       qc.invalidateQueries({ queryKey: ["my-tasks"] });
       qc.invalidateQueries({ queryKey: ["daily-plan", "today"] });
+      qc.invalidateQueries({ queryKey: ["lead-archive", leadId] });
     },
+  });
+}
+
+/** POST /leads/{id}/activities/{activityId}/restore — restore an archived task. */
+export function useRestoreLeadTask(leadId: string) {
+  const qc = useQueryClient();
+  return useMutation<ActivityOut, ApiError, string>({
+    mutationFn: (activityId) =>
+      api.post<ActivityOut>(`/leads/${leadId}/activities/${activityId}/restore`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: TASKS_KEY(leadId) });
+      qc.invalidateQueries({ queryKey: ["lead-archive", leadId] });
+      qc.invalidateQueries({ queryKey: ["feed", leadId] });
+      qc.invalidateQueries({ queryKey: ["my-tasks"] });
+      qc.invalidateQueries({ queryKey: ["daily-plan", "today"] });
+    },
+  });
+}
+
+/** GET /leads/{id}/archive — list archived activities for a lead. */
+export function useLeadArchive(leadId: string) {
+  return useQuery<{ items: ActivityOut[] }>({
+    queryKey: ["lead-archive", leadId],
+    queryFn: () =>
+      api.get<{ items: ActivityOut[] }>(`/leads/${leadId}/activities/archive`),
+    enabled: !!leadId,
   });
 }

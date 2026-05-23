@@ -295,6 +295,7 @@ export interface ActivityOut {
   gmail_message_id: string | null;
   task_done: boolean;
   task_completed_at: string | null;
+  archived_at?: string | null;
   created_at: string;
   updated_at: string;
 }

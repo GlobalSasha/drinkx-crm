@@ -18,6 +18,7 @@ import {
   Star,
   Calendar,
   Activity as ActivityIcon,
+  Archive,
 } from "lucide-react";
 import { useLead, useUpdateLead } from "@/lib/hooks/use-lead";
 import { usePipelines, DEFAULT_STAGES } from "@/lib/hooks/use-pipelines";
@@ -28,6 +29,7 @@ import { DealAndAITab } from "./DealAndAITab";
 import { ContactsTab } from "./ContactsTab";
 import { TasksTab } from "./TasksTab";
 import { NotesTab } from "./NotesTab";
+import { ArchiveTab } from "./ArchiveTab";
 import { UnifiedFeed } from "./feed/UnifiedFeed";
 import { CustomFieldsPanel } from "./CustomFieldsPanel";
 import { DealValueStrip } from "./DealValueStrip";
@@ -82,7 +84,7 @@ function formatWonLostDate(iso: string | null | undefined): string {
 // appear inside «Активность» as collapsed cards alongside comments /
 // tasks / AI messages. Telegram + phone messages stay in `inbox_messages`
 // for now — separate sprint will surface them again.
-type TabKey = "activity" | "deal-ai" | "contacts" | "tasks" | "notes";
+type TabKey = "activity" | "deal-ai" | "contacts" | "tasks" | "notes" | "archive";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "activity", label: "Активность" },
@@ -90,6 +92,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "contacts", label: "Контакты" },
   { key: "tasks", label: "Задачи" },
   { key: "notes", label: "Заметки" },
+  { key: "archive", label: "Архив" },
 ];
 
 interface Props {
@@ -603,6 +606,7 @@ export function LeadCard({ leadId }: Props) {
             {activeTab === "contacts" && <ContactsTab lead={lead} />}
             {activeTab === "tasks" && <TasksTab leadId={lead.id} />}
             {activeTab === "notes" && <NotesTab leadId={lead.id} />}
+            {activeTab === "archive" && <ArchiveTab leadId={lead.id} />}
           </div>
 
           {/* Right column — renders only when the workspace has custom

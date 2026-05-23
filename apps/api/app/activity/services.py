@@ -4,7 +4,6 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activity import repositories as repo
@@ -48,6 +47,7 @@ async def list_my_tasks(
                 Lead.assigned_to == user_id,
                 Lead.archived_at.is_(None),
                 Activity.type == ActivityType.task.value,
+                Activity.archived_at.is_(None),
             )
             .order_by(
                 Activity.task_due_at.asc().nulls_last(),
@@ -150,32 +150,43 @@ async def update_task(
     return activity
 
 
-async def delete_task(
+async def archive_task(
     db: AsyncSession,
     workspace_id: uuid.UUID,
     lead_id: uuid.UUID,
     activity_id: uuid.UUID,
-) -> None:
-    """Delete a task-Activity row. Also deletes any file-attachment
-    Activities whose payload_json.parent_task_id points at this task;
-    storage objects are swept by the weekly orphan-purger."""
+) -> Activity:
+    """Soft-archive a task-Activity. Sets archived_at = now() so the row is
+    hidden from active views but preserved (with its file attachments) in the
+    per-lead archive. File-attachment Activities are NOT cascade-archived;
+    they remain visible under the archived task in the archive view."""
     await _get_lead_or_raise(db, lead_id, workspace_id)
     activity = await repo.get_by_id(db, activity_id, lead_id)
     if activity is None:
         raise ActivityNotFound(activity_id)
     if activity.type != ActivityType.task.value:
-        raise ValueError("only task activities can be deleted via this endpoint")
-    # Best-effort: delete file-attachment Activities pointing at this task.
-    await db.execute(
-        delete(Activity).where(
-            Activity.lead_id == lead_id,
-            Activity.type == ActivityType.file.value,
-            text("payload_json->>'parent_task_id' = :tid").bindparams(
-                tid=str(activity_id)
-            ),
-        )
-    )
-    await db.delete(activity)
+        raise ValueError("only task activities can be archived via this endpoint")
+    if activity.archived_at is not None:
+        return activity  # already archived — no-op (idempotent)
+    activity.archived_at = datetime.now(timezone.utc)
+    return activity
+
+
+async def restore_task(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+    activity_id: uuid.UUID,
+) -> Activity:
+    """Restore an archived task. Sets archived_at = NULL."""
+    await _get_lead_or_raise(db, lead_id, workspace_id)
+    activity = await repo.get_by_id(db, activity_id, lead_id)
+    if activity is None:
+        raise ActivityNotFound(activity_id)
+    if activity.type != ActivityType.task.value:
+        raise ValueError("only task activities can be restored via this endpoint")
+    activity.archived_at = None
+    return activity
 
 
 async def complete_task(
