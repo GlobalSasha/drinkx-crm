@@ -13,6 +13,7 @@ import {
   useDownloadTaskFile,
   useTaskFiles,
 } from "@/lib/hooks/use-task-files";
+import { InlineConfirm } from "@/components/ui/InlineConfirm";
 
 function kindIcon(kind: string | null) {
   switch (kind) {
@@ -61,14 +62,6 @@ export function TaskFilesList({ leadId, taskId, q }: Props) {
     }
   }
 
-  function handleRemove(activityId: string, fileName: string) {
-    // Per-file deletes are infrequent; an inline two-step would clutter the dense list.
-    // Lead-level destructive ops have a dedicated modal; one file is replaceable by re-upload.
-    if (window.confirm(`Удалить файл «${fileName}»?`)) {
-      remove.mutate(activityId);
-    }
-  }
-
   return (
     <ul className="flex flex-col gap-1.5">
       {files.map((f) => (
@@ -93,15 +86,25 @@ export function TaskFilesList({ leadId, taskId, q }: Props) {
           >
             <Download size={14} />
           </button>
-          <button
-            type="button"
-            onClick={() => handleRemove(f.id, f.file_name)}
-            disabled={remove.isPending}
-            aria-label="Удалить файл"
-            className="shrink-0 text-rose/70 hover:text-rose disabled:opacity-40"
+          <InlineConfirm
+            destructive
+            prompt={`Удалить «${f.file_name}»?`}
+            confirmLabel="Удалить"
+            busy={remove.isPending}
+            onConfirm={() => remove.mutate(f.id)}
           >
-            <Trash2 size={14} />
-          </button>
+            {(openConfirm) => (
+              <button
+                type="button"
+                onClick={openConfirm}
+                disabled={remove.isPending}
+                aria-label="Удалить файл"
+                className="shrink-0 text-rose/70 hover:text-rose disabled:opacity-40"
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
+          </InlineConfirm>
         </li>
       ))}
     </ul>
