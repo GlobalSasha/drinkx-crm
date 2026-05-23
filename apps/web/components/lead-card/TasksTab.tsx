@@ -5,6 +5,7 @@ import { CheckSquare, Square, Plus, Calendar, X, Loader2, Paperclip, Search, Che
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/Empty";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Item, ItemContent, ItemActions } from "@/components/ui/Item";
 import { TaskFilesList } from "./TaskFilesList";
 import { TaskFileDropzone } from "./TaskFileDropzone";
 import {
@@ -204,7 +205,7 @@ export function TasksTab({ leadId }: Props) {
               });
             return (
               <li key={a.id} className="rounded-2xl bg-brand-bg overflow-hidden">
-                <div className="flex items-start gap-3 px-3 py-2.5">
+                <Item variant="inline" className="px-3 py-2.5">
                   <button
                     type="button"
                     onClick={() => !a.task_done && completeTask.mutate(a.id)}
@@ -218,7 +219,7 @@ export function TasksTab({ leadId }: Props) {
                       <Square size={16} />
                     )}
                   </button>
-                  <div className="flex-1 min-w-0">
+                  <ItemContent>
                     <p
                       className={`type-body ${
                         a.task_done ? "line-through text-brand-muted" : "text-brand-primary"
@@ -231,21 +232,23 @@ export function TasksTab({ leadId }: Props) {
                         <Calendar size={11} /> до {dueLabel}
                       </span>
                     )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={toggle}
-                    aria-expanded={isExpanded}
-                    aria-label={isExpanded ? "Скрыть детали" : "Показать детали и файлы"}
-                    className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-caption font-semibold bg-white border border-brand-border text-brand-muted hover:text-brand-primary hover:border-brand-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
-                  >
-                    <Paperclip size={13} />
-                    <ChevronDown
-                      size={13}
-                      className={`transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                    />
-                  </button>
-                </div>
+                  </ItemContent>
+                  <ItemActions>
+                    <button
+                      type="button"
+                      onClick={toggle}
+                      aria-expanded={isExpanded}
+                      aria-label={isExpanded ? "Скрыть детали" : "Показать детали и файлы"}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-caption font-semibold bg-white border border-brand-border text-brand-muted hover:text-brand-primary hover:border-brand-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                    >
+                      <Paperclip size={13} />
+                      <ChevronDown
+                        size={13}
+                        className={`transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                  </ItemActions>
+                </Item>
                 {isExpanded && (
                   <div className="px-3 pb-3 border-t border-brand-border/50 pt-3 space-y-4">
                     {editingId === a.id ? (
