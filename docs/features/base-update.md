@@ -31,6 +31,10 @@
               1 → дополнить (autofill пустых, конфликт #2 на отличиях)
               >1 → конфликт #1 (ambiguous)
 5. WRITE      apply_record персистит безопасное (companies/leads/contacts services)
+              CREATE-путь: создаёт компанию + лид + все контакты из карточки.
+              UPDATE-путь: autofill пустых полей компании; contact-match loop (#3)
+              сравнивает card.contacts с существующими — авто-добавляет новые,
+              создаёт C_CONTACT_MISMATCH-конфликты при расхождении деталей.
               status=ready; статистика в stats_json
 6. RESOLVE    Админ PATCH /api/base-update/conflicts/{id} → resolution + resolved_value
 7. APPLY      POST /api/base-update/jobs/{id}/apply
@@ -56,7 +60,7 @@
 |---|---|---|
 | **#1 company_ambiguous** | >1 совпадения по нормализованному имени | `pick`(resolved_value=company_id) / `keep`(создать новую) / `skip` |
 | **#2 field_mismatch** | Поле в базе ≠ извлечённого (на компании) | `keep`(база) / `overwrite`(из карточки) / `manual`(resolved_value) / `skip` |
-| **#3 contact_mismatch** | Контакт по имени совпал, но детали разные | `keep` / `overwrite`(обновляет поле контакта) / `add_separate`(noop — v1.2) / `skip` |
+| **#3 contact_mismatch** | Контакт по имени совпал, но детали разные | `keep` / `overwrite`(обновляет поле контакта) / `add_separate`(создаёт новый контакт) / `skip` |
 | **#4 lead_target** | >1 лида у компании, куда писать дополнение | `pick`(устанавливает match_lead_id) / `keep`(создаёт новый pool-лид) / `skip` |
 | **#5 low_confidence** | `extraction_confidence` < 0.55 ИЛИ пустое имя компании | `manual` / `skip` |
 | **#6 batch_duplicate** | Дубль внутри пачки + поля расходятся | `keep`(слить, всё уже слито в group.primary) / `add_separate`(пока на ревью v1.1) |
@@ -118,10 +122,13 @@ Pattern — как у `run_enrichment_task`: `_build_task_engine_and_factory()`
 
 - Триграммный fuzzy-матч похожих имён (только точное по нормализованному).
   Кейс «1 точное + N похожих» сводится к `update` (точное), похожие игнорируются.
-- `#3 contact_mismatch` с `add_separate` — создание нового контакта требует
-  оригинального `ExtractedContact`-пейлоада, которого нет в строке конфликта.
-  Возвращает `noop`; полный replay отложен на v1.2. Остальные резолюции
-  (`overwrite`, `keep`, `skip`) реализованы в v1.1.
+- `#3 contact_mismatch` полностью реализован: UPDATE-путь теперь итерирует
+  `card.contacts` и сравнивает через `matcher.match_contact`. Нет совпадения
+  по имени — авто-добавляем как `to_verify`; есть совпадение + расходятся поля
+  — создаём конфликт с полным `ExtractedContact`-пейлоадом в `candidates_json[0]`.
+  `add_separate` материализует второй контакт через `contacts_svc.create_contact`.
+  Все пять резолюций (`keep`, `overwrite`, `manual`, `add_separate`, `skip`)
+  реализованы.
 - `#4 lead_target` — реализован полностью в v1.1: `pick` привязывает лид,
   `keep` создаёт новый pool-лид, `skip` — noop.
 - AI-бриф в апдейт-пути: пока всегда добавляем брифа НЕ перетираем существующий.
@@ -159,10 +166,10 @@ tests/base_update/
   test_dedup.py              6 ✓ — #6 grouping, primary card, edge cases
   test_matcher.py           10 ✓ — classify_field, match_contact, low_confidence
   test_services_match.py     4 ✓ — _match_from_rows pure
-  test_services_apply.py    13 ✓ — apply_record early-returns + _diff + _decide_apply
+  test_services_apply.py    15 ✓ — apply_record early-returns + _diff + _decide_apply (incl. add_contact)
   test_orchestrator_smoke.py 4 ✓ — staged-files helpers
   test_api.py                8 ✓ — _build_staged_files + DTOs + routes registered
   test_e2e.py                1 — skipif POSTGRES_AVAILABLE (CI only)
   ──────────────────────────────
-  Итого                     52 passed + 1 skipped
+  Итого                     72 passed + 1 skipped
 ```
