@@ -6,17 +6,27 @@
 // Activity(type=task) across the user's leads, with their own due dates.
 
 import { useMemo, useState } from "react";
-import { ListChecks } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ListChecks, Check, ArrowUpRight } from "lucide-react";
 import { useMyTasks, useCompleteMyTask } from "@/lib/hooks/use-my-tasks";
-import { TaskTable } from "@/components/tasks/TaskTable";
 import {
   myTaskToRow,
   isOverdue,
   isToday,
   withinThisWeek,
+  formatDueDateTime,
   type TaskRow,
 } from "@/lib/tasks";
 import { C } from "@/lib/design-system";
+import { DataTable, type ColumnDef } from "@/components/ui/DataTable";
+import { Badge } from "@/components/ui/Badge";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+} from "@/components/ui/Empty";
 
 type StatusFilter = "open" | "done" | "overdue";
 type DateFilter = "today" | "week" | "all";
@@ -45,7 +55,115 @@ function Chip({
   );
 }
 
+function TypeBadge({ row }: { row: TaskRow }) {
+  if (isOverdue(row)) {
+    return <Badge variant="rose">просрочено</Badge>;
+  }
+  return <Badge variant="success">задача</Badge>;
+}
+
+function buildColumns(
+  onComplete: (row: TaskRow) => void,
+  isCompleting: boolean,
+): ColumnDef<TaskRow, unknown>[] {
+  return [
+    // 1. Checkbox
+    {
+      id: "checkbox",
+      header: "",
+      meta: { width: "2.25rem", cellClassName: "px-1 py-2.5", headerClassName: "px-1" },
+      cell: ({ row }) => {
+        const r = row.original;
+        return (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!r.done && !isCompleting) onComplete(r);
+            }}
+            disabled={r.done || isCompleting}
+            aria-label={r.done ? "Выполнено" : "Отметить выполненной"}
+            className={`shrink-0 w-5 h-5 rounded-full border-[1.5px] flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
+              r.done
+                ? "border-success bg-success cursor-default"
+                : "border-brand-border hover:border-brand-accent hover:bg-brand-soft/40"
+            } disabled:opacity-60`}
+          >
+            {r.done && <Check size={12} className="text-white" />}
+          </button>
+        );
+      },
+    },
+    // 2. Задача
+    {
+      id: "name",
+      header: "Задача",
+      cell: ({ row }) => {
+        const r = row.original;
+        return (
+          <span
+            className={`type-body ${
+              r.done ? "line-through text-brand-muted" : "text-brand-primary"
+            }`}
+          >
+            {r.name}
+          </span>
+        );
+      },
+    },
+    // 3. Клиент
+    {
+      id: "company",
+      header: "Клиент",
+      cell: ({ row }) => (
+        <span className="type-caption text-brand-muted-strong">
+          {row.original.company ?? "—"}
+        </span>
+      ),
+    },
+    // 4. Срок
+    {
+      id: "due",
+      header: "Срок",
+      meta: { cellClassName: "px-2 py-2.5 align-top whitespace-nowrap" },
+      cell: ({ row }) => {
+        const r = row.original;
+        const overdue = isOverdue(r);
+        return (
+          <span
+            className={`type-caption ${
+              overdue ? "text-rose font-semibold" : "text-brand-muted"
+            }`}
+          >
+            {formatDueDateTime(r.due)}
+            {overdue && " · просрочено"}
+          </span>
+        );
+      },
+    },
+    // 5. Тип
+    {
+      id: "type",
+      header: "Тип",
+      cell: ({ row }) => <TypeBadge row={row.original} />,
+    },
+    // 6. Action arrow
+    {
+      id: "action",
+      header: "",
+      meta: { width: "2.25rem", align: "right", cellClassName: "px-1 py-2.5 align-top text-right", headerClassName: "px-1" },
+      cell: () => (
+        <ArrowUpRight
+          size={15}
+          className="text-brand-muted opacity-0 group-hover:opacity-100 transition-opacity inline-block"
+        />
+      ),
+    },
+  ];
+}
+
 export default function TasksPage() {
+  const router = useRouter();
   const { data, isLoading, isError } = useMyTasks();
   const completeTask = useCompleteMyTask();
 
@@ -75,6 +193,12 @@ export default function TasksPage() {
     if (!row.done && !completeTask.isPending)
       completeTask.mutate({ leadId: row.leadId, taskId: row.id });
   }
+
+  const columns = useMemo(
+    () => buildColumns(handleComplete, completeTask.isPending),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [completeTask.isPending],
+  );
 
   return (
     <div className="font-sans bg-canvas min-h-screen">
@@ -131,11 +255,27 @@ export default function TasksPage() {
             </p>
           )}
           {!isLoading && !isError && (
-            <TaskTable
-              rows={rows}
-              onComplete={handleComplete}
-              isCompleting={completeTask.isPending}
-              emptyText="Задач нет"
+            <DataTable
+              columns={columns}
+              data={rows}
+              onRowClick={(row) =>
+                router.push(`/leads/${row.leadId}?tab=tasks`)
+              }
+              rowLabel={(row) => `Открыть лид: ${row.company ?? row.name}`}
+              rowKey={(row) => row.id}
+              emptyState={
+                <Empty>
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <ListChecks />
+                    </EmptyMedia>
+                    <EmptyTitle>Задач нет</EmptyTitle>
+                    <EmptyDescription>
+                      Когда менеджер поставит задачу — она появится в этом списке.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              }
             />
           )}
         </div>
