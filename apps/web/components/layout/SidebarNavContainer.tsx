@@ -15,6 +15,7 @@ import {
   MessageCircle,
   LifeBuoy,
   Search,
+  TrendingUp,
 } from "lucide-react";
 import { Kbd } from "@/components/ui/Kbd";
 import { useNotificationsBadge } from "@/lib/hooks/use-notifications";
@@ -55,6 +56,7 @@ export function SidebarNavContainer({
         trailing: <Kbd>⌘K</Kbd>,
       },
       { id: "today",      label: "Сегодня",   href: "/today",      icon: <CalendarDays size={18} /> },
+      { id: "forecast",   label: "Прогноз",   href: "/forecast",   icon: <TrendingUp size={18} /> },
       { id: "pipeline",   label: "Воронка",   href: "/pipeline",   icon: <Kanban size={18} /> },
       { id: "leads-pool", label: "База лидов", href: "/leads-pool", icon: <Target size={18} /> },
       { id: "triage",     label: "Мессенджеры", href: "/triage",    icon: <MessageCircle size={18} /> },
