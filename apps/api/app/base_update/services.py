@@ -472,3 +472,146 @@ async def apply_resolutions(db: AsyncSession, *, workspace_id: uuid.UUID, job_id
     job.status = c.JOB_DONE if len(open_count) == 0 else c.JOB_READY
 
     return {"applied": applied, "failed": failed, "deferred": deferred, "open": len(open_count)}
+
+
+# ----- REST-facing helpers (used by routers.py) -----
+
+
+# Maximum total bytes a single base_update upload may carry. .md cards are
+# small; 5 MB total is comfortable headroom and protects the API from abuse.
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+
+
+def _build_staged_files(files: list[tuple[str, bytes]]) -> list[dict]:
+    """Pure: validate + decode uploaded .md bytes into the staging shape.
+
+    Raises ValueError on a non-.md filename or empty input. Total payload size
+    above MAX_UPLOAD_BYTES also raises. Decoded text uses utf-8 with replace
+    on bad bytes (LLM can still extract from a partly mangled file)."""
+    if not files:
+        raise ValueError("no files uploaded")
+    total = 0
+    staged: list[dict] = []
+    for filename, raw in files:
+        if not filename or not filename.lower().endswith(".md"):
+            raise ValueError(f"только .md: {filename!r}")
+        total += len(raw)
+        if total > MAX_UPLOAD_BYTES:
+            raise ValueError(f"total upload exceeds {MAX_UPLOAD_BYTES // (1024 * 1024)} MB")
+        staged.append({"filename": filename, "text": raw.decode("utf-8", errors="replace")})
+    return staged
+
+
+async def create_job(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    user_id: uuid.UUID,
+    staged: list[dict],
+) -> "IngestJob":
+    """Persist a new IngestJob with staged file texts stashed in stats_json["_staged_files"]."""
+    from app.base_update.models import IngestJob  # local import
+    job = IngestJob(
+        workspace_id=workspace_id,
+        user_id=user_id,
+        status=c.JOB_PENDING,
+        file_count=len(staged),
+        source_filenames=[f["filename"] for f in staged],
+        stats_json={"_staged_files": staged},
+    )
+    db.add(job)
+    await db.flush()
+    return job
+
+
+async def get_job(db: AsyncSession, *, workspace_id: uuid.UUID, job_id: uuid.UUID) -> "IngestJob":
+    from app.base_update.models import IngestJob
+    job = (
+        await db.execute(
+            select(IngestJob).where(
+                IngestJob.id == job_id,
+                IngestJob.workspace_id == workspace_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if job is None:
+        raise LookupError(f"job {job_id} not found")
+    return job
+
+
+async def list_jobs(
+    db: AsyncSession, *, workspace_id: uuid.UUID, limit: int = 20, offset: int = 0
+) -> list["IngestJob"]:
+    from app.base_update.models import IngestJob
+    rows = (
+        await db.execute(
+            select(IngestJob)
+            .where(IngestJob.workspace_id == workspace_id)
+            .order_by(IngestJob.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+    ).scalars().all()
+    return list(rows)
+
+
+async def list_conflicts(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    job_id: uuid.UUID,
+    only_open: bool = True,
+) -> list[IngestConflict]:
+    # Verify job belongs to this workspace before disclosing its conflicts
+    await get_job(db, workspace_id=workspace_id, job_id=job_id)
+    stmt = select(IngestConflict).where(IngestConflict.ingest_job_id == job_id)
+    if only_open:
+        stmt = stmt.where(IngestConflict.status == c.CONFLICT_OPEN)
+    rows = (await db.execute(stmt.order_by(IngestConflict.created_at.asc()))).scalars().all()
+    return list(rows)
+
+
+async def resolve_conflict(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    conflict_id: uuid.UUID,
+    resolution: str,
+    resolved_value: str | None,
+    resolved_by: uuid.UUID,
+) -> IngestConflict:
+    from datetime import datetime, timezone
+    # Load the conflict joined with its job so we can workspace-scope cheaply
+    from app.base_update.models import IngestJob
+    cf = (
+        await db.execute(
+            select(IngestConflict)
+            .join(IngestJob, IngestJob.id == IngestConflict.ingest_job_id)
+            .where(
+                IngestConflict.id == conflict_id,
+                IngestJob.workspace_id == workspace_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if cf is None:
+        raise LookupError(f"conflict {conflict_id} not found")
+    cf.resolution = resolution
+    cf.resolved_value = resolved_value
+    cf.resolved_by = resolved_by
+    cf.resolved_at = datetime.now(timezone.utc)
+    cf.status = c.CONFLICT_RESOLVED
+    await db.flush()
+    return cf
+
+
+async def mark_resolving(
+    db: AsyncSession, *, workspace_id: uuid.UUID, job_id: uuid.UUID
+) -> "IngestJob":
+    """Flip a READY job to RESOLVING (called from the apply endpoint right
+    before dispatch). Raises if the job isn't found or isn't in READY."""
+    job = await get_job(db, workspace_id=workspace_id, job_id=job_id)
+    if job.status not in (c.JOB_READY, c.JOB_RESOLVING):
+        raise ValueError(f"cannot apply: job is in status {job.status!r}")
+    job.status = c.JOB_RESOLVING
+    await db.flush()
+    return job
