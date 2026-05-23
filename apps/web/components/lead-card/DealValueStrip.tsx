@@ -35,48 +35,55 @@ export function DealValueStrip({ lead }: Props) {
 
   const isEmpty = !amountText && !equipmentText;
 
-  return (
-    <div className="rounded-2xl border border-brand-border bg-white px-4 py-2.5">
-      {isEmpty ? (
+  if (isEmpty) {
+    return (
+      <>
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="flex items-center gap-2 type-caption text-brand-muted hover:text-brand-accent-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 rounded-full px-1"
+          className="inline-flex items-center gap-1 px-2.5 py-1 type-caption text-brand-muted hover:text-brand-accent-text rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
         >
-          <Plus size={13} />
+          <Plus size={11} />
           Добавить детали сделки
         </button>
-      ) : (
-        <div className="flex items-center gap-4 flex-wrap">
-          {amountText && (
-            <span className="inline-flex items-center gap-1.5 type-body">
-              <Wallet size={13} className="text-brand-muted" />
-              <span className="text-brand-muted">Сумма сделки:</span>
-              <span className="font-semibold text-brand-primary tabular-nums">
-                {amountText}
-              </span>
+        {editing && (
+          <DealEditModal lead={lead} onClose={() => setEditing(false)} />
+        )}
+      </>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-brand-border bg-white px-3 py-1.5">
+      <div className="flex items-center gap-4 flex-wrap">
+        {amountText && (
+          <span className="inline-flex items-center gap-1.5 type-body">
+            <Wallet size={13} className="text-brand-muted" />
+            <span className="text-brand-muted">Сумма сделки:</span>
+            <span className="font-semibold text-brand-primary tabular-nums">
+              {amountText}
             </span>
-          )}
-          {equipmentText && (
-            <span className="inline-flex items-center gap-1.5 type-body">
-              <Package size={13} className="text-brand-muted" />
-              <span className="text-brand-muted">Оборудование:</span>
-              <span className="font-semibold text-brand-primary">
-                {equipmentText}
-              </span>
+          </span>
+        )}
+        {equipmentText && (
+          <span className="inline-flex items-center gap-1.5 type-body">
+            <Package size={13} className="text-brand-muted" />
+            <span className="text-brand-muted">Оборудование:</span>
+            <span className="font-semibold text-brand-primary">
+              {equipmentText}
             </span>
-          )}
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 type-caption text-brand-muted hover:text-brand-accent-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 rounded-full"
-            aria-label="Редактировать детали сделки"
-          >
-            <Pencil size={11} />
-            Редактировать
-          </button>
-        </div>
-      )}
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 type-caption text-brand-muted hover:text-brand-accent-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 rounded-full"
+          aria-label="Редактировать детали сделки"
+        >
+          <Pencil size={11} />
+          Редактировать
+        </button>
+      </div>
 
       {editing && (
         <DealEditModal lead={lead} onClose={() => setEditing(false)} />

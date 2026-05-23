@@ -276,13 +276,13 @@ export function LeadCard({ leadId }: Props) {
                     if (e.key === "Enter") commitName();
                     if (e.key === "Escape") setEditingName(false);
                   }}
-                  className="text-[22px] font-medium tracking-tight text-ink bg-transparent border-b-2 border-brand-accent outline-none w-full"
+                  className="text-[28px] font-bold tracking-tight text-ink bg-transparent border-b-2 border-brand-accent outline-none w-full"
                   style={{ lineHeight: "1.2" }}
                 />
               ) : (
                 <h1
                   onClick={startEditName}
-                  className="text-[22px] font-medium tracking-tight text-ink cursor-text hover:text-brand-accent-text transition-colors truncate"
+                  className="text-[28px] font-bold tracking-tight text-ink cursor-text hover:text-brand-accent-text transition-colors truncate"
                   style={{ lineHeight: "1.2" }}
                   title="Нажмите для редактирования"
                 >
@@ -407,53 +407,42 @@ export function LeadCard({ leadId }: Props) {
 
           {/* Row 3: stage / priority / segment pills */}
           <div className="flex flex-wrap items-center gap-2 mt-3 ml-9">
-            <button
-              type="button"
-              onClick={() => setStageDropdownOpen((v) => !v)}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-semibold text-white text-xs bg-brand-primary hover:opacity-90 transition-opacity"
-              style={{ backgroundColor: displayStage?.color ?? "#3b82f6" }}
+            <DropdownMenu
+              open={stageDropdownOpen}
+              onOpenChange={setStageDropdownOpen}
             >
-              <ArrowRight size={11} />
-              {displayStage?.name ?? "—"}
-              <ChevronDown size={11} />
-            </button>
-
-            {stageDropdownOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setStageDropdownOpen(false)}
-                />
-                <div className="absolute left-12 mt-9 w-56 bg-white border border-brand-border rounded-2xl z-20 overflow-hidden shadow-soft">
-                  {stages
-                    .filter((s) => !s.is_won && !s.is_lost)
-                    .map((stage) => (
-                      <button
-                        key={stage.id}
-                        type="button"
-                        onClick={() => handleStageSelect(stage)}
-                        className={`flex items-center gap-2.5 w-full px-4 py-2.5 type-caption text-brand-muted text-left transition-colors hover:bg-brand-panel ${
-                          stage.id === lead.stage_id ? "bg-brand-bg" : ""
-                        }`}
-                      >
-                        <span
-                          className="w-2 h-2 rounded-full shrink-0"
-                          style={{ backgroundColor: stage.color }}
-                        />
-                        <span
-                          className={
-                            stage.id === lead.stage_id
-                              ? `font-semibold ${C.color.text}`
-                              : `${C.color.text}`
-                          }
-                        >
-                          {stage.name}
-                        </span>
-                      </button>
-                    ))}
-                </div>
-              </>
-            )}
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  disabled={isClosed}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-semibold text-white text-xs bg-brand-primary hover:opacity-90 transition-opacity disabled:opacity-50"
+                  style={{ backgroundColor: displayStage?.color ?? "#3b82f6" }}
+                >
+                  <ArrowRight size={11} />
+                  {displayStage?.name ?? "—"}
+                  <ChevronDown size={11} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                {stages
+                  .filter((s) => !s.is_won && !s.is_lost)
+                  .map((stage) => (
+                    <DropdownMenuItem
+                      key={stage.id}
+                      onSelect={() => handleStageSelect(stage)}
+                      className={stage.id === lead.stage_id ? "bg-brand-bg" : ""}
+                    >
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{ backgroundColor: stage.color }}
+                      />
+                      <span className={stage.id === lead.stage_id ? "font-semibold" : ""}>
+                        {stage.name}
+                      </span>
+                    </DropdownMenuItem>
+                  ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             <span className="w-px h-4 bg-brand-border" aria-hidden="true" />
 

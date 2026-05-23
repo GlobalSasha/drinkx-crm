@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Loader2 } from "lucide-react";
+import { Check, ChevronUp, Loader2 } from "lucide-react";
 import { useStageDurations } from "@/lib/hooks/use-lead-v2";
 
 interface Props {
@@ -39,17 +39,17 @@ export function StagesStepper({ leadId, currentStageDays }: Props) {
   // No current stage (won/lost/detached) — just show the full row.
   if (expanded || currentIdx === -1) {
     return (
-      <div>
-        <FullRow stages={stages} />
+      <div className="relative">
         {currentIdx !== -1 && (
           <button
             type="button"
             onClick={() => setExpanded(false)}
-            className="mt-1 type-caption font-semibold text-brand-accent-text hover:underline"
+            className="absolute top-0 right-0 z-10 inline-flex items-center gap-1 px-2.5 py-1 rounded-full type-caption font-semibold bg-white border border-brand-border text-brand-muted hover:text-brand-primary hover:border-brand-accent transition-colors"
           >
-            свернуть
+            <ChevronUp size={11} /> свернуть
           </button>
         )}
+        <FullRow stages={stages} />
       </div>
     );
   }
