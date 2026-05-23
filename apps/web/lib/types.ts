@@ -222,6 +222,8 @@ export interface LeadUpdateExtended extends LeadUpdate {
   next_action_at?: string | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   pilot_contract_json?: Record<string, any> | null;
+  website?: string | null;
+  inn?: string | null;
 }
 
 // ---- Contacts ----

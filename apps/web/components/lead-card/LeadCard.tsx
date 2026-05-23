@@ -40,7 +40,6 @@ import { NotesTab } from "./NotesTab";
 import { ArchiveTab } from "./ArchiveTab";
 import { UnifiedFeed } from "./feed/UnifiedFeed";
 import { CustomFieldsPanel } from "./CustomFieldsPanel";
-import { DealValueStrip } from "./DealValueStrip";
 import { StagesStepper } from "./StagesStepper";
 import { GateModal } from "./GateModal";
 import { LostModal } from "./LostModal";
@@ -516,10 +515,6 @@ export function LeadCard({ leadId }: Props) {
               currentStageDays={lead.current_stage_days}
             />
           </div>
-          <div className="mt-3">
-            <DealValueStrip lead={lead} />
-          </div>
-
           {/* Tab switcher */}
           <div className="sm:hidden mt-4">
             <label className="sr-only" htmlFor="lead-tab-select">Раздел</label>

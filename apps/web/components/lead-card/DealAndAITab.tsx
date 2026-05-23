@@ -5,21 +5,17 @@ import {
   MapPin,
   LayoutGrid,
   Globe,
-  CircleDollarSign,
-  Tag,
-  User,
   Sparkles,
   Loader2,
   RefreshCw,
 } from "lucide-react";
 import { useLatestEnrichment, useTriggerEnrichment } from "@/lib/hooks/use-enrichment";
-import { useUsers } from "@/lib/hooks/use-users";
 import { ApiError } from "@/lib/api-client";
 import type { LeadOut } from "@/lib/types";
-import { dealTypeLabel } from "@/lib/i18n";
 import { C } from "@/lib/design-system";
 import { safeHref } from "@/lib/safe-url";
 import { SourceSection } from "./SourceSection";
+import { DealParamsBlock } from "./DealParamsBlock";
 
 interface Props {
   lead: LeadOut;
@@ -45,14 +41,6 @@ function asText(v: unknown): string {
 export function DealAndAITab({ lead }: Props) {
   const ai = (lead.ai_data ?? {}) as Record<string, unknown>;
   const hasAiData = Object.keys(ai).length > 0 && Boolean(ai.company_profile || ai.company_overview);
-
-  const usersQuery = useUsers();
-  const assignedUser = usersQuery.data?.items.find((u) => u.id === lead.assigned_to);
-  const assignedLabel = assignedUser?.email
-    ? assignedUser.email
-    : lead.assigned_to
-      ? lead.assigned_to.slice(0, 8)
-      : "Не назначен";
 
   // City "Москва (HQ)" + chain hint when network_scale is populated.
   const cityLabel = lead.city ?? "";
@@ -122,33 +110,7 @@ export function DealAndAITab({ lead }: Props) {
       </section>
 
       {/* === Card 2: Параметры сделки === */}
-      <section className="bg-white rounded-2xl border border-brand-border p-5">
-        <h2 className={`type-card-title font-bold ${C.color.text} mb-4`}>
-          Параметры сделки
-        </h2>
-        <ul className="space-y-3.5">
-          <Row
-            icon={<CircleDollarSign size={16} className={C.color.muted} />}
-            primary={
-              lead.deal_amount != null
-                ? `${new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(Number(lead.deal_amount))} ₽`
-                : "Не указана"
-            }
-            hint={lead.deal_amount != null ? "Сумма сделки" : "Заполняется в полосе сделки над вкладками"}
-          />
-          <Row
-            icon={<Tag size={16} className={C.color.muted} />}
-            primary={
-              lead.deal_type ? dealTypeLabel(lead.deal_type) : "Тип сделки не выбран"
-            }
-          />
-          <Row
-            icon={<User size={16} className={C.color.muted} />}
-            primary={assignedLabel}
-            hint={lead.assigned_to ? "Ответственный менеджер" : undefined}
-          />
-        </ul>
-      </section>
+      <DealParamsBlock lead={lead} />
 
       {/* === Card 3: Источник (only for form-sourced leads) === */}
       <SourceSection lead={lead} />
