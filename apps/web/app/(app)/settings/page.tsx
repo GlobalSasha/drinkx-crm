@@ -21,6 +21,7 @@ import {
   Settings as SettingsIcon,
   Sparkles,
   Split,
+  UploadCloud,
   User,
   Users,
 } from "lucide-react";
@@ -28,6 +29,7 @@ import clsx from "clsx";
 
 import { AISection } from "@/components/settings/AISection";
 import { AppearanceSection } from "@/components/settings/AppearanceSection";
+import { BaseUpdateSection } from "@/components/settings/BaseUpdateSection";
 import { ChannelsSection } from "@/components/settings/ChannelsSection";
 import { CostsSection } from "@/components/settings/CostsSection";
 import { CustomFieldsSection } from "@/components/settings/CustomFieldsSection";
@@ -44,6 +46,7 @@ type SectionKey =
   | "custom_fields"
   | "templates"
   | "appearance"
+  | "base_update"
   | "notifications"
   | "api";
 
@@ -64,6 +67,7 @@ const SECTIONS: SectionDef[] = [
   { key: "custom_fields", label: "Кастомные поля", icon: <Sparkles size={15} />, ready: true },
   { key: "templates",     label: "Шаблоны",      icon: <ScrollText size={15} />, ready: true },
   { key: "appearance",    label: "Внешний вид",  icon: <Paintbrush size={15} />, ready: true },
+  { key: "base_update",   label: "Обновление базы", icon: <UploadCloud size={15} />, ready: true },
   { key: "notifications", label: "Уведомления",  icon: <BellRing size={15} />, ready: false },
   { key: "api",           label: "API",          icon: <KeyRound size={15} />, ready: false },
 ];
@@ -205,6 +209,7 @@ function SettingsPageInner() {
           {active === "custom_fields" && <CustomFieldsSection />}
           {active === "templates" && <TemplatesSection />}
           {active === "appearance" && <AppearanceSection />}
+          {active === "base_update" && <BaseUpdateSection />}
           {active !== "pipelines" &&
             active !== "team" &&
             active !== "channels" &&
@@ -212,7 +217,8 @@ function SettingsPageInner() {
             active !== "costs" &&
             active !== "custom_fields" &&
             active !== "templates" &&
-            active !== "appearance" && (
+            active !== "appearance" &&
+            active !== "base_update" && (
               <div className="bg-canvas/60 border border-black/5 rounded-2xl px-6 py-12 text-center">
                 <p className="text-sm text-muted">Эта секция появится позже.</p>
               </div>
