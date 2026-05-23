@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
@@ -21,6 +21,13 @@ import {
   Archive,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/DropdownMenu";
 import { useLead, useUpdateLead } from "@/lib/hooks/use-lead";
 import { usePipelines, DEFAULT_STAGES } from "@/lib/hooks/use-pipelines";
 import { useClaimLead, useMoveStage, useUnclaimLead } from "@/lib/hooks/use-leads";
@@ -127,23 +134,9 @@ export function LeadCard({ leadId }: Props) {
   // manager picks Won / Lost without going through CloseModal's
   // grid. Won → straight call into useMoveStage; Lost → opens the
   // existing LostModal with the required reason field.
-  const [closeMenuOpen, setCloseMenuOpen] = useState(false);
-  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-
-  // Esc-to-close for both header dropdowns. Bound only while one is open so we
-  // don't leak global keydown listeners on every card render.
-  useEffect(() => {
-    if (!closeMenuOpen && !moreMenuOpen) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        setCloseMenuOpen(false);
-        setMoreMenuOpen(false);
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [closeMenuOpen, moreMenuOpen]);
+  // Header dropdowns («Закрыть сделку ▾» and «⋯») are now Radix-driven —
+  // Esc handling and click-outside come for free from DropdownMenu.
   const [toast, setToast] = useState<string | null>(null);
 
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -242,7 +235,6 @@ export function LeadCard({ leadId }: Props) {
   const priorityClass = priorityPillStyle(lead.priority);
 
   function handleCloseWon() {
-    setCloseMenuOpen(false);
     if (!wonStage) return;
     moveStage.mutate(
       { leadId: lead!.id, body: { stage_id: wonStage.id } },
@@ -253,7 +245,6 @@ export function LeadCard({ leadId }: Props) {
   }
 
   function handleCloseLost() {
-    setCloseMenuOpen(false);
     if (!lostStageRef) return;
     setLostStage(lostStageRef);
   }
@@ -335,84 +326,55 @@ export function LeadCard({ leadId }: Props) {
                 <Send size={13} />
                 Передать
               </Button>
-              <div className="relative">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setCloseMenuOpen((v) => !v)}
-                  disabled={isClosed}
-                  className="font-semibold disabled:cursor-not-allowed"
-                >
-                  <Lock size={13} />
-                  Закрыть сделку
-                  <ChevronDown size={11} />
-                </Button>
-                {closeMenuOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setCloseMenuOpen(false)}
-                    />
-                    <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-brand-border rounded-2xl shadow-soft z-20 overflow-hidden">
-                      <button
-                        type="button"
-                        onClick={handleCloseWon}
-                        disabled={!wonStage}
-                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left type-caption hover:bg-success/5 disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        <CheckCircle2 size={13} className="text-success" />
-                        <span className="font-semibold text-success">
-                          Закрыть как выигран
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleCloseLost}
-                        disabled={!lostStageRef}
-                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left type-caption hover:bg-rose/5 disabled:opacity-40 disabled:cursor-not-allowed border-t border-brand-border"
-                      >
-                        <XCircle size={13} className="text-rose" />
-                        <span className="font-semibold text-rose">
-                          Закрыть как проигран (с причиной)
-                        </span>
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-              <div className="relative">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setMoreMenuOpen((v) => !v)}
-                  aria-label="Ещё действия"
-                  aria-haspopup="menu"
-                  aria-expanded={moreMenuOpen}
-                >
-                  <MoreHorizontal size={16} />
-                </Button>
-                {moreMenuOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setMoreMenuOpen(false)}
-                    />
-                    <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-brand-border rounded-2xl shadow-soft z-20 overflow-hidden">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMoreMenuOpen(false);
-                          setDeleteOpen(true);
-                        }}
-                        className="flex w-full items-center gap-2 px-4 py-2.5 text-left type-caption text-rose hover:bg-rose/5"
-                      >
-                        <Trash2 size={13} />
-                        <span className="font-semibold">Удалить лида</span>
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={isClosed}
+                    className="font-semibold disabled:cursor-not-allowed"
+                  >
+                    <Lock size={13} />
+                    Закрыть сделку
+                    <ChevronDown size={11} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuItem
+                    onSelect={handleCloseWon}
+                    disabled={!wonStage}
+                    className="text-success hover:bg-success/5 focus:bg-success/5"
+                  >
+                    <CheckCircle2 size={13} className="text-success" />
+                    Закрыть как выигран
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={handleCloseLost}
+                    disabled={!lostStageRef}
+                    className="text-rose hover:bg-rose/5 focus:bg-rose/5"
+                  >
+                    <XCircle size={13} className="text-rose" />
+                    Закрыть как проигран (с причиной)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" aria-label="Ещё действия">
+                    <MoreHorizontal size={16} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem
+                    destructive
+                    onSelect={() => setDeleteOpen(true)}
+                  >
+                    <Trash2 size={13} />
+                    Удалить лида
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 
