@@ -1637,3 +1637,23 @@ export interface ResolveConflictIn {
   resolution: IngestConflictResolution;
   resolved_value?: string | null;
 }
+
+// ---------- task file attachments ----------
+
+export type TaskFileKind = "pdf" | "image" | "audio" | "spreadsheet" | "text" | "document";
+
+export interface TaskFileOut {
+  id: string;
+  type: "file";
+  body: string | null;            // caption
+  file_kind: TaskFileKind | string | null;
+  file_name: string;              // original filename
+  file_size: number;              // bytes
+  parent_task_id: string | null;
+  created_at: string;
+}
+
+export interface SignedDownloadOut {
+  url: string;
+  expires_in: number;
+}

@@ -1,6 +1,6 @@
 # DrinkX CRM — Current State
 
-Last updated: 2026-05-23 (Sprint «Audit quick-wins + base_update». PR #65 = task-time (datetime-local) + TaskTable a11y + NeedsReviewRow tokens + lead-card empty column + «Удалить» → ⋯ menu, frontend-only. NEW domain `base_update` on branch `feat/base-update` (52 backend tests + 1 e2e-on-CI, frontend Settings section + 6 conflict types) — see [docs/features/base-update.md](../features/base-update.md). Alembic head 0035 → 0036 (`ingest_jobs/records/conflicts`). Earlier: 2026-05-16 Lead Card Refresh (PRs #41/#42/#45 — unified feed, stage stepper, scoring popup, primary contact pin; migrations 0026 → 0030).
+Last updated: 2026-05-23 (Sprint «Audit quick-wins + base_update + task-file-attachments». PR #65 = task-time + a11y + tokens + empty column + «⋯» menu. PR #66 = NEW domain `base_update` (admin .md ingest, 52+1 tests, 6 conflict types, Settings section) — see [docs/features/base-update.md](../features/base-update.md). NEXT (branch `feat/task-file-attachments`): file attachments to tasks via Supabase Storage `lead-files` bucket (24 backend tests, drag-drop UI, signed-URL download, weekly orphan purger) — see [docs/features/task-file-attachments.md](../features/task-file-attachments.md). Alembic head: 0035 → 0036 (`ingest_jobs/records/conflicts`) → 0037 (partial index on `activities.payload_json.parent_task_id`). Earlier: 2026-05-16 Lead Card Refresh (PRs #41/#42/#45 — unified feed, stage stepper, scoring popup, primary contact pin; migrations 0026 → 0030).
 
 ## Phase 0 — COMPLETED ✅ (lives in `crm-prototype` repo)
 

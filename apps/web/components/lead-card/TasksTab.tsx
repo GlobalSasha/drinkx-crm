@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckSquare, Square, Plus, Calendar, X, Loader2 } from "lucide-react";
+import { CheckSquare, Square, Plus, Calendar, X, Loader2, Paperclip, Search, ChevronDown } from "lucide-react";
+import { TaskFilesList } from "./TaskFilesList";
+import { TaskFileDropzone } from "./TaskFileDropzone";
 import {
   useLeadTasks,
   useCreateLeadTask,
@@ -37,16 +39,25 @@ export function TasksTab({ leadId }: Props) {
   const [adding, setAdding] = useState(false);
   const [text, setText] = useState("");
   const [due, setDue] = useState(""); // datetime-local: yyyy-mm-ddTHH:mm
+  const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
 
   // Open first, then by due date ascending (nulls last).
   const rows = useMemo(() => {
-    return [...(tasks ?? [])].sort((a, b) => {
+    const sorted = [...(tasks ?? [])].sort((a, b) => {
       if (a.task_done !== b.task_done) return a.task_done ? 1 : -1;
       const ad = a.task_due_at ? new Date(a.task_due_at).getTime() : Infinity;
       const bd = b.task_due_at ? new Date(b.task_due_at).getTime() : Infinity;
       return ad - bd;
     });
-  }, [tasks]);
+    const q = search.trim().toLowerCase();
+    if (!q) return sorted;
+    return sorted.filter((a) => {
+      const title = taskTitle(a).toLowerCase();
+      const body = (a.body ?? "").toLowerCase();
+      return title.includes(q) || body.includes(q);
+    });
+  }, [tasks, search]);
 
   function handleSubmit() {
     const t = text.trim();
@@ -81,6 +92,16 @@ export function TasksTab({ leadId }: Props) {
             <Plus size={13} /> Добавить задачу
           </button>
         )}
+      </div>
+
+      <div className="mb-3 relative">
+        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted pointer-events-none" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Поиск по задачам и файлам"
+          className={`w-full pl-8 pr-3 py-2 ${C.form.field}`}
+        />
       </div>
 
       {adding && (
@@ -159,40 +180,64 @@ export function TasksTab({ leadId }: Props) {
         <ul className="flex flex-col gap-1.5">
           {rows.map((a) => {
             const dueLabel = formatDue(a.task_due_at);
+            const isExpanded = expanded.has(a.id);
+            const toggle = () =>
+              setExpanded((s) => {
+                const n = new Set(s);
+                if (n.has(a.id)) n.delete(a.id);
+                else n.add(a.id);
+                return n;
+              });
             return (
-              <li
-                key={a.id}
-                className="flex items-start gap-3 px-3 py-2.5 rounded-2xl bg-brand-bg"
-              >
-                <button
-                  type="button"
-                  onClick={() => !a.task_done && completeTask.mutate(a.id)}
-                  disabled={a.task_done || completeTask.isPending}
-                  aria-label={a.task_done ? "Выполнено" : "Отметить выполненной"}
-                  className="shrink-0 mt-0.5 text-brand-muted hover:text-brand-accent transition-colors disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 rounded"
-                >
-                  {a.task_done ? (
-                    <CheckSquare size={16} className="text-success" />
-                  ) : (
-                    <Square size={16} />
-                  )}
-                </button>
-                <div className="flex-1 min-w-0">
-                  <p
-                    className={`type-body ${
-                      a.task_done
-                        ? "line-through text-brand-muted"
-                        : "text-brand-primary"
-                    }`}
+              <li key={a.id} className="rounded-2xl bg-brand-bg overflow-hidden">
+                <div className="flex items-start gap-3 px-3 py-2.5">
+                  <button
+                    type="button"
+                    onClick={() => !a.task_done && completeTask.mutate(a.id)}
+                    disabled={a.task_done || completeTask.isPending}
+                    aria-label={a.task_done ? "Выполнено" : "Отметить выполненной"}
+                    className="shrink-0 mt-0.5 text-brand-muted hover:text-brand-accent transition-colors disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 rounded"
                   >
-                    {taskTitle(a)}
-                  </p>
-                  {dueLabel && (
-                    <span className="inline-flex items-center gap-1 type-caption text-brand-muted mt-0.5">
-                      <Calendar size={11} /> до {dueLabel}
-                    </span>
-                  )}
+                    {a.task_done ? (
+                      <CheckSquare size={16} className="text-success" />
+                    ) : (
+                      <Square size={16} />
+                    )}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className={`type-body ${
+                        a.task_done ? "line-through text-brand-muted" : "text-brand-primary"
+                      }`}
+                    >
+                      {taskTitle(a)}
+                    </p>
+                    {dueLabel && (
+                      <span className="inline-flex items-center gap-1 type-caption text-brand-muted mt-0.5">
+                        <Calendar size={11} /> до {dueLabel}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={toggle}
+                    aria-expanded={isExpanded}
+                    aria-label="Файлы"
+                    className="shrink-0 inline-flex items-center gap-1 type-caption text-brand-muted hover:text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 rounded"
+                  >
+                    <Paperclip size={12} />
+                    <ChevronDown
+                      size={12}
+                      className={`transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                    />
+                  </button>
                 </div>
+                {isExpanded && (
+                  <div className="px-3 pb-3 space-y-2 border-t border-brand-border/50 pt-2">
+                    <TaskFilesList leadId={leadId} taskId={a.id} q={search.trim() || undefined} />
+                    <TaskFileDropzone leadId={leadId} taskId={a.id} />
+                  </div>
+                )}
               </li>
             );
           })}

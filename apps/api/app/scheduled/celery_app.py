@@ -89,4 +89,8 @@ celery_app.conf.beat_schedule = {
         "task": "app.scheduled.jobs.pool_auto_enrich_batch",
         "schedule": crontab(hour=3, minute=0),
     },
+    "purge-orphan-storage-files": {
+        "task": "app.scheduled.jobs.purge_orphan_storage_files",
+        "schedule": crontab(hour=3, minute=30, day_of_week=0),  # Sundays 03:30 UTC
+    },
 }

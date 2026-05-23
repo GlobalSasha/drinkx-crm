@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, and_, cast, func, or_, select
+from sqlalchemy import DateTime, and_, cast, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activity.models import Activity
@@ -177,3 +177,37 @@ async def list_feed_for_lead(
     # Materialise as (Activity, name) tuples so callers can index.
     out = [(row[0], row[1]) for row in rows]
     return out, next_cursor
+
+
+async def find_files_by_parent_task(
+    db: AsyncSession,
+    *,
+    lead_id: uuid.UUID,
+    task_id: uuid.UUID,
+    q: str | None = None,
+) -> list[Activity]:
+    """All file-activities whose payload_json.parent_task_id == task_id, optionally
+    ILIKE-filtered on filename or body.
+
+    Caller must enforce workspace scope via _get_lead_or_raise(lead_id, workspace_id)
+    BEFORE invoking this — Activity has no workspace_id column, so scope is
+    transitive through Lead.
+    """
+    from app.activity.models import ActivityType  # avoid module-level circular risk
+
+    stmt = (
+        select(Activity)
+        .where(
+            Activity.lead_id == lead_id,
+            Activity.type == ActivityType.file.value,
+            text("payload_json->>'parent_task_id' = :tid").bindparams(tid=str(task_id)),
+        )
+        .order_by(Activity.created_at.desc())
+    )
+    if q and q.strip():
+        like = f"%{q.strip()}%"
+        stmt = stmt.where(
+            (text("payload_json->>'file_name' ILIKE :q").bindparams(q=like))
+            | (Activity.body.ilike(like))
+        )
+    return list((await db.execute(stmt)).scalars().all())
