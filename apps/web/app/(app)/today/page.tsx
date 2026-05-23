@@ -379,7 +379,13 @@ function FunnelWidget() {
   const stages = useMemo(() => {
     const firstPipeline = pipelines?.[0];
     if (!firstPipeline)
-      return [] as { id: string; name: string; count: number; pct: number }[];
+      return [] as {
+        id: string;
+        name: string;
+        count: number;
+        pctOfTotal: number;
+        pctOfMax: number;
+      }[];
     const visible = firstPipeline.stages.filter((s) => !s.is_won && !s.is_lost);
     const leads = leadsData?.items ?? [];
     const counts = visible.map((s) => ({
@@ -389,8 +395,15 @@ function FunnelWidget() {
         (l) => l.assignment_status === "assigned" && l.stage_id === s.id,
       ).length,
     }));
+    const total = counts.reduce((acc, c) => acc + c.count, 0);
     const max = Math.max(1, ...counts.map((c) => c.count));
-    return counts.map((c) => ({ ...c, pct: Math.round((c.count / max) * 100) }));
+    return counts.map((c) => ({
+      ...c,
+      // Bar width uses % of max so the largest stage fills the row (visual rhythm).
+      pctOfMax: Math.round((c.count / max) * 100),
+      // Label uses % of total so the user reads actual distribution (the meaningful number).
+      pctOfTotal: total > 0 ? Math.round((c.count / total) * 100) : 0,
+    }));
   }, [pipelines, leadsData]);
 
   const visibleStages = stages.slice(0, 6);
@@ -419,7 +432,7 @@ function FunnelWidget() {
             Воронка ещё не настроена
           </p>
         )}
-        {!isLoading && !isError && visibleStages.map((s) => (
+        {!isLoading && !isError && visibleStages.map((s, index) => (
           <Link
             key={s.id}
             href={`/pipeline?stage=${s.id}`}
@@ -432,14 +445,22 @@ function FunnelWidget() {
             </span>
             <div className="flex-1 h-2 bg-brand-bg rounded-full overflow-hidden">
               <div
-                className="h-full bg-brand-accent rounded-full transition-all duration-500"
-                style={{ width: `${s.pct}%` }}
+                className="h-full bg-brand-accent rounded-full transition-all duration-700 ease-out"
+                style={{
+                  width: `${s.pctOfMax}%`,
+                  transitionDelay: `${index * 80}ms`,
+                }}
               />
             </div>
             <span
-              className={`type-caption font-mono font-bold tabular-nums ${C.color.text} w-6 text-right shrink-0`}
+              className={`type-caption font-mono font-bold tabular-nums ${C.color.text} w-10 text-right shrink-0`}
             >
               {s.count}
+            </span>
+            <span
+              className={`type-caption tabular-nums ${C.color.mutedLight} w-10 text-right shrink-0`}
+            >
+              {s.pctOfTotal}%
             </span>
           </Link>
         ))}
