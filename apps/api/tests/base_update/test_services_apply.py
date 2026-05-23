@@ -164,14 +164,41 @@ def test_decide_apply_batch_duplicate_keep_is_noop():
     assert op == "noop"
 
 
-def test_decide_apply_contact_mismatch_is_deferred():
-    op, _ = svc._decide_apply(_cf(c.C_CONTACT_MISMATCH, resolution=c.R_OVERWRITE))
-    assert op == "deferred"
+def test_decide_apply_contact_overwrite():
+    cf = _cf(c.C_CONTACT_MISMATCH, target_kind=c.TK_CONTACT, field_name="phone",
+             incoming="+7 999", resolved="contact-uuid-here", resolution=c.R_OVERWRITE)
+    op, args = svc._decide_apply(cf)
+    assert op == "update_contact_field"
+    assert args == {"contact_id": "contact-uuid-here", "field": "phone", "value": "+7 999"}
 
 
-def test_decide_apply_lead_target_is_deferred():
-    op, _ = svc._decide_apply(_cf(c.C_LEAD_TARGET, resolution=c.R_PICK))
-    assert op == "deferred"
+def test_decide_apply_contact_keep_and_skip_are_noop():
+    for r in (c.R_KEEP, c.R_SKIP):
+        op, _ = svc._decide_apply(_cf(c.C_CONTACT_MISMATCH, target_kind=c.TK_CONTACT, resolution=r))
+        assert op == "noop"
+
+
+def test_decide_apply_contact_add_separate_is_noop():
+    op, _ = svc._decide_apply(_cf(c.C_CONTACT_MISMATCH, target_kind=c.TK_CONTACT, resolution=c.R_ADD_SEPARATE))
+    assert op == "noop"
+
+
+def test_decide_apply_lead_target_pick():
+    op, args = svc._decide_apply(_cf(c.C_LEAD_TARGET, target_kind=c.TK_LEAD,
+                                     resolved="11111111-1111-1111-1111-111111111111",
+                                     resolution=c.R_PICK))
+    assert op == "set_match_lead"
+    assert args == {"lead_id": "11111111-1111-1111-1111-111111111111"}
+
+
+def test_decide_apply_lead_target_keep_creates_new():
+    op, _ = svc._decide_apply(_cf(c.C_LEAD_TARGET, target_kind=c.TK_LEAD, resolution=c.R_KEEP))
+    assert op == "create_new_lead"
+
+
+def test_decide_apply_lead_target_skip_is_noop():
+    op, _ = svc._decide_apply(_cf(c.C_LEAD_TARGET, target_kind=c.TK_LEAD, resolution=c.R_SKIP))
+    assert op == "noop"
 
 
 # --- FIX-1: eager-load smoke ---
