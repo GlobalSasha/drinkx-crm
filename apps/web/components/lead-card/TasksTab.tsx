@@ -22,7 +22,9 @@ function formatDue(iso: string | null): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "short" });
+  const date = d.toLocaleDateString("ru-RU", { day: "2-digit", month: "short" });
+  const time = d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  return `${date}, ${time}`;
 }
 
 // Manager-entered tasks only — no follow-ups, no AI. The manager sets
@@ -34,7 +36,7 @@ export function TasksTab({ leadId }: Props) {
 
   const [adding, setAdding] = useState(false);
   const [text, setText] = useState("");
-  const [due, setDue] = useState(""); // yyyy-mm-dd
+  const [due, setDue] = useState(""); // datetime-local: yyyy-mm-ddTHH:mm
 
   // Open first, then by due date ascending (nulls last).
   const rows = useMemo(() => {
@@ -51,9 +53,8 @@ export function TasksTab({ leadId }: Props) {
     if (!t || createTask.isPending) return;
     let iso: string | null = null;
     if (due) {
-      const d = new Date(due);
-      d.setHours(23, 59, 0, 0);
-      iso = d.toISOString();
+      const d = new Date(due); // datetime-local is parsed in local time
+      if (!Number.isNaN(d.getTime())) iso = d.toISOString();
     }
     createTask.mutate(
       { text: t, task_due_at: iso },
@@ -101,11 +102,12 @@ export function TasksTab({ leadId }: Props) {
             className={`flex-1 ${C.form.field}`}
           />
           <input
-            type="date"
+            type="datetime-local"
             value={due}
             onChange={(e) => setDue(e.target.value)}
             disabled={createTask.isPending}
-            className={`${C.form.field} sm:w-44`}
+            aria-label="Срок и время"
+            className={`${C.form.field} sm:w-56`}
           />
           <div className="flex gap-2">
             <button

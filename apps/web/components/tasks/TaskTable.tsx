@@ -59,8 +59,17 @@ export function TaskTable({ rows, onComplete, isCompleting, emptyText }: Props) 
             return (
               <tr
                 key={row.id}
+                role="link"
+                tabIndex={0}
+                aria-label={`Открыть лид: ${row.company ?? row.name}`}
                 onClick={() => router.push(`/leads/${row.leadId}?tab=tasks`)}
-                className="group border-t border-brand-border cursor-pointer hover:bg-brand-bg"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    router.push(`/leads/${row.leadId}?tab=tasks`);
+                  }
+                }}
+                className="group border-t border-brand-border cursor-pointer hover:bg-brand-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-inset"
               >
                 {/* Checkbox */}
                 <td className="px-1 py-2.5 align-top">
