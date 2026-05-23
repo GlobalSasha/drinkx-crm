@@ -17,7 +17,6 @@ import {
   Search,
   TrendingUp,
   ListChecks,
-  Building2,
 } from "lucide-react";
 import { Kbd } from "@/components/ui/Kbd";
 import { useNotificationsBadge } from "@/lib/hooks/use-notifications";
@@ -62,7 +61,6 @@ export function SidebarNavContainer({
       { id: "forecast",   label: "Прогноз",   href: "/forecast",   icon: <TrendingUp size={18} /> },
       { id: "pipeline",   label: "Воронка",   href: "/pipeline",   icon: <Kanban size={18} /> },
       { id: "leads-pool", label: "База лидов", href: "/leads-pool", icon: <Target size={18} /> },
-      { id: "companies",  label: "Компании",  href: "/companies",  icon: <Building2 size={18} /> },
       { id: "triage",     label: "Мессенджеры", href: "/triage",    icon: <MessageCircle size={18} /> },
     ];
     if (isAdminOrHead) {

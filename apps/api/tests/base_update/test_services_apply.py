@@ -107,7 +107,10 @@ async def test_pure_diff_company_fields_autofill_and_conflict():
     base = SimpleNamespace(primary_segment="QSR", website=None, inn=None, city="Москва", phone=None, email=None)
     updates, conflicts = svc._diff_company_fields(card, base)
     assert updates == {"website": "https://x.ru"}                  # base empty → autofill
-    assert ("primary_segment", "QSR", "HoReCa") in conflicts       # base differs → conflict
+    # The schema validator canonicalises "HoReCa" → "HORECA" (the canonical
+    # Russian-label form Lead.segment uses verbatim). Conflict reports the
+    # canonical incoming value.
+    assert ("primary_segment", "QSR", "HORECA") in conflicts
     # city matches (case-insensitive normalized), nothing happens
     assert all(f != "city" for f, _, _ in conflicts) and "city" not in updates
 
