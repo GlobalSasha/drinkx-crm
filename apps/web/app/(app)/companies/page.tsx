@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Search } from "lucide-react";
+import { Building2, Search, X } from "lucide-react";
 import { useCompanies } from "@/lib/hooks/use-companies";
 import type { CompanyOut } from "@/lib/types";
 import { DataTable, type ColumnDef } from "@/components/ui/DataTable";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/Empty";
+import { MultiSelectDropdown } from "@/components/ui/MultiSelectDropdown";
 
 const columns: ColumnDef<CompanyOut, unknown>[] = [
   {
@@ -49,42 +50,117 @@ const columns: ColumnDef<CompanyOut, unknown>[] = [
 
 export default function CompaniesPage() {
   const [search, setSearch] = useState("");
+  const [cityFilters, setCityFilters] = useState<string[]>([]);
+  const [segmentFilters, setSegmentFilters] = useState<string[]>([]);
   const router = useRouter();
 
-  // The hook accepts filter params; we use city/segment/archived but not a text
-  // search param — filter client-side on name/inn/city for simplicity.
   const { data, isLoading } = useCompanies();
   const allRows: CompanyOut[] = (data?.items ?? []).filter((c) => !c.is_archived);
 
-  const rows = search.trim()
-    ? allRows.filter((c) => {
-        const q = search.trim().toLowerCase();
-        return (
+  // Build dropdown option lists + counts from the unfiltered pool, so the
+  // user can always see which segments/cities exist regardless of current
+  // narrowing — same pattern as /leads-pool.
+  const cityOptions = useMemo(
+    () =>
+      Array.from(new Set(allRows.map((c) => c.city).filter(Boolean) as string[])).sort(
+        (a, b) => a.localeCompare(b),
+      ),
+    [allRows],
+  );
+  const segmentOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(allRows.map((c) => c.primary_segment).filter(Boolean) as string[]),
+      ).sort((a, b) => a.localeCompare(b)),
+    [allRows],
+  );
+  const cityCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const c of allRows) if (c.city) m[c.city] = (m[c.city] ?? 0) + 1;
+    return m;
+  }, [allRows]);
+  const segmentCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const c of allRows)
+      if (c.primary_segment) m[c.primary_segment] = (m[c.primary_segment] ?? 0) + 1;
+    return m;
+  }, [allRows]);
+
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const citySet = new Set(cityFilters);
+    const segSet = new Set(segmentFilters);
+    return allRows.filter((c) => {
+      if (q) {
+        const hit =
           c.name.toLowerCase().includes(q) ||
           (c.inn ?? "").toLowerCase().includes(q) ||
-          (c.city ?? "").toLowerCase().includes(q)
-        );
-      })
-    : allRows;
+          (c.city ?? "").toLowerCase().includes(q);
+        if (!hit) return false;
+      }
+      if (citySet.size > 0 && (!c.city || !citySet.has(c.city))) return false;
+      if (segSet.size > 0 && (!c.primary_segment || !segSet.has(c.primary_segment))) return false;
+      return true;
+    });
+  }, [allRows, search, cityFilters, segmentFilters]);
+
+  const activeFilterCount =
+    (search.trim() ? 1 : 0) + (cityFilters.length > 0 ? 1 : 0) + (segmentFilters.length > 0 ? 1 : 0);
+
+  function resetFilters() {
+    setSearch("");
+    setCityFilters([]);
+    setSegmentFilters([]);
+  }
 
   return (
     <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <div className="flex items-center gap-2 mb-5">
         <Building2 size={22} className="text-brand-accent" />
         <h1 className="type-page-title text-brand-primary">Компании</h1>
+        <span className="ml-auto type-caption text-brand-muted tabular-nums">
+          {rows.length} из {allRows.length}
+        </span>
       </div>
 
-      <div className="mb-4 relative max-w-md">
-        <Search
-          size={13}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted pointer-events-none"
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[220px] max-w-md">
+          <Search
+            size={13}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted pointer-events-none"
+          />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Поиск по названию, ИНН, городу"
+            className="w-full pl-8 pr-3 py-2 type-caption bg-white border border-brand-border rounded-full outline-none focus:border-brand-accent"
+          />
+        </div>
+        <MultiSelectDropdown
+          label="Город"
+          options={cityOptions}
+          selected={cityFilters}
+          onChange={setCityFilters}
+          counts={cityCounts}
+          emptyText="Нет городов"
         />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Поиск по названию, ИНН, городу"
-          className="w-full pl-8 pr-3 py-2 type-caption bg-white border border-brand-border rounded-full outline-none focus:border-brand-accent"
+        <MultiSelectDropdown
+          label="Сегмент"
+          options={segmentOptions}
+          selected={segmentFilters}
+          onChange={setSegmentFilters}
+          counts={segmentCounts}
+          emptyText="Сегменты не заданы"
         />
+        {activeFilterCount > 0 && (
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full type-caption font-semibold text-brand-muted hover:text-brand-primary hover:bg-brand-panel transition-colors"
+          >
+            <X size={12} /> Сбросить
+          </button>
+        )}
       </div>
 
       {isLoading && rows.length === 0 ? (
