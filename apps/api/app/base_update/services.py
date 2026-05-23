@@ -346,11 +346,18 @@ def _decide_apply(cf: IngestConflict) -> tuple[str, dict]:
     """Pure: map a resolved conflict to an operation descriptor.
 
     Returns `(op, args)`. `op` ∈
-        "update_company_field" — args: {field, value}
-        "set_match_company"    — args: {company_id}
-        "set_record_error"     — args: {message}
-        "noop"                 — no DB write
-        "deferred"             — handled by a later iteration (Task 16+)
+        "update_company_field"  — args: {field, value}
+        "set_match_company"     — args: {company_id}
+        "set_record_error"      — args: {message}
+        "update_contact_field"  — args: {contact_id, field, value}  [v1.1 #3]
+        "set_match_lead"        — args: {lead_id}                   [v1.1 #4 R_PICK]
+        "create_new_lead"       — args: {}                          [v1.1 #4 R_KEEP]
+        "noop"                  — no DB write
+        "deferred"              — unrecognised combination (should not occur in
+                                  normal flow; C_CONTACT_MISMATCH R_ADD_SEPARATE
+                                  remains noop until v1.2 when the full
+                                  ExtractedContact payload is replayable from
+                                  the conflict row alone)
     """
     type_ = cf.type
     res = cf.resolution
@@ -382,7 +389,35 @@ def _decide_apply(cf: IngestConflict) -> tuple[str, dict]:
             return ("noop", {})
         # R_ADD_SEPARATE for #6 needs a re-run; defer.
 
-    # TODO Task 16+: C_CONTACT_MISMATCH, C_LEAD_TARGET, brief overwrite
+    if type_ == c.C_CONTACT_MISMATCH and cf.target_kind == c.TK_CONTACT:
+        if res == c.R_OVERWRITE:
+            # Admin selects which contact to overwrite via resolved_value (contact_id).
+            return ("update_contact_field", {
+                "contact_id": cf.resolved_value,
+                "field": cf.field_name,
+                "value": cf.incoming_value,
+            })
+        if res == c.R_MANUAL:
+            return ("update_contact_field", {
+                "contact_id": cf.resolved_value,
+                "field": cf.field_name,
+                "value": cf.resolved_value,
+            })
+        if res == c.R_ADD_SEPARATE:
+            # Creating a new contact requires the original ExtractedContact payload
+            # which is not carried in the conflict row alone — deferred to v1.2.
+            return ("noop", {})
+        if res in (c.R_KEEP, c.R_SKIP):
+            return ("noop", {})
+
+    if type_ == c.C_LEAD_TARGET:
+        if res == c.R_PICK and cf.resolved_value:
+            return ("set_match_lead", {"lead_id": cf.resolved_value})
+        if res == c.R_KEEP:
+            return ("create_new_lead", {})
+        if res == c.R_SKIP:
+            return ("noop", {})
+
     return ("deferred", {})
 
 
@@ -418,6 +453,61 @@ async def _execute_op(db: AsyncSession, *, workspace_id, cf: IngestConflict, op:
             return False
     if op == "set_record_error":
         cf.record.error = args["message"]
+        return True
+    if op == "update_contact_field":
+        contact_id = args.get("contact_id")
+        field = args.get("field")
+        value = args.get("value")
+        if not contact_id or not field:
+            cf.record.error = "contact update missing contact_id or field"
+            return False
+        try:
+            await contacts_svc.update_contact(
+                db,
+                workspace_id=workspace_id,
+                lead_id=cf.record.match_lead_id,
+                contact_id=uuid.UUID(str(contact_id)),
+                patch_dict={field: value},
+            )
+            return True
+        except Exception as exc:  # noqa: BLE001
+            log.warning("base_update.apply.update_contact_failed", extra={"conflict": str(cf.id), "error": str(exc)[:200]})
+            cf.record.error = f"update_contact failed: {str(exc)[:120]}"
+            return False
+    if op == "set_match_lead":
+        try:
+            cf.record.match_lead_id = uuid.UUID(str(args["lead_id"]))
+            return True
+        except (ValueError, TypeError):
+            cf.record.error = f"invalid lead id: {args.get('lead_id')!r}"
+            return False
+    if op == "create_new_lead":
+        if not cf.record.match_company_id:
+            cf.record.error = "create_new_lead: record has no match_company_id"
+            return False
+        first = await pipelines_repo.get_default_first_stage(db, workspace_id)
+        if first is None:
+            cf.record.error = "create_new_lead: no default pipeline / first stage"
+            return False
+        pipeline_id, stage_id = first
+        extracted = cf.record.extracted_json or {}
+        company_block = extracted.get("company") or {}
+        company_name = company_block.get("name") or "(без названия)"
+        new_lead = Lead(
+            workspace_id=workspace_id,
+            pipeline_id=pipeline_id,
+            stage_id=stage_id,
+            company_id=cf.record.match_company_id,
+            company_name=company_name,
+            source="base_update",
+            tags_json=[],
+            assignment_status="pool",
+            needs_review=True,
+            ai_data={"base_update_brief": extracted.get("ai_brief")} if extracted.get("ai_brief") else None,
+        )
+        db.add(new_lead)
+        await db.flush()
+        cf.record.match_lead_id = new_lead.id
         return True
     cf.record.error = f"unknown op: {op}"
     return False

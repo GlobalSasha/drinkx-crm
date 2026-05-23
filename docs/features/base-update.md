@@ -56,8 +56,8 @@
 |---|---|---|
 | **#1 company_ambiguous** | >1 совпадения по нормализованному имени | `pick`(resolved_value=company_id) / `keep`(создать новую) / `skip` |
 | **#2 field_mismatch** | Поле в базе ≠ извлечённого (на компании) | `keep`(база) / `overwrite`(из карточки) / `manual`(resolved_value) / `skip` |
-| **#3 contact_mismatch** | Контакт по имени совпал, но детали разные | `keep` / `overwrite` / `add_separate` / `skip` — **dispatch отложен (v1.1)** |
-| **#4 lead_target** | >1 лида у компании, куда писать дополнение | `pick` / `keep`(создать новый) / `skip` — **dispatch отложен (v1.1)** |
+| **#3 contact_mismatch** | Контакт по имени совпал, но детали разные | `keep` / `overwrite`(обновляет поле контакта) / `add_separate`(noop — v1.2) / `skip` |
+| **#4 lead_target** | >1 лида у компании, куда писать дополнение | `pick`(устанавливает match_lead_id) / `keep`(создаёт новый pool-лид) / `skip` |
 | **#5 low_confidence** | `extraction_confidence` < 0.55 ИЛИ пустое имя компании | `manual` / `skip` |
 | **#6 batch_duplicate** | Дубль внутри пачки + поля расходятся | `keep`(слить, всё уже слито в group.primary) / `add_separate`(пока на ревью v1.1) |
 
@@ -118,9 +118,12 @@ Pattern — как у `run_enrichment_task`: `_build_task_engine_and_factory()`
 
 - Триграммный fuzzy-матч похожих имён (только точное по нормализованному).
   Кейс «1 точное + N похожих» сводится к `update` (точное), похожие игнорируются.
-- Авто-write для `#3 contact_mismatch` и `#4 lead_target` resolution —
-  админ может закрыть конфликты, реальный апдейт контакта/привязки лида в БД
-  отложен на v1.1. См. `_decide_apply` → `("deferred", ...)`.
+- `#3 contact_mismatch` с `add_separate` — создание нового контакта требует
+  оригинального `ExtractedContact`-пейлоада, которого нет в строке конфликта.
+  Возвращает `noop`; полный replay отложен на v1.2. Остальные резолюции
+  (`overwrite`, `keep`, `skip`) реализованы в v1.1.
+- `#4 lead_target` — реализован полностью в v1.1: `pick` привязывает лид,
+  `keep` создаёт новый pool-лид, `skip` — noop.
 - AI-бриф в апдейт-пути: пока всегда добавляем брифа НЕ перетираем существующий.
 
 ## ⚠️ Подводные камни
