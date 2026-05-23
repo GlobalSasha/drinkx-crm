@@ -8,6 +8,7 @@ import type { CompanyOut } from "@/lib/types";
 import { DataTable, type ColumnDef } from "@/components/ui/DataTable";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/Empty";
 import { MultiSelectDropdown } from "@/components/ui/MultiSelectDropdown";
+import { segmentLabel } from "@/lib/i18n";
 
 const columns: ColumnDef<CompanyOut, unknown>[] = [
   {
@@ -31,11 +32,14 @@ const columns: ColumnDef<CompanyOut, unknown>[] = [
   {
     accessorKey: "primary_segment",
     header: "Сегмент",
-    cell: (info) => (
-      <span className="type-caption text-brand-muted">
-        {(info.getValue() as string | null) ?? "—"}
-      </span>
-    ),
+    cell: (info) => {
+      const raw = info.getValue() as string | null;
+      return (
+        <span className="type-caption text-brand-muted">
+          {raw ? segmentLabel(raw) : "—"}
+        </span>
+      );
+    },
   },
   {
     accessorKey: "inn",
@@ -70,7 +74,13 @@ export default function CompaniesPage() {
   const segmentOptions = useMemo(
     () =>
       Array.from(
-        new Set(allRows.map((c) => c.primary_segment).filter(Boolean) as string[]),
+        new Set(
+          allRows
+            .map((c) => c.primary_segment)
+            .filter(Boolean)
+            // Translate slugs → human labels so the dropdown is consistent with /leads-pool
+            .map((s) => segmentLabel(s as string)),
+        ),
       ).sort((a, b) => a.localeCompare(b)),
     [allRows],
   );
@@ -81,8 +91,11 @@ export default function CompaniesPage() {
   }, [allRows]);
   const segmentCounts = useMemo(() => {
     const m: Record<string, number> = {};
-    for (const c of allRows)
-      if (c.primary_segment) m[c.primary_segment] = (m[c.primary_segment] ?? 0) + 1;
+    for (const c of allRows) {
+      if (!c.primary_segment) continue;
+      const label = segmentLabel(c.primary_segment);
+      m[label] = (m[label] ?? 0) + 1;
+    }
     return m;
   }, [allRows]);
 
@@ -99,7 +112,11 @@ export default function CompaniesPage() {
         if (!hit) return false;
       }
       if (citySet.size > 0 && (!c.city || !citySet.has(c.city))) return false;
-      if (segSet.size > 0 && (!c.primary_segment || !segSet.has(c.primary_segment))) return false;
+      if (segSet.size > 0) {
+        // Filter values are human labels; translate the row's slug before comparing.
+        if (!c.primary_segment) return false;
+        if (!segSet.has(segmentLabel(c.primary_segment))) return false;
+      }
       return true;
     });
   }, [allRows, search, cityFilters, segmentFilters]);
