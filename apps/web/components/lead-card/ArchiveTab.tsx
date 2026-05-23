@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
-import { Calendar, CheckSquare, Loader2, Square, Undo2 } from "lucide-react";
+import { Archive as ArchiveIcon, Calendar, CheckSquare, Loader2, Square, Undo2 } from "lucide-react";
 import { useLeadArchive, useRestoreLeadTask } from "@/lib/hooks/use-lead-tasks";
 import { C } from "@/lib/design-system";
 import type { ActivityOut } from "@/lib/types";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/Empty";
 
 interface Props {
   leadId: string;
@@ -50,10 +51,15 @@ export function ArchiveTab({ leadId }: Props) {
       )}
 
       {!archive.isLoading && !archive.isError && rows.length === 0 && (
-        <p className={`type-body ${C.color.mutedLight} py-6 text-center`}>
-          Архив пуст. Перемещённые сюда задачи сохраняются по лиду — вместе с
-          прикреплёнными файлами и историей.
-        </p>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon"><ArchiveIcon /></EmptyMedia>
+            <EmptyTitle>Архив пуст</EmptyTitle>
+            <EmptyDescription>
+              Перемещённые сюда задачи сохраняются по лиду — вместе с прикреплёнными файлами и историей.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
 
       {!archive.isLoading && !archive.isError && rows.length > 0 && (

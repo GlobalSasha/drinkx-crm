@@ -17,6 +17,8 @@ export interface NavItem {
   badge?: number;
   ariaLabel?: string;
   onClick?: () => void;
+  /** Optional trailing element rendered at the end of the row (e.g. a Kbd hint). */
+  trailing?: React.ReactNode;
 }
 
 interface DisabledNavItem {
@@ -71,7 +73,8 @@ const NavItemRow = memo(function NavItemRow({
           </span>
         )}
       </span>
-      {item.label}
+      <span className="flex-1">{item.label}</span>
+      {item.trailing}
     </>
   );
 
