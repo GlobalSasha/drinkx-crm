@@ -1,0 +1,93 @@
+"""Async Supabase Storage client — thin httpx wrapper, no SDK dependency.
+
+API reference: https://supabase.com/docs/reference/storage. We only use three
+endpoints: upload (POST /object/{bucket}/{key}), sign (POST /object/sign/{bucket}/{key}),
+delete (DELETE /object/{bucket}/{key}).
+"""
+from __future__ import annotations
+
+import logging
+from functools import lru_cache
+
+import httpx
+
+from app.config import get_settings
+
+log = logging.getLogger(__name__)
+
+
+class StorageError(RuntimeError):
+    """Raised when Supabase Storage returns a non-2xx (except delete-404 which is swallowed)."""
+
+
+class SupabaseStorageClient:
+    def __init__(self, *, base_url: str, bucket: str, service_key: str, timeout_seconds: float = 30.0):
+        self._base = base_url.rstrip("/")
+        self._bucket = bucket
+        self._service_key = service_key
+        self._timeout = timeout_seconds
+
+    def _headers(self, extra: dict | None = None) -> dict:
+        h = {"Authorization": f"Bearer {self._service_key}"}
+        if extra:
+            h.update(extra)
+        return h
+
+    async def upload(self, *, key: str, content: bytes, content_type: str) -> None:
+        """Upload via POST /object/{bucket}/{key} with binary body. Upserts if exists."""
+        url = f"{self._base}/storage/v1/object/{self._bucket}/{key}"
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.post(
+                url,
+                content=content,
+                headers=self._headers({"Content-Type": content_type, "x-upsert": "true"}),
+            )
+        if resp.status_code // 100 != 2:
+            raise StorageError(f"upload failed [{resp.status_code}]: {resp.text[:200]}")
+
+    async def create_signed_url(self, *, key: str, expires_in: int = 300) -> str:
+        """POST /object/sign/{bucket}/{key} → returns an absolute URL valid for `expires_in` seconds."""
+        url = f"{self._base}/storage/v1/object/sign/{self._bucket}/{key}"
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.post(
+                url,
+                json={"expiresIn": expires_in},
+                headers=self._headers({"Content-Type": "application/json"}),
+            )
+        if resp.status_code // 100 != 2:
+            raise StorageError(f"sign failed [{resp.status_code}]: {resp.text[:200]}")
+        body = resp.json()
+        signed_path = body.get("signedURL") or body.get("signedUrl") or ""
+        if not signed_path:
+            raise StorageError(f"sign response missing signedURL: {resp.text[:200]}")
+        # Supabase returns a relative path beginning with /object/sign/...; make it absolute.
+        if signed_path.startswith("/"):
+            # The relative path already includes /object/sign/...; prefix with /storage/v1 if it doesn't include it.
+            if signed_path.startswith("/storage/v1"):
+                return f"{self._base}{signed_path}"
+            if signed_path.startswith("/object"):
+                return f"{self._base}/storage/v1{signed_path}"
+            return f"{self._base}{signed_path}"
+        return signed_path
+
+    async def delete(self, *, key: str) -> None:
+        """DELETE /object/{bucket}/{key} — best-effort. 404 (already gone) is swallowed."""
+        url = f"{self._base}/storage/v1/object/{self._bucket}/{key}"
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.delete(url, headers=self._headers())
+        if resp.status_code == 404:
+            log.info("storage.delete: object already gone", extra={"key": key})
+            return
+        if resp.status_code // 100 != 2:
+            raise StorageError(f"delete failed [{resp.status_code}]: {resp.text[:200]}")
+
+
+@lru_cache(maxsize=1)
+def get_storage_client() -> SupabaseStorageClient:
+    """Singleton storage client constructed from settings."""
+    s = get_settings()
+    return SupabaseStorageClient(
+        base_url=s.supabase_url,
+        bucket=s.supabase_storage_bucket,
+        service_key=s.supabase_secret_key,
+    )

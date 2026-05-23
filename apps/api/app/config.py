@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     supabase_publishable_key: str = ""
     supabase_secret_key: str = ""
     supabase_jwt_secret: str = ""
+    supabase_storage_bucket: str = "lead-files"
 
     # AI providers — see CLAUDE.md and ADR-018
     # Primary: Xiaomi MiMo (OpenAI-compatible). Anthropic / Gemini / DeepSeek as fallbacks.

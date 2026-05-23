@@ -37,6 +37,7 @@ dev = [
     "ruff>=0.8.4",
     "mypy>=1.13.0",
     "types-python-jose>=3.3.4.20240106",
+    "respx>=0.21",
 ]
 
 [tool.ruff]
