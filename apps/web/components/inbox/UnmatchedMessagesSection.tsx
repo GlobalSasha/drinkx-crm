@@ -11,7 +11,9 @@ import {
   Play,
   Loader2,
   X,
+  Inbox,
 } from "lucide-react";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/Empty";
 
 import {
   useAssignInboxMessage,
@@ -225,7 +227,26 @@ export function UnmatchedMessagesSection() {
     );
   }
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return (
+      <section className="mt-10">
+        <header className="mb-3">
+          <h2 className="text-base font-bold text-ink">Мессенджеры и звонки</h2>
+        </header>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon"><Inbox /></EmptyMedia>
+            <EmptyTitle>Нераспознанных писем нет</EmptyTitle>
+            <EmptyDescription>
+              Сюда попадают входящие, которые AI не смог автоматически
+              привязать к существующему лиду. Подключите Gmail в Настройках → Каналы,
+              и непривязанные сообщения будут появляться здесь.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      </section>
+    );
+  }
 
   return (
     <section className="mt-10">
