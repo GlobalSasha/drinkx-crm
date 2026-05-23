@@ -64,3 +64,111 @@ def classify_upload(*, filename: str, size: int, content_head: bytes) -> tuple[s
     content_type = guessed if guessed else default_ct
     _ = content_head  # reserved for future magic-byte sniffing
     return kind, content_type
+
+
+# === Service entrypoints ===
+
+import uuid
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.activity.models import Activity, ActivityType
+from app.activity.repositories import find_files_by_parent_task
+from app.storage.client import StorageError, get_storage_client
+from app.storage.paths import build_object_key
+
+
+async def upload_task_file(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+    user_id: uuid.UUID,
+    parent_task_id: uuid.UUID,
+    filename: str,
+    content: bytes,
+    content_type: str,
+    kind: str,
+    caption: str | None,
+) -> Activity:
+    """Create an Activity(type=file) row and upload bytes to storage.
+
+    Persistence first (so storage isn't holding orphans on DB failure), THEN
+    storage upload. If storage fails, we surface the error to the caller and
+    rely on the orphan-purger to mop up the Activity. (A two-phase commit is
+    overkill for v1; the rare failure mode leaves an Activity with a dead
+    storage path, which the UI handles by showing a broken-link state.)
+    """
+    activity_kwargs: dict = dict(
+        lead_id=lead_id,
+        user_id=user_id,
+        type=ActivityType.file.value,
+        body=(caption or "").strip() or None,
+        file_kind=kind,
+        payload_json={
+            "parent_task_id": str(parent_task_id),
+            "file_name": filename,
+            "file_size": len(content),
+            "source": "task_file_upload",
+        },
+    )
+    if hasattr(Activity, "workspace_id"):
+        activity_kwargs["workspace_id"] = workspace_id
+
+    activity = Activity(**activity_kwargs)
+    db.add(activity)
+    await db.flush()  # we need activity.id for the storage key
+
+    key = build_object_key(
+        workspace_id=workspace_id,
+        lead_id=lead_id,
+        activity_id=activity.id,
+        filename=filename,
+    )
+    activity.file_url = key  # storage PATH, not signed URL
+    try:
+        client = get_storage_client()
+        await client.upload(key=key, content=content, content_type=content_type)
+    except StorageError as exc:
+        log.warning(
+            "task_file.upload_storage_failed",
+            extra={"activity_id": str(activity.id), "error": str(exc)[:200]},
+        )
+        raise
+    return activity
+
+
+async def list_task_files(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+    task_id: uuid.UUID,
+    q: str | None,
+) -> list[Activity]:
+    return await find_files_by_parent_task(
+        db, workspace_id=workspace_id, lead_id=lead_id, task_id=task_id, q=q
+    )
+
+
+async def signed_download_url(activity: Activity) -> str:
+    """5-minute signed URL for an Activity(type=file)."""
+    if activity.type != ActivityType.file.value or not activity.file_url:
+        raise ValueError("activity is not a file")
+    client = get_storage_client()
+    return await client.create_signed_url(key=activity.file_url, expires_in=300)
+
+
+async def delete_file_activity(db: AsyncSession, activity: Activity) -> None:
+    """Best-effort: delete the storage object first, then the Activity row.
+    Storage failure is logged, never raised — the row is still removed."""
+    if activity.type == ActivityType.file.value and activity.file_url:
+        try:
+            client = get_storage_client()
+            await client.delete(key=activity.file_url)
+        except StorageError as exc:
+            log.warning(
+                "task_file.delete_storage_failed",
+                extra={"activity_id": str(activity.id), "error": str(exc)[:200]},
+            )
+    await db.delete(activity)
