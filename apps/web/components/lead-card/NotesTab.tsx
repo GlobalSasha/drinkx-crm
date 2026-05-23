@@ -11,6 +11,7 @@ import {
 import { useMe } from "@/lib/hooks/use-me";
 import { C } from "@/lib/design-system";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Item, ItemContent, ItemTitle, ItemDescription, ItemActions } from "@/components/ui/Item";
 import type { NoteOut } from "@/lib/types";
 
 interface Props {
@@ -116,17 +117,18 @@ export function NotesTab({ leadId }: Props) {
       )}
 
       {!isLoading && !isError && (notes?.length ?? 0) > 0 && (
-        <ul className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3">
           {notes!.map((note) => {
             const editing = editingId === note.id;
             const confirming = confirmDeleteId === note.id;
             return (
-              <li
+              <Item
                 key={note.id}
-                className="rounded-2xl border border-brand-border p-4"
+                variant="outline"
+                className="p-4 items-start"
               >
                 {editing ? (
-                  <div>
+                  <ItemContent>
                     <textarea
                       autoFocus
                       value={editText}
@@ -153,18 +155,18 @@ export function NotesTab({ leadId }: Props) {
                         <X size={14} />
                       </button>
                     </div>
-                  </div>
+                  </ItemContent>
                 ) : (
-                  <>
-                    <p className="type-body text-brand-primary whitespace-pre-wrap break-words">
+                  <ItemContent>
+                    <ItemTitle className="whitespace-pre-wrap break-words">
                       {note.text}
-                    </p>
+                    </ItemTitle>
                     <div className="flex items-center justify-between gap-2 mt-2">
-                      <span className="type-caption text-brand-muted">
+                      <ItemDescription className="mt-0">
                         {formatAuthorDate(note)}
-                      </span>
+                      </ItemDescription>
                       {canManage(note) && (
-                        <div className="flex items-center gap-1 shrink-0">
+                        <ItemActions>
                           {confirming ? (
                             <span className="inline-flex items-center gap-2">
                               <span className="type-caption text-brand-muted">
@@ -208,15 +210,15 @@ export function NotesTab({ leadId }: Props) {
                               </button>
                             </>
                           )}
-                        </div>
+                        </ItemActions>
                       )}
                     </div>
-                  </>
+                  </ItemContent>
                 )}
-              </li>
+              </Item>
             );
           })}
-        </ul>
+        </div>
       )}
     </Card>
   );
