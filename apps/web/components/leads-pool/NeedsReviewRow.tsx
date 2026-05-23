@@ -39,6 +39,11 @@ export function NeedsReviewRow({ lead }: Props) {
     },
   });
 
+  // Cross-guard: either mutation in flight disables both action buttons,
+  // preventing a race between «Подтвердить» (clear needs_review) and «Не лид»
+  // (soft-delete) on the same lead — security-auditor finding LOW.
+  const busy = confirm.isPending || dismiss.isPending;
+
   return (
     <div className="mt-1 flex items-center gap-2 flex-wrap">
       <span
@@ -54,7 +59,7 @@ export function NeedsReviewRow({ lead }: Props) {
           e.stopPropagation();
           confirm.mutate();
         }}
-        disabled={confirm.isPending}
+        disabled={busy}
         className="text-xs px-2 py-0.5 rounded bg-success text-white hover:bg-success/90 disabled:opacity-50"
       >
         Подтвердить
@@ -68,7 +73,7 @@ export function NeedsReviewRow({ lead }: Props) {
               e.stopPropagation();
               dismiss.mutate();
             }}
-            disabled={dismiss.isPending}
+            disabled={busy}
             className="px-2 py-0.5 rounded text-rose bg-rose/10 hover:bg-rose/15 font-semibold disabled:opacity-50"
           >
             Да, удалить
@@ -79,7 +84,8 @@ export function NeedsReviewRow({ lead }: Props) {
               e.stopPropagation();
               setConfirmingDismiss(false);
             }}
-            className="px-2 py-0.5 rounded text-brand-muted hover:bg-brand-panel"
+            disabled={busy}
+            className="px-2 py-0.5 rounded text-brand-muted hover:bg-brand-panel disabled:opacity-50"
           >
             Отмена
           </button>
@@ -91,7 +97,7 @@ export function NeedsReviewRow({ lead }: Props) {
             e.stopPropagation();
             setConfirmingDismiss(true);
           }}
-          disabled={dismiss.isPending}
+          disabled={busy}
           className="text-xs px-2 py-0.5 rounded text-rose bg-rose/10 hover:bg-rose/15 disabled:opacity-50"
         >
           Не лид

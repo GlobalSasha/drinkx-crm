@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
@@ -125,6 +125,20 @@ export function LeadCard({ leadId }: Props) {
   const [closeMenuOpen, setCloseMenuOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+
+  // Esc-to-close for both header dropdowns. Bound only while one is open so we
+  // don't leak global keydown listeners on every card render.
+  useEffect(() => {
+    if (!closeMenuOpen && !moreMenuOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setCloseMenuOpen(false);
+        setMoreMenuOpen(false);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [closeMenuOpen, moreMenuOpen]);
   const [toast, setToast] = useState<string | null>(null);
 
   const nameInputRef = useRef<HTMLInputElement>(null);
