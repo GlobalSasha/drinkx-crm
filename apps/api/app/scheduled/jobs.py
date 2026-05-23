@@ -244,6 +244,60 @@ def base_update_apply(job_id: str) -> dict:
     return asyncio.run(_core())
 
 
+@celery_app.task(name="app.scheduled.jobs.purge_orphan_storage_files")
+def purge_orphan_storage_files() -> dict:
+    """Weekly: list the lead-files bucket, delete objects with no Activity backing them.
+
+    Conservative — skips objects modified in the last 7 days to avoid racing
+    in-flight uploads. Returns a summary dict for telemetry/logs.
+    """
+    from datetime import datetime, timedelta, timezone
+    from sqlalchemy import select
+    from app.activity.models import Activity, ActivityType
+    from app.storage.client import get_storage_client
+
+    async def _core():
+        engine, factory = _build_task_engine_and_factory()
+        deleted = 0
+        kept = 0
+        try:
+            async with factory() as db:
+                live_keys = set(
+                    (
+                        await db.execute(
+                            select(Activity.file_url).where(
+                                Activity.type == ActivityType.file.value,
+                                Activity.file_url.is_not(None),
+                            )
+                        )
+                    ).scalars().all()
+                )
+            client = get_storage_client()
+            cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+            for obj in await client.list_objects(prefix="", limit=1000):
+                key = obj.get("name") or ""
+                modified = obj.get("updated_at") or obj.get("created_at") or ""
+                try:
+                    mod_dt = datetime.fromisoformat(str(modified).replace("Z", "+00:00"))
+                except (TypeError, ValueError):
+                    mod_dt = datetime.now(timezone.utc)
+                if mod_dt > cutoff:
+                    kept += 1
+                    continue
+                if key and key not in live_keys:
+                    try:
+                        await client.delete(key=key)
+                        deleted += 1
+                    except Exception:  # noqa: BLE001
+                        # best-effort; will retry next week
+                        pass
+        finally:
+            await engine.dispose()
+        return {"job": "purge_orphan_storage_files", "deleted": deleted, "kept_recent": kept}
+
+    return asyncio.run(_core())
+
+
 def _build_task_engine_and_factory():
     """Each Celery task needs its own engine because asyncio.run() creates a
     fresh event loop per invocation, while asyncpg connections are bound to

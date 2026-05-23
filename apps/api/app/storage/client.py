@@ -70,6 +70,25 @@ class SupabaseStorageClient:
             return f"{self._base}{signed_path}"
         return signed_path
 
+    async def list_objects(self, *, prefix: str = "", limit: int = 1000) -> list[dict]:
+        """POST /object/list/{bucket} — paginated listing. Returns the items array.
+
+        Each item is a dict with at least `name`, `created_at`, `updated_at` (Supabase
+        format). We don't paginate beyond `limit` here — the orphan purger reruns
+        weekly, so a partial sweep is acceptable.
+        """
+        url = f"{self._base}/storage/v1/object/list/{self._bucket}"
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.post(
+                url,
+                json={"prefix": prefix, "limit": limit, "offset": 0},
+                headers=self._headers({"Content-Type": "application/json"}),
+            )
+        if resp.status_code // 100 != 2:
+            raise StorageError(f"list failed [{resp.status_code}]: {resp.text[:200]}")
+        data = resp.json()
+        return data if isinstance(data, list) else []
+
     async def delete(self, *, key: str) -> None:
         """DELETE /object/{bucket}/{key} — best-effort. 404 (already gone) is swallowed."""
         url = f"{self._base}/storage/v1/object/{self._bucket}/{key}"
