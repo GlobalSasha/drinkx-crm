@@ -16,9 +16,10 @@ class TaskType(str, Enum):
     sales_coach = "sales_coach"
     scoring = "scoring"
     reenrichment_high_fit = "reenrichment_high_fit"
+    lpr_extraction = "lpr_extraction"
 
 
-_FLASH_TASKS = {TaskType.research_synthesis, TaskType.daily_plan, TaskType.prefilter}
+_FLASH_TASKS = {TaskType.research_synthesis, TaskType.daily_plan, TaskType.prefilter, TaskType.lpr_extraction}
 
 
 def is_flash_task(t: TaskType) -> bool:
