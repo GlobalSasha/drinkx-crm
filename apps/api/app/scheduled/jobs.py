@@ -302,6 +302,75 @@ def purge_orphan_storage_files() -> dict:
     return asyncio.run(_core())
 
 
+@celery_app.task(name="app.scheduled.jobs.extract_task_file_content")
+def extract_task_file_content(activity_id: str) -> dict:
+    """Best-effort post-upload: download the file from storage, extract
+    a plain-text excerpt (PDF via pypdf, text-ish via utf-8 decode), and
+    persist it to Activity.payload_json['extracted_text'] so the
+    lead-card Tasks-tab search can ILIKE-match content as well as
+    filename and caption.
+
+    Never raises — extraction failures degrade to no match, not an
+    error on the upload path."""
+    from uuid import UUID
+    from sqlalchemy import select
+    from app.activity.models import Activity, ActivityType
+    from app.activity.extraction import extract_content
+    from app.storage.client import StorageError, get_storage_client
+
+    async def _core():
+        engine, factory = _build_task_engine_and_factory()
+        try:
+            async with factory() as db:
+                activity = (
+                    await db.execute(
+                        select(Activity).where(
+                            Activity.id == UUID(activity_id),
+                            Activity.type == ActivityType.file.value,
+                        )
+                    )
+                ).scalar_one_or_none()
+                if activity is None or not activity.file_url:
+                    return {"job": "extract_task_file_content", "skipped": True}
+
+                payload = dict(activity.payload_json or {})
+                file_name = payload.get("file_name") or activity.file_url.rsplit("/", 1)[-1]
+
+                try:
+                    client = get_storage_client()
+                    raw = await client.download(key=activity.file_url)
+                except StorageError as exc:
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        "extraction.download_failed",
+                        extra={"activity_id": activity_id, "error": str(exc)[:200]},
+                    )
+                    return {"job": "extract_task_file_content", "downloaded": False}
+
+                text_excerpt = extract_content(
+                    file_kind=activity.file_kind,
+                    file_name=file_name,
+                    content=raw,
+                )
+                if text_excerpt is None:
+                    # nothing to index — don't store a None marker
+                    return {"job": "extract_task_file_content", "indexed": False}
+
+                payload["extracted_text"] = text_excerpt
+                # new dict to mark JSONB column dirty for SQLAlchemy
+                activity.payload_json = payload
+                await db.commit()
+                return {
+                    "job": "extract_task_file_content",
+                    "indexed": True,
+                    "bytes": len(text_excerpt.encode("utf-8")),
+                }
+        finally:
+            await engine.dispose()
+
+    return asyncio.run(_core())
+
+
 def _build_task_engine_and_factory():
     """Each Celery task needs its own engine because asyncio.run() creates a
     fresh event loop per invocation, while asyncpg connections are bound to

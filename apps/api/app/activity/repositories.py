@@ -208,6 +208,7 @@ async def find_files_by_parent_task(
         like = f"%{q.strip()}%"
         stmt = stmt.where(
             (text("payload_json->>'file_name' ILIKE :q").bindparams(q=like))
+            | (text("payload_json->>'extracted_text' ILIKE :q").bindparams(q=like))
             | (Activity.body.ilike(like))
         )
     return list((await db.execute(stmt)).scalars().all())
