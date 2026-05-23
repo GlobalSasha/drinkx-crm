@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { CheckSquare, Square, Plus, Calendar, X, Loader2, Paperclip, Search, ChevronDown, Pencil, Archive, ListChecks } from "lucide-react";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/Empty";
+import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import { TaskFilesList } from "./TaskFilesList";
 import { TaskFileDropzone } from "./TaskFileDropzone";
 import {
@@ -88,19 +90,15 @@ export function TasksTab({ leadId }: Props) {
   }
 
   return (
-    <div className="bg-white border border-brand-border rounded-[2rem] p-5 sm:p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="type-card-title text-brand-primary">Задачи</h2>
+    <Card>
+      <CardHeader>
+        <CardTitle>Задачи</CardTitle>
         {!adding && (
-          <button
-            type="button"
-            onClick={() => setAdding(true)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 type-caption font-semibold ${C.button.pill}`}
-          >
+          <Button variant="pill" size="sm" type="button" onClick={() => setAdding(true)}>
             <Plus size={13} /> Добавить задачу
-          </button>
+          </Button>
         )}
-      </div>
+      </CardHeader>
 
       <div className="mb-3 relative">
         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted pointer-events-none" />
@@ -360,6 +358,6 @@ export function TasksTab({ leadId }: Props) {
           })}
         </ul>
       )}
-    </div>
+    </Card>
   );
 }
