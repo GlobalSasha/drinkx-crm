@@ -4,6 +4,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
+from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activity import repositories as repo
@@ -126,6 +127,8 @@ async def update_task(
 ) -> Activity:
     """Update body and/or task_due_at on a task-Activity. Raises
     LeadNotFound / ActivityNotFound / ValueError if not a task."""
+    if body is None and task_due_at is None:
+        raise ValueError("at least one of body or task_due_at must be provided")
     await _get_lead_or_raise(db, lead_id, workspace_id)
     activity = await repo.get_by_id(db, activity_id, lead_id)
     if activity is None:
@@ -156,9 +159,6 @@ async def delete_task(
     """Delete a task-Activity row. Also deletes any file-attachment
     Activities whose payload_json.parent_task_id points at this task;
     storage objects are swept by the weekly orphan-purger."""
-    from sqlalchemy import delete
-    from sqlalchemy import text
-
     await _get_lead_or_raise(db, lead_id, workspace_id)
     activity = await repo.get_by_id(db, activity_id, lead_id)
     if activity is None:

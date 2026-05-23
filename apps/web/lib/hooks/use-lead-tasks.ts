@@ -89,6 +89,8 @@ export function useUpdateLeadTask(leadId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: TASKS_KEY(leadId) });
       qc.invalidateQueries({ queryKey: ["feed", leadId] });
+      qc.invalidateQueries({ queryKey: ["my-tasks"] });
+      qc.invalidateQueries({ queryKey: ["daily-plan", "today"] });
     },
   });
 }
@@ -103,6 +105,7 @@ export function useDeleteLeadTask(leadId: string) {
       qc.invalidateQueries({ queryKey: TASKS_KEY(leadId) });
       qc.invalidateQueries({ queryKey: ["feed", leadId] });
       qc.invalidateQueries({ queryKey: ["my-tasks"] });
+      qc.invalidateQueries({ queryKey: ["daily-plan", "today"] });
     },
   });
 }

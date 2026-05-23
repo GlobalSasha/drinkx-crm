@@ -32,9 +32,9 @@ class ActivityCreate(ActivityBase):
 
 
 class TaskUpdateIn(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict()
 
-    body: str | None = None
+    body: str | None = Field(None, max_length=2000)
     task_due_at: datetime | None = None
 
 
