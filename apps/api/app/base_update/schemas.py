@@ -81,6 +81,25 @@ class ExtractedContact(BaseModel):
         return s
 
 
+# Slug → canonical Russian label. The LLM occasionally emits English slugs
+# (`food_retail`, `qsr_fast_food`, ...) — normalise to the format that
+# Lead.segment uses verbatim so Company.primary_segment matches across
+# the app.
+_SEGMENT_SLUG_TO_LABEL = {
+    "food_retail":                    "Продуктовый ритейл",
+    "non_food_retail":                "Непродуктовый ритейл",
+    "coffee_shops":                   "Кофейни и кафе",
+    "qsr_fast_food":                  "QSR / Fast Food",
+    "qsr":                            "QSR / Fast Food",
+    "horeca":                         "HORECA",
+    "gas_stations":                   "АЗС",
+    "coffee_equipment_distributors":  "Дистрибьюторы оборудования",
+    "raw_materials":                  "Зерно обжарка экстракт",
+    "vending":                        "Вендинг",
+    "other":                          "Другое",
+}
+
+
 class ExtractedCompany(BaseModel):
     name: str = ""
     segment: str | None = None
@@ -90,6 +109,15 @@ class ExtractedCompany(BaseModel):
     city: str | None = None
     phone: str | None = None
     email: str | None = None
+
+    @field_validator("segment", mode="after")
+    @classmethod
+    def _canonicalise_segment(cls, v: str | None) -> str | None:
+        """Map English LLM-slug forms to the Russian-label canon. Unknown
+        values pass through unchanged."""
+        if v is None:
+            return None
+        return _SEGMENT_SLUG_TO_LABEL.get(v.strip().lower(), v.strip())
 
     @model_validator(mode="before")
     @classmethod

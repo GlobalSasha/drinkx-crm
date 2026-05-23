@@ -16,28 +16,9 @@ export const SEGMENT_OPTIONS = [
   "Другое",
 ] as const;
 
-// English-slug → Russian-label map. Companies (created via base_update's
-// LLM extraction) store English slugs in primary_segment; Leads store the
-// Russian label verbatim. The label function below resolves both so users
-// see consistent copy regardless of which entity is rendered.
-const SEGMENT_SLUG_TO_LABEL: Record<string, string> = {
-  food_retail: "Продуктовый ритейл",
-  non_food_retail: "Непродуктовый ритейл",
-  coffee_shops: "Кофейни и кафе",
-  qsr_fast_food: "QSR / Fast Food",
-  qsr: "QSR / Fast Food",
-  horeca: "HORECA",
-  gas_stations: "АЗС",
-  coffee_equipment_distributors: "Дистрибьюторы оборудования",
-  raw_materials: "Зерно обжарка экстракт",
-  vending: "Вендинг",
-  other: "Другое",
-};
-
-export const SEGMENT_LABELS: Record<string, string> = {
-  ...Object.fromEntries(SEGMENT_OPTIONS.map((s) => [s, s])),
-  ...SEGMENT_SLUG_TO_LABEL,
-};
+export const SEGMENT_LABELS: Record<string, string> = Object.fromEntries(
+  SEGMENT_OPTIONS.map((s) => [s, s]),
+);
 
 export function segmentLabel(s: string): string {
   return SEGMENT_LABELS[s] ?? s;
