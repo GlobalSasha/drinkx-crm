@@ -9,7 +9,7 @@
 
 ## Скоуп
 
-- **Поиск:** по имени файла + тексту тела активности + **извлечённому контенту** (PDF через `pypdf`, текст .txt/.md/.csv/.rtf через utf-8 декод). Содержимое индексируется асинхронно после загрузки — Celery-задача скачивает файл из бакета и пишет excerpt (≤100 КБ) в `Activity.payload_json.extracted_text`. **Audio (Whisper STT) и DOC/DOCX/XLSX отложены до v1.2** — Whisper требует cost monitoring, Office-форматы требуют openpyxl/mammoth. ILIKE на бэке +
+- **Поиск:** по имени файла + тексту тела активности + **извлечённому контенту** (PDF через `pypdf`, текст .txt/.md/.csv/.rtf через utf-8 декод, **audio через OpenAI Whisper API** — mp3/wav/m4a/ogg). Содержимое индексируется асинхронно после загрузки — Celery-задача скачивает файл из бакета и пишет excerpt (≤100 КБ) в `Activity.payload_json.extracted_text`. Whisper включается автоматически если `OPENAI_API_KEY` установлен; без ключа audio тихо пропускается (поиск просто не матчит по содержимому). **DOC/DOCX/XLSX отложены до v1.2** — требуют openpyxl/mammoth. ILIKE на бэке +
   клиентский фильтр задач). Извлечение содержимого (текст PDF, STT аудио) —
   следующая итерация.
 - **Доступ:** любой `current_user` лида (workspace-scoped через

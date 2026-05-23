@@ -23,8 +23,8 @@ def test_empty_content_returns_none():
 
 
 def test_unsupported_kind_returns_none():
+    # Image / spreadsheet / document still skipped in v1.
     assert extract_content(file_kind="image", file_name="x.png", content=b"\x89PNG\r\n") is None
-    assert extract_content(file_kind="audio", file_name="x.mp3", content=b"ID3") is None
     assert extract_content(file_kind="spreadsheet", file_name="x.xlsx", content=b"PK") is None
     assert extract_content(file_kind="document", file_name="x.docx", content=b"PK") is None
 
@@ -68,3 +68,78 @@ def test_truncation_preserves_utf8_boundary():
     assert out is not None
     # Should encode cleanly back to valid utf-8
     out.encode("utf-8")  # raises if invalid
+
+
+# ─── audio (Whisper) ───────────────────────────────────────
+
+
+def test_audio_without_api_key_returns_none(monkeypatch):
+    """When OPENAI_API_KEY is empty, audio extraction is a graceful noop.
+    The dev/CI environment shouldn't make outbound API calls."""
+    from app.config import get_settings
+
+    s = get_settings()
+    monkeypatch.setattr(s, "openai_api_key", "")
+    out = extract_content(file_kind="audio", file_name="call.mp3", content=b"ID3\x03fake-mp3-bytes")
+    assert out is None  # empty extract → None after truncate
+
+
+def test_audio_too_large_returns_none(monkeypatch):
+    """Whisper rejects files >25 MB; we never POST."""
+    from app.config import get_settings
+
+    s = get_settings()
+    monkeypatch.setattr(s, "openai_api_key", "fake-key")
+    huge = b"\x00" * (26 * 1024 * 1024)  # 26 MB
+    out = extract_content(file_kind="audio", file_name="long.mp3", content=huge)
+    assert out is None
+
+
+def test_audio_happy_path(monkeypatch):
+    """When the API returns 200 with a transcript, we get back the text."""
+    from app.config import get_settings
+    from app.activity import extraction as ext
+
+    s = get_settings()
+    monkeypatch.setattr(s, "openai_api_key", "fake-key")
+
+    class FakeResp:
+        status_code = 200
+        text = "Hello, this is the transcript."
+
+    monkeypatch.setattr(ext.httpx, "post", lambda *a, **kw: FakeResp())
+    out = extract_content(file_kind="audio", file_name="call.mp3", content=b"ID3\x03fake")
+    assert out == "Hello, this is the transcript."
+
+
+def test_audio_api_failure_returns_none(monkeypatch):
+    """A 4xx/5xx from Whisper → empty extract → None after truncate."""
+    from app.config import get_settings
+    from app.activity import extraction as ext
+
+    s = get_settings()
+    monkeypatch.setattr(s, "openai_api_key", "fake-key")
+
+    class FakeResp:
+        status_code = 500
+        text = "internal error"
+
+    monkeypatch.setattr(ext.httpx, "post", lambda *a, **kw: FakeResp())
+    out = extract_content(file_kind="audio", file_name="call.mp3", content=b"ID3\x03fake")
+    assert out is None
+
+
+def test_audio_network_error_returns_none(monkeypatch):
+    """A network exception is caught by the outer try in extract_content."""
+    from app.config import get_settings
+    from app.activity import extraction as ext
+
+    s = get_settings()
+    monkeypatch.setattr(s, "openai_api_key", "fake-key")
+
+    def raise_(*a, **kw):
+        raise ext.httpx.ConnectError("boom")
+
+    monkeypatch.setattr(ext.httpx, "post", raise_)
+    out = extract_content(file_kind="audio", file_name="call.mp3", content=b"ID3\x03fake")
+    assert out is None
