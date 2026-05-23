@@ -20,6 +20,7 @@ import {
   Activity as ActivityIcon,
   Archive,
 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { useLead, useUpdateLead } from "@/lib/hooks/use-lead";
 import { usePipelines, DEFAULT_STAGES } from "@/lib/hooks/use-pipelines";
 import { useClaimLead, useMoveStage, useUnclaimLead } from "@/lib/hooks/use-leads";
@@ -259,6 +260,7 @@ export function LeadCard({ leadId }: Props) {
 
   return (
     <div className="font-sans min-h-screen bg-canvas flex flex-col">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
       {/* Sticky header — 2 rows per spec */}
       <header className="sticky top-0 z-20 bg-white border-b border-brand-border">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-3 pb-2">
@@ -581,22 +583,13 @@ export function LeadCard({ leadId }: Props) {
               ))}
             </select>
           </div>
-          <div className="hidden sm:flex gap-0 mt-4 border-b border-brand-border -mb-px overflow-x-auto">
+          <TabsList className="hidden sm:flex mt-4">
             {TABS.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={`px-4 py-2.5 type-caption font-semibold border-b-2 transition-all whitespace-nowrap ${
-                  activeTab === tab.key
-                    ? "border-brand-accent text-brand-accent-text"
-                    : "border-transparent text-brand-muted"
-                }`}
-              >
+              <TabsTrigger key={tab.key} value={tab.key}>
                 {tab.label}
-              </button>
+              </TabsTrigger>
             ))}
-          </div>
+          </TabsList>
         </div>
       </header>
 
@@ -606,12 +599,12 @@ export function LeadCard({ leadId }: Props) {
         <div className="flex flex-col md:flex-row md:items-start md:gap-6 gap-4">
           {/* Tab body (main) */}
           <div className="flex-1 min-w-0 order-2 md:order-1">
-            {activeTab === "activity" && <UnifiedFeed leadId={lead.id} />}
-            {activeTab === "deal-ai" && <DealAndAITab lead={lead} />}
-            {activeTab === "contacts" && <ContactsTab lead={lead} />}
-            {activeTab === "tasks" && <TasksTab leadId={lead.id} />}
-            {activeTab === "notes" && <NotesTab leadId={lead.id} />}
-            {activeTab === "archive" && <ArchiveTab leadId={lead.id} />}
+            <TabsContent value="activity"><UnifiedFeed leadId={lead.id} /></TabsContent>
+            <TabsContent value="deal-ai"><DealAndAITab lead={lead} /></TabsContent>
+            <TabsContent value="contacts"><ContactsTab lead={lead} /></TabsContent>
+            <TabsContent value="tasks"><TasksTab leadId={lead.id} /></TabsContent>
+            <TabsContent value="notes"><NotesTab leadId={lead.id} /></TabsContent>
+            <TabsContent value="archive"><ArchiveTab leadId={lead.id} /></TabsContent>
           </div>
 
           {/* Right column — renders only when the workspace has custom
@@ -619,6 +612,7 @@ export function LeadCard({ leadId }: Props) {
           <CustomFieldsPanel leadId={lead.id} />
         </div>
       </div>
+      </Tabs>
 
       {/* Modals */}
       {gateTarget && (
