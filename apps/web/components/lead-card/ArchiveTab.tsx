@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { Archive as ArchiveIcon, Calendar, CheckSquare, Loader2, Square, Undo2 } from "lucide-react";
 import { useLeadArchive, useRestoreLeadTask } from "@/lib/hooks/use-lead-tasks";
-import { C } from "@/lib/design-system";
+import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import type { ActivityOut } from "@/lib/types";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/Empty";
 
@@ -36,8 +36,10 @@ export function ArchiveTab({ leadId }: Props) {
   );
 
   return (
-    <div className="bg-white border border-brand-border rounded-[2rem] p-5 sm:p-6">
-      <h2 className="type-card-title text-brand-primary mb-4">Архив задач</h2>
+    <Card>
+      <CardHeader>
+        <CardTitle>Архив задач</CardTitle>
+      </CardHeader>
 
       {archive.isLoading && (
         <div className="flex items-center gap-2 py-6 justify-center text-brand-muted">
@@ -96,6 +98,6 @@ export function ArchiveTab({ leadId }: Props) {
           })}
         </ul>
       )}
-    </div>
+    </Card>
   );
 }

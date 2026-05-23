@@ -10,6 +10,7 @@ import {
 } from "@/lib/hooks/use-notes";
 import { useMe } from "@/lib/hooks/use-me";
 import { C } from "@/lib/design-system";
+import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import type { NoteOut } from "@/lib/types";
 
 interface Props {
@@ -66,8 +67,10 @@ export function NotesTab({ leadId }: Props) {
   }
 
   return (
-    <div className="bg-white border border-brand-border rounded-[2rem] p-5 sm:p-6">
-      <h2 className="type-card-title text-brand-primary mb-4">Заметки</h2>
+    <Card>
+      <CardHeader>
+        <CardTitle>Заметки</CardTitle>
+      </CardHeader>
 
       {/* New note */}
       <div className="mb-5">
@@ -215,6 +218,6 @@ export function NotesTab({ leadId }: Props) {
           })}
         </ul>
       )}
-    </div>
+    </Card>
   );
 }
