@@ -69,15 +69,16 @@ const WIDGET_LABELS: Record<WidgetId, string> = {
   "w-notif":     "Уведомления",
 };
 
-// Grid spans per widget. Counter widgets are 1 column on the auto-fit
-// grid; main widgets occupy 2; the notifications strip stretches across.
+// Grid spans per widget on the fixed responsive grid (1 → 2 → 4 cols).
+// Counters take 1 column; main widgets pair into 2-col slots; the
+// notifications strip spans the full row at xl.
 const WIDGET_SPAN: Record<WidgetId, string> = {
-  "w-rotting":   "",
-  "w-pipeline":  "",
-  "w-tasklist":  "sm:col-span-2",
-  "w-reminders": "sm:col-span-2",
-  "w-funnel":    "sm:col-span-2",
-  "w-notif":     "col-span-full",
+  "w-rotting":   "sm:col-span-1 xl:col-span-1",
+  "w-pipeline":  "sm:col-span-1 xl:col-span-1",
+  "w-tasklist":  "sm:col-span-2 xl:col-span-2",
+  "w-reminders": "sm:col-span-2 xl:col-span-2",
+  "w-funnel":    "sm:col-span-2 xl:col-span-2",
+  "w-notif":     "sm:col-span-2 xl:col-span-4",
 };
 
 // Single shared filter object for `useLeads`. TanStack Query dedupes
@@ -482,7 +483,7 @@ function NotifWidget() {
         subtitle="Что произошло сегодня"
         icon={<Bell size={16} className="text-brand-muted" />}
       />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 mt-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2.5 mt-6">
         {isLoading && (
           <>
             <Skeleton className="h-12" />
@@ -752,7 +753,7 @@ function TodayPageInner() {
 
   return (
     <div className="font-sans bg-canvas min-h-screen">
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Header */}
         <div className="bg-white border border-brand-border border-l-[3px] border-l-brand-accent rounded-xl p-6 mb-4">
           <div className="type-caption text-brand-muted">{dateTimeCaption}</div>
@@ -792,12 +793,7 @@ function TodayPageInner() {
           onDragEnd={handleDragEnd}
         >
           <SortableContext items={visible} strategy={rectSortingStrategy}>
-            <div
-              className="grid gap-3"
-              style={{
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              }}
-            >
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 items-start">
               {visible.map((id) => (
                 <SortableWidget
                   key={id}
