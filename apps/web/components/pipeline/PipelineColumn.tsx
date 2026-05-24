@@ -60,7 +60,7 @@ function PipelineColumnImpl({ stage, leads }: Props) {
           actually kicks in. */}
       <div
         ref={setNodeRef}
-        className={`flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto rounded-2xl p-1 transition-colors duration-200 ${
+        className={`flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto overflow-x-visible rounded-2xl p-2 transition-colors duration-200 ${
           isOver ? "bg-brand-soft ring-1 ring-brand-accent/20" : "bg-transparent"
         }`}
       >

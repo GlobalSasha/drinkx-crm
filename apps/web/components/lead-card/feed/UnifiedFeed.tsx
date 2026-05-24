@@ -9,6 +9,7 @@ import { FeedItemAI } from "./FeedItemAI";
 import { FeedItemCall } from "./FeedItemCall";
 import { FeedItemComment } from "./FeedItemComment";
 import { FeedItemEmail } from "./FeedItemEmail";
+import { FeedItemFile } from "./FeedItemFile";
 import { FeedItemMessenger } from "./FeedItemMessenger";
 import { FeedItemSystem } from "./FeedItemSystem";
 import { FeedItemTask } from "./FeedItemTask";
@@ -152,6 +153,8 @@ function FeedItemSwitch({
       return <FeedItemTask item={item} leadId={leadId} />;
     case "phone":
       return <FeedItemCall item={item} />;
+    case "file":
+      return <FeedItemFile item={item} leadId={leadId} />;
     case "email":
       return <FeedItemEmail item={item} onOpen={() => onOpenEmail(item)} />;
     case "telegram":
