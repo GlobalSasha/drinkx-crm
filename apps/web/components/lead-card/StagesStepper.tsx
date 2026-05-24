@@ -39,15 +39,17 @@ export function StagesStepper({ leadId, currentStageDays }: Props) {
   // No current stage (won/lost/detached) — just show the full row.
   if (expanded || currentIdx === -1) {
     return (
-      <div className="relative">
+      <div className="space-y-2">
         {currentIdx !== -1 && (
-          <button
-            type="button"
-            onClick={() => setExpanded(false)}
-            className="absolute top-0 right-0 z-10 inline-flex items-center gap-1 px-2.5 py-1 rounded-full type-caption font-semibold bg-white border border-brand-border text-brand-muted hover:text-brand-primary hover:border-brand-accent transition-colors"
-          >
-            <ChevronUp size={11} /> свернуть
-          </button>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setExpanded(false)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full type-caption font-semibold bg-white border border-brand-border text-brand-muted hover:text-brand-primary hover:border-brand-accent transition-colors"
+            >
+              <ChevronUp size={11} /> свернуть
+            </button>
+          </div>
         )}
         <FullRow stages={stages} />
       </div>
@@ -69,12 +71,12 @@ export function StagesStepper({ leadId, currentStageDays }: Props) {
     currentStageDays != null ? currentStageDays : stages[currentIdx].days;
 
   return (
-    <div className="flex items-end flex-wrap gap-x-1 gap-y-2">
+    <div className="flex items-start flex-wrap gap-x-1 gap-y-2">
       {windowItems.map((s, idx) => {
         const isCurrent = s.status === "current";
         const isLast = idx === windowItems.length - 1;
         return (
-          <div key={s.stage_id} className="flex items-end">
+          <div key={s.stage_id} className="flex items-start">
             <div
               className={`flex flex-col items-center ${
                 isCurrent ? "w-[132px]" : "w-[92px]"
@@ -92,13 +94,16 @@ export function StagesStepper({ leadId, currentStageDays }: Props) {
                 {s.stage_name}
               </p>
               {isCurrent && curDays != null && (
-                <p className="type-caption font-semibold text-brand-accent-text mt-0.5">
-                  {curDays} {pluralDays(curDays)}
+                <p
+                  className="type-caption font-semibold text-brand-accent-text mt-0.5"
+                  title="Сколько дней лид находится на этом этапе (не зависит от того, кто им занимается)"
+                >
+                  {curDays} {pluralDays(curDays)} на этапе
                 </p>
               )}
             </div>
             {!isLast && (
-              <div className="mb-6 h-px w-5 bg-brand-border" aria-hidden="true" />
+              <div className="mt-3 h-px w-5 bg-brand-border" aria-hidden="true" />
             )}
           </div>
         );
@@ -107,7 +112,7 @@ export function StagesStepper({ leadId, currentStageDays }: Props) {
       <button
         type="button"
         onClick={() => setExpanded(true)}
-        className="mb-6 ml-1 type-caption font-semibold text-brand-accent-text hover:underline whitespace-nowrap"
+        className="mt-3 ml-1 type-caption font-semibold text-brand-accent-text hover:underline whitespace-nowrap"
       >
         {remaining > 0 ? `ещё ${remaining} →` : "показать все этапы"}
       </button>
