@@ -69,16 +69,17 @@ const WIDGET_LABELS: Record<WidgetId, string> = {
   "w-notif":     "Уведомления",
 };
 
-// Grid spans per widget on the fixed responsive grid (1 → 2 → 4 cols).
-// Counters take 1 column; main widgets pair into 2-col slots; the
-// notifications strip spans the full row at xl.
+// Uniform spans: every widget takes 2 columns on xl (4-col grid) and 2
+// columns on sm (2-col grid). Counters share row 1, big widgets pair off,
+// notif sits in a 2-col slot too. Uniform sizing means any reorder still
+// packs without gaps, and @dnd-kit's rectSortingStrategy stays stable.
 const WIDGET_SPAN: Record<WidgetId, string> = {
-  "w-rotting":   "sm:col-span-1 xl:col-span-1",
-  "w-pipeline":  "sm:col-span-1 xl:col-span-1",
+  "w-rotting":   "sm:col-span-1 xl:col-span-2",
+  "w-pipeline":  "sm:col-span-1 xl:col-span-2",
   "w-tasklist":  "sm:col-span-2 xl:col-span-2",
   "w-reminders": "sm:col-span-2 xl:col-span-2",
   "w-funnel":    "sm:col-span-2 xl:col-span-2",
-  "w-notif":     "sm:col-span-2 xl:col-span-4",
+  "w-notif":     "sm:col-span-2 xl:col-span-2",
 };
 
 // Single shared filter object for `useLeads`. TanStack Query dedupes
@@ -126,26 +127,31 @@ function CounterWidget({ label, icon, value, note, accent, loading }: CounterPro
     : "bg-white border border-brand-border";
   const valueColor = accent ? "text-brand-accent-text" : C.color.text;
   const iconColor = accent ? "text-brand-accent-text" : "text-brand-muted";
+  // Horizontal layout: label-and-note column on the left, big number on the
+  // right. Keeps the card balanced whether it sits in a narrow 1-col cell
+  // (mobile) or a wide 2-col cell (xl).
   return (
     <div
-      className={`${wrapBg} rounded-[2rem] p-5 h-full flex flex-col items-center text-center gap-2`}
+      className={`${wrapBg} rounded-[2rem] p-5 h-full flex items-center justify-between gap-4`}
     >
-      <div className="flex items-center gap-2">
-        <span className={iconColor}>{icon}</span>
-        <span
-          className={`text-sm ${C.color.mutedLight} uppercase tracking-wider font-semibold`}
-        >
-          {label}
-        </span>
+      <div className="min-w-0 flex flex-col gap-1.5">
+        <div className="flex items-center gap-2">
+          <span className={iconColor}>{icon}</span>
+          <span
+            className={`text-sm ${C.color.mutedLight} uppercase tracking-wider font-semibold`}
+          >
+            {label}
+          </span>
+        </div>
+        <div className={`type-caption ${C.color.mutedLight}`}>{note}</div>
       </div>
       {loading ? (
-        <Skeleton className="h-10 w-20 my-3" />
+        <Skeleton className="h-10 w-16 shrink-0" />
       ) : (
-        <div className={`type-kpi-number ${valueColor} my-3`}>
+        <div className={`type-kpi-number ${valueColor} shrink-0 tabular-nums`}>
           {value ?? "—"}
         </div>
       )}
-      <div className={`type-caption ${C.color.mutedLight}`}>{note}</div>
     </div>
   );
 }
@@ -483,7 +489,7 @@ function NotifWidget() {
         subtitle="Что произошло сегодня"
         icon={<Bell size={16} className="text-brand-muted" />}
       />
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2.5 mt-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 mt-6">
         {isLoading && (
           <>
             <Skeleton className="h-12" />
