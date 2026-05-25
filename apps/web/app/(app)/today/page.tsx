@@ -565,24 +565,38 @@ function SortableWidget({
     transition,
     opacity: isDragging ? 0.4 : 1,
   };
+  // In edit mode the whole card becomes the drag handle (the corner grip
+  // is too small to find), and an overlay swallows clicks on inner Links
+  // so they don't navigate or start an HTML5 drag of the <a> element that
+  // would race the PointerSensor.
+  const dragProps = editing ? { ...attributes, ...listeners } : {};
   return (
     <div
       id={id}
       ref={setNodeRef}
       style={style}
-      className={`relative ${spanClassName}`}
+      className={`relative ${spanClassName} ${editing ? "cursor-grab active:cursor-grabbing" : ""}`}
+      {...dragProps}
     >
       {editing && (
         <>
-          <button
-            {...attributes}
-            {...listeners}
-            className="absolute top-3 right-10 z-20 w-6 h-6 rounded-full bg-brand-panel flex items-center justify-center cursor-grab active:cursor-grabbing"
-            aria-label="Переместить виджет"
+          {/* Click/drag shield over the whole card — blocks <a>-native drag
+              and prevents Link navigation while editing. */}
+          <div
+            className="absolute inset-0 z-10"
+            onClick={(e) => e.preventDefault()}
+            onDragStart={(e) => e.preventDefault()}
+            aria-hidden
+          />
+          <span
+            className="absolute top-3 right-10 z-20 w-6 h-6 rounded-full bg-brand-panel flex items-center justify-center pointer-events-none"
+            aria-hidden
           >
             <GripVertical size={12} className="text-brand-muted" />
-          </button>
+          </span>
           <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={onHide}
             className="absolute top-3 right-3 z-20 w-6 h-6 rounded-full bg-brand-panel flex items-center justify-center"
             aria-label="Скрыть виджет"
