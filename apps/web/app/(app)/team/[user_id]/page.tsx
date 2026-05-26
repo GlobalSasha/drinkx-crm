@@ -5,13 +5,19 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { ChevronLeft, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ExternalLink, Loader2 } from "lucide-react";
 
 import { T } from "@/lib/design-system";
 import { useMe } from "@/lib/hooks/use-me";
 import { useManagerStats } from "@/lib/hooks/use-team-stats";
+import { useTeamWorkload } from "@/lib/hooks/use-team-workload";
 import type { TeamPeriod } from "@/lib/types";
+
+function fmtSum(n: number): string {
+  if (!n) return "—";
+  return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(n) + " ₽";
+}
 
 const PERIODS: { value: TeamPeriod; label: string }[] = [
   { value: "today", label: "Сегодня" },
@@ -41,6 +47,19 @@ export default function ManagerStatsPage() {
   const userId = params?.user_id ?? null;
   const [period, setPeriod] = useState<TeamPeriod>("week");
   const stats = useManagerStats(userId, period);
+  const workload = useTeamWorkload();
+
+  // Workload endpoint returns all managers; find the current one and keep
+  // only stages with at least one active lead (no point listing empty rows).
+  const myWorkload = useMemo(() => {
+    if (!workload.data || !userId) return null;
+    const m = workload.data.managers.find((x) => x.user_id === userId);
+    if (!m) return null;
+    const rows = workload.data.stages
+      .map((s) => ({ stage: s, cell: m.by_stage[s.id] }))
+      .filter((r) => r.cell && r.cell.count > 0);
+    return { manager: m, rows };
+  }, [workload.data, userId]);
 
   useEffect(() => {
     if (me.data && me.data.role !== "admin" && me.data.role !== "head") {
@@ -121,6 +140,73 @@ export default function ManagerStatsPage() {
               <Stat label="Задачи" value={stats.data.stats.tasks_completed} />
             </div>
           </div>
+
+          {/* Current lead distribution by stage — independent of period */}
+          {myWorkload && (
+            <div className="bg-white border border-black/5 rounded-2xl shadow-soft p-5 mb-6">
+              <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
+                <div>
+                  <h2 className="type-card-title">Лиды по этапам</h2>
+                  <p className={`${T.mono} uppercase text-muted-3 mt-0.5`}>
+                    Текущая загрузка, не зависит от периода
+                  </p>
+                </div>
+                {userId && (
+                  <Link
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    href={`/pipeline?assigned_to=${userId}` as any}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-accent-text hover:underline"
+                  >
+                    Открыть в воронке <ExternalLink size={12} />
+                  </Link>
+                )}
+              </div>
+
+              {myWorkload.rows.length === 0 ? (
+                <p className="text-sm text-muted-2 py-4">
+                  Активных лидов нет.
+                </p>
+              ) : (
+                <>
+                  <ul className="divide-y divide-black/5">
+                    {myWorkload.rows.map(({ stage, cell }) => (
+                      <li key={stage.id} className="flex items-center gap-3 py-2.5">
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ background: stage.color }}
+                          aria-hidden
+                        />
+                        <Link
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          href={`/pipeline?assigned_to=${userId}&stage=${stage.id}` as any}
+                          className="text-sm text-ink flex-1 truncate hover:underline"
+                        >
+                          {stage.name}
+                        </Link>
+                        <span className="text-sm font-semibold tabular-nums text-ink shrink-0 w-10 text-right">
+                          {cell.count}
+                        </span>
+                        <span className="text-xs text-muted-2 tabular-nums shrink-0 w-28 text-right">
+                          {fmtSum(cell.sum_amount)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex items-center gap-3 mt-3 pt-3 border-t border-black/5">
+                    <span className={`${T.mono} uppercase text-muted-3 flex-1`}>
+                      Всего в работе
+                    </span>
+                    <span className="text-sm font-bold tabular-nums text-ink shrink-0 w-10 text-right">
+                      {myWorkload.manager.open_count}
+                    </span>
+                    <span className="text-xs text-muted-2 tabular-nums shrink-0 w-28 text-right">
+                      {fmtSum(myWorkload.manager.pipeline_sum)}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Daily table */}
           <div className="bg-white border border-black/5 rounded-2xl shadow-soft overflow-hidden">
