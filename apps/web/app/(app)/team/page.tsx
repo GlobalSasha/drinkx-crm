@@ -25,8 +25,8 @@ const PERIODS: { value: TeamPeriod; label: string }[] = [
 ];
 
 const VIEWS: { value: "activity" | "workload"; label: string }[] = [
+  { value: "workload", label: "Manager's Dashboard" },
   { value: "activity", label: "Активность" },
-  { value: "workload", label: "Загрузка" },
 ];
 
 const ROLE_LABEL: Record<string, string> = {
@@ -46,7 +46,7 @@ function formatRange(from: string, to: string): string {
 export default function TeamPage() {
   const me = useMe();
   const [period, setPeriod] = useState<TeamPeriod>("week");
-  const [view, setView] = useState<"activity" | "workload">("activity");
+  const [view, setView] = useState<"activity" | "workload">("workload");
   const stats = useTeamStats(period);
 
   if (me.isLoading || !me.data) {
