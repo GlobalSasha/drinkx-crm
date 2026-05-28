@@ -96,7 +96,7 @@ type TabKey = "activity" | "deal-ai" | "contacts" | "tasks" | "notes" | "archive
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "activity", label: "Активность" },
-  { key: "deal-ai", label: "Сделка и AI" },
+  { key: "deal-ai", label: "Информация" },
   { key: "contacts", label: "Контакты" },
   { key: "tasks", label: "Задачи" },
   { key: "notes", label: "Заметки" },

@@ -1,10 +1,6 @@
 "use client";
 import { useState } from "react";
 import {
-  Building2,
-  MapPin,
-  LayoutGrid,
-  Globe,
   Sparkles,
   Loader2,
   RefreshCw,
@@ -13,9 +9,8 @@ import { useLatestEnrichment, useTriggerEnrichment } from "@/lib/hooks/use-enric
 import { ApiError } from "@/lib/api-client";
 import type { LeadOut } from "@/lib/types";
 import { C } from "@/lib/design-system";
-import { safeHref } from "@/lib/safe-url";
 import { SourceSection } from "./SourceSection";
-import { DealParamsBlock } from "./DealParamsBlock";
+import { LeadInfoBlock } from "./LeadInfoBlock";
 
 interface Props {
   lead: LeadOut;
@@ -42,104 +37,31 @@ export function DealAndAITab({ lead }: Props) {
   const ai = (lead.ai_data ?? {}) as Record<string, unknown>;
   const hasAiData = Object.keys(ai).length > 0 && Boolean(ai.company_profile || ai.company_overview);
 
-  // City "Москва (HQ)" + chain hint when network_scale is populated.
-  const cityLabel = lead.city ?? "";
+  // AI narrative for the "Информация" card. City / website / formats are
+  // intentionally dropped here — they now live in the editable property
+  // table inside LeadInfoBlock (no more duplicate "О компании" block).
+  const description =
+    asText(ai.company_profile) || asText(ai.company_overview) || "";
   const networkScale = asText(ai.network_scale ?? ai.scale_signals);
-  const isChain = /сет|магазин|аптек|филиал|stores?|outlets/i.test(networkScale);
-
   const formats = asList(ai.formats);
   const formatsText = formats.length > 0 ? formats.join(" · ") : asText(ai.formats);
+  const subtitle = [formatsText, networkScale].filter(Boolean).join(" · ");
 
   return (
     <div className="space-y-4">
-      {/* === Card 1: О компании === */}
-      <section className="bg-white rounded-2xl border border-brand-border p-5">
-        <h2 className={`type-card-title font-bold ${C.color.text} mb-4`}>
-          О компании
-        </h2>
-        <ul className="space-y-3.5">
-          <Row
-            icon={<Building2 size={16} className={C.color.muted} />}
-            primary={
-              asText(ai.company_profile) ||
-              asText(ai.company_overview) ||
-              "Описание не задано"
-            }
-          />
-          {(cityLabel || isChain) && (
-            <Row
-              icon={<MapPin size={16} className={C.color.muted} />}
-              primary={
-                cityLabel
-                  ? isChain
-                    ? `${cityLabel} (HQ)`
-                    : cityLabel
-                  : "Город не указан"
-              }
-              hint={isChain && networkScale ? `Сеть · ${networkScale}` : undefined}
-            />
-          )}
-          {(formatsText || asText(ai.scale_signals)) && (
-            <Row
-              icon={<LayoutGrid size={16} className={C.color.muted} />}
-              primary={formatsText || asText(ai.scale_signals)}
-              hint="Форматы и масштаб"
-            />
-          )}
-          {lead.website && (
-            <Row
-              icon={<Globe size={16} className={C.color.muted} />}
-              primary={(() => {
-                const url = safeHref(lead.website);
-                return url ? (
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`${C.color.accent} hover:underline truncate inline-block max-w-full`}
-                  >
-                    {lead.website.replace(/^https?:\/\//, "")}
-                  </a>
-                ) : (
-                  <span className="truncate inline-block max-w-full">{lead.website}</span>
-                );
-              })()}
-            />
-          )}
-        </ul>
-      </section>
+      {/* === Информация: AI narrative + editable property table === */}
+      <LeadInfoBlock
+        lead={lead}
+        description={description || undefined}
+        subtitle={subtitle || undefined}
+      />
 
-      {/* === Card 2: Параметры сделки === */}
-      <DealParamsBlock lead={lead} />
-
-      {/* === Card 3: Источник (only for form-sourced leads) === */}
+      {/* === Источник (only for form-sourced leads) === */}
       <SourceSection lead={lead} />
 
-      {/* === Card 4: AI Бриф === */}
+      {/* === AI Бриф === */}
       <AIBriefCard lead={lead} hasAiData={hasAiData} ai={ai} />
     </div>
-  );
-}
-
-function Row({
-  icon,
-  primary,
-  hint,
-}: {
-  icon: React.ReactNode;
-  primary: React.ReactNode;
-  hint?: string;
-}) {
-  return (
-    <li className="flex items-start gap-3">
-      <span className="mt-0.5 shrink-0">{icon}</span>
-      <div className="min-w-0 flex-1">
-        <div className={`type-caption ${C.color.text} leading-relaxed`}>{primary}</div>
-        {hint && (
-          <div className={`type-caption ${C.color.muted} mt-0.5`}>{hint}</div>
-        )}
-      </div>
-    </li>
   );
 }
 

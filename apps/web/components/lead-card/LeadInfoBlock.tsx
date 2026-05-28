@@ -32,6 +32,10 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 
 interface Props {
   lead: LeadOut;
+  /** AI narrative ("О компании") shown read-only above the property table. */
+  description?: string;
+  /** Secondary muted line under the description (formats / network scale). */
+  subtitle?: string;
 }
 
 const PRIORITY_OPTIONS = ["A", "B", "C", "D"] as const;
@@ -46,7 +50,7 @@ function formatRub(value: number | string | null | undefined): string {
   );
 }
 
-export function DealParamsBlock({ lead }: Props) {
+export function LeadInfoBlock({ lead, description, subtitle }: Props) {
   const updateLead = useUpdateLead(lead.id);
   const updateDeal = useUpdateDealFields(lead.id);
   const { data: me } = useMe();
@@ -88,27 +92,36 @@ export function DealParamsBlock({ lead }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Параметры сделки</CardTitle>
+        <CardTitle>Информация</CardTitle>
         {isPending && (
           <Loader2 size={12} className="animate-spin text-brand-muted" />
         )}
       </CardHeader>
-      <ul className="space-y-3">
+
+      {description && (
+        <div className="mb-5">
+          <p className={`type-caption ${C.color.text} leading-relaxed`}>
+            {description}
+          </p>
+          {subtitle && (
+            <p className={`type-caption ${C.color.muted} mt-1`}>{subtitle}</p>
+          )}
+        </div>
+      )}
+
+      {/* Notion-style property table */}
+      <div className="rounded-xl border border-brand-border overflow-hidden divide-y divide-brand-border">
         <Row
-          icon={<CircleDollarSign size={16} className={C.color.muted} />}
+          icon={<CircleDollarSign size={15} className={C.color.muted} />}
           label="Сумма"
-          value={
-            lead.deal_amount != null
-              ? formatRub(lead.deal_amount)
-              : null
-          }
+          value={lead.deal_amount != null ? formatRub(lead.deal_amount) : null}
           placeholder="Не указана"
           onSave={onDealAmount}
           inputType="number"
           inputProps={{ min: 0, step: "1", placeholder: "2400000" }}
         />
         <Row
-          icon={<Hash size={16} className={C.color.muted} />}
+          icon={<Hash size={15} className={C.color.muted} />}
           label="Количество"
           value={lead.deal_quantity?.toString() ?? null}
           placeholder="Не указано"
@@ -117,7 +130,7 @@ export function DealParamsBlock({ lead }: Props) {
           inputProps={{ min: 0, step: "1", placeholder: "3" }}
         />
         <Row
-          icon={<Package size={16} className={C.color.muted} />}
+          icon={<Package size={15} className={C.color.muted} />}
           label="Оборудование"
           value={lead.deal_equipment ?? null}
           placeholder="Не указано"
@@ -125,7 +138,7 @@ export function DealParamsBlock({ lead }: Props) {
           inputProps={{ maxLength: 50, placeholder: "S100" }}
         />
         <Row
-          icon={<Tag size={16} className={C.color.muted} />}
+          icon={<Tag size={15} className={C.color.muted} />}
           label="Тип сделки"
           value={lead.deal_type ? dealTypeLabel(lead.deal_type) : null}
           placeholder="Не выбран"
@@ -136,7 +149,7 @@ export function DealParamsBlock({ lead }: Props) {
           optionLabel={(v) => DEAL_TYPE_LABELS[v] ?? v}
         />
         <Row
-          icon={<TrendingUp size={16} className={C.color.muted} />}
+          icon={<TrendingUp size={15} className={C.color.muted} />}
           label="Приоритет"
           value={lead.priority ?? null}
           placeholder="Не задан"
@@ -145,7 +158,7 @@ export function DealParamsBlock({ lead }: Props) {
           options={[...PRIORITY_OPTIONS]}
         />
         <Row
-          icon={<Layers size={16} className={C.color.muted} />}
+          icon={<Layers size={15} className={C.color.muted} />}
           label="Сегмент"
           value={lead.segment ?? null}
           placeholder="Не задан"
@@ -155,7 +168,7 @@ export function DealParamsBlock({ lead }: Props) {
           options={segmentOptions}
         />
         <Row
-          icon={<MapPin size={16} className={C.color.muted} />}
+          icon={<MapPin size={15} className={C.color.muted} />}
           label="Город"
           value={lead.city ?? null}
           placeholder="Не указан"
@@ -163,7 +176,7 @@ export function DealParamsBlock({ lead }: Props) {
           inputProps={{ maxLength: 120, placeholder: "Москва" }}
         />
         <Row
-          icon={<Fingerprint size={16} className={C.color.muted} />}
+          icon={<Fingerprint size={15} className={C.color.muted} />}
           label="ИНН"
           value={lead.inn ?? null}
           placeholder="Не указан"
@@ -171,7 +184,7 @@ export function DealParamsBlock({ lead }: Props) {
           inputProps={{ maxLength: 20, placeholder: "7707083893" }}
         />
         <Row
-          icon={<Globe size={16} className={C.color.muted} />}
+          icon={<Globe size={15} className={C.color.muted} />}
           label="Сайт"
           value={lead.website ?? null}
           placeholder="Не указан"
@@ -179,7 +192,7 @@ export function DealParamsBlock({ lead }: Props) {
           inputProps={{ maxLength: 512, placeholder: "example.ru" }}
         />
         <Row
-          icon={<Mail size={16} className={C.color.muted} />}
+          icon={<Mail size={15} className={C.color.muted} />}
           label="Email"
           value={lead.email ?? null}
           placeholder="Не указан"
@@ -188,7 +201,7 @@ export function DealParamsBlock({ lead }: Props) {
           inputProps={{ maxLength: 254, placeholder: "info@example.ru" }}
         />
         <Row
-          icon={<Phone size={16} className={C.color.muted} />}
+          icon={<Phone size={15} className={C.color.muted} />}
           label="Телефон"
           value={lead.phone ?? null}
           placeholder="Не указан"
@@ -197,15 +210,13 @@ export function DealParamsBlock({ lead }: Props) {
           inputProps={{ maxLength: 30, placeholder: "+7 999 111-22-33" }}
         />
         <Row
-          icon={<User size={16} className={C.color.muted} />}
+          icon={<User size={15} className={C.color.muted} />}
           label="Ответственный"
           value={assignedLabel}
           readOnly
-          hint={
-            lead.assigned_to ? "Изменяется через «Передать»" : undefined
-          }
+          hint={lead.assigned_to ? "Изменяется через «Передать»" : undefined}
         />
-      </ul>
+      </div>
     </Card>
   );
 }
@@ -243,8 +254,10 @@ function Row({
   const [draft, setDraft] = useState<string>("");
   const [busy, setBusy] = useState(false);
 
+  const editable = !readOnly && !!onSave;
+
   function startEdit() {
-    if (readOnly || !onSave) return;
+    if (!editable) return;
     setDraft(rawValue ?? value ?? "");
     setEditing(true);
   }
@@ -260,15 +273,25 @@ function Row({
     }
   }
 
-  if (editing) {
-    return (
-      <li className="flex items-start gap-3">
-        <span className="mt-2 shrink-0">{icon}</span>
-        <div className="min-w-0 flex-1">
-          <label className="type-caption text-brand-muted block mb-1">
-            {label}
-          </label>
-          {inputType === "select" ? (
+  return (
+    <div
+      onClick={editing ? undefined : startEdit}
+      className={`grid grid-cols-[7.5rem_1fr] sm:grid-cols-[10rem_1fr] group ${
+        editable && !editing
+          ? "cursor-text hover:bg-brand-bg transition-colors"
+          : ""
+      }`}
+    >
+      {/* Property name cell */}
+      <div className="flex items-center gap-2 px-3 py-2.5 bg-brand-panel/40 border-r border-brand-border">
+        <span className="shrink-0">{icon}</span>
+        <span className={`type-caption ${C.color.muted} truncate`}>{label}</span>
+      </div>
+
+      {/* Value cell */}
+      <div className="px-3 py-2 flex items-center gap-2 min-w-0">
+        {editing ? (
+          inputType === "select" ? (
             <select
               autoFocus
               value={draft}
@@ -279,7 +302,7 @@ function Row({
                 if (e.key === "Enter") void commit();
               }}
               disabled={busy}
-              className="w-full type-body bg-canvas border border-brand-accent/40 rounded-lg px-2 py-1.5 focus:outline-none focus:border-brand-accent"
+              className="w-full type-body bg-canvas border border-brand-accent/40 rounded-lg px-2 py-1 focus:outline-none focus:border-brand-accent"
             >
               <option value="">— очистить —</option>
               {(options ?? []).map((opt) => (
@@ -301,39 +324,30 @@ function Row({
               }}
               disabled={busy}
               {...inputProps}
-              className="w-full type-body bg-canvas border border-brand-accent/40 rounded-lg px-2 py-1.5 focus:outline-none focus:border-brand-accent"
+              className="w-full type-body bg-canvas border border-brand-accent/40 rounded-lg px-2 py-1 focus:outline-none focus:border-brand-accent"
             />
-          )}
-        </div>
-      </li>
-    );
-  }
-
-  return (
-    <li
-      onClick={startEdit}
-      className={`flex items-start gap-3 group ${
-        readOnly || !onSave
-          ? ""
-          : "cursor-text hover:bg-brand-bg rounded-xl -mx-2 px-2 py-1 transition-colors"
-      }`}
-    >
-      <span className="mt-0.5 shrink-0">{icon}</span>
-      <div className="min-w-0 flex-1">
-        <div className={`type-caption ${C.color.muted} mb-0.5`}>{label}</div>
-        <div className={`type-body ${value ? C.color.text : C.color.muted}`}>
-          {value ?? placeholder}
-        </div>
-        {hint && (
-          <div className={`type-caption ${C.color.muted} mt-0.5`}>{hint}</div>
+          )
+        ) : (
+          <>
+            <div className="min-w-0 flex-1">
+              <span className={`type-body ${value ? C.color.text : C.color.muted}`}>
+                {value ?? placeholder}
+              </span>
+              {hint && (
+                <span className={`block type-caption ${C.color.muted} mt-0.5`}>
+                  {hint}
+                </span>
+              )}
+            </div>
+            {editable && (
+              <Pencil
+                size={12}
+                className="text-brand-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+              />
+            )}
+          </>
         )}
       </div>
-      {!readOnly && onSave && (
-        <Pencil
-          size={12}
-          className="text-brand-muted opacity-0 group-hover:opacity-100 transition-opacity mt-1 shrink-0"
-        />
-      )}
-    </li>
+    </div>
   );
 }
