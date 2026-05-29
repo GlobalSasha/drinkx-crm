@@ -207,6 +207,24 @@ async def complete_task(
     return await repo.mark_task_done(db, activity, datetime.now(timezone.utc))
 
 
+async def reopen_task(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+    activity_id: uuid.UUID,
+) -> Activity:
+    """Reopen a completed task so it returns to the active list."""
+    await _get_lead_or_raise(db, lead_id, workspace_id)
+    activity = await repo.get_by_id(db, activity_id, lead_id)
+    if activity is None:
+        raise ActivityNotFound(activity_id)
+    if activity.type != ActivityType.task.value:
+        raise ActivityWrongType("Cannot reopen non-task activity")
+    if not activity.task_done:
+        return activity  # idempotent
+    return await repo.mark_task_open(db, activity)
+
+
 # Author-name resolution for the unified feed. Anything written by the
 # AI runner / chat handler is presented as «Блейк» regardless of the
 # user_id stamped on the row (some chat answers carry the asking

@@ -29,3 +29,18 @@ export function useCompleteMyTask() {
     },
   });
 }
+
+/** Reopen a completed task — mirror of useCompleteMyTask. */
+export function useReopenMyTask() {
+  const qc = useQueryClient();
+  return useMutation<unknown, ApiError, { leadId: string; taskId: string }>({
+    mutationFn: ({ leadId, taskId }) =>
+      api.post(`/leads/${leadId}/activities/${taskId}/reopen-task`),
+    onSuccess: (_data, { leadId }) => {
+      qc.invalidateQueries({ queryKey: ["my-tasks"] });
+      qc.invalidateQueries({ queryKey: ["feed", leadId] });
+      qc.invalidateQueries({ queryKey: ["activities", leadId, "task"] });
+      qc.invalidateQueries({ queryKey: ["daily-plan", "today"] });
+    },
+  });
+}

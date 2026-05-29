@@ -71,6 +71,24 @@ export function useCompleteLeadTask(leadId: string) {
   });
 }
 
+/** POST /leads/{id}/activities/{id}/reopen-task — bring a completed task
+ *  back to the active list. Mirrors the complete hook's invalidations. */
+export function useReopenLeadTask(leadId: string) {
+  const qc = useQueryClient();
+  return useMutation<ActivityOut, ApiError, string>({
+    mutationFn: (activityId) =>
+      api.post<ActivityOut>(
+        `/leads/${leadId}/activities/${activityId}/reopen-task`,
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: TASKS_KEY(leadId) });
+      qc.invalidateQueries({ queryKey: ["feed", leadId] });
+      qc.invalidateQueries({ queryKey: ["my-tasks"] });
+      qc.invalidateQueries({ queryKey: ["daily-plan", "today"] });
+    },
+  });
+}
+
 export interface UpdateLeadTaskIn {
   activityId: string;
   body?: string;

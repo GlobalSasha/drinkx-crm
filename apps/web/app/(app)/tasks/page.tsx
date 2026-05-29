@@ -7,8 +7,12 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ListChecks, Check, ArrowUpRight } from "lucide-react";
-import { useMyTasks, useCompleteMyTask } from "@/lib/hooks/use-my-tasks";
+import { ListChecks, Check, ArrowUpRight, Pencil } from "lucide-react";
+import {
+  useMyTasks,
+  useCompleteMyTask,
+  useReopenMyTask,
+} from "@/lib/hooks/use-my-tasks";
 import {
   myTaskToRow,
   isOverdue,
@@ -20,6 +24,7 @@ import {
 import { C } from "@/lib/design-system";
 import { DataTable, type ColumnDef } from "@/components/ui/DataTable";
 import { Badge } from "@/components/ui/Badge";
+import { TaskEditModal } from "@/components/tasks/TaskEditModal";
 import {
   Empty,
   EmptyHeader,
@@ -63,11 +68,12 @@ function TypeBadge({ row }: { row: TaskRow }) {
 }
 
 function buildColumns(
-  onComplete: (row: TaskRow) => void,
-  isCompleting: boolean,
+  onToggle: (row: TaskRow) => void,
+  onEdit: (row: TaskRow) => void,
+  isMutating: boolean,
 ): ColumnDef<TaskRow, unknown>[] {
   return [
-    // 1. Checkbox
+    // 1. Checkbox — toggles complete / reopen
     {
       id: "checkbox",
       header: "",
@@ -79,13 +85,14 @@ function buildColumns(
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              if (!r.done && !isCompleting) onComplete(r);
+              if (!isMutating) onToggle(r);
             }}
-            disabled={r.done || isCompleting}
-            aria-label={r.done ? "Выполнено" : "Отметить выполненной"}
+            disabled={isMutating}
+            aria-label={r.done ? "Вернуть в активные" : "Отметить выполненной"}
+            title={r.done ? "Вернуть в активные" : "Отметить выполненной"}
             className={`shrink-0 w-5 h-5 rounded-full border-[1.5px] flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
               r.done
-                ? "border-success bg-success cursor-default"
+                ? "border-success bg-success hover:bg-success/80"
                 : "border-brand-border hover:border-brand-accent hover:bg-brand-soft/40"
             } disabled:opacity-60`}
           >
@@ -147,16 +154,30 @@ function buildColumns(
       header: "Тип",
       cell: ({ row }) => <TypeBadge row={row.original} />,
     },
-    // 6. Action arrow
+    // 6. Actions — edit (modal) + open-lead arrow
     {
       id: "action",
       header: "",
-      meta: { width: "2.25rem", align: "right", cellClassName: "px-1 py-2.5 align-top text-right", headerClassName: "px-1" },
-      cell: () => (
-        <ArrowUpRight
-          size={15}
-          className="text-brand-muted opacity-0 group-hover:opacity-100 transition-opacity inline-block"
-        />
+      meta: { width: "4.5rem", align: "right", cellClassName: "px-1 py-2.5 align-top text-right", headerClassName: "px-1" },
+      cell: ({ row }) => (
+        <div className="inline-flex items-center gap-1">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(row.original);
+            }}
+            aria-label="Редактировать задачу"
+            title="Редактировать задачу"
+            className="p-1.5 rounded-full text-brand-muted hover:text-brand-primary hover:bg-brand-panel transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+          >
+            <Pencil size={14} />
+          </button>
+          <ArrowUpRight
+            size={15}
+            className="text-brand-muted opacity-0 group-hover:opacity-100 transition-opacity inline-block"
+          />
+        </div>
       ),
     },
   ];
@@ -166,10 +187,12 @@ export default function TasksPage() {
   const router = useRouter();
   const { data, isLoading, isError } = useMyTasks();
   const completeTask = useCompleteMyTask();
+  const reopenTask = useReopenMyTask();
 
   const [status, setStatus] = useState<StatusFilter>("open");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [search, setSearch] = useState("");
+  const [editingRow, setEditingRow] = useState<TaskRow | null>(null);
 
   const allRows: TaskRow[] = useMemo(
     () => (data ?? []).map(myTaskToRow),
@@ -189,15 +212,18 @@ export default function TasksPage() {
     });
   }, [allRows, status, dateFilter, search]);
 
-  function handleComplete(row: TaskRow) {
-    if (!row.done && !completeTask.isPending)
-      completeTask.mutate({ leadId: row.leadId, taskId: row.id });
+  const isMutating = completeTask.isPending || reopenTask.isPending;
+
+  function handleToggle(row: TaskRow) {
+    if (isMutating) return;
+    if (row.done) reopenTask.mutate({ leadId: row.leadId, taskId: row.id });
+    else completeTask.mutate({ leadId: row.leadId, taskId: row.id });
   }
 
   const columns = useMemo(
-    () => buildColumns(handleComplete, completeTask.isPending),
+    () => buildColumns(handleToggle, setEditingRow, isMutating),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [completeTask.isPending],
+    [isMutating],
   );
 
   return (
@@ -280,6 +306,16 @@ export default function TasksPage() {
           )}
         </div>
       </div>
+
+      {editingRow && (
+        <TaskEditModal
+          leadId={editingRow.leadId}
+          taskId={editingRow.id}
+          initialTitle={editingRow.name}
+          initialDueIso={editingRow.due}
+          onClose={() => setEditingRow(null)}
+        />
+      )}
     </div>
   );
 }

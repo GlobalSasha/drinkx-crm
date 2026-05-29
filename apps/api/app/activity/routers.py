@@ -231,6 +231,27 @@ async def complete_task(
     return activity  # type: ignore[return-value]
 
 
+@router.post("/{activity_id}/reopen-task", response_model=ActivityOut)
+async def reopen_task(
+    lead_id: UUID,
+    activity_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> ActivityOut:
+    try:
+        activity = await services.reopen_task(
+            db, user.workspace_id, lead_id, activity_id
+        )
+    except LeadNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+    except services.ActivityNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Activity not found")
+    except services.ActivityWrongType as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    await db.commit()
+    return activity  # type: ignore[return-value]
+
+
 @router.patch("/{activity_id}", response_model=ActivityOut)
 async def update_activity(
     lead_id: UUID,

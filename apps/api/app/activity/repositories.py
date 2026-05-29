@@ -129,6 +129,15 @@ async def mark_task_done(
     return activity
 
 
+async def mark_task_open(db: AsyncSession, activity: Activity) -> Activity:
+    """Reopen a completed task — clears done flag + completion timestamp."""
+    activity.task_done = False
+    activity.task_completed_at = None
+    await db.flush()
+    await db.refresh(activity)
+    return activity
+
+
 async def list_feed_for_lead(
     db: AsyncSession,
     lead_id: uuid.UUID,

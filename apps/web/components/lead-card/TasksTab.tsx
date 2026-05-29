@@ -9,11 +9,12 @@ import { Button } from "@/components/ui/Button";
 import { Item, ItemContent, ItemActions } from "@/components/ui/Item";
 import { TaskFilesList } from "./TaskFilesList";
 import { TaskFileDropzone } from "./TaskFileDropzone";
+import { TaskEditModal } from "@/components/tasks/TaskEditModal";
 import {
   useLeadTasks,
   useCreateLeadTask,
   useCompleteLeadTask,
-  useUpdateLeadTask,
+  useReopenLeadTask,
   useArchiveLeadTask,
 } from "@/lib/hooks/use-lead-tasks";
 import { C } from "@/lib/design-system";
@@ -42,7 +43,7 @@ export function TasksTab({ leadId }: Props) {
   const { data: tasks, isLoading, isError } = useLeadTasks(leadId);
   const createTask = useCreateLeadTask(leadId);
   const completeTask = useCompleteLeadTask(leadId);
-  const updateTask = useUpdateLeadTask(leadId);
+  const reopenTask = useReopenLeadTask(leadId);
   const archiveTask = useArchiveLeadTask(leadId);
 
   const [adding, setAdding] = useState(false);
@@ -50,9 +51,7 @@ export function TasksTab({ leadId }: Props) {
   const [due, setDue] = useState(""); // datetime-local: yyyy-mm-ddTHH:mm
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editText, setEditText] = useState("");
-  const [editDue, setEditDue] = useState("");
+  const [editingTask, setEditingTask] = useState<ActivityOut | null>(null);
 
   // Open first, then by due date ascending (nulls last).
   const rows = useMemo(() => {
@@ -209,10 +208,15 @@ export function TasksTab({ leadId }: Props) {
                 <Item variant="inline" className="px-3 py-2.5">
                   <button
                     type="button"
-                    onClick={() => !a.task_done && completeTask.mutate(a.id)}
-                    disabled={a.task_done || completeTask.isPending}
-                    aria-label={a.task_done ? "Выполнено" : "Отметить выполненной"}
-                    className="shrink-0 mt-0.5 text-brand-muted hover:text-brand-accent transition-colors disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 rounded"
+                    onClick={() =>
+                      a.task_done
+                        ? reopenTask.mutate(a.id)
+                        : completeTask.mutate(a.id)
+                    }
+                    disabled={completeTask.isPending || reopenTask.isPending}
+                    aria-label={a.task_done ? "Вернуть в активные" : "Отметить выполненной"}
+                    title={a.task_done ? "Вернуть в активные" : "Отметить выполненной"}
+                    className="shrink-0 mt-0.5 text-brand-muted hover:text-brand-accent transition-colors disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 rounded"
                   >
                     {a.task_done ? (
                       <CheckSquare size={16} className="text-success" />
@@ -237,6 +241,15 @@ export function TasksTab({ leadId }: Props) {
                   <ItemActions>
                     <button
                       type="button"
+                      onClick={() => setEditingTask(a)}
+                      aria-label="Редактировать задачу"
+                      title="Редактировать задачу"
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-full type-caption font-semibold bg-white border border-brand-border text-brand-muted hover:text-brand-primary hover:border-brand-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                    <button
+                      type="button"
                       onClick={toggle}
                       aria-expanded={isExpanded}
                       aria-label={isExpanded ? "Скрыть детали" : "Показать детали и файлы"}
@@ -252,121 +265,54 @@ export function TasksTab({ leadId }: Props) {
                 </Item>
                 {isExpanded && (
                   <div className="px-3 pb-3 border-t border-brand-border/50 pt-3 space-y-4">
-                    {editingId === a.id ? (
-                      <div className="space-y-2 bg-brand-bg rounded-2xl p-3">
-                        <input
-                          autoFocus
-                          value={editText}
-                          onChange={(e) => setEditText(e.target.value)}
-                          placeholder="Название задачи"
-                          className={`w-full ${C.form.field}`}
-                        />
-                        <input
-                          type="datetime-local"
-                          value={editDue}
-                          onChange={(e) => setEditDue(e.target.value)}
-                          aria-label="Срок и время"
-                          className={`w-full sm:w-72 ${C.form.field}`}
-                        />
-                        <div className="flex gap-2">
+                    <div className="space-y-2">
+                      <h4 className="type-caption text-brand-muted uppercase tracking-wide">Файлы</h4>
+                      <TaskFilesList leadId={leadId} taskId={a.id} q={search.trim() || undefined} />
+                      <TaskFileDropzone leadId={leadId} taskId={a.id} />
+                    </div>
+                    <div className="flex flex-wrap gap-2 border-t border-brand-border/50 pt-3">
+                      <button
+                        type="button"
+                        onClick={() => setEditingTask(a)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-caption font-semibold bg-white border border-brand-border text-brand-primary hover:border-brand-accent transition-colors"
+                      >
+                        <Pencil size={12} /> Изменить
+                      </button>
+                      <InlineConfirm
+                        destructive
+                        prompt="Переместить в архив?"
+                        confirmLabel="Да, в архив"
+                        busy={archiveTask.isPending}
+                        onConfirm={() => archiveTask.mutate(a.id)}
+                      >
+                        {(openConfirm) => (
                           <button
                             type="button"
-                            disabled={!editText.trim() || updateTask.isPending}
-                            onClick={async () => {
-                              const trimmed = editText.trim();
-                              if (!trimmed) return;
-                              let iso: string | null = null;
-                              if (editDue) {
-                                const d = new Date(editDue);
-                                if (!Number.isNaN(d.getTime())) iso = d.toISOString();
-                              }
-                              try {
-                                await updateTask.mutateAsync({
-                                  activityId: a.id,
-                                  body: trimmed,
-                                  task_due_at: iso,
-                                });
-                                setEditingId(null);
-                              } catch {
-                                /* error surfaced via mutation state */
-                              }
-                            }}
-                            className={`${C.button.primary} type-caption px-4 py-1.5 disabled:opacity-40`}
+                            onClick={openConfirm}
+                            disabled={archiveTask.isPending}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-caption font-semibold text-rose bg-rose/10 hover:bg-rose/15 disabled:opacity-40 transition-colors"
                           >
-                            {updateTask.isPending ? (
-                              <Loader2 size={12} className="animate-spin inline-block" />
-                            ) : (
-                              "Сохранить"
-                            )}
+                            <Trash2 size={12} /> В архив
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setEditingId(null)}
-                            disabled={updateTask.isPending}
-                            className={`${C.button.ghost} type-caption px-3 py-1.5`}
-                          >
-                            Отмена
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="space-y-2">
-                          <h4 className="type-caption text-brand-muted uppercase tracking-wide">Файлы</h4>
-                          <TaskFilesList leadId={leadId} taskId={a.id} q={search.trim() || undefined} />
-                          <TaskFileDropzone leadId={leadId} taskId={a.id} />
-                        </div>
-                        <div className="flex flex-wrap gap-2 border-t border-brand-border/50 pt-3">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingId(a.id);
-                              setEditText(taskTitle(a));
-                              if (a.task_due_at) {
-                                const d = new Date(a.task_due_at);
-                                if (!Number.isNaN(d.getTime())) {
-                                  const pad = (n: number) => String(n).padStart(2, "0");
-                                  setEditDue(
-                                    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-                                  );
-                                } else {
-                                  setEditDue("");
-                                }
-                              } else {
-                                setEditDue("");
-                              }
-                            }}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-caption font-semibold bg-white border border-brand-border text-brand-primary hover:border-brand-accent transition-colors"
-                          >
-                            <Pencil size={12} /> Изменить
-                          </button>
-                          <InlineConfirm
-                            destructive
-                            prompt="Переместить в архив?"
-                            confirmLabel="Да, в архив"
-                            busy={archiveTask.isPending}
-                            onConfirm={() => archiveTask.mutate(a.id)}
-                          >
-                            {(openConfirm) => (
-                              <button
-                                type="button"
-                                onClick={openConfirm}
-                                disabled={archiveTask.isPending}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-caption font-semibold text-rose bg-rose/10 hover:bg-rose/15 disabled:opacity-40 transition-colors"
-                              >
-                                <Trash2 size={12} /> В архив
-                              </button>
-                            )}
-                          </InlineConfirm>
-                        </div>
-                      </>
-                    )}
+                        )}
+                      </InlineConfirm>
+                    </div>
                   </div>
                 )}
               </li>
             );
           })}
         </ul>
+      )}
+
+      {editingTask && (
+        <TaskEditModal
+          leadId={leadId}
+          taskId={editingTask.id}
+          initialTitle={taskTitle(editingTask)}
+          initialDueIso={editingTask.task_due_at}
+          onClose={() => setEditingTask(null)}
+        />
       )}
     </Card>
   );

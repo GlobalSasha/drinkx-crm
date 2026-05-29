@@ -76,6 +76,8 @@ def test_routes_include_task_edit_delete_archive_restore():
     assert any("POST" in m for _p, m in restore_routes), f"restore route missing, paths: {paths}"
     archive_routes = [(p, m) for (p, m) in paths if p.endswith("/archive")]
     assert any("GET" in m for _p, m in archive_routes), f"archive list route missing, paths: {paths}"
+    reopen_routes = [(p, m) for (p, m) in paths if p.endswith("/reopen-task")]
+    assert any("POST" in m for _p, m in reopen_routes), f"reopen-task route missing, paths: {paths}"
 
 
 def test_task_update_in_accepts_partial():
