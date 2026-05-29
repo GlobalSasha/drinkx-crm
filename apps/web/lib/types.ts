@@ -178,6 +178,8 @@ export interface LeadUpdate {
   blocker?: string | null;
   next_step?: string | null;
   stage_id?: string | null;
+  /** Manager-editable AI brief narrative; merged into ai_data server-side. */
+  company_profile?: string | null;
 }
 
 export interface LeadListOut {

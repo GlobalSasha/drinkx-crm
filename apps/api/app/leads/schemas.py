@@ -61,6 +61,9 @@ class LeadUpdate(BaseModel):
     next_action_at: datetime | None = None
     pipeline_id: UUID | None = None
     stage_id: UUID | None = None
+    # Manager-editable AI brief narrative. Not a column — merged into
+    # ai_data["company_profile"] by the service so AI signals survive.
+    company_profile: str | None = None
     # Sprint 3.7 G4 — auto-created lead dismissal
     assignment_status: str | None = None
 

@@ -251,6 +251,13 @@ async def update_lead(
     # lead's name only via the company-rename code path.
     if "company_name" in patch and lead.company_id is not None:
         raise CompanyNameLocked()
+    # company_profile is the manager-editable AI brief narrative. It lives
+    # inside the ai_data JSON, not as a column — merge it so AI signals
+    # (coffee/growth/triggers) aren't clobbered. New dict assignment so
+    # SQLAlchemy detects the change.
+    if "company_profile" in patch:
+        profile = patch.pop("company_profile") or ""
+        lead.ai_data = {**(lead.ai_data or {}), "company_profile": profile}
     return await repo.update_lead(db, lead, patch)
 
 
