@@ -132,6 +132,24 @@ async def test_move_stage_wrong_pipeline_blocked(db, workspace, user, pipeline):
     assert violations[0].code == "stage_wrong_pipeline"
 
 
+@pytest.mark.parametrize("flag", ["is_won", "is_lost"])
+async def test_economic_buyer_gate_skips_terminal_stages(flag):
+    """Terminal closes (Won / Lost) must never require an Economic Buyer,
+    even though they sit at high positions (10 / 11). Pure unit test — the
+    guard returns before touching the DB, so no Postgres needed. Regression
+    for the prod 409 on «Закрыть как проигран» without a buyer contact."""
+    from types import SimpleNamespace
+
+    from app.automation.stage_change import check_economic_buyer_for_stage_6_plus
+
+    to_stage = SimpleNamespace(position=11, is_won=False, is_lost=False)
+    setattr(to_stage, flag, True)
+    ctx = SimpleNamespace(to_stage=to_stage)
+
+    violations = await check_economic_buyer_for_stage_6_plus(ctx, None)  # type: ignore[arg-type]
+    assert violations == []
+
+
 @skip_no_pg
 async def test_move_to_stage_6_without_economic_buyer_blocked(db, workspace, user, pipeline):
     """No contact with role_type=economic_buyer → blocked when moving to stage position>=6."""

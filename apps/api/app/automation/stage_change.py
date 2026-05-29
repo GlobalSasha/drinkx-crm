@@ -73,6 +73,13 @@ async def check_economic_buyer_for_stage_6_plus(
     Spec wording "stage>=7" treats positions as 1-indexed.
     Soft gate: skippable with `gate_skipped=True` + reason.
     """
+    # Terminal closes (Won / Lost) are administrative, not funnel
+    # progression — a manager must always be able to close a deal even
+    # without an Economic Buyer. These stages sit at high positions
+    # (10 / 11 in DEFAULT_STAGES) so without this guard the gate would
+    # 409 every close-as-lost / close-as-won that lacks a buyer contact.
+    if ctx.to_stage.is_won or ctx.to_stage.is_lost:
+        return []
     if ctx.to_stage.position < 6:
         return []
 
