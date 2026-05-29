@@ -13,6 +13,7 @@ import {
 } from "@/components/search/GlobalSearch";
 import { C } from "@/lib/design-system";
 import { SidebarNavContainer } from "./SidebarNavContainer";
+import { TaskReminders } from "@/components/reminders/TaskReminders";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -182,6 +183,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Global search — Cmd+K */}
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
+
+      {/* In-app task-due reminders (glass toasts, bottom-right) */}
+      <TaskReminders />
     </div>
   );
 }
