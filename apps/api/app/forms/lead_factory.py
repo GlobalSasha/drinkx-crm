@@ -12,6 +12,7 @@ claim-from-pool flow.
 """
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import structlog
@@ -159,6 +160,28 @@ async def create_lead_from_submission(
     lead = Lead(**lead_kwargs)
     session.add(lead)
     await session.flush()
+
+    # Sprint «Website Leads Intake»: route to the form's fixed owner and
+    # drop a "Связаться" task. No owner → lead stays in pool (legacy
+    # behaviour). Deterministic, NOT AI — this is system-created routing.
+    if form.default_assignee_id:
+        now = datetime.now(timezone.utc)
+        lead.assignment_status = "assigned"
+        lead.assigned_to = form.default_assignee_id
+        lead.assigned_at = now
+        try:
+            sla_hours = int(form.contact_task_sla_hours or 2)
+        except (TypeError, ValueError):
+            sla_hours = 2
+        session.add(
+            Activity(
+                lead_id=lead.id,
+                user_id=None,
+                type="task",
+                body="Связаться с заявкой",
+                task_due_at=now + timedelta(hours=sla_hours),
+            )
+        )
 
     if notes:
         session.add(

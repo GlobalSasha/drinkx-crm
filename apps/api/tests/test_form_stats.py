@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import sys
 import uuid
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -21,6 +21,8 @@ if _sa_orm is not None and not hasattr(_sa_orm, "defer"):
         def __call__(self, *a, **kw): return type(self)()
         def __getattr__(self, name): return type(self)()
     _sa_orm.defer = _Callable()
+
+WS = uuid.uuid4()
 
 
 def test_form_stats_schema_shape():
@@ -86,3 +88,26 @@ async def test_get_form_stats_groups_unplaced_leads_under_no_stage():
     out = await svc.get_form_stats(db, form_id=form_id)
 
     assert out.by_stage == {"Без этапа": 2}
+
+
+@pytest.mark.asyncio
+async def test_channel_analytics_shapes_rows_and_totals():
+    from app.forms import services as svc
+
+    f1, f2 = uuid.uuid4(), uuid.uuid4()
+    async def fake_agg(db, *, workspace_id, date_from, date_to):
+        return [
+            {"form_id": f1, "channel": "Главный сайт", "submissions": 10, "leads": 8, "won": 2},
+            {"form_id": f2, "channel": "Лендинг QSR", "submissions": 5, "leads": 5, "won": 0},
+        ]
+
+    with patch("app.forms.repositories.channel_analytics", new=fake_agg):
+        out = await svc.get_channel_analytics(
+            AsyncMock(), workspace_id=WS, date_from=None, date_to=None
+        )
+
+    assert out.total_submissions == 15
+    assert out.total_leads == 13
+    assert out.total_won == 2
+    assert out.rows[0].conversion == 0.25
+    assert out.rows[1].conversion == 0.0

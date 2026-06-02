@@ -6,6 +6,7 @@ strong enough that one retry is overkill but cheap insurance).
 """
 from __future__ import annotations
 
+import secrets
 import uuid
 from typing import Any
 
@@ -89,6 +90,19 @@ async def _validate_target(
             )
 
 
+async def _assignee_in_workspace(
+    session: AsyncSession, *, user_id: uuid.UUID, workspace_id: uuid.UUID
+) -> bool:
+    from sqlalchemy import select
+
+    from app.auth.models import User
+
+    res = await session.execute(
+        select(User.id).where(User.id == user_id, User.workspace_id == workspace_id).limit(1)
+    )
+    return res.scalar_one_or_none() is not None
+
+
 async def create_form(
     session: AsyncSession,
     *,
@@ -99,6 +113,11 @@ async def create_form(
     target_pipeline_id: uuid.UUID | None = None,
     target_stage_id: uuid.UUID | None = None,
     redirect_url: str | None = None,
+    default_assignee_id: uuid.UUID | None = None,
+    contact_task_sla_hours: int = 2,
+    source_label: str | None = None,
+    notify_email: str | None = None,
+    require_key: bool = False,
 ) -> WebForm:
     """Persist a new form. Auto-generates the slug from `name`; retries
     on the rare slug collision (random suffix keeps this near-zero in
@@ -114,6 +133,11 @@ async def create_form(
         target_pipeline_id=target_pipeline_id,
         target_stage_id=target_stage_id,
     )
+
+    if default_assignee_id is not None:
+        if not await _assignee_in_workspace(session, user_id=default_assignee_id, workspace_id=workspace_id):
+            raise WebFormInvalidTarget("default_assignee_id does not belong to this workspace")
+    ingest_token = secrets.token_urlsafe(32) if require_key else None
 
     last_error: Exception | None = None
     for attempt in range(_MAX_SLUG_RETRIES):
@@ -132,6 +156,11 @@ async def create_form(
                 target_pipeline_id=target_pipeline_id,
                 target_stage_id=target_stage_id,
                 redirect_url=redirect_url,
+                default_assignee_id=default_assignee_id,
+                contact_task_sla_hours=contact_task_sla_hours,
+                source_label=source_label,
+                notify_email=notify_email,
+                ingest_token=ingest_token,
             )
             return form
         except IntegrityError as exc:
@@ -206,6 +235,21 @@ async def update_form(
             target_stage_id=target_stage_id,
         )
 
+    if cleaned.get("default_assignee_id") is not None:
+        if not await _assignee_in_workspace(
+            session, user_id=cleaned["default_assignee_id"], workspace_id=workspace_id
+        ):
+            raise WebFormInvalidTarget("default_assignee_id does not belong to this workspace")
+    if "require_key" in cleaned:
+        rk = cleaned.pop("require_key")
+        if rk and not form.ingest_token:
+            # Enable protection: generate a key only if there isn't one yet.
+            cleaned["ingest_token"] = secrets.token_urlsafe(32)
+        elif not rk:
+            # Disable protection: clear the key.
+            cleaned["ingest_token"] = None
+        # rk True + token already exists → leave the token untouched (no silent rotation).
+
     return await repo.update(session, form=form, patch=cleaned)
 
 
@@ -219,6 +263,20 @@ async def delete_form(
         session, form_id=form_id, workspace_id=workspace_id
     )
     return await repo.soft_delete(session, form=form)
+
+
+async def rotate_key(
+    session: AsyncSession,
+    *,
+    form_id: uuid.UUID,
+    workspace_id: uuid.UUID,
+) -> WebForm:
+    form = await get_form_or_404(session, form_id=form_id, workspace_id=workspace_id)
+    if not form.ingest_token:
+        raise WebFormInvalidTarget("form has no ingest key to rotate; enable require_key first")
+    form.ingest_token = secrets.token_urlsafe(32)
+    await session.flush()
+    return form
 
 
 async def get_form_stats(
@@ -293,4 +351,27 @@ async def get_form_stats(
         submissions_30d=int(r_30d.scalar_one() or 0),
         claimed_count=int(r_claimed.scalar_one() or 0),
         by_stage={name: int(count) for name, count in r_stage.all()},
+    )
+
+
+async def get_channel_analytics(db, *, workspace_id, date_from=None, date_to=None):
+    from app.forms.schemas import FormAnalyticsOut, FormChannelStat
+
+    raw = await repo.channel_analytics(
+        db, workspace_id=workspace_id, date_from=date_from, date_to=date_to
+    )
+    rows = []
+    for r in raw:
+        leads = int(r["leads"] or 0)
+        won = int(r["won"] or 0)
+        rows.append(FormChannelStat(
+            form_id=r["form_id"], channel=r["channel"],
+            submissions=int(r["submissions"] or 0), leads=leads, won=won,
+            conversion=round(won / leads, 4) if leads else 0.0,
+        ))
+    return FormAnalyticsOut(
+        rows=rows,
+        total_submissions=sum(x.submissions for x in rows),
+        total_leads=sum(x.leads for x in rows),
+        total_won=sum(x.won for x in rows),
     )

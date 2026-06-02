@@ -8,20 +8,24 @@ import {
   Copy,
   Loader2,
   Plus,
+  RefreshCw,
   Settings2,
   Trash2,
   X,
 } from "lucide-react";
 import { clsx } from "clsx";
 
-import { useCreateForm, useUpdateForm } from "@/lib/hooks/use-forms";
+import { useCreateForm, useRotateFormKey, useUpdateForm } from "@/lib/hooks/use-forms";
 import { usePipelines } from "@/lib/hooks/use-pipelines";
+import { useUsers } from "@/lib/hooks/use-users";
 import { ApiError } from "@/lib/api-client";
 import type {
   FieldDefinition,
   FieldType,
   WebFormOut,
 } from "@/lib/types";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 type Tab = "settings" | "embed";
 
@@ -75,12 +79,19 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
   const [targetStageId, setTargetStageId] = useState<string | null>(null);
   const [targetPipelineId, setTargetPipelineId] = useState<string | null>(null);
   const [redirectUrl, setRedirectUrl] = useState("");
+  const [defaultAssigneeId, setDefaultAssigneeId] = useState<string | null>(null);
+  const [contactTaskSlaHours, setContactTaskSlaHours] = useState(2);
+  const [sourceLabel, setSourceLabel] = useState("");
+  const [notifyEmail, setNotifyEmail] = useState("");
+  const [requireKey, setRequireKey] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const create = useCreateForm();
   const update = useUpdateForm();
+  const rotateKey = useRotateFormKey();
   const pipelinesQuery = usePipelines();
+  const usersQuery = useUsers();
 
   // Reset state every time the editor opens — fresh form / fresh edits.
   useEffect(() => {
@@ -94,18 +105,28 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
       setTargetStageId(form.target_stage_id);
       setTargetPipelineId(form.target_pipeline_id);
       setRedirectUrl(form.redirect_url || "");
+      setDefaultAssigneeId(form.default_assignee_id ?? null);
+      setContactTaskSlaHours(form.contact_task_sla_hours ?? 2);
+      setSourceLabel(form.source_label ?? "");
+      setNotifyEmail(form.notify_email ?? "");
+      setRequireKey(!!form.ingest_token);
     } else {
       setName("");
       setFields(withClientIds(DEFAULT_FIELDS));
       setTargetStageId(null);
       setTargetPipelineId(null);
       setRedirectUrl("");
+      setDefaultAssigneeId(null);
+      setContactTaskSlaHours(2);
+      setSourceLabel("");
+      setNotifyEmail("");
+      setRequireKey(false);
     }
   }, [open, form]);
 
   // Esc closes the modal — but not while a save is in flight, otherwise
   // the manager could close mid-mutation and miss the success/failure.
-  const busy = create.isPending || update.isPending;
+  const busy = create.isPending || update.isPending || rotateKey.isPending;
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -204,6 +225,11 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
       target_pipeline_id: targetPipelineId,
       target_stage_id: targetStageId,
       redirect_url: redirectUrl.trim() || null,
+      default_assignee_id: defaultAssigneeId || null,
+      contact_task_sla_hours: contactTaskSlaHours,
+      source_label: sourceLabel.trim() || null,
+      notify_email: notifyEmail.trim() || null,
+      require_key: requireKey,
     };
 
     const opts = {
@@ -298,6 +324,17 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
                 onStageChange={onStageChange}
                 redirectUrl={redirectUrl}
                 onRedirectUrl={setRedirectUrl}
+                users={usersQuery.data?.items ?? []}
+                defaultAssigneeId={defaultAssigneeId}
+                onDefaultAssigneeId={setDefaultAssigneeId}
+                contactTaskSlaHours={contactTaskSlaHours}
+                onContactTaskSlaHours={setContactTaskSlaHours}
+                sourceLabel={sourceLabel}
+                onSourceLabel={setSourceLabel}
+                notifyEmail={notifyEmail}
+                onNotifyEmail={setNotifyEmail}
+                requireKey={requireKey}
+                onRequireKey={setRequireKey}
               />
             )}
             {tab === "embed" && form && (
@@ -305,6 +342,8 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
                 form={form}
                 copied={copied}
                 onCopy={copyEmbed}
+                onRotateKey={() => rotateKey.mutate(form.id)}
+                rotatingKey={rotateKey.isPending}
               />
             )}
           </div>
@@ -392,6 +431,17 @@ function SettingsTab({
   onStageChange,
   redirectUrl,
   onRedirectUrl,
+  users,
+  defaultAssigneeId,
+  onDefaultAssigneeId,
+  contactTaskSlaHours,
+  onContactTaskSlaHours,
+  sourceLabel,
+  onSourceLabel,
+  notifyEmail,
+  onNotifyEmail,
+  requireKey,
+  onRequireKey,
 }: {
   name: string;
   onName: (v: string) => void;
@@ -404,6 +454,17 @@ function SettingsTab({
   onStageChange: (v: string) => void;
   redirectUrl: string;
   onRedirectUrl: (v: string) => void;
+  users: { id: string; name: string; email: string }[];
+  defaultAssigneeId: string | null;
+  onDefaultAssigneeId: (v: string | null) => void;
+  contactTaskSlaHours: number;
+  onContactTaskSlaHours: (v: number) => void;
+  sourceLabel: string;
+  onSourceLabel: (v: string) => void;
+  notifyEmail: string;
+  onNotifyEmail: (v: string) => void;
+  requireKey: boolean;
+  onRequireKey: (v: boolean) => void;
 }) {
   return (
     <div className="space-y-5">
@@ -479,6 +540,87 @@ function SettingsTab({
           ))}
         </select>
       </Field>
+
+      {/* Default assignee */}
+      <Field
+        label="Ответственный менеджер"
+        hint="Кому назначаются лиды из этой формы. Пустое — в общий пул."
+      >
+        <select
+          value={defaultAssigneeId ?? ""}
+          onChange={(e) => onDefaultAssigneeId(e.target.value || null)}
+          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
+        >
+          <option value="">— в общий пул —</option>
+          {users.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.name || u.email}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      {/* SLA */}
+      <Field
+        label="SLA, часов"
+        hint="Через сколько часов задача по контакту становится просроченной (1–240)."
+      >
+        <input
+          type="number"
+          min={1}
+          max={240}
+          value={contactTaskSlaHours}
+          onChange={(e) => onContactTaskSlaHours(Math.min(240, Math.max(1, Number(e.target.value))))}
+          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
+        />
+      </Field>
+
+      {/* Source label */}
+      <Field
+        label="Название канала (для аналитики)"
+        hint="Метка источника лида, видная в аналитике. Например: «landing-qsr»."
+      >
+        <input
+          value={sourceLabel}
+          onChange={(e) => onSourceLabel(e.target.value)}
+          placeholder="Например: landing-horeca"
+          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
+        />
+      </Field>
+
+      {/* Notify email */}
+      <Field
+        label="Email для уведомлений"
+        hint="На этот адрес придёт письмо при каждой новой заявке."
+      >
+        <input
+          type="email"
+          value={notifyEmail}
+          onChange={(e) => onNotifyEmail(e.target.value)}
+          placeholder="manager@drinkx.ru"
+          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
+        />
+      </Field>
+
+      {/* Require key */}
+      <div>
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={requireKey}
+            onChange={(e) => onRequireKey(e.target.checked)}
+            className="h-4 w-4 rounded border-black/20 accent-brand-accent"
+          />
+          <span className="text-sm font-semibold text-ink">
+            Защищённый приём (S2S ключ)
+          </span>
+        </label>
+        <p className="text-[11px] text-muted-3 mt-1 leading-snug ml-7">
+          При включении все запросы к эндпоинту должны содержать заголовок{" "}
+          <code className="font-mono">X-Form-Key</code>. Ключ генерируется
+          автоматически и виден во вкладке «Встроить».
+        </p>
+      </div>
 
       {/* Redirect URL */}
       <Field
@@ -580,10 +722,14 @@ function EmbedTab({
   form,
   copied,
   onCopy,
+  onRotateKey,
+  rotatingKey,
 }: {
   form: WebFormOut;
   copied: boolean;
   onCopy: () => void;
+  onRotateKey: () => void;
+  rotatingKey: boolean;
 }) {
   // Compose the full snippet — `embed_snippet` is just the <script>
   // tag; we add the <div> mount-point so the manager has one block to
@@ -600,6 +746,14 @@ function EmbedTab({
     const m = (form.embed_snippet || "").match(/src="([^"]+)"/);
     return m?.[1] ?? "";
   }, [form.embed_snippet]);
+
+  const curlExample = useMemo(() => {
+    if (!form.ingest_token) return null;
+    return `curl -X POST ${API_BASE}/api/public/forms/${form.slug}/submit \\
+  -H "Content-Type: application/json" \\
+  -H "X-Form-Key: ${form.ingest_token}" \\
+  -d '{"company":"ООО Ромашка","phone":"+7...","comment":"..."}'`;
+  }, [form.ingest_token, form.slug]);
 
   return (
     <div className="space-y-4">
@@ -656,6 +810,46 @@ function EmbedTab({
           >
             {directUrl}
           </a>
+        </div>
+      )}
+
+      {curlExample && (
+        <div className="space-y-3">
+          <div>
+            <h3 className="text-base font-bold tracking-tight text-ink">
+              Интеграция (S2S)
+            </h3>
+            <p className="text-[13px] text-muted mt-1">
+              Сервер-серверная отправка. Передавайте ключ в заголовке{" "}
+              <code className="font-mono text-[11px]">X-Form-Key</code>.
+            </p>
+          </div>
+          <div>
+            <label className="block text-[10px] font-mono uppercase tracking-wider text-muted-2 mb-1.5">
+              Пример запроса (curl)
+            </label>
+            <pre className="w-full text-[11px] font-mono leading-relaxed bg-canvas border border-black/10 rounded-xl p-3 whitespace-pre-wrap break-all">
+              {curlExample}
+            </pre>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-muted-3">
+              Ключ:{" "}
+              <code className="font-mono">{form.ingest_token}</code>
+            </span>
+            <button
+              onClick={onRotateKey}
+              disabled={rotatingKey}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-[11px] font-semibold bg-canvas text-ink border border-black/10 hover:bg-canvas-2 disabled:opacity-40 transition-all"
+            >
+              {rotatingKey ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <RefreshCw size={12} />
+              )}
+              Перевыпустить ключ
+            </button>
+          </div>
         </div>
       )}
 

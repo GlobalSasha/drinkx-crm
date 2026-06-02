@@ -68,6 +68,21 @@ class WebForm(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
         Integer, default=0, server_default="0", nullable=False
     )
 
+    # Sprint «Website Leads Intake» — routing + intake hardening (migration 0041).
+    default_assignee_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    contact_task_sla_hours: Mapped[int] = mapped_column(
+        Integer, default=2, server_default="2", nullable=False
+    )
+    source_label: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    notify_email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    # S2S secret. NULL → open form (browser/embed). NOT NULL → submit
+    # requires matching X-Form-Key header.
+    ingest_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
 
 class FormSubmission(Base, UUIDPrimaryKeyMixin):
     """One submission. Explicit `created_at` (no TimestampedMixin) since

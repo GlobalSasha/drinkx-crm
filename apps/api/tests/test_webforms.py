@@ -163,6 +163,10 @@ def _make_form(**overrides):
     form.target_stage_id = uuid.uuid4()
     form.name = "Тестовая форма"
     form.slug = "testovaya-forma-abc123"
+    # Default to None so tests that don't override routing fields don't
+    # accidentally trigger the owner-assignment branch.
+    form.default_assignee_id = None
+    form.contact_task_sla_hours = None
     for k, v in overrides.items():
         setattr(form, k, v)
     return form
@@ -395,3 +399,299 @@ async def test_no_comment_activity_when_no_notes():
     assert types == ["form_submission"], (
         f"expected only form_submission, got {types!r}"
     )
+
+
+# ===========================================================================
+# Lead-factory: routing + contact task — Sprint «Website Leads Intake»
+# ===========================================================================
+
+@pytest.mark.asyncio
+async def test_routing_assigns_owner_and_creates_task():
+    """Form with default_assignee_id → lead becomes assigned to that user
+    and a type='task' Activity with a due date is created."""
+    from app.forms import lead_factory as lf_mod
+
+    owner = uuid.uuid4()
+    leads, activities, patches = _make_lead_factory_env()
+    form = _make_form(default_assignee_id=owner, contact_task_sla_hours=2)
+    session = _make_session()
+
+    from contextlib import ExitStack
+    with ExitStack() as stack:
+        for p in patches:
+            stack.enter_context(p)
+        stack.enter_context(patch(
+            "app.automation_builder.services.safe_evaluate_trigger",
+            new=AsyncMock(),
+        ))
+        lead = await lf_mod.create_lead_from_submission(
+            session, form=form, payload={"company": "ACME"},
+            source_domain="acme.ru", utm=None,
+        )
+
+    assert lead.assignment_status == "assigned"
+    assert lead.assigned_to == owner
+    assert lead.assigned_at is not None
+    tasks = [a for a in activities if a.get("type") == "task"]
+    assert len(tasks) == 1
+    assert tasks[0]["task_due_at"] is not None
+    assert tasks[0]["lead_id"] == lead.id
+
+
+@pytest.mark.asyncio
+async def test_no_owner_leaves_lead_in_pool_no_task():
+    """Form without default_assignee_id → lead stays in pool, no task."""
+    from app.forms import lead_factory as lf_mod
+
+    leads, activities, patches = _make_lead_factory_env()
+    form = _make_form(default_assignee_id=None, contact_task_sla_hours=2)
+    session = _make_session()
+
+    from contextlib import ExitStack
+    with ExitStack() as stack:
+        for p in patches:
+            stack.enter_context(p)
+        stack.enter_context(patch(
+            "app.automation_builder.services.safe_evaluate_trigger",
+            new=AsyncMock(),
+        ))
+        lead = await lf_mod.create_lead_from_submission(
+            session, form=form, payload={"company": "ACME"},
+            source_domain="acme.ru", utm=None,
+        )
+
+    assert lead.assignment_status == "pool"
+    assert getattr(lead, "assigned_to", None) is None
+    assert [a for a in activities if a.get("type") == "task"] == []
+
+
+# ===========================================================================
+# _ingest_key_ok — Sprint «Website Leads Intake» Task 3
+# ===========================================================================
+
+def test_ingest_key_check():
+    from app.forms.public_routers import _ingest_key_ok
+
+    # Open form (no token) — always ok regardless of header.
+    assert _ingest_key_ok(form_token=None, provided=None) is True
+    assert _ingest_key_ok(form_token=None, provided="anything") is True
+    # Protected form — exact match required.
+    assert _ingest_key_ok(form_token="secret", provided="secret") is True
+    assert _ingest_key_ok(form_token="secret", provided="wrong") is False
+    assert _ingest_key_ok(form_token="secret", provided=None) is False
+
+
+def test_collect_email_recipients_dedupes():
+    from app.forms.public_routers import _collect_email_recipients
+
+    assert _collect_email_recipients(
+        owner_email="m@x.ru", notify_email="sales@x.ru"
+    ) == ["m@x.ru", "sales@x.ru"]
+    assert _collect_email_recipients(
+        owner_email="m@x.ru", notify_email="m@x.ru"
+    ) == ["m@x.ru"]
+    assert _collect_email_recipients(owner_email=None, notify_email=None) == []
+    assert _collect_email_recipients(owner_email="", notify_email="sales@x.ru") == ["sales@x.ru"]
+
+
+@pytest.mark.asyncio
+async def test_create_form_rejects_foreign_assignee():
+    """default_assignee_id must belong to the caller's workspace."""
+    db = AsyncMock()
+
+    async def fake_user_in_ws(session, *, user_id, workspace_id):
+        return False  # assignee not in workspace
+
+    with patch("app.forms.services._assignee_in_workspace", new=fake_user_in_ws):
+        with pytest.raises(svc_mod.WebFormInvalidTarget):
+            await svc_mod.create_form(
+                db, workspace_id=WS, user_id=uuid.uuid4(),
+                name="F", fields_json=[],
+                default_assignee_id=uuid.uuid4(),
+            )
+
+
+# ===========================================================================
+# Security: ingest_token visibility — Sprint «Website Leads Intake»
+# ===========================================================================
+
+def test_serialize_form_hides_token_when_not_privileged():
+    """serialize_form with include_token=False must null out ingest_token."""
+    from app.forms.routers import serialize_form, build_embed_snippet
+    from app.forms.schemas import WebFormOut
+
+    form = MagicMock()
+    form.ingest_token = "supersecret"
+    form.slug = "my-form-abc123"
+    form.name = "Test"
+    form.id = uuid.uuid4()
+    form.workspace_id = WS
+    form.is_active = True
+    form.fields_json = []
+    form.target_pipeline_id = None
+    form.target_stage_id = None
+    form.redirect_url = None
+    form.default_assignee_id = None
+    form.contact_task_sla_hours = 2
+    form.source_label = None
+    form.notify_email = None
+    form.require_key = True
+    form.created_by = None
+    form.created_at = None
+    form.updated_at = None
+    form.embed_snippet = None
+
+    # model_validate on a MagicMock goes through __dict__; patch it out
+    fake_out = MagicMock(spec=WebFormOut)
+    fake_out.ingest_token = "supersecret"
+    fake_out.embed_snippet = None
+
+    with patch.object(WebFormOut, "model_validate", return_value=fake_out):
+        result = serialize_form(form, include_token=False)
+
+    assert result.ingest_token is None
+
+
+def test_serialize_form_shows_token_when_privileged():
+    """serialize_form with include_token=True (default) must preserve the token."""
+    from app.forms.routers import serialize_form
+    from app.forms.schemas import WebFormOut
+
+    form = MagicMock()
+    form.slug = "my-form-abc123"
+
+    fake_out = MagicMock(spec=WebFormOut)
+    fake_out.ingest_token = "supersecret"
+    fake_out.embed_snippet = None
+
+    with patch.object(WebFormOut, "model_validate", return_value=fake_out):
+        result = serialize_form(form, include_token=True)
+
+    assert result.ingest_token == "supersecret"
+
+
+@pytest.mark.asyncio
+async def test_rotate_key_raises_on_keyless_form():
+    """rotate_key must raise WebFormInvalidTarget when the form has no
+    ingest_token (require_key was never enabled)."""
+    db = AsyncMock()
+
+    keyless_form = MagicMock()
+    keyless_form.ingest_token = None
+
+    async def fake_get_form_or_404(session, *, form_id, workspace_id):
+        return keyless_form
+
+    with patch.object(svc_mod, "get_form_or_404", new=fake_get_form_or_404):
+        with pytest.raises(svc_mod.WebFormInvalidTarget, match="no ingest key"):
+            await svc_mod.rotate_key(
+                db, form_id=uuid.uuid4(), workspace_id=WS
+            )
+
+
+@pytest.mark.asyncio
+async def test_rotate_key_replaces_existing_token():
+    """rotate_key on a form that already has a token must set a new one."""
+    db = AsyncMock()
+    db.flush = AsyncMock()
+
+    keyed_form = MagicMock()
+    keyed_form.ingest_token = "old-token"
+
+    async def fake_get_form_or_404(session, *, form_id, workspace_id):
+        return keyed_form
+
+    with patch.object(svc_mod, "get_form_or_404", new=fake_get_form_or_404):
+        result = await svc_mod.rotate_key(
+            db, form_id=uuid.uuid4(), workspace_id=WS
+        )
+
+    assert result.ingest_token != "old-token"
+    assert result.ingest_token is not None
+    assert len(result.ingest_token) > 10
+
+
+# ===========================================================================
+# update_form: idempotent require_key / ingest_token handling
+# ===========================================================================
+
+@pytest.mark.asyncio
+async def test_update_form_does_not_rotate_existing_token():
+    """Saving require_key=True on a form that already has a token must NOT
+    change the token (no silent rotation on unrelated edits)."""
+    db = AsyncMock()
+    existing = MagicMock()
+    existing.ingest_token = "EXISTING_TOKEN"
+    existing.target_pipeline_id = None
+    existing.target_stage_id = None
+
+    async def fake_get_by_id(session, **kwargs):
+        return existing
+
+    captured = {}
+    async def fake_update(session, *, form, patch):
+        captured.update(patch)
+        for k, v in patch.items():
+            setattr(form, k, v)
+        return form
+
+    with patch("app.forms.repositories.get_by_id", new=fake_get_by_id), \
+         patch("app.forms.repositories.update", new=fake_update):
+        await svc_mod.update_form(
+            db, form_id=uuid.uuid4(), workspace_id=WS,
+            patch={"require_key": True, "name": "Renamed"},
+        )
+
+    # ingest_token must NOT be in the patch (token left untouched).
+    assert "ingest_token" not in captured
+    assert captured.get("name") == "Renamed"
+
+
+@pytest.mark.asyncio
+async def test_update_form_enables_key_when_none():
+    """require_key=True on a form with no token generates one."""
+    db = AsyncMock()
+    existing = MagicMock()
+    existing.ingest_token = None
+    existing.target_pipeline_id = None
+    existing.target_stage_id = None
+
+    async def fake_get_by_id(session, **kwargs):
+        return existing
+    captured = {}
+    async def fake_update(session, *, form, patch):
+        captured.update(patch)
+        return form
+
+    with patch("app.forms.repositories.get_by_id", new=fake_get_by_id), \
+         patch("app.forms.repositories.update", new=fake_update):
+        await svc_mod.update_form(
+            db, form_id=uuid.uuid4(), workspace_id=WS,
+            patch={"require_key": True},
+        )
+    assert captured.get("ingest_token")  # truthy token generated
+
+
+@pytest.mark.asyncio
+async def test_update_form_disables_key():
+    """require_key=False clears the token."""
+    db = AsyncMock()
+    existing = MagicMock()
+    existing.ingest_token = "EXISTING"
+    existing.target_pipeline_id = None
+    existing.target_stage_id = None
+
+    async def fake_get_by_id(session, **kwargs):
+        return existing
+    captured = {}
+    async def fake_update(session, *, form, patch):
+        captured.update(patch)
+        return form
+
+    with patch("app.forms.repositories.get_by_id", new=fake_get_by_id), \
+         patch("app.forms.repositories.update", new=fake_update):
+        await svc_mod.update_form(
+            db, form_id=uuid.uuid4(), workspace_id=WS,
+            patch={"require_key": False},
+        )
+    assert "ingest_token" in captured and captured["ingest_token"] is None

@@ -14,6 +14,7 @@ parametric routes.
 """
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -27,6 +28,7 @@ from app.db import get_db
 from app.forms import repositories as repo
 from app.forms import services as svc
 from app.forms.schemas import (
+    FormAnalyticsOut,
     FormStatsOut,
     FormSubmissionOut,
     FormSubmissionPageOut,
@@ -47,9 +49,11 @@ def build_embed_snippet(slug: str) -> str:
     return f'<script src="{base}/api/forms/{slug}/embed.js" async></script>'
 
 
-def serialize_form(form) -> WebFormOut:
+def serialize_form(form, *, include_token: bool = True) -> WebFormOut:
     out = WebFormOut.model_validate(form)
     out.embed_snippet = build_embed_snippet(form.slug)
+    if not include_token:
+        out.ingest_token = None
     return out
 
 
@@ -72,11 +76,24 @@ async def list_forms(
         page=page,
         page_size=page_size,
     )
+    is_privileged = user.role in ("admin", "head")
     return WebFormPageOut(
-        items=[serialize_form(f) for f in items],
+        items=[serialize_form(f, include_token=is_privileged) for f in items],
         total=total,
         page=page,
         page_size=page_size,
+    )
+
+
+@router.get("/analytics", response_model=FormAnalyticsOut)
+async def get_analytics(
+    date_from: Annotated[datetime | None, Query()] = None,
+    date_to: Annotated[datetime | None, Query()] = None,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> FormAnalyticsOut:
+    return await svc.get_channel_analytics(
+        db, workspace_id=user.workspace_id, date_from=date_from, date_to=date_to
     )
 
 
@@ -92,7 +109,7 @@ async def get_form(
         )
     except svc.WebFormNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
-    return serialize_form(form)
+    return serialize_form(form, include_token=user.role in ("admin", "head"))
 
 
 @router.get("/{form_id}/submissions", response_model=FormSubmissionPageOut)
@@ -167,6 +184,11 @@ async def create_form(
             target_pipeline_id=payload.target_pipeline_id,
             target_stage_id=payload.target_stage_id,
             redirect_url=payload.redirect_url,
+            default_assignee_id=payload.default_assignee_id,
+            contact_task_sla_hours=payload.contact_task_sla_hours,
+            source_label=payload.source_label,
+            notify_email=payload.notify_email,
+            require_key=payload.require_key,
         )
     except svc.WebFormInvalidTarget as exc:
         raise HTTPException(
@@ -219,6 +241,23 @@ async def delete_form(
         )
     except svc.WebFormNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
+    await db.commit()
+    await db.refresh(form)
+    return serialize_form(form)
+
+
+@router.post("/{form_id}/rotate-key", response_model=WebFormOut)
+async def rotate_form_key(
+    form_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(require_admin_or_head)] = ...,
+) -> WebFormOut:
+    try:
+        form = await svc.rotate_key(db, form_id=form_id, workspace_id=user.workspace_id)
+    except svc.WebFormNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
+    except svc.WebFormInvalidTarget as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     await db.commit()
     await db.refresh(form)
     return serialize_form(form)

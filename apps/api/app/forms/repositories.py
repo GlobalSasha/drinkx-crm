@@ -119,3 +119,42 @@ async def list_submissions(
         .limit(page_size)
     )
     return list(rows.scalars()), total
+
+
+async def channel_analytics(
+    session: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    date_from=None,
+    date_to=None,
+) -> list[dict]:
+    """One row per form in the workspace: submissions, distinct leads,
+    won leads. Date filters apply to FormSubmission.created_at via the
+    JOIN ON clause so forms with zero in-range submissions still appear."""
+    from sqlalchemy import and_, case, func
+
+    from app.leads.models import Lead
+
+    sub_on = [FormSubmission.web_form_id == WebForm.id]
+    if date_from is not None:
+        sub_on.append(FormSubmission.created_at >= date_from)
+    if date_to is not None:
+        sub_on.append(FormSubmission.created_at <= date_to)
+
+    won = func.count(func.distinct(case((Lead.won_at.isnot(None), Lead.id))))
+    q = (
+        select(
+            WebForm.id.label("form_id"),
+            func.coalesce(WebForm.source_label, WebForm.name).label("channel"),
+            func.count(func.distinct(FormSubmission.id)).label("submissions"),
+            func.count(func.distinct(FormSubmission.lead_id)).label("leads"),
+            won.label("won"),
+        )
+        .select_from(WebForm)
+        .outerjoin(FormSubmission, and_(*sub_on))
+        .outerjoin(Lead, Lead.id == FormSubmission.lead_id)
+        .where(WebForm.workspace_id == workspace_id)
+        .group_by(WebForm.id, func.coalesce(WebForm.source_label, WebForm.name))
+    )
+    rows = await session.execute(q)
+    return [dict(r._mapping) for r in rows]

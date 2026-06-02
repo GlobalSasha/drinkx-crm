@@ -15,19 +15,21 @@ import { T } from "@/lib/design-system";
 import { useMe } from "@/lib/hooks/use-me";
 import {
   useDeleteForm,
+  useFormAnalytics,
   useForms,
   useToggleFormActive,
 } from "@/lib/hooks/use-forms";
 import { relativeTime } from "@/lib/relative-time";
 import { FormEditor } from "@/components/forms/FormEditor";
 import { FormStatsCard } from "@/components/forms/FormStatsCard";
-import type { WebFormOut } from "@/lib/types";
+import type { FormAnalytics, WebFormOut } from "@/lib/types";
 
 
 export default function FormsPage() {
   const router = useRouter();
   const { data: me, isLoading: meLoading } = useMe();
   const formsQuery = useForms();
+  const analyticsQuery = useFormAnalytics();
   const toggleActive = useToggleFormActive();
   const deleteForm = useDeleteForm();
 
@@ -150,6 +152,9 @@ export default function FormsPage() {
             </div>
           </div>
         )}
+
+        {/* Channel analytics */}
+        <ChannelAnalyticsSection query={analyticsQuery} />
       </div>
 
       <FormEditor
@@ -271,6 +276,86 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
         <Plus size={15} />
         Новая форма
       </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Channel analytics table
+// ---------------------------------------------------------------------------
+
+function ChannelAnalyticsSection({
+  query,
+}: {
+  query: { isLoading: boolean; isError: boolean; data?: FormAnalytics };
+}) {
+  const { isLoading, isError, data } = query;
+  const rows = data?.rows ?? [];
+  const totalLeads = data?.total_leads ?? 0;
+  const totalSubmissions = data?.total_submissions ?? 0;
+  const totalWon = data?.total_won ?? 0;
+  const totalConversion = totalLeads > 0 ? totalWon / totalLeads : 0;
+
+  return (
+    <div className="mt-8">
+      <h2 className="type-card-title mb-4">Аналитика по каналам</h2>
+
+      {isLoading && (
+        <div className="flex justify-center py-8">
+          <Loader2 size={18} className="animate-spin text-muted-2" />
+        </div>
+      )}
+
+      {isError && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose/10 text-rose text-sm">
+          <AlertCircle size={14} />
+          Не удалось загрузить аналитику.
+        </div>
+      )}
+
+      {!isLoading && !isError && rows.length === 0 && (
+        <p className="text-sm text-muted-2 py-4">Данных пока нет.</p>
+      )}
+
+      {!isLoading && !isError && rows.length > 0 && (
+        <div className="overflow-x-auto rounded-2xl border border-black/5 bg-white">
+          <table className="w-full text-sm min-w-[480px]">
+            <thead>
+              <tr className={`bg-canvas border-b border-black/5 ${T.mono} uppercase text-muted-2 text-left`}>
+                <th className="px-4 py-2.5 font-medium">Канал</th>
+                <th className="px-4 py-2.5 font-medium text-right">Заявки</th>
+                <th className="px-4 py-2.5 font-medium text-right">Лиды</th>
+                <th className="px-4 py-2.5 font-medium text-right">Выиграно</th>
+                <th className="px-4 py-2.5 font-medium text-right">Конверсия</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-black/5">
+              {rows.map((row) => (
+                <tr key={`${row.form_id}-${row.channel}`} className="hover:bg-canvas/50 transition-colors">
+                  <td className="px-4 py-3 font-medium text-ink">{row.channel}</td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums text-ink">{row.submissions}</td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums text-ink">{row.leads}</td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums text-ink">{row.won}</td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums text-ink">
+                    {`${(row.conversion * 100).toFixed(0)}%`}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className={`bg-canvas border-t border-black/5 ${T.mono} font-semibold text-ink`}>
+                <td className="px-4 py-2.5">Итого</td>
+                <td className="px-4 py-2.5 text-right tabular-nums">{totalSubmissions}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums">{totalLeads}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums">{totalWon}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums">
+                  {`${(totalConversion * 100).toFixed(0)}%`}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
