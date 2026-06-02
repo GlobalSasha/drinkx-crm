@@ -492,3 +492,20 @@ def test_collect_email_recipients_dedupes():
     ) == ["m@x.ru"]
     assert _collect_email_recipients(owner_email=None, notify_email=None) == []
     assert _collect_email_recipients(owner_email="", notify_email="sales@x.ru") == ["sales@x.ru"]
+
+
+@pytest.mark.asyncio
+async def test_create_form_rejects_foreign_assignee():
+    """default_assignee_id must belong to the caller's workspace."""
+    db = AsyncMock()
+
+    async def fake_user_in_ws(session, *, user_id, workspace_id):
+        return False  # assignee not in workspace
+
+    with patch("app.forms.services._assignee_in_workspace", new=fake_user_in_ws):
+        with pytest.raises(svc_mod.WebFormInvalidTarget):
+            await svc_mod.create_form(
+                db, workspace_id=WS, user_id=uuid.uuid4(),
+                name="F", fields_json=[],
+                default_assignee_id=uuid.uuid4(),
+            )

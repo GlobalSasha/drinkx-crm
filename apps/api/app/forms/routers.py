@@ -167,6 +167,11 @@ async def create_form(
             target_pipeline_id=payload.target_pipeline_id,
             target_stage_id=payload.target_stage_id,
             redirect_url=payload.redirect_url,
+            default_assignee_id=payload.default_assignee_id,
+            contact_task_sla_hours=payload.contact_task_sla_hours,
+            source_label=payload.source_label,
+            notify_email=payload.notify_email,
+            require_key=payload.require_key,
         )
     except svc.WebFormInvalidTarget as exc:
         raise HTTPException(
@@ -217,6 +222,21 @@ async def delete_form(
         form = await svc.delete_form(
             db, form_id=form_id, workspace_id=user.workspace_id
         )
+    except svc.WebFormNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
+    await db.commit()
+    await db.refresh(form)
+    return serialize_form(form)
+
+
+@router.post("/{form_id}/rotate-key", response_model=WebFormOut)
+async def rotate_form_key(
+    form_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(require_admin_or_head)] = ...,
+) -> WebFormOut:
+    try:
+        form = await svc.rotate_key(db, form_id=form_id, workspace_id=user.workspace_id)
     except svc.WebFormNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
     await db.commit()
