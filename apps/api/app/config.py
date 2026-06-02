@@ -79,7 +79,6 @@ class Settings(BaseSettings):
     # Public-facing URLs — used to build OAuth redirect_uri and to send
     # the user back to the SPA after callback.
     api_base_url: str = "http://localhost:8000"
-    web_base_url: str = "https://crm.drinkx.tech"
     frontend_base_url: str = "http://localhost:3000"
 
     # Google OAuth (Gmail Inbox sync — Sprint 2.0).

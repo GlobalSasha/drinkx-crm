@@ -196,9 +196,9 @@ async def _send_lead_email_notification(
             return
 
         settings = get_settings()
-        web_base = settings.web_base_url.rstrip("/") if getattr(settings, "web_base_url", "") else ""
+        web_base = settings.frontend_base_url.rstrip("/")
         channel = form.source_label or form.name
-        link = f"{web_base}/leads/{lead.id}" if web_base else str(lead.id)
+        link = f"{web_base}/leads/{lead.id}"
         html = (
             f"<p>Новая заявка с сайта: <b>{channel}</b></p>"
             f"<p>Компания: {lead.company_name}</p>"
