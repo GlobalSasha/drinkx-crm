@@ -266,6 +266,8 @@ async def rotate_key(
     workspace_id: uuid.UUID,
 ) -> WebForm:
     form = await get_form_or_404(session, form_id=form_id, workspace_id=workspace_id)
+    if not form.ingest_token:
+        raise WebFormInvalidTarget("form has no ingest key to rotate; enable require_key first")
     form.ingest_token = secrets.token_urlsafe(32)
     await session.flush()
     return form

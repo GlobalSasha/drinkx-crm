@@ -509,3 +509,103 @@ async def test_create_form_rejects_foreign_assignee():
                 name="F", fields_json=[],
                 default_assignee_id=uuid.uuid4(),
             )
+
+
+# ===========================================================================
+# Security: ingest_token visibility — Sprint «Website Leads Intake»
+# ===========================================================================
+
+def test_serialize_form_hides_token_when_not_privileged():
+    """serialize_form with include_token=False must null out ingest_token."""
+    from app.forms.routers import serialize_form, build_embed_snippet
+    from app.forms.schemas import WebFormOut
+
+    form = MagicMock()
+    form.ingest_token = "supersecret"
+    form.slug = "my-form-abc123"
+    form.name = "Test"
+    form.id = uuid.uuid4()
+    form.workspace_id = WS
+    form.is_active = True
+    form.fields_json = []
+    form.target_pipeline_id = None
+    form.target_stage_id = None
+    form.redirect_url = None
+    form.default_assignee_id = None
+    form.contact_task_sla_hours = 2
+    form.source_label = None
+    form.notify_email = None
+    form.require_key = True
+    form.created_by = None
+    form.created_at = None
+    form.updated_at = None
+    form.embed_snippet = None
+
+    # model_validate on a MagicMock goes through __dict__; patch it out
+    fake_out = MagicMock(spec=WebFormOut)
+    fake_out.ingest_token = "supersecret"
+    fake_out.embed_snippet = None
+
+    with patch.object(WebFormOut, "model_validate", return_value=fake_out):
+        result = serialize_form(form, include_token=False)
+
+    assert result.ingest_token is None
+
+
+def test_serialize_form_shows_token_when_privileged():
+    """serialize_form with include_token=True (default) must preserve the token."""
+    from app.forms.routers import serialize_form
+    from app.forms.schemas import WebFormOut
+
+    form = MagicMock()
+    form.slug = "my-form-abc123"
+
+    fake_out = MagicMock(spec=WebFormOut)
+    fake_out.ingest_token = "supersecret"
+    fake_out.embed_snippet = None
+
+    with patch.object(WebFormOut, "model_validate", return_value=fake_out):
+        result = serialize_form(form, include_token=True)
+
+    assert result.ingest_token == "supersecret"
+
+
+@pytest.mark.asyncio
+async def test_rotate_key_raises_on_keyless_form():
+    """rotate_key must raise WebFormInvalidTarget when the form has no
+    ingest_token (require_key was never enabled)."""
+    db = AsyncMock()
+
+    keyless_form = MagicMock()
+    keyless_form.ingest_token = None
+
+    async def fake_get_form_or_404(session, *, form_id, workspace_id):
+        return keyless_form
+
+    with patch.object(svc_mod, "get_form_or_404", new=fake_get_form_or_404):
+        with pytest.raises(svc_mod.WebFormInvalidTarget, match="no ingest key"):
+            await svc_mod.rotate_key(
+                db, form_id=uuid.uuid4(), workspace_id=WS
+            )
+
+
+@pytest.mark.asyncio
+async def test_rotate_key_replaces_existing_token():
+    """rotate_key on a form that already has a token must set a new one."""
+    db = AsyncMock()
+    db.flush = AsyncMock()
+
+    keyed_form = MagicMock()
+    keyed_form.ingest_token = "old-token"
+
+    async def fake_get_form_or_404(session, *, form_id, workspace_id):
+        return keyed_form
+
+    with patch.object(svc_mod, "get_form_or_404", new=fake_get_form_or_404):
+        result = await svc_mod.rotate_key(
+            db, form_id=uuid.uuid4(), workspace_id=WS
+        )
+
+    assert result.ingest_token != "old-token"
+    assert result.ingest_token is not None
+    assert len(result.ingest_token) > 10

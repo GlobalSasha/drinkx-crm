@@ -47,9 +47,11 @@ def build_embed_snippet(slug: str) -> str:
     return f'<script src="{base}/api/forms/{slug}/embed.js" async></script>'
 
 
-def serialize_form(form) -> WebFormOut:
+def serialize_form(form, *, include_token: bool = True) -> WebFormOut:
     out = WebFormOut.model_validate(form)
     out.embed_snippet = build_embed_snippet(form.slug)
+    if not include_token:
+        out.ingest_token = None
     return out
 
 
@@ -72,8 +74,9 @@ async def list_forms(
         page=page,
         page_size=page_size,
     )
+    is_privileged = user.role in ("admin", "head")
     return WebFormPageOut(
-        items=[serialize_form(f) for f in items],
+        items=[serialize_form(f, include_token=is_privileged) for f in items],
         total=total,
         page=page,
         page_size=page_size,
@@ -92,7 +95,7 @@ async def get_form(
         )
     except svc.WebFormNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
-    return serialize_form(form)
+    return serialize_form(form, include_token=user.role in ("admin", "head"))
 
 
 @router.get("/{form_id}/submissions", response_model=FormSubmissionPageOut)
@@ -239,6 +242,8 @@ async def rotate_form_key(
         form = await svc.rotate_key(db, form_id=form_id, workspace_id=user.workspace_id)
     except svc.WebFormNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
+    except svc.WebFormInvalidTarget as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     await db.commit()
     await db.refresh(form)
     return serialize_form(form)
