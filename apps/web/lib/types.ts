@@ -1570,6 +1570,23 @@ export interface FormStatsOut {
   by_stage: Record<string, number>;
 }
 
+// Sprint 3.6 G4 — channel analytics table on /forms.
+export type FormChannelStat = {
+  form_id: string;
+  channel: string;
+  submissions: number;
+  leads: number;
+  won: number;
+  conversion: number;
+};
+
+export type FormAnalytics = {
+  rows: FormChannelStat[];
+  total_submissions: number;
+  total_leads: number;
+  total_won: number;
+};
+
 // Sprint 4.0 G7 — admin LLM cost counter (Settings → Расходы).
 export interface ProviderCost {
   provider: string;

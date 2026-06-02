@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, api } from "@/lib/api-client";
 import type {
+  FormAnalytics,
   FormStatsOut,
   WebFormCreateIn,
   WebFormOut,
@@ -116,5 +117,13 @@ export function useFormStats(formId: string | undefined) {
     queryFn: () => api.get<FormStatsOut>(`/api/forms/${formId}/stats`),
     enabled: !!formId,
     staleTime: 60_000,
+  });
+}
+
+/** Channel analytics table on /forms page. */
+export function useFormAnalytics() {
+  return useQuery<FormAnalytics, ApiError>({
+    queryKey: ["forms", "analytics"],
+    queryFn: () => api.get<FormAnalytics>("/api/forms/analytics"),
   });
 }
