@@ -48,6 +48,13 @@
   Задан → лид сразу `assigned` на него + задача «Связаться». Не задан → пул
   (как сейчас).
 - **SLA задачи:** поле `contact_task_sla_hours` на форме, дефолт **2**.
+- **Почта:** внутреннее уведомление «Новая заявка с сайта» шлёт **CRM** (а не сайт)
+  — назначенному владельцу на его email **и** в общий ящик продаж (`notify_email`
+  на форме). CRM — единственный, кто знает маршрутизацию, поэтому письмо отдела
+  принадлежит ему, а не 3–4 сайтам. Автоответ клиенту и фолбэк-письмо на стороне
+  сайта в этой итерации **не делаем**. Используется существующий
+  `app/notifications/email_sender.py::send_email` (stub-режим, пока `SMTP_HOST`
+  пуст).
 
 > **Ревизия ADR-007.** Раньше форма принципиально не назначала менеджера. Теперь —
 > назначает, **если на форме явно задан владелец**. Это осознанное продуктовое
@@ -65,6 +72,7 @@
 | `default_assignee_id` | `UUID` FK `users` ON DELETE SET NULL, nullable | фиксированный владелец заявок этого сайта |
 | `contact_task_sla_hours` | `Integer` NOT NULL default `2` | через сколько часов дедлайн задачи «Связаться» |
 | `source_label` | `String(120)` nullable | человекочитаемое имя канала для аналитики (фолбэк — `name`) |
+| `notify_email` | `String(254)` nullable | общий ящик продаж, куда CRM шлёт уведомление о заявке этого сайта |
 
 Без новых таблиц. `FormSubmission` уже хранит всё для аналитики.
 
@@ -112,10 +120,26 @@ if form.default_assignee_id:
 `user_id=default_assignee_id` (`kind="system"`, заголовок «Новая заявка с сайта»,
 `lead_id`). Best-effort, как и админ-уведомления.
 
-### 4.5. Админ-API — `app/forms/{schemas,services,routers}.py`
+### 4.5. Email-уведомление отделу — `public_routers.submit_form`
+
+После коммита (рядом с `_notify_workspace_admins`, тоже best-effort, никогда не
+5xx) вызвать `_send_lead_email_notification`:
+
+- собрать адресатов: email назначенного владельца (через JOIN на `users`, если
+  `lead.assigned_to` задан) + `form.notify_email` (если задан); дедуп, пустые
+  пропустить;
+- если адресатов нет — выйти молча;
+- на каждого `await send_email(to=..., subject="Новая заявка с сайта: {company}",
+  html=render(...))` с ссылкой на карточку лида (`{web_base}/leads/{id}`),
+  источником (`source_label`/`name`) и текстом сообщения.
+
+В проде требуется заполнить `SMTP_*` (сейчас stub-режим логирует письмо в stdout).
+Это внешняя зависимость — отметить как `> [BLOCKED]` до получения SMTP-реквизитов.
+
+### 4.6. Админ-API — `app/forms/{schemas,services,routers}.py`
 
 - `WebFormCreateIn` / `WebFormUpdateIn`: добавить `default_assignee_id`,
-  `contact_task_sla_hours` (ge=1, le=240), `source_label`.
+  `contact_task_sla_hours` (ge=1, le=240), `source_label`, `notify_email`.
 - Валидация в `services.create_form` / `update_form`: `default_assignee_id` должен
   принадлежать workspace вызывающего (иначе `WebFormInvalidTarget`-подобная 400).
 - `ingest_token`: у формы есть булев флаг «защищённый приём (S2S)». При включении
@@ -126,7 +150,7 @@ if form.default_assignee_id:
   `ingest_token` возвращается в `WebFormOut` **только админу/head**.
 - `WebFormOut`: новые поля + `ingest_token` (для копирования в бэкенд сайта).
 
-### 4.6. Аналитика по каналам — `GET /api/forms/analytics`
+### 4.7. Аналитика по каналам — `GET /api/forms/analytics`
 
 Новый read-эндпоинт (любой авторизованный в workspace), агрегирует по формам за
 период `?from=&to=`:
@@ -141,16 +165,17 @@ if form.default_assignee_id:
 
 Отдаёт список строк (по форме) + итог. Используется на странице `/forms`.
 
-### 4.7. Фронтенд — `apps/web`
+### 4.8. Фронтенд — `apps/web`
 
 - `components/forms/FormEditor.tsx`: селект «Ответственный менеджер» (список
   пользователей workspace), числовое «SLA, часов» (дефолт 2), поле «Название
-  канала». Блок «Интеграция»: показать `ingest_token`, готовый `<script>`-сниппет
-  и пример server-to-server `curl`.
-- `app/(app)/forms/page.tsx`: таблица аналитики по каналам (из 4.6).
+  канала», поле «Email для уведомлений» (`notify_email`). Блок «Интеграция»:
+  показать `ingest_token`, готовый `<script>`-сниппет и пример
+  server-to-server `curl`.
+- `app/(app)/forms/page.tsx`: таблица аналитики по каналам (из 4.7).
 - хук `lib/hooks/use-forms.ts`: добавить новые поля + запрос аналитики.
 
-### 4.8. Документация контракта для разработчиков сайтов
+### 4.9. Документация контракта для разработчиков сайтов
 
 `docs/integrations/website-forms-api.md` — то, что отдаём фронтендерам сайтов:
 
@@ -165,7 +190,8 @@ if form.default_assignee_id:
 
 ## 5. Границы (что НЕ делаем)
 
-- Не шлём письма на почту отдела — это на стороне сайтов (по решению заказчика).
+- Внутреннее письмо отделу шлёт CRM (4.5). **Автоответ клиенту** и
+  **фолбэк-письмо на стороне сайта** в этой итерации не делаем.
 - Не делаем round-robin/territory-роутинг — только фиксированный владелец
   (архитектуру `assigned_to` это не блокирует, добавим позже при необходимости).
 - Не трогаем embed.js по существу (он продолжает работать для открытых форм);
@@ -184,6 +210,8 @@ if form.default_assignee_id:
    → 422.
 5. Аналитика: агрегаты submissions/leads/won за период считаются верно.
 6. Уведомление владельцу шлётся при назначении (мок `safe_notify`).
+7. Email-уведомление (мок `send_email`): адресаты = владелец + `notify_email`,
+   дедуп; нет адресатов → не вызывается; ошибка `send_email` не валит submit.
 
 ## 7. Критерии готовности
 
@@ -192,6 +220,9 @@ if form.default_assignee_id:
       видна владельцу в `/today` и `/me/tasks`.
 - [ ] Заявка без владельца → лид в пуле (старое поведение не сломано).
 - [ ] Submit с `ingest_token` отклоняет неверный ключ (401).
+- [ ] При назначении CRM шлёт письмо владельцу + в `notify_email` (в stub —
+      виден `[EMAIL STUB]` в логах; в проде — реальная отправка после `SMTP_*`).
+      `> [BLOCKED]` до получения SMTP-реквизитов для прода.
 - [ ] `/forms` показывает аналитику по каналам.
 - [ ] `docs/integrations/website-forms-api.md` готов и самодостаточен.
 - [ ] `pytest` зелёный; `pnpm build` в `apps/web` проходит.
