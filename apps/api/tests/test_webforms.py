@@ -609,3 +609,89 @@ async def test_rotate_key_replaces_existing_token():
     assert result.ingest_token != "old-token"
     assert result.ingest_token is not None
     assert len(result.ingest_token) > 10
+
+
+# ===========================================================================
+# update_form: idempotent require_key / ingest_token handling
+# ===========================================================================
+
+@pytest.mark.asyncio
+async def test_update_form_does_not_rotate_existing_token():
+    """Saving require_key=True on a form that already has a token must NOT
+    change the token (no silent rotation on unrelated edits)."""
+    db = AsyncMock()
+    existing = MagicMock()
+    existing.ingest_token = "EXISTING_TOKEN"
+    existing.target_pipeline_id = None
+    existing.target_stage_id = None
+
+    async def fake_get_by_id(session, **kwargs):
+        return existing
+
+    captured = {}
+    async def fake_update(session, *, form, patch):
+        captured.update(patch)
+        for k, v in patch.items():
+            setattr(form, k, v)
+        return form
+
+    with patch("app.forms.repositories.get_by_id", new=fake_get_by_id), \
+         patch("app.forms.repositories.update", new=fake_update):
+        await svc_mod.update_form(
+            db, form_id=uuid.uuid4(), workspace_id=WS,
+            patch={"require_key": True, "name": "Renamed"},
+        )
+
+    # ingest_token must NOT be in the patch (token left untouched).
+    assert "ingest_token" not in captured
+    assert captured.get("name") == "Renamed"
+
+
+@pytest.mark.asyncio
+async def test_update_form_enables_key_when_none():
+    """require_key=True on a form with no token generates one."""
+    db = AsyncMock()
+    existing = MagicMock()
+    existing.ingest_token = None
+    existing.target_pipeline_id = None
+    existing.target_stage_id = None
+
+    async def fake_get_by_id(session, **kwargs):
+        return existing
+    captured = {}
+    async def fake_update(session, *, form, patch):
+        captured.update(patch)
+        return form
+
+    with patch("app.forms.repositories.get_by_id", new=fake_get_by_id), \
+         patch("app.forms.repositories.update", new=fake_update):
+        await svc_mod.update_form(
+            db, form_id=uuid.uuid4(), workspace_id=WS,
+            patch={"require_key": True},
+        )
+    assert captured.get("ingest_token")  # truthy token generated
+
+
+@pytest.mark.asyncio
+async def test_update_form_disables_key():
+    """require_key=False clears the token."""
+    db = AsyncMock()
+    existing = MagicMock()
+    existing.ingest_token = "EXISTING"
+    existing.target_pipeline_id = None
+    existing.target_stage_id = None
+
+    async def fake_get_by_id(session, **kwargs):
+        return existing
+    captured = {}
+    async def fake_update(session, *, form, patch):
+        captured.update(patch)
+        return form
+
+    with patch("app.forms.repositories.get_by_id", new=fake_get_by_id), \
+         patch("app.forms.repositories.update", new=fake_update):
+        await svc_mod.update_form(
+            db, form_id=uuid.uuid4(), workspace_id=WS,
+            patch={"require_key": False},
+        )
+    assert "ingest_token" in captured and captured["ingest_token"] is None

@@ -461,6 +461,52 @@ async def test_company_name_fallback_to_form_name():
 
 
 # ===========================================================================
+# 8b. Protected form — 401 on missing / wrong key
+# ===========================================================================
+
+@pytest.mark.asyncio
+async def test_submit_rejects_wrong_or_missing_key():
+    """A form with ingest_token set must raise 401 when the header is
+    absent or carries the wrong value."""
+    from fastapi import HTTPException
+
+    form = _make_form()
+    form.ingest_token = "SECRET"
+
+    db = _make_db()
+
+    fake_redis = AsyncMock()
+    fake_redis.incr = AsyncMock(return_value=1)
+    fake_redis.expire = AsyncMock()
+
+    # Missing header → 401
+    req_no_header = _make_request(headers={})
+    with patch("app.forms.public_routers.get_bytes_redis", return_value=fake_redis), \
+         patch("app.forms.repositories.get_by_slug", new=AsyncMock(return_value=form)):
+        with pytest.raises(HTTPException) as ei:
+            await public_mod.submit_form(
+                slug=form.slug,
+                request=req_no_header,
+                payload={"company_name": "X"},
+                db=db,
+            )
+    assert ei.value.status_code == 401
+
+    # Wrong header value → 401
+    req_wrong_key = _make_request(headers={"x-form-key": "WRONG"})
+    with patch("app.forms.public_routers.get_bytes_redis", return_value=fake_redis), \
+         patch("app.forms.repositories.get_by_slug", new=AsyncMock(return_value=form)):
+        with pytest.raises(HTTPException) as ei2:
+            await public_mod.submit_form(
+                slug=form.slug,
+                request=req_wrong_key,
+                payload={"company_name": "X"},
+                db=db,
+            )
+    assert ei2.value.status_code == 401
+
+
+# ===========================================================================
 # 9. embed.js contains slug
 # ===========================================================================
 

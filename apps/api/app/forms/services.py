@@ -242,7 +242,13 @@ async def update_form(
             raise WebFormInvalidTarget("default_assignee_id does not belong to this workspace")
     if "require_key" in cleaned:
         rk = cleaned.pop("require_key")
-        cleaned["ingest_token"] = secrets.token_urlsafe(32) if rk else None
+        if rk and not form.ingest_token:
+            # Enable protection: generate a key only if there isn't one yet.
+            cleaned["ingest_token"] = secrets.token_urlsafe(32)
+        elif not rk:
+            # Disable protection: clear the key.
+            cleaned["ingest_token"] = None
+        # rk True + token already exists → leave the token untouched (no silent rotation).
 
     return await repo.update(session, form=form, patch=cleaned)
 
