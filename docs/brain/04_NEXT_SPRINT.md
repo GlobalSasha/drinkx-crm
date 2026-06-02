@@ -135,3 +135,14 @@ Commit messages reference the gate, e.g. `feat(knowledge): G1 — roadmap placeh
 - v0 screenshots: `~/Downloads/crm-ui-ux-analysis (4)/screenshots/` (18 PNGs)
 - v0 mockups (visual references, NOT specs):
   `~/Downloads/crm-ui-ux-analysis (4)/components/mockup-*.tsx`
+
+---
+
+## Shipped alongside — Website Leads Intake (2026-06-02)
+
+- [x] Заявки с сайтов → входящий лид в CRM с маршрутизацией и аналитикой
+  (branch `feat/website-leads-intake`). S2S-приём с `X-Form-Key`, фиксированный
+  владелец на форму + фолбэк в пул, авто-задача «Связаться» (SLA на форме),
+  CRM-письмо владельцу + общий ящик, аналитика по каналам, контракт для сайтов
+  (`docs/integrations/website-forms-api.md`). Spec/plan в `docs/superpowers/`.
+  Миграция `0041`. `> [BLOCKED]` для прод-почты: заполнить `SMTP_*` в `/opt/drinkx-crm/.env`.
