@@ -103,6 +103,18 @@ def _ingest_key_ok(*, form_token: str | None, provided: str | None) -> bool:
     return hmac.compare_digest(provided, form_token)
 
 
+def _collect_email_recipients(
+    *, owner_email: str | None, notify_email: str | None
+) -> list[str]:
+    """Dedup-preserving-order list of internal notification recipients."""
+    out: list[str] = []
+    for addr in (owner_email, notify_email):
+        a = (addr or "").strip()
+        if a and a not in out:
+            out.append(a)
+    return out
+
+
 async def _notify_workspace_admins(
     session: AsyncSession,
     *,
@@ -135,12 +147,71 @@ async def _notify_workspace_admins(
                 body=f'"{form_name}" — {company_name}',
                 lead_id=lead_id,
             )
+        # Owner of a routed lead also gets an in-app notification.
+        if lead_id is not None:
+            from app.leads.models import Lead as _Lead
+            res2 = await session.execute(
+                select(_Lead.assigned_to).where(_Lead.id == lead_id)
+            )
+            owner_id = res2.scalar_one_or_none()
+            if owner_id:
+                await safe_notify(
+                    session, workspace_id=workspace_id, user_id=owner_id,
+                    kind="system", title="Новая заявка с сайта",
+                    body=f'"{form_name}" — {company_name}', lead_id=lead_id,
+                )
     except Exception as exc:  # noqa: BLE001 — public flow must not 5xx
         log.warning(
             "forms.admin_notify_failed",
             form_name=form_name,
             error=str(exc)[:200],
         )
+
+
+async def _send_lead_email_notification(
+    session: AsyncSession,
+    *,
+    lead,
+    form,
+) -> None:
+    """CRM-sent internal email: owner + form.notify_email. Best-effort —
+    a relay hiccup must never 5xx the public submit."""
+    from sqlalchemy import select
+
+    from app.auth.models import User
+    from app.notifications.email_sender import send_email
+
+    try:
+        owner_email: str | None = None
+        if lead.assigned_to:
+            res = await session.execute(
+                select(User.email).where(User.id == lead.assigned_to)
+            )
+            owner_email = res.scalar_one_or_none()
+
+        recipients = _collect_email_recipients(
+            owner_email=owner_email, notify_email=form.notify_email
+        )
+        if not recipients:
+            return
+
+        settings = get_settings()
+        web_base = settings.web_base_url.rstrip("/") if getattr(settings, "web_base_url", "") else ""
+        channel = form.source_label or form.name
+        link = f"{web_base}/leads/{lead.id}" if web_base else str(lead.id)
+        html = (
+            f"<p>Новая заявка с сайта: <b>{channel}</b></p>"
+            f"<p>Компания: {lead.company_name}</p>"
+            f'<p><a href="{link}">Открыть карточку лида</a></p>'
+        )
+        for to in recipients:
+            await send_email(
+                to=to,
+                subject=f"Новая заявка с сайта: {lead.company_name}",
+                html=html,
+            )
+    except Exception as exc:  # noqa: BLE001 — public flow must not 5xx
+        log.warning("forms.email_notify_failed", error=str(exc)[:200])
 
 
 # ---------------------------------------------------------------------------
@@ -252,6 +323,7 @@ async def submit_form(
         company_name=lead.company_name,
         lead_id=lead.id,
     )
+    await _send_lead_email_notification(db, lead=lead, form=form)
     try:
         await db.commit()
     except Exception:  # noqa: BLE001

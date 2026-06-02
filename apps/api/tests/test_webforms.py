@@ -479,3 +479,16 @@ def test_ingest_key_check():
     assert _ingest_key_ok(form_token="secret", provided="secret") is True
     assert _ingest_key_ok(form_token="secret", provided="wrong") is False
     assert _ingest_key_ok(form_token="secret", provided=None) is False
+
+
+def test_collect_email_recipients_dedupes():
+    from app.forms.public_routers import _collect_email_recipients
+
+    assert _collect_email_recipients(
+        owner_email="m@x.ru", notify_email="sales@x.ru"
+    ) == ["m@x.ru", "sales@x.ru"]
+    assert _collect_email_recipients(
+        owner_email="m@x.ru", notify_email="m@x.ru"
+    ) == ["m@x.ru"]
+    assert _collect_email_recipients(owner_email=None, notify_email=None) == []
+    assert _collect_email_recipients(owner_email="", notify_email="sales@x.ru") == ["sales@x.ru"]
