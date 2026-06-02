@@ -97,6 +97,18 @@ export function useToggleFormActive() {
   });
 }
 
+/** Rotate the S2S ingest token for a form. POST /api/forms/{id}/rotate-key */
+export function useRotateFormKey() {
+  const qc = useQueryClient();
+  return useMutation<WebFormOut, ApiError, string>({
+    mutationFn: (id) => api.post<WebFormOut>(`/api/forms/${id}/rotate-key`),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["forms"] });
+      qc.setQueryData(["form", data.id], data);
+    },
+  });
+}
+
 /** Sprint 3.6 G4 — per-form stats. Consumed by FormStatsCard (Task 8). */
 export function useFormStats(formId: string | undefined) {
   return useQuery<FormStatsOut, ApiError>({
