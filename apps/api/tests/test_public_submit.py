@@ -147,6 +147,12 @@ def _make_form(*, slug="test-form-abc123", is_active=True, name="Test Form",
         "redirect_url": redirect_url,
         "is_active": is_active,
         "submissions_count": 0,
+        # Website Leads Intake columns (migration 0041).
+        "source_label": None,
+        "notify_email": None,
+        "default_assignee_id": None,
+        "contact_task_sla_hours": 2,
+        "ingest_token": None,
     })()
 
 
@@ -155,6 +161,7 @@ def _make_lead(company_name="Stars Coffee"):
         "id": uuid.uuid4(),
         "workspace_id": WS,
         "company_name": company_name,
+        "assigned_to": None,
     })()
 
 
