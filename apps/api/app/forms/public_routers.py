@@ -11,6 +11,7 @@ No auth dependency. Rate-limited per (slug, IP) via Redis.
 """
 from __future__ import annotations
 
+import hmac
 from typing import Annotated, Any
 from urllib.parse import urlparse
 
@@ -92,6 +93,16 @@ def _extract_utm(payload: dict[str, Any]) -> dict[str, str]:
     return out
 
 
+def _ingest_key_ok(*, form_token: str | None, provided: str | None) -> bool:
+    """Open form (no token) accepts any caller. Protected form requires
+    a constant-time exact match on X-Form-Key."""
+    if not form_token:
+        return True
+    if not provided:
+        return False
+    return hmac.compare_digest(provided, form_token)
+
+
 async def _notify_workspace_admins(
     session: AsyncSession,
     *,
@@ -169,6 +180,15 @@ async def submit_form(
         raise HTTPException(
             status_code=status.HTTP_410_GONE,
             detail="Форма больше не принимает заявки",
+        )
+
+    if not _ingest_key_ok(
+        form_token=form.ingest_token,
+        provided=request.headers.get("x-form-key"),
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Неверный или отсутствующий ключ формы",
         )
 
     src_domain = _source_domain(request)

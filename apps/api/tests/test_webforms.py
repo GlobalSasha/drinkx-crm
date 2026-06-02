@@ -463,3 +463,19 @@ async def test_no_owner_leaves_lead_in_pool_no_task():
     assert lead.assignment_status == "pool"
     assert getattr(lead, "assigned_to", None) is None
     assert [a for a in activities if a.get("type") == "task"] == []
+
+
+# ===========================================================================
+# _ingest_key_ok — Sprint «Website Leads Intake» Task 3
+# ===========================================================================
+
+def test_ingest_key_check():
+    from app.forms.public_routers import _ingest_key_ok
+
+    # Open form (no token) — always ok regardless of header.
+    assert _ingest_key_ok(form_token=None, provided=None) is True
+    assert _ingest_key_ok(form_token=None, provided="anything") is True
+    # Protected form — exact match required.
+    assert _ingest_key_ok(form_token="secret", provided="secret") is True
+    assert _ingest_key_ok(form_token="secret", provided="wrong") is False
+    assert _ingest_key_ok(form_token="secret", provided=None) is False
