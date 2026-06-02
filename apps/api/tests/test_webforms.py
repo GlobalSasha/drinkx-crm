@@ -163,6 +163,10 @@ def _make_form(**overrides):
     form.target_stage_id = uuid.uuid4()
     form.name = "Тестовая форма"
     form.slug = "testovaya-forma-abc123"
+    # Default to None so tests that don't override routing fields don't
+    # accidentally trigger the owner-assignment branch.
+    form.default_assignee_id = None
+    form.contact_task_sla_hours = None
     for k, v in overrides.items():
         setattr(form, k, v)
     return form
@@ -395,3 +399,67 @@ async def test_no_comment_activity_when_no_notes():
     assert types == ["form_submission"], (
         f"expected only form_submission, got {types!r}"
     )
+
+
+# ===========================================================================
+# Lead-factory: routing + contact task — Sprint «Website Leads Intake»
+# ===========================================================================
+
+@pytest.mark.asyncio
+async def test_routing_assigns_owner_and_creates_task():
+    """Form with default_assignee_id → lead becomes assigned to that user
+    and a type='task' Activity with a due date is created."""
+    from app.forms import lead_factory as lf_mod
+
+    owner = uuid.uuid4()
+    leads, activities, patches = _make_lead_factory_env()
+    form = _make_form(default_assignee_id=owner, contact_task_sla_hours=2)
+    session = _make_session()
+
+    from contextlib import ExitStack
+    with ExitStack() as stack:
+        for p in patches:
+            stack.enter_context(p)
+        stack.enter_context(patch(
+            "app.automation_builder.services.safe_evaluate_trigger",
+            new=AsyncMock(),
+        ))
+        lead = await lf_mod.create_lead_from_submission(
+            session, form=form, payload={"company": "ACME"},
+            source_domain="acme.ru", utm=None,
+        )
+
+    assert lead.assignment_status == "assigned"
+    assert lead.assigned_to == owner
+    assert lead.assigned_at is not None
+    tasks = [a for a in activities if a.get("type") == "task"]
+    assert len(tasks) == 1
+    assert tasks[0]["task_due_at"] is not None
+    assert tasks[0]["lead_id"] == lead.id
+
+
+@pytest.mark.asyncio
+async def test_no_owner_leaves_lead_in_pool_no_task():
+    """Form without default_assignee_id → lead stays in pool, no task."""
+    from app.forms import lead_factory as lf_mod
+
+    leads, activities, patches = _make_lead_factory_env()
+    form = _make_form(default_assignee_id=None, contact_task_sla_hours=2)
+    session = _make_session()
+
+    from contextlib import ExitStack
+    with ExitStack() as stack:
+        for p in patches:
+            stack.enter_context(p)
+        stack.enter_context(patch(
+            "app.automation_builder.services.safe_evaluate_trigger",
+            new=AsyncMock(),
+        ))
+        lead = await lf_mod.create_lead_from_submission(
+            session, form=form, payload={"company": "ACME"},
+            source_domain="acme.ru", utm=None,
+        )
+
+    assert lead.assignment_status == "pool"
+    assert getattr(lead, "assigned_to", None) is None
+    assert [a for a in activities if a.get("type") == "task"] == []
