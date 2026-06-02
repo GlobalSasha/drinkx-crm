@@ -346,3 +346,26 @@ async def get_form_stats(
         claimed_count=int(r_claimed.scalar_one() or 0),
         by_stage={name: int(count) for name, count in r_stage.all()},
     )
+
+
+async def get_channel_analytics(db, *, workspace_id, date_from=None, date_to=None):
+    from app.forms.schemas import FormAnalyticsOut, FormChannelStat
+
+    raw = await repo.channel_analytics(
+        db, workspace_id=workspace_id, date_from=date_from, date_to=date_to
+    )
+    rows = []
+    for r in raw:
+        leads = int(r["leads"] or 0)
+        won = int(r["won"] or 0)
+        rows.append(FormChannelStat(
+            form_id=r["form_id"], channel=r["channel"],
+            submissions=int(r["submissions"] or 0), leads=leads, won=won,
+            conversion=round(won / leads, 4) if leads else 0.0,
+        ))
+    return FormAnalyticsOut(
+        rows=rows,
+        total_submissions=sum(x.submissions for x in rows),
+        total_leads=sum(x.leads for x in rows),
+        total_won=sum(x.won for x in rows),
+    )

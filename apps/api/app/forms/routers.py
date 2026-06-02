@@ -14,6 +14,7 @@ parametric routes.
 """
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -27,6 +28,7 @@ from app.db import get_db
 from app.forms import repositories as repo
 from app.forms import services as svc
 from app.forms.schemas import (
+    FormAnalyticsOut,
     FormStatsOut,
     FormSubmissionOut,
     FormSubmissionPageOut,
@@ -80,6 +82,18 @@ async def list_forms(
         total=total,
         page=page,
         page_size=page_size,
+    )
+
+
+@router.get("/analytics", response_model=FormAnalyticsOut)
+async def get_analytics(
+    date_from: Annotated[datetime | None, Query()] = None,
+    date_to: Annotated[datetime | None, Query()] = None,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> FormAnalyticsOut:
+    return await svc.get_channel_analytics(
+        db, workspace_id=user.workspace_id, date_from=date_from, date_to=date_to
     )
 
 
