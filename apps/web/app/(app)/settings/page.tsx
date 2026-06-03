@@ -7,6 +7,7 @@
 // PipelinesSection internally gates write actions on useMe().role.
 import { Suspense, useEffect, useState } from "react";
 import { pageContainerVariants } from "@/components/ui/PageContainer";
+import { PageHeader } from "@/components/ui/PageHeader";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -106,11 +107,7 @@ function SettingsPageInner() {
 
   return (
     <div className={pageContainerVariants({ width: "default" })}>
-      {/* Page header */}
-      <div className="flex items-center gap-2 mb-6">
-        <SettingsIcon size={20} className="text-muted" />
-        <h1 className="text-xl font-bold tracking-tight">Настройки</h1>
-      </div>
+      <PageHeader icon={<SettingsIcon size={20} />} title="Настройки" />
 
       <div className="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-6">
         {/* Sidebar — Sprint 2.6 G3: «Скоро» entries fold into a

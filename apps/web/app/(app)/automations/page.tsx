@@ -29,6 +29,7 @@ import {
 
 import { ApiError } from "@/lib/api-client";
 import { pageContainerVariants } from "@/components/ui/PageContainer";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { T } from "@/lib/design-system";
 import {
   useAutomationRuns,
@@ -135,29 +136,23 @@ export default function AutomationsPage() {
 
   return (
     <div className={pageContainerVariants({ width: "default" })}>
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <div>
-          <h1 className="type-card-title flex items-center gap-2">
-            <Workflow size={20} className="text-muted" />
-            Автоматизации
-          </h1>
-          <p className="text-xs text-muted-2 mt-1">
-            Когда происходит событие → проверяем условие → выполняем действие.
-            В v1 отправка email/tg/sms ставится в очередь как Activity —
-            настоящая отправка приедет в 2.6+.
-          </p>
-        </div>
-        {isAdminOrHead && (
-          <button
-            type="button"
-            onClick={openCreate}
-            className="inline-flex items-center gap-1.5 bg-ink text-white rounded-pill px-3.5 py-1.5 text-xs font-semibold hover:bg-ink/90 active:scale-[0.98] transition-all duration-300"
-          >
-            <Plus size={13} />
-            Новая автоматизация
-          </button>
-        )}
-      </div>
+      <PageHeader
+        icon={<Workflow size={20} />}
+        title="Автоматизации"
+        subtitle="Когда происходит событие → проверяем условие → выполняем действие. В v1 отправка email/tg/sms ставится в очередь как Activity — настоящая отправка приедет в 2.6+."
+        actions={
+          isAdminOrHead && (
+            <button
+              type="button"
+              onClick={openCreate}
+              className="inline-flex items-center gap-1.5 bg-ink text-white rounded-pill px-3.5 py-1.5 text-xs font-semibold hover:bg-ink/90 active:scale-[0.98] transition-all duration-300"
+            >
+              <Plus size={13} />
+              Новая автоматизация
+            </button>
+          )
+        }
+      />
 
       {listQuery.isLoading ? (
         <div className="flex items-center justify-center py-16">

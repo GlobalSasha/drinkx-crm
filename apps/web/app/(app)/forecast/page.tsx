@@ -5,6 +5,7 @@ import Link from "next/link";
 import { TrendingUp, Wallet, AlertTriangle, Trophy, ArrowUpRight } from "lucide-react";
 import { usePipelines } from "@/lib/hooks/use-pipelines";
 import { pageContainerVariants } from "@/components/ui/PageContainer";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { useLeads } from "@/lib/hooks/use-leads";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -125,12 +126,10 @@ export default function ForecastPage() {
 
   return (
     <main className={pageContainerVariants({ width: "default" })}>
-      <div className="mb-6 sm:mb-8">
-        <h1 className={`type-page-title ${C.color.text}`}>Прогноз</h1>
-        <p className="type-body text-brand-muted mt-1">
-          Активная воронка, взвешенный прогноз по вероятностям этапов, риски и закрытые сделки.
-        </p>
-      </div>
+      <PageHeader
+        title="Прогноз"
+        subtitle="Активная воронка, взвешенный прогноз по вероятностям этапов, риски и закрытые сделки."
+      />
 
       {/* KPI row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">

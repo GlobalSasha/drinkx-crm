@@ -23,6 +23,7 @@ import {
 } from "@/lib/tasks";
 import { C } from "@/lib/design-system";
 import { pageContainerVariants } from "@/components/ui/PageContainer";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { DataTable, type ColumnDef } from "@/components/ui/DataTable";
 import { Badge } from "@/components/ui/Badge";
 import { TaskEditModal } from "@/components/tasks/TaskEditModal";
@@ -230,10 +231,7 @@ export default function TasksPage() {
   return (
     <div className="font-sans bg-canvas min-h-screen">
       <div className={pageContainerVariants({ width: "default" })}>
-        <div className="flex items-center gap-2 mb-5">
-          <ListChecks size={22} className="text-brand-accent" />
-          <h1 className={`type-page-title ${C.color.text}`}>Задачи</h1>
-        </div>
+        <PageHeader icon={<ListChecks size={20} />} title="Задачи" />
 
         {/* Filter bar */}
         <div className="bg-white border border-brand-border rounded-[2rem] p-4 sm:p-5 mb-4 flex flex-col gap-3">

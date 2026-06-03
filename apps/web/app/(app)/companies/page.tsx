@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Building2, Search, X } from "lucide-react";
 import { useCompanies } from "@/lib/hooks/use-companies";
 import { pageContainerVariants } from "@/components/ui/PageContainer";
+import { PageHeader } from "@/components/ui/PageHeader";
 import type { CompanyOut } from "@/lib/types";
 import { DataTable, type ColumnDef } from "@/components/ui/DataTable";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/Empty";
@@ -133,13 +134,15 @@ export default function CompaniesPage() {
 
   return (
     <main className={pageContainerVariants({ width: "default" })}>
-      <div className="flex items-center gap-2 mb-5">
-        <Building2 size={22} className="text-brand-accent" />
-        <h1 className="type-page-title text-brand-primary">Компании</h1>
-        <span className="ml-auto type-caption text-brand-muted tabular-nums">
-          {rows.length} из {allRows.length}
-        </span>
-      </div>
+      <PageHeader
+        icon={<Building2 size={20} />}
+        title="Компании"
+        actions={
+          <span className="type-caption text-brand-muted tabular-nums">
+            {rows.length} из {allRows.length}
+          </span>
+        }
+      />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[220px] max-w-md">
