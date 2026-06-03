@@ -1,148 +1,84 @@
-# Sprint 3.5 — Production Polish v2
+# Next Sprint — Odoo-reuse follow-ups + UI consistency
 
-**Status:** 🟡 IN PROGRESS
-**Started:** 2026-05-18
-**Source:** v0.app production audit (browser walk of 12 screens via test user)
-**Audit artefacts:** `~/Downloads/crm-ui-ux-analysis (4)/` (18 screenshots + `audit-production.tsx`)
-
-The Sprint-3.5 «Inbox follow-ups» / Sprint-3.2 «Lead AI Agent polish» / soft-launch
-options that were parked in this file are still valid — they're tracked in
-`02_ROADMAP.md` and the prior `04_NEXT_SPRINT.md` history is in git. Production
-polish jumped the queue because v0 surfaced concrete UX gaps that we couldn't
-see from inside the project.
+**Status:** 🟢 READY TO START (a fresh session begins here)
+**Prev:** Odoo-reuse arc — 8 PRs (#102–#109) shipped. Full record in `00_CURRENT_STATE.md`
+(section «Odoo-reuse arc + test CI (2026-06-04)»). Sprint 3.5 (Production Polish v2)
+and Website Leads Intake are done; their record is in git history + `00_CURRENT_STATE.md`.
 
 ---
 
-## Why this sprint
+## Context — read before touching code
 
-v0 walked the real production app for the first time (previous attempts ended up
-on `globalsasha.github.io/drinkx-crm-prototype`). Findings are concrete, sourced
-from screenshots of real UI text. Scope below = only items that are NOT
-already-shipped according to `00_CURRENT_STATE.md`.
-
-Drops we don't take from the audit:
-- "Sidebar uses emoji" — false (already Lucide; the 🧪 in test-login is intentional).
-- "Inbox is a stub" — false (Sprint 3.4 closed this).
-- "No mobile layout" — false (Sprint 1.5 closed this).
-- "No global search" — false (`GlobalSearch.tsx` + ⌘K).
-- "Pipeline columns don't scroll" — false (already fixed).
-
-Data-quality issues (FIT SCORE "—" on 200+ leads, all /today tasks at 09:00,
-city "НЕ УКАЗАН" on AI-briefed leads) are NOT scoped here — they're backend /
-seed-data work and belong in a separate backfill ticket.
+- **Backend already shipped (in prod):** phone E.164 normalization; lead duplicate
+  **detection** (`GET /leads/{id}/duplicates`) + **merge** (`POST /leads/{id}/merge`,
+  soft/reversible via `leads.merged_into_id`); UTM dictionaries auto-resolved on form
+  submit (`leads.utm_source_id/medium_id/campaign_id`). New code lives in
+  `app/common/phone.py`, `app/common/email.py`, `app/leads/dedup.py`, `app/utm/`.
+- **Alembic head `0045`. Next free index `0046`.**
+- **Test CI now exists** — `.github/workflows/test.yml` (postgres:16). Every PR touching
+  `apps/api/**` runs pytest. Write DB-backed integration tests with the `db` / `workspace`
+  fixtures + `@skip_no_pg` (see `tests/test_utm.py`, `tests/test_lead_merge.py` for the
+  pattern). Push → watch the «Tests (api)» check green before merging.
+- **Merge to `main` auto-deploys to prod.** Always: branch → PR → CI green → merge.
 
 ---
 
-## Scope (gated)
+## Scope (gated — pick top-down)
 
-### G1 — Day-1 quick wins
+### G1 — Dedup merge UI  ⭐ highest value
+The merge backend is live but unreachable from the app. Build the human-in-the-loop UI.
+- [ ] On LeadCard, a «Найти дубли» action → `GET /leads/{id}/duplicates` → list candidates
+      (company, email domain, phone, city). Empty → nothing shown.
+- [ ] «Объединить» → confirmation modal: the current lead is the master; user picks which
+      duplicates → `POST /leads/{id}/merge {duplicate_ids}` → toast + refresh.
+      **Never auto-merge** (anti-pattern #4 — human confirms).
+- [ ] On a lead that absorbed dups, show a «← объединён из N» note (read it from the
+      `system` audit Activity the merge writes).
+- Frontend only (backend done). Pre-PR: `npm run typecheck` + `npm run lint` + `pnpm build`.
 
-- [x] `/knowledge` — replace bare "Раздел в разработке." with a roadmap-style
-      placeholder (icon, title, 2 lines of what will land, soft «Уведомить меня»
-      disabled hint). File: `apps/web/app/(app)/knowledge/page.tsx`.
-- [x] `/team` redirect — managers currently get a silent
-      `router.replace("/today")`. Replace with an explicit empty-state
-      ("Раздел доступен руководителям") + a back link, so URL-typing the page
-      doesn't feel like the app is broken. File: `apps/web/app/(app)/team/page.tsx`.
-- [x] Pipeline card segment-tag overflow — long segment names truncate to
-      "ПРОДУКТОВЫ…" at 1440px. Add a short-alias map (`продуктовый ритейл` →
-      `ПРОД.`, `кофейни` → `КОФЕ`, `АЗС` → `АЗС`, `QSR` → `QSR`, etc.) and use
-      it in the kanban card render.
-- [x] Lead Card → «Сделка и AI» — change «СУММА СДЕЛКИ НЕ УКАЗАНА — ПОЛЕ
-      ПОЯВИТСЯ ПОСЛЕ ИНТЕГРАЦИИ CRM-ФОРМЫ СУММЫ» to neutral "Не указана"
-      (or an inline edit affordance). Current copy reads like an integration
-      error.
-- [x] Sidebar inbox badge consistency — sidebar caps at "99+" while the
-      `/inbox` page shows the real number (e.g. "864 ожидают"). Bump the
-      sidebar cap to "999+" (or show the real count). File:
-      `apps/web/components/layout/SidebarNav.tsx`.
+### G2 — UTM channel analytics
+UTM dims now land on leads. Surface «какой канал приносит сделки».
+- [ ] `GET /api/leads/utm-stats` (or under `/forms`) — GROUP BY source → `{leads, won, sum}`.
+      DB-backed test.
+- [ ] A «Каналы привлечения» table card on `/forecast` (or `/forms`).
 
-### G2 — Pipeline card: surface score + tier  ❌ DROPPED (2026-05-18)
+### G3 — Backfill normalized columns
+Existing rows have NULL `phone_e164` / `email_normalized` / `email_domain_criterion`
+(they fill only on next save). UTM ids likewise only on new form leads.
+- [ ] One-off Celery task (or `scripts/…`) iterating leads + contacts, re-deriving the keys
+      via `app.common.phone.to_e164` + `app.common.email.normalize_email/email_domain_criterion`.
+      Idempotent; batch-commit. DB-backed test on a few rows.
 
-The v0 audit suggested adding Tier (A/B/C) + Score back to the kanban card,
-arguing the data exists in `/leads-pool` but isn't surfaced here. However,
-`PipelineLeadCard.tsx` carries an explicit header comment from the Lead Card
-Redesign sprint:
+### G4 — UI consistency fixes 3–5 (from the UI plan)
+- [ ] One shared empty-state component used everywhere (replace ad-hoc divs e.g. `/team`).
+- [ ] Lint rule banning arbitrary Tailwind sizes (`text-[28px]`, `border-[1.5px]`) — use the scale.
+- [ ] Break the 617-line `LeadCard` header + the `leads/[id]` / `companies/[id]` detail pages
+      into reusable sections and wrap them in `PageContainer` (detail pages were intentionally
+      left out of #102/#103).
 
-> «Removed from the previous design (intentionally): priority badge, score,
-> fit_score, rotting indicators. The pipeline view is now a pure who/what/when
-> surface; AI and rotting metadata live in the Lead Card detail view.»
-
-Decision: keep the kanban surface pure. AI metadata lives in the detail view
-on purpose. Empty-state per pipeline column also dropped — pipelines with
-many empty stages is a configuration choice, not a UX bug. Revisit if user
-feedback contradicts.
-
-### G3 — Activity Feed v2
-
-- [x] AI block styling — `FeedItemAI` now uses a Sparkles icon (was Bot)
-      and the inner card has a 3px brand-accent left border on top of the
-      existing soft tint, so Чак's messages read as a distinct "AI" voice
-      next to manager comments.
-- [x] Inbox → Activity auto-link — `message_services.receive` already
-      writes an Activity row when an inbound webhook matches a lead
-      (Sprint 3.4). The actual gap was on the frontend: `UnifiedFeed`'s
-      switch had no `case "telegram":` / `case "max":`, so those rows
-      fell through to the muted system render. Added a new
-      `FeedItemMessenger` component that handles both channels and wired
-      it into `FeedItemSwitch`. This is why the audit saw "empty feeds"
-      on most leads — Telegram messages WERE in the DB but didn't render.
-- [x] Inbox thread grouping — added a `normalizeSubject` helper that
-      strips Re:/Fwd:/Пересл:/Отв: prefixes, and the page renders
-      follow-up rows in the same thread with reduced contrast + indent
-      and a «↳ продолжение треда» badge. No backend changes — pure
-      visual signal so the audit's «один тред × 3 одинаковые карточки»
-      complaint goes away. Full thread grouping needs `thread_id` on
-      `InboxItem` (Gmail API has it) — tracked as a follow-up.
-
-### G4 — Today inline actions
-
-- [x] Inline checkbox on each /today task row — restructured the row so
-      the checkbox button lives outside the row Link (so clicking it
-      doesn't navigate). Uses the existing `useCompletePlanItem` mutation
-      (`POST /daily-plans/items/{id}/complete`) instead of forcing the
-      manager into the lead card.
-- [x] Day progress bar in the TaskListWidget header — «X/Y» pill +
-      thin orange bar, fed by `items.filter(t => t.done).length /
-      items.length`. Hidden when there are no items.
-
-### G5 — Mobile pipeline navigation
-
-- [x] Sticky horizontal scrollable chip-bar of stages at the top of the
-      mobile `PipelineList` view. «Все» shows every section (prior
-      behaviour); selecting a stage collapses the list to that stage
-      only. Each chip carries the stage colour dot + lead count. Empty
-      filtered state has a «Показать все этапы» reset link.
+### G5 — Finish the 2 quarantined tests  (needs a local Postgres)
+In `apps/api/tests/conftest.py` → `_KNOWN_PRE_EXISTING_FAILURES`:
+- [ ] `test_inbox_matcher::test_processor_creates_activity_on_high_confidence_match` — the
+      attach_to_lead path fans out to Automation Builder + Celery (imported in-function in
+      `app/inbox/processor.py`); the broad `try/except` swallows the failure. Mock the
+      collaborators (`safe_evaluate_trigger`, `collect_pending_email_dispatches`,
+      `lead_agent_refresh_suggestion`) so the path returns True, then remove the quarantine entry.
+- [ ] `base_update/test_e2e::test_e2e_extract_match_apply` — `run_extract_and_match` now creates
+      0 leads (final assert `len(leads) >= 1` fails). Find where lead creation moved (likely
+      `run_apply_resolutions`) and fix the assertion/flow, then un-quarantine.
+- Run locally: `cd apps/api && TEST_DATABASE_URL=postgresql+asyncpg://drinkx:dev@localhost:5432/drinkx_test uv run pytest`
+  (needs a local Postgres — Docker `infra/docker/docker-compose.yml` or a `drinkx_test` DB).
 
 ---
 
-## Pre-PR gates per checkbox
+## Pre-PR gates (per CLAUDE.md)
 
-Per `CLAUDE.md`:
+- **Frontend:** `npm run typecheck` + `npm run lint` + `pnpm build` (Next.js 15 build-time
+  checks only fire during `next build`).
+- **Backend:** `python -m py_compile` touched modules + `uv run alembic heads` (must be a
+  single head) + push → watch the «Tests (api)» CI check go green.
 
-- Frontend: `npm run typecheck` + `npm run lint` + `pnpm build` (Next.js 15
-  build-time checks fire only during `next build`; `tsc --noEmit` is not enough).
-- Backend (G3 auto-link, possibly G4): `python -m py_compile` on touched
-  modules, `pytest --collect-only`, then targeted tests.
-
-Commit messages reference the gate, e.g. `feat(knowledge): G1 — roadmap placeholder`.
-
----
-
-## Linked sources
-
-- v0 audit (production): `~/Downloads/crm-ui-ux-analysis (4)/components/audit-production.tsx`
-- v0 screenshots: `~/Downloads/crm-ui-ux-analysis (4)/screenshots/` (18 PNGs)
-- v0 mockups (visual references, NOT specs):
-  `~/Downloads/crm-ui-ux-analysis (4)/components/mockup-*.tsx`
-
----
-
-## Shipped alongside — Website Leads Intake (2026-06-02)
-
-- [x] Заявки с сайтов → входящий лид в CRM с маршрутизацией и аналитикой
-  (branch `feat/website-leads-intake`). S2S-приём с `X-Form-Key`, фиксированный
-  владелец на форму + фолбэк в пул, авто-задача «Связаться» (SLA на форме),
-  CRM-письмо владельцу + общий ящик, аналитика по каналам, контракт для сайтов
-  (`docs/integrations/website-forms-api.md`). Spec/plan в `docs/superpowers/`.
-  Миграция `0041`. `> [BLOCKED]` для прод-почты: заполнить `SMTP_*` в `/opt/drinkx-crm/.env`.
+## Stop-rules / anti-patterns
+- Never auto-merge duplicates — human confirms (anti-pattern #4).
+- Don't add entries to the xfail quarantine — fix the test instead.
+- One PR per logical change; remember merge-to-`main` = prod deploy.

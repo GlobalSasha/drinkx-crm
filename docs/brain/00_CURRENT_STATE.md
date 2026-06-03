@@ -1,6 +1,6 @@
 # DrinkX CRM — Current State
 
-Last updated: 2026-05-23 (Sprint «Audit quick-wins + base_update + task-file-attachments». PR #65 = task-time + a11y + tokens + empty column + «⋯» menu. PR #66 = NEW domain `base_update` (admin .md ingest, 52+1 tests, 6 conflict types, Settings section) — see [docs/features/base-update.md](../features/base-update.md). NEXT (branch `feat/task-file-attachments`): file attachments to tasks via Supabase Storage `lead-files` bucket (24 backend tests, drag-drop UI, signed-URL download, weekly orphan purger) — see [docs/features/task-file-attachments.md](../features/task-file-attachments.md). Alembic head: 0035 → 0036 (`ingest_jobs/records/conflicts`) → 0037 (partial index on `activities.payload_json.parent_task_id`). Earlier: 2026-05-16 Lead Card Refresh (PRs #41/#42/#45 — unified feed, stage stepper, scoring popup, primary contact pin; migrations 0026 → 0030).
+Last updated: 2026-06-04 — **Odoo-reuse arc** (8 PRs #102–#109, all in prod/main; details at the bottom of this file). Analysed `github.com/odoo/odoo` and shipped the reusable CRM logic adapted to FastAPI/Postgres: UI consistency (`PageContainer`, `PageHeader`), phone **E.164** normalization (`phone_validation`), lead duplicate **detection** + **merge** (`_compute_potential_lead_duplicates` / `_merge_opportunity`), **UTM** attribution (`utm` module). Also added the repo's **first test CI** (`.github/workflows/test.yml`, postgres:16) and un-quarantined 20/22 legacy tests. **Alembic head now 0045; next free 0046.** What to do next: `04_NEXT_SPRINT.md`. Earlier: 2026-05-23 base_update + task-file-attachments (heads 0035→0037); 2026-05-16 Lead Card Refresh (migrations 0026→0030).
 
 ## Phase 0 — COMPLETED ✅ (lives in `crm-prototype` repo)
 
@@ -722,3 +722,32 @@ Operator pick after Lead Card Refresh arc lands cleanly. Three obvious candidate
 When you pick one, drop the spec into `docs/brain/04_NEXT_SPRINT.md`.
 
 Active migrations on `main`: `0001..0030`. Next free index: `0031`.
+
+---
+
+## ✅ Odoo-reuse arc + test CI (2026-06-04) — all in prod/main
+
+Single long session. Analysed `github.com/odoo/odoo` for reusable CRM logic, then
+shipped the adaptations (FastAPI/Postgres — adapted, NOT copied verbatim) and added
+the repo's first test CI. **Alembic head: 0042 → 0043 → 0044 → 0045.**
+
+| PR | What | Odoo source | Where |
+|---|---|---|---|
+| #102 | UI `PageContainer` — one page frame, 13 screens (Website Leads Intake rode along) | — | prod |
+| #103 | UI `PageHeader` — one section header, 7 screens | — | prod |
+| #104 | Phone **E.164** — `leads.phone_e164` + `contacts.phone_e164`, auto-filled via `@validates`; lib `phonenumbers` (mig **0042**) | `phone_validation` | prod |
+| #105 | Lead dup **detection** — `email_normalized` + `email_domain_criterion` (corp domain, free-mail excluded) + `app/leads/dedup.find_duplicates` + `GET /leads/{id}/duplicates` (mig **0043**) | `_compute_potential_lead_duplicates` | prod |
+| #106 | **Postgres test-CI** (`.github/workflows/test.yml`) — repo had NO test CI; conftest fixed (NullPool + session `loop_scope` + `DROP SCHEMA` reset) | — | main |
+| #107 | Legacy test cleanup — **20/22** quarantined failures fixed; 2 left in `conftest._KNOWN_PRE_EXISTING_FAILURES` | — | main |
+| #108 | **UTM** — `utm_sources/mediums/campaigns` dicts + `resolve_utm` find-or-create wired into `lead_factory` + nullable `leads.utm_*_id` (mig **0044**) | `utm` module | prod |
+| #109 | **Lead merge / склейка** — `app/leads/dedup.merge_leads` + `POST /leads/{id}/merge`, soft+reversible (`leads.merged_into_id`, mig **0045**) | `_merge_opportunity` | prod |
+
+New modules: `app/common/phone.py`, `app/common/email.py`, `app/leads/dedup.py`, `app/utm/`.
+New CI: `.github/workflows/test.yml` (postgres:16 service, runs pytest on every PR touching `apps/api/**`; write DB tests with the `db`/`workspace` fixtures + `@skip_no_pg`).
+
+**Carryover for the next session:**
+- **Normalized columns are NULL on existing rows** — `phone_e164` / `email_normalized` / `email_domain_criterion` / `utm_*_id` fill only on next save. One-time backfill pending (04 G3).
+- **Dedup has NO frontend yet** — `/duplicates` + `/merge` endpoints live, but no UI. Human-in-the-loop merge UI is the top next item (04 G1).
+- **2 tests still quarantined** (`inbox_matcher`, `base_update e2e`) — need a local Postgres to debug a swallowed `try/except` (04 G5).
+
+**Alembic head: `0045`. Next free index: `0046`.**
