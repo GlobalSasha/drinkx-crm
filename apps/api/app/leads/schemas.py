@@ -267,3 +267,8 @@ class MoveStageBlockedDetail(BaseModel):
     """Body of the 409 response when a stage transition is blocked by gates."""
     message: str
     violations: list[GateViolationOut]
+
+
+class MergeLeadsIn(BaseModel):
+    """Merge the listed duplicate leads into the path lead (the master)."""
+    duplicate_ids: list[UUID] = Field(..., min_length=1)
