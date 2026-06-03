@@ -381,8 +381,10 @@ async def test_writes_status_failed_on_complete_blowup(monkeypatch):
 
     async def _execute(stmt, *a, **kw):
         call_count[0] += 1
-        if call_count[0] == 1:
-            # DELETE call
+        # 1 = advisory xact lock, 2 = DELETE prior plan (both before the try).
+        # The lead query (3rd) is inside the try → its blow-up is what the
+        # service must catch and record as status='failed'.
+        if call_count[0] <= 2:
             return MagicMock()
         raise RuntimeError("DB exploded")
 
