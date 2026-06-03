@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { History, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 import { useMe } from "@/lib/hooks/use-me";
 import { pageContainerVariants } from "@/components/ui/PageContainer";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { useAuditLog } from "@/lib/hooks/use-audit";
 import { relativeTime } from "@/lib/relative-time";
 import { T } from "@/lib/design-system";
@@ -200,21 +201,16 @@ export default function AuditPage() {
 
   return (
     <div className={pageContainerVariants({ width: "default" })}>
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <div>
-          <h1 className="type-card-title flex items-center gap-2">
-            <History size={20} className="text-muted" />
-            Журнал изменений
-          </h1>
-          <p className="text-xs text-muted-2 mt-1">
-            Только для администраторов · все записи в этом workspace
-          </p>
-        </div>
-        <div className={`${T.mono} text-muted-3 tabular-nums`}>
-          {total > 0 ? `${total} записей` : ""}
-        </div>
-      </div>
+      <PageHeader
+        icon={<History size={20} />}
+        title="Журнал изменений"
+        subtitle="Только для администраторов · все записи в этом workspace"
+        actions={
+          <div className={`${T.mono} text-muted-3 tabular-nums`}>
+            {total > 0 ? `${total} записей` : ""}
+          </div>
+        }
+      />
 
       {/* Filter chips */}
       <div className="flex flex-wrap items-center gap-1.5 mb-4">
