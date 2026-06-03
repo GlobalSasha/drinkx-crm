@@ -322,11 +322,13 @@ async def test_sprint_respects_workspace_capacity_when_limit_none(db, workspace,
     from app.leads import services
 
     # workspace.sprint_capacity_per_week = 20 (set in conftest fixture)
-    claimed = await services.claim_sprint(
+    # services.claim_sprint returns (items, resolved_limit).
+    claimed, resolved_limit = await services.claim_sprint(
         db, workspace.id, user.id,
         cities=["Sochi"], segment=None, limit=None,
     )
     assert len(claimed) == 20
+    assert resolved_limit == 20
 
 
 @skip_no_pg

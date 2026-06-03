@@ -56,9 +56,6 @@ _KNOWN_PRE_EXISTING_FAILURES = {
     "tests/base_update/test_e2e.py::test_e2e_extract_match_apply",
     "tests/test_inbox_matcher.py::test_processor_creates_activity_on_high_confidence_match",
     "tests/test_inbox_telegram.py::test_receive_matched_inbound_writes_activity_and_kicks_agent",
-    "tests/test_leads_crud.py::test_sprint_respects_workspace_capacity_when_limit_none",
-    "tests/test_llm_providers.py::test_factory_raises_when_all_fail",
-    "tests/test_stage_change.py::test_move_to_stage_6_with_economic_buyer_allowed",
 }
 
 

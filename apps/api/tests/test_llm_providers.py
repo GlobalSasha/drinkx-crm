@@ -385,7 +385,7 @@ async def test_factory_raises_when_all_fail(monkeypatch):
     monkeypatch.setattr(factory_mod, "_REGISTRY", {"p": provider})
     monkeypatch.setattr(factory_mod, "get_settings", lambda: _fake_settings())
 
-    with pytest.raises(LLMServerError):
+    with pytest.raises(LLMError):
         await complete_with_fallback(
             system="s", user="u", task_type=TaskType.prefilter, chain=["p"]
         )
