@@ -54,8 +54,6 @@ except Exception:
 # DO NOT add new entries — fix the test instead.
 _KNOWN_PRE_EXISTING_FAILURES = {
     "tests/base_update/test_e2e.py::test_e2e_extract_match_apply",
-    "tests/test_inbox_matcher.py::test_processor_creates_activity_on_high_confidence_match",
-    "tests/test_inbox_telegram.py::test_receive_matched_inbound_writes_activity_and_kicks_agent",
 }
 
 

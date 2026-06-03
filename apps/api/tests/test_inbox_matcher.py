@@ -317,6 +317,7 @@ async def test_processor_creates_activity_on_high_confidence_match():
             inbox_item_calls.append(kw)
 
     with patch.object(processor_mod, "_already_processed", new=AsyncMock(return_value=False)), \
+         patch.object(processor_mod, "route_email", lambda *a, **k: processor_mod.RoutingDecision("attach_to_lead", "known_contact")), \
          patch.object(processor_mod, "match_email", new=AsyncMock(return_value=fake_match)), \
          patch.object(processor_mod, "Activity", _ActivitySpy), \
          patch.object(processor_mod, "InboxItem", _InboxItemSpy):
