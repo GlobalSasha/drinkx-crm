@@ -320,7 +320,13 @@ async def test_form_submission_activity_created():
     form = _make_form(name="Лендинг QSR", slug="lending-qsr-xx9911")
     session = _make_session()
 
-    with patches[0], patches[1], patches[2]:
+    # resolve_utm runs real DB queries; this test uses a mocked session, so stub
+    # it out. The UTM provenance asserted below comes from the FormSubmission
+    # activity payload, not the dictionary resolution.
+    async def _no_utm(*_a, **_k):
+        return {"utm_source_id": None, "utm_medium_id": None, "utm_campaign_id": None}
+
+    with patches[0], patches[1], patches[2], patch("app.utm.services.resolve_utm", new=_no_utm):
         lead = await lf_mod.create_lead_from_submission(
             session,
             form=form,

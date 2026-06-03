@@ -161,6 +161,17 @@ async def create_lead_from_submission(
     session.add(lead)
     await session.flush()
 
+    # UTM attribution (Odoo utm pattern): resolve source/medium/campaign names
+    # into per-workspace dictionary rows and stamp their ids onto the lead, so
+    # channel analytics become a GROUP BY. New names are auto-created.
+    if utm:
+        from app.utm.services import resolve_utm
+
+        ids = await resolve_utm(session, form.workspace_id, utm)
+        lead.utm_source_id = ids["utm_source_id"]
+        lead.utm_medium_id = ids["utm_medium_id"]
+        lead.utm_campaign_id = ids["utm_campaign_id"]
+
     # Sprint «Website Leads Intake»: route to the form's fixed owner and
     # drop a "Связаться" task. No owner → lead stays in pool (legacy
     # behaviour). Deterministic, NOT AI — this is system-created routing.
