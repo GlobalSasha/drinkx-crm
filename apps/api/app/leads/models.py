@@ -165,6 +165,11 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     blocker: Mapped[str | None] = mapped_column(String(500), nullable=True)
     next_step: Mapped[str | None] = mapped_column(String(500), nullable=True)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Set when this lead was merged into another (dedup): the surviving lead's id.
+    # archived_at is set too. Self-referential FK (SET NULL) — soft, reversible.
+    merged_into_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("leads.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     won_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     lost_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     lost_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)

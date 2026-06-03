@@ -19,6 +19,7 @@ from app.leads.schemas import (
     LeadListOut,
     LeadOut,
     LeadUpdate,
+    MergeLeadsIn,
     MoveStageBlockedDetail,
     MoveStageIn,
     PrimaryContactIn,
@@ -215,6 +216,35 @@ async def lead_duplicates(
     if lead is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
     return await find_duplicates(db, lead)  # type: ignore[return-value]
+
+
+@router.post("/{lead_id}/merge", response_model=LeadOut)
+async def merge_lead_duplicates(
+    lead_id: UUID,
+    payload: MergeLeadsIn,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> LeadOut:
+    """Merge the listed duplicate leads into this lead (the master).
+
+    Human-triggered (the manager picks the master). Re-points history, fills the
+    master's empty fields, archives the duplicates with merged_into_id set —
+    soft and reversible. Never auto-runs.
+    """
+    from app.leads.dedup import MergeError, merge_leads
+
+    try:
+        master = await merge_leads(
+            db,
+            workspace_id=user.workspace_id,
+            master_id=lead_id,
+            duplicate_ids=payload.duplicate_ids,
+            user_id=user.id,
+        )
+    except MergeError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    await db.commit()
+    return master  # type: ignore[return-value]
 
 
 @router.patch("/{lead_id}", response_model=LeadOut)
