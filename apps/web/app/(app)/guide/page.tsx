@@ -7,6 +7,7 @@
 // терминология навигации. Источник прозы — docs/manual/РУКОВОДСТВО-МЕНЕДЖЕРА.md.
 
 import { useState } from "react";
+import { pageContainerVariants } from "@/components/ui/PageContainer";
 import {
   CalendarDays,
   Kanban,
@@ -235,7 +236,7 @@ export default function GuidePage() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   return (
-    <div className="max-w-[1100px] mx-auto px-4 sm:px-6 py-10 lg:py-12">
+    <div className={pageContainerVariants({ width: "default" })}>
       {/* Hero */}
       <div className="bg-brand-dark text-white rounded-[2rem] p-8 sm:p-10 mb-8 relative overflow-hidden">
         <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-brand-accent/20 blur-3xl pointer-events-none" />

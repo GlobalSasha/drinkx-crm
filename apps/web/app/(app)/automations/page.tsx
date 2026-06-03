@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 
 import { ApiError } from "@/lib/api-client";
+import { pageContainerVariants } from "@/components/ui/PageContainer";
 import { T } from "@/lib/design-system";
 import {
   useAutomationRuns,
@@ -133,7 +134,7 @@ export default function AutomationsPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+    <div className={pageContainerVariants({ width: "default" })}>
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
           <h1 className="type-card-title flex items-center gap-2">

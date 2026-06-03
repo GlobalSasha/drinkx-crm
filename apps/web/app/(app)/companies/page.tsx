@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, Search, X } from "lucide-react";
 import { useCompanies } from "@/lib/hooks/use-companies";
+import { pageContainerVariants } from "@/components/ui/PageContainer";
 import type { CompanyOut } from "@/lib/types";
 import { DataTable, type ColumnDef } from "@/components/ui/DataTable";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/Empty";
@@ -131,7 +132,7 @@ export default function CompaniesPage() {
   }
 
   return (
-    <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+    <main className={pageContainerVariants({ width: "default" })}>
       <div className="flex items-center gap-2 mb-5">
         <Building2 size={22} className="text-brand-accent" />
         <h1 className="type-page-title text-brand-primary">Компании</h1>

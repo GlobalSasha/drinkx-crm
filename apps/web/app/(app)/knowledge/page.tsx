@@ -5,10 +5,11 @@
 // instead of a flat "Раздел в разработке." dead end.
 
 import { BookOpen, Sparkles } from "lucide-react";
+import { pageContainerVariants } from "@/components/ui/PageContainer";
 
 export default function KnowledgePage() {
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12">
+    <div className={pageContainerVariants({ width: "narrow" })}>
       <div className="bg-white border border-black/5 rounded-2xl shadow-soft p-10">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-12 h-12 rounded-full bg-brand-soft flex items-center justify-center">

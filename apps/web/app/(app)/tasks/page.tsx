@@ -22,6 +22,7 @@ import {
   type TaskRow,
 } from "@/lib/tasks";
 import { C } from "@/lib/design-system";
+import { pageContainerVariants } from "@/components/ui/PageContainer";
 import { DataTable, type ColumnDef } from "@/components/ui/DataTable";
 import { Badge } from "@/components/ui/Badge";
 import { TaskEditModal } from "@/components/tasks/TaskEditModal";
@@ -228,7 +229,7 @@ export default function TasksPage() {
 
   return (
     <div className="font-sans bg-canvas min-h-screen">
-      <div className="max-w-[1100px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <div className={pageContainerVariants({ width: "default" })}>
         <div className="flex items-center gap-2 mb-5">
           <ListChecks size={22} className="text-brand-accent" />
           <h1 className={`type-page-title ${C.color.text}`}>Задачи</h1>

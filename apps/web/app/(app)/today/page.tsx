@@ -31,6 +31,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { pageContainerVariants } from "@/components/ui/PageContainer";
 import { C } from "@/lib/design-system";
 import { useLeads } from "@/lib/hooks/use-leads";
 import { usePipelines } from "@/lib/hooks/use-pipelines";
@@ -773,7 +774,7 @@ function TodayPageInner() {
 
   return (
     <div className="font-sans bg-canvas min-h-screen">
-      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <div className={pageContainerVariants({ width: "wide" })}>
         {/* Header */}
         <div className="bg-white border border-brand-border border-l-[3px] border-l-brand-accent rounded-xl p-6 mb-4">
           <div className="type-caption text-brand-muted">{dateTimeCaption}</div>

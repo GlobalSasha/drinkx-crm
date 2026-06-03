@@ -1,8 +1,9 @@
 import { UnmatchedMessagesSection } from "@/components/inbox/UnmatchedMessagesSection";
+import { pageContainerVariants } from "@/components/ui/PageContainer";
 
 export default function TriagePage() {
   return (
-    <div className="px-6 py-6 md:px-10 md:py-8 max-w-[920px] mx-auto">
+    <div className={pageContainerVariants({ width: "content" })}>
       <header className="mb-6">
         <h1 className="text-xl font-bold tracking-tight text-ink">
           Мессенджеры и звонки
