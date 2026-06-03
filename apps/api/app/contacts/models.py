@@ -8,6 +8,7 @@ from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
+from app.common.email import normalize_email
 from app.common.models import Base, TimestampedMixin, UUIDPrimaryKeyMixin
 from app.common.phone import to_e164
 
@@ -40,6 +41,14 @@ class Contact(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     title: Mapped[str | None] = mapped_column(String(120), nullable=True)
     role_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
     email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    # Normalized email (Odoo dedup pattern) — see Lead.email_normalized.
+    email_normalized: Mapped[str | None] = mapped_column(String(254), nullable=True, index=True)
+
+    @validates("email")
+    def _sync_email_normalized(self, _key: str, value: str | None) -> str | None:
+        self.email_normalized = normalize_email(value)
+        return value
+
     phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     # E.164-normalized phone — see Lead.phone_e164. Auto-filled via the
     # validator below; used as a dedup / cross-channel match key.
