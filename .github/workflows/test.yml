@@ -1,0 +1,53 @@
+name: Tests (api)
+
+on:
+  pull_request:
+    paths:
+      - "apps/api/**"
+      - ".github/workflows/test.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/api/**"
+      - ".github/workflows/test.yml"
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: drinkx
+          POSTGRES_PASSWORD: dev
+          POSTGRES_DB: drinkx_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U drinkx"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: apps/api
+
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://drinkx:dev@localhost:5432/drinkx_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies (incl. dev)
+        run: uv sync
+
+      - name: Run pytest
+        run: uv run pytest -q
