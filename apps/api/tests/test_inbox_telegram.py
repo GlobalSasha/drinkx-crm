@@ -318,10 +318,16 @@ async def test_receive_matched_inbound_writes_activity_and_kicks_agent():
     db = _make_db()
     target_lead_id = uuid.uuid4()
 
-    # 1: dedup → none; 2: match by tg_chat_id → hit
+    # 1: dedup → none; 2: match by tg_chat_id → hit; 3: workspace settings.
+    # Sprint 3.7 G1 gates the agent refresh behind a workspace setting
+    # (auto_lead_agent_refresh_on_inbound), so the matched path now also reads
+    # the Workspace row. Enable the flag so the refresh fires as asserted below.
+    ws = MagicMock()
+    ws.settings_json = {"ai": {"auto_lead_agent_refresh_on_inbound": True}}
     db.execute.side_effect = [
         _scalar_result(None),
         _scalar_result(target_lead_id),
+        _scalar_result(ws),
     ]
 
     added: list[object] = []
