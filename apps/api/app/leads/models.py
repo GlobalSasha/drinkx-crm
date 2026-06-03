@@ -96,6 +96,18 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
         return value
     inn: Mapped[str | None] = mapped_column(String(20), nullable=True)
     source: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    # UTM attribution dimensions (Odoo utm pattern) — resolved from form params
+    # via app.utm.services.resolve_utm. FK SET NULL so deleting a dictionary row
+    # doesn't orphan the lead. No ORM relationship; reads join by id.
+    utm_source_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("utm_sources.id", ondelete="SET NULL"), nullable=True
+    )
+    utm_medium_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("utm_mediums.id", ondelete="SET NULL"), nullable=True
+    )
+    utm_campaign_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("utm_campaigns.id", ondelete="SET NULL"), nullable=True
+    )
     tags_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
 
     # B2B (ADR-004, ADR-016)
