@@ -54,15 +54,6 @@ except Exception:
 # DO NOT add new entries — fix the test instead.
 _KNOWN_PRE_EXISTING_FAILURES = {
     "tests/base_update/test_e2e.py::test_e2e_extract_match_apply",
-    "tests/test_daily_plan_routes.py::test_regenerate_creates_generating_row_and_dispatches_task",
-    "tests/test_daily_plan_service.py::test_empty_lead_set_produces_ready_plan_with_zero_items",
-    "tests/test_daily_plan_service.py::test_failed_llm_falls_back_to_deterministic_hint",
-    "tests/test_daily_plan_service.py::test_packs_items_into_work_hour_budget",
-    "tests/test_daily_plan_service.py::test_replaces_prior_plan_for_same_date",
-    "tests/test_daily_plan_service.py::test_writes_status_failed_on_complete_blowup",
-    "tests/test_enrichment_routes.py::test_concurrency_limit_does_not_count_succeeded_runs",
-    "tests/test_enrichment_routes.py::test_trigger_creates_new_run_when_previous_is_succeeded",
-    "tests/test_enrichment_routes.py::test_trigger_creates_running_row_returns_202",
     "tests/test_inbox_matcher.py::test_processor_creates_activity_on_high_confidence_match",
     "tests/test_inbox_telegram.py::test_receive_matched_inbound_writes_activity_and_kicks_agent",
     "tests/test_leads_crud.py::test_sprint_respects_workspace_capacity_when_limit_none",

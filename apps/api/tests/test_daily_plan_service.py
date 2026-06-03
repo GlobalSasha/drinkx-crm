@@ -104,6 +104,24 @@ from app.daily_plan.services import (  # noqa: E402
 from app.daily_plan.schemas import ScoredItem  # noqa: E402
 from app.enrichment.providers.base import CompletionResult, LLMError  # noqa: E402
 
+
+@pytest.fixture(autouse=True)
+def _neutralize_sa_builders():
+    """Patch service-level select/delete/update to no-ops.
+
+    The service receives mocked model classes; in a full CI run real sqlalchemy
+    is already imported (the module stub is skipped), so select(<mock>) would
+    raise. The mocked session ignores the query object, so no-op builders keep
+    these tests independent of import order.
+    """
+    import app.daily_plan.services as _svc
+
+    with patch.object(_svc, "select", lambda *a, **k: MagicMock()), \
+         patch.object(_svc, "delete", lambda *a, **k: MagicMock()), \
+         patch.object(_svc, "update", lambda *a, **k: MagicMock()):
+        yield
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
