@@ -61,12 +61,19 @@ if POSTGRES_AVAILABLE and PYTEST_ASYNCIO_AVAILABLE:
     @pytest_asyncio.fixture(scope="session", loop_scope="session", autouse=True)
     async def _create_tables():
         """Create all tables once per session, drop afterwards."""
+        from sqlalchemy import text
+
+        # DROP SCHEMA … CASCADE instead of metadata.drop_all: the leads↔contacts
+        # FK cycle (leads.primary_contact_id ↔ contacts.lead_id) can't be
+        # dependency-sorted for DROP. CASCADE sidesteps the ordering entirely.
         async with _test_engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
+            await conn.execute(text("DROP SCHEMA public CASCADE"))
+            await conn.execute(text("CREATE SCHEMA public"))
             await conn.run_sync(Base.metadata.create_all)
         yield
         async with _test_engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
+            await conn.execute(text("DROP SCHEMA public CASCADE"))
+            await conn.execute(text("CREATE SCHEMA public"))
 
     @pytest_asyncio.fixture
     async def db():
@@ -124,7 +131,6 @@ if POSTGRES_AVAILABLE and PYTEST_ASYNCIO_AVAILABLE:
             workspace_id=workspace.id,
             name="Sales",
             type="sales",
-            is_default=True,
             position=0,
         )
         db.add(p)
