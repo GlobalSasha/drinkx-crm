@@ -10,6 +10,10 @@ from tests.conftest import POSTGRES_AVAILABLE
 from app.activity.models import Activity  # noqa: F401
 from app.followups.models import Followup  # noqa: F401
 
+# Module-level so create_all (session fixture) registers the utm tables.
+from app.utm.models import UtmCampaign, UtmMedium, UtmSource  # noqa: F401
+from app.utm.services import resolve_utm
+
 skip_no_pg = pytest.mark.skipif(not POSTGRES_AVAILABLE, reason="requires Postgres")
 
 
