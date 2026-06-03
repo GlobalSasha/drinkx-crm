@@ -54,13 +54,6 @@ except Exception:
 # DO NOT add new entries — fix the test instead.
 _KNOWN_PRE_EXISTING_FAILURES = {
     "tests/base_update/test_e2e.py::test_e2e_extract_match_apply",
-    "tests/test_0002_b2b_models.py::test_activity_type_count",
-    "tests/test_auth_bootstrap.py::test_existing_user_just_updates_last_login",
-    "tests/test_auth_bootstrap.py::test_first_user_creates_workspace",
-    "tests/test_auth_bootstrap.py::test_second_user_joins_existing_workspace",
-    "tests/test_contacts_crud.py::test_delete_contact",
-    "tests/test_contacts_crud.py::test_list_contacts_isolation",
-    "tests/test_contacts_crud.py::test_update_contact",
     "tests/test_daily_plan_routes.py::test_regenerate_creates_generating_row_and_dispatches_task",
     "tests/test_daily_plan_service.py::test_empty_lead_set_produces_ready_plan_with_zero_items",
     "tests/test_daily_plan_service.py::test_failed_llm_falls_back_to_deterministic_hint",

@@ -164,6 +164,22 @@ def _make_session_with_executes(execute_results):
     return db
 
 
+@pytest.fixture(autouse=True)
+def _neutralize_select():
+    """Patch the service's module-level `select` to a no-op.
+
+    These tests pass spy classes (not mapped ORM models) into the service. In a
+    full CI run real sqlalchemy is already imported (the module-level stub is
+    skipped), so `select(_UserSpy)` would raise. The mocked session ignores the
+    query object anyway, so a no-op select keeps the test independent of import
+    order.
+    """
+    from app.auth import services as auth_svc
+
+    with patch.object(auth_svc, "select", lambda *a, **k: MagicMock()):
+        yield
+
+
 # ---------------------------------------------------------------------------
 # 1. First user creates the workspace
 # ---------------------------------------------------------------------------

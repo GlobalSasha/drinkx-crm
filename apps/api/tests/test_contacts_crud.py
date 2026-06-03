@@ -33,9 +33,15 @@ async def _make_lead(db, workspace_id, **kwargs):
 
 async def _make_contact(db, lead_id, **kwargs):
     from app.contacts import repositories as repo
+    from app.leads.models import Lead
 
     payload = dict(name=f"Contact {uuid.uuid4().hex[:6]}")
     payload.update(kwargs)
+    # Contacts require workspace_id (NOT NULL). The repo layer doesn't inject it
+    # (the service does), so derive it from the contact's lead.
+    if "workspace_id" not in payload:
+        lead = await db.get(Lead, lead_id)
+        payload["workspace_id"] = lead.workspace_id
     return await repo.create(db, lead_id, payload)
 
 
