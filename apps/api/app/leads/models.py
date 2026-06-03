@@ -8,9 +8,10 @@ from enum import Enum
 import sqlalchemy as sa
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.common.models import Base, TimestampedMixin, UUIDPrimaryKeyMixin
+from app.common.phone import to_e164
 
 
 class DealType(str, Enum):
@@ -67,7 +68,17 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     city: Mapped[str | None] = mapped_column(String(120), nullable=True)
     email: Mapped[str | None] = mapped_column(String(254), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    # E.164-normalized phone (Odoo phone_validation pattern). Auto-filled from
+    # `phone` on every write via the validator below; used as a dedup /
+    # cross-channel match key. `phone` keeps the original user formatting.
+    phone_e164: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
     website: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+    @validates("phone")
+    def _sync_phone_e164(self, _key: str, value: str | None) -> str | None:
+        """Keep `phone_e164` in lock-step with every write to `phone`."""
+        self.phone_e164 = to_e164(value)
+        return value
     inn: Mapped[str | None] = mapped_column(String(20), nullable=True)
     source: Mapped[str | None] = mapped_column(String(60), nullable=True)
     tags_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)

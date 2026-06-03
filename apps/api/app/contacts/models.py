@@ -6,9 +6,10 @@ from enum import Enum
 
 from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.common.models import Base, TimestampedMixin, UUIDPrimaryKeyMixin
+from app.common.phone import to_e164
 
 
 class ContactRoleType(str, Enum):
@@ -40,6 +41,16 @@ class Contact(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     role_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
     email: Mapped[str | None] = mapped_column(String(254), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    # E.164-normalized phone — see Lead.phone_e164. Auto-filled via the
+    # validator below; used as a dedup / cross-channel match key.
+    phone_e164: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
+
+    @validates("phone")
+    def _sync_phone_e164(self, _key: str, value: str | None) -> str | None:
+        """Keep `phone_e164` in lock-step with every write to `phone`."""
+        self.phone_e164 = to_e164(value)
+        return value
+
     telegram_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
     linkedin_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
     source: Mapped[str | None] = mapped_column(String(40), nullable=True)
