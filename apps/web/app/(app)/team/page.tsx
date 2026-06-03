@@ -12,6 +12,7 @@ import { Users, Loader2, ShieldAlert } from "lucide-react";
 import { useMe } from "@/lib/hooks/use-me";
 import { useTeamStats } from "@/lib/hooks/use-team-stats";
 import { WorkloadTable } from "@/components/team/WorkloadTable";
+import { pageContainerVariants } from "@/components/ui/PageContainer";
 import { relativeTime } from "@/lib/relative-time";
 import type {
   TeamManagerStats,
@@ -58,7 +59,7 @@ export default function TeamPage() {
   }
   if (me.data.role !== "admin" && me.data.role !== "head") {
     return (
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-12">
+      <div className={pageContainerVariants({ width: "narrow" })}>
         <div className="bg-white border border-black/5 rounded-2xl shadow-soft p-10">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-12 h-12 rounded-full bg-brand-soft flex items-center justify-center">
@@ -86,7 +87,7 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+    <div className={pageContainerVariants({ width: "default" })}>
       <header className="flex flex-wrap items-end justify-between gap-4 mb-6">
         <div className="flex items-center gap-2">
           <Users size={20} className="text-muted" />

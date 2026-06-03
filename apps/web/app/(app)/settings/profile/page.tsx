@@ -11,6 +11,7 @@ import { ChevronLeft, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/lib/api-client";
+import { pageContainerVariants } from "@/components/ui/PageContainer";
 import { T } from "@/lib/design-system";
 import { useMe } from "@/lib/hooks/use-me";
 import type { MeOut } from "@/lib/types";
@@ -90,7 +91,7 @@ export default function ProfilePage() {
     "?";
 
   return (
-    <div className="max-w-xl mx-auto px-4 sm:px-6 py-6">
+    <div className={pageContainerVariants({ width: "narrow" })}>
       <Link
         href="/settings"
         className="inline-flex items-center gap-1 text-xs font-mono text-brand-muted hover:text-brand-primary mb-4 transition-colors"

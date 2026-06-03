@@ -1004,6 +1004,11 @@ export interface WebFormOut {
   created_at: string;
   updated_at: string;
   embed_snippet: string | null;
+  default_assignee_id: string | null;
+  contact_task_sla_hours: number;
+  source_label: string | null;
+  notify_email: string | null;
+  ingest_token: string | null;
 }
 
 export interface WebFormCreateIn {
@@ -1012,6 +1017,11 @@ export interface WebFormCreateIn {
   target_pipeline_id?: string | null;
   target_stage_id?: string | null;
   redirect_url?: string | null;
+  default_assignee_id?: string | null;
+  contact_task_sla_hours?: number;
+  source_label?: string | null;
+  notify_email?: string | null;
+  require_key?: boolean;
 }
 
 export interface WebFormUpdateIn {
@@ -1021,6 +1031,11 @@ export interface WebFormUpdateIn {
   target_stage_id?: string | null;
   redirect_url?: string | null;
   is_active?: boolean;
+  default_assignee_id?: string | null;
+  contact_task_sla_hours?: number;
+  source_label?: string | null;
+  notify_email?: string | null;
+  require_key?: boolean;
 }
 
 export interface WebFormPageOut {
@@ -1554,6 +1569,23 @@ export interface FormStatsOut {
   claimed_count: number;
   by_stage: Record<string, number>;
 }
+
+// Sprint 3.6 G4 — channel analytics table on /forms.
+export type FormChannelStat = {
+  form_id: string;
+  channel: string;
+  submissions: number;
+  leads: number;
+  won: number;
+  conversion: number;
+};
+
+export type FormAnalytics = {
+  rows: FormChannelStat[];
+  total_submissions: number;
+  total_leads: number;
+  total_won: number;
+};
 
 // Sprint 4.0 G7 — admin LLM cost counter (Settings → Расходы).
 export interface ProviderCost {

@@ -12,6 +12,7 @@ import { T } from "@/lib/design-system";
 import { useMe } from "@/lib/hooks/use-me";
 import { useManagerStats } from "@/lib/hooks/use-team-stats";
 import { useTeamWorkload } from "@/lib/hooks/use-team-workload";
+import { pageContainerVariants } from "@/components/ui/PageContainer";
 import type { TeamPeriod } from "@/lib/types";
 
 function fmtSum(n: number): string {
@@ -77,7 +78,7 @@ export default function ManagerStatsPage() {
   if (me.data.role !== "admin" && me.data.role !== "head") return null;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+    <div className={pageContainerVariants({ width: "content" })}>
       <Link
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         href={"/team" as any}

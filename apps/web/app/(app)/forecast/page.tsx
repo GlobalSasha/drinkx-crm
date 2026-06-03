@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { TrendingUp, Wallet, AlertTriangle, Trophy, ArrowUpRight } from "lucide-react";
 import { usePipelines } from "@/lib/hooks/use-pipelines";
+import { pageContainerVariants } from "@/components/ui/PageContainer";
 import { useLeads } from "@/lib/hooks/use-leads";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -123,7 +124,7 @@ export default function ForecastPage() {
     }, [pipelines, leadsData]);
 
   return (
-    <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+    <main className={pageContainerVariants({ width: "default" })}>
       <div className="mb-6 sm:mb-8">
         <h1 className={`type-page-title ${C.color.text}`}>Прогноз</h1>
         <p className="type-body text-brand-muted mt-1">

@@ -6,6 +6,7 @@
 // G3 spec: «Скоро» for Phase 2.4+). Read access is open to all roles;
 // PipelinesSection internally gates write actions on useMe().role.
 import { Suspense, useEffect, useState } from "react";
+import { pageContainerVariants } from "@/components/ui/PageContainer";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -104,7 +105,7 @@ function SettingsPageInner() {
   }, [params]);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+    <div className={pageContainerVariants({ width: "default" })}>
       {/* Page header */}
       <div className="flex items-center gap-2 mb-6">
         <SettingsIcon size={20} className="text-muted" />

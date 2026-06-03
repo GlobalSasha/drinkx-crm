@@ -30,6 +30,11 @@ class WebFormCreateIn(BaseModel):
     target_pipeline_id: UUID | None = None
     target_stage_id: UUID | None = None
     redirect_url: str | None = Field(default=None, max_length=500)
+    default_assignee_id: UUID | None = None
+    contact_task_sla_hours: int = Field(default=2, ge=1, le=240)
+    source_label: str | None = Field(default=None, max_length=120)
+    notify_email: str | None = Field(default=None, max_length=254)
+    require_key: bool = False  # True → server generates ingest_token
 
 
 class WebFormUpdateIn(BaseModel):
@@ -39,6 +44,11 @@ class WebFormUpdateIn(BaseModel):
     target_stage_id: UUID | None = None
     redirect_url: str | None = Field(default=None, max_length=500)
     is_active: bool | None = None
+    default_assignee_id: UUID | None = None
+    contact_task_sla_hours: int | None = Field(default=None, ge=1, le=240)
+    source_label: str | None = Field(default=None, max_length=120)
+    notify_email: str | None = Field(default=None, max_length=254)
+    require_key: bool | None = None
 
 
 class WebFormOut(BaseModel):
@@ -60,6 +70,12 @@ class WebFormOut(BaseModel):
 
     # Synthetic — populated by the router via build_embed_snippet().
     embed_snippet: str | None = None
+
+    default_assignee_id: UUID | None = None
+    contact_task_sla_hours: int = 2
+    source_label: str | None = None
+    notify_email: str | None = None
+    ingest_token: str | None = None
 
 
 class WebFormPageOut(BaseModel):
@@ -93,3 +109,19 @@ class FormStatsOut(BaseModel):
     submissions_30d: int
     claimed_count: int
     by_stage: dict[str, int]
+
+
+class FormChannelStat(BaseModel):
+    form_id: UUID
+    channel: str          # source_label or name
+    submissions: int
+    leads: int
+    won: int
+    conversion: float     # won / leads, 0.0 when leads == 0
+
+
+class FormAnalyticsOut(BaseModel):
+    rows: list[FormChannelStat]
+    total_submissions: int
+    total_leads: int
+    total_won: int

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { History, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 import { useMe } from "@/lib/hooks/use-me";
+import { pageContainerVariants } from "@/components/ui/PageContainer";
 import { useAuditLog } from "@/lib/hooks/use-audit";
 import { relativeTime } from "@/lib/relative-time";
 import { T } from "@/lib/design-system";
@@ -198,7 +199,7 @@ export default function AuditPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-6">
+    <div className={pageContainerVariants({ width: "default" })}>
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
