@@ -10,6 +10,8 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, Numeric, St
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
+from app.common.email import email_domain_criterion as domain_criterion
+from app.common.email import normalize_email
 from app.common.models import Base, TimestampedMixin, UUIDPrimaryKeyMixin
 from app.common.phone import to_e164
 
@@ -67,6 +69,19 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     segment: Mapped[str | None] = mapped_column(String(60), nullable=True)
     city: Mapped[str | None] = mapped_column(String(120), nullable=True)
     email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    # Normalized email + corporate-domain key (Odoo dedup pattern). Auto-filled
+    # from `email` via the validator below; used to detect duplicate leads.
+    email_normalized: Mapped[str | None] = mapped_column(String(254), nullable=True, index=True)
+    email_domain_criterion: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+
+    @validates("email")
+    def _sync_email_keys(self, _key: str, value: str | None) -> str | None:
+        """Keep email_normalized + email_domain_criterion in sync with `email`."""
+        norm = normalize_email(value)
+        self.email_normalized = norm
+        self.email_domain_criterion = domain_criterion(norm)
+        return value
+
     phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     # E.164-normalized phone (Odoo phone_validation pattern). Auto-filled from
     # `phone` on every write via the validator below; used as a dedup /

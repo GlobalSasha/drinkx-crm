@@ -198,6 +198,25 @@ async def get_lead(
     return lead  # type: ignore[return-value]
 
 
+@router.get("/{lead_id}/duplicates", response_model=list[LeadOut])
+async def lead_duplicates(
+    lead_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> list[LeadOut]:
+    """Likely duplicates of this lead — same corporate-email domain, phone, or
+    company. Non-destructive: surfaces candidates for the manager to review and
+    merge (the merge itself is a separate, explicit action).
+    """
+    from app.leads.dedup import find_duplicates
+    from app.leads.repositories import get_by_id
+
+    lead = await get_by_id(db, lead_id, user.workspace_id)
+    if lead is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+    return await find_duplicates(db, lead)  # type: ignore[return-value]
+
+
 @router.patch("/{lead_id}", response_model=LeadOut)
 async def update_lead(
     lead_id: UUID,
