@@ -176,7 +176,9 @@ async def test_move_to_stage_6_with_economic_buyer_allowed(db, workspace, user, 
     stage6 = await _make_stage(db, p.id, position=6, name="Договор / пилот")
     lead = await _make_lead(db, workspace.id, pipeline_id=p.id)
 
-    contact = Contact(lead_id=lead.id, name="Ivan EB", role_type="economic_buyer")
+    contact = Contact(
+        lead_id=lead.id, workspace_id=workspace.id, name="Ivan EB", role_type="economic_buyer"
+    )
     db.add(contact)
     await db.flush()
 

@@ -104,6 +104,24 @@ from app.daily_plan.services import (  # noqa: E402
 from app.daily_plan.schemas import ScoredItem  # noqa: E402
 from app.enrichment.providers.base import CompletionResult, LLMError  # noqa: E402
 
+
+@pytest.fixture(autouse=True)
+def _neutralize_sa_builders():
+    """Patch service-level select/delete/update to no-ops.
+
+    The service receives mocked model classes; in a full CI run real sqlalchemy
+    is already imported (the module stub is skipped), so select(<mock>) would
+    raise. The mocked session ignores the query object, so no-op builders keep
+    these tests independent of import order.
+    """
+    import app.daily_plan.services as _svc
+
+    with patch.object(_svc, "select", lambda *a, **k: MagicMock()), \
+         patch.object(_svc, "delete", lambda *a, **k: MagicMock()), \
+         patch.object(_svc, "update", lambda *a, **k: MagicMock()):
+        yield
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -363,8 +381,10 @@ async def test_writes_status_failed_on_complete_blowup(monkeypatch):
 
     async def _execute(stmt, *a, **kw):
         call_count[0] += 1
-        if call_count[0] == 1:
-            # DELETE call
+        # 1 = advisory xact lock, 2 = DELETE prior plan (both before the try).
+        # The lead query (3rd) is inside the try → its blow-up is what the
+        # service must catch and record as status='failed'.
+        if call_count[0] <= 2:
             return MagicMock()
         raise RuntimeError("DB exploded")
 

@@ -53,28 +53,10 @@ except Exception:
 # version bump, a test helper that omits workspace_id, a stale enum count, etc.).
 # DO NOT add new entries — fix the test instead.
 _KNOWN_PRE_EXISTING_FAILURES = {
+    # Need local test execution to debug (the cause is swallowed by a broad
+    # try/except / deep orchestrator flow) — see the cleanup task:
     "tests/base_update/test_e2e.py::test_e2e_extract_match_apply",
-    "tests/test_0002_b2b_models.py::test_activity_type_count",
-    "tests/test_auth_bootstrap.py::test_existing_user_just_updates_last_login",
-    "tests/test_auth_bootstrap.py::test_first_user_creates_workspace",
-    "tests/test_auth_bootstrap.py::test_second_user_joins_existing_workspace",
-    "tests/test_contacts_crud.py::test_delete_contact",
-    "tests/test_contacts_crud.py::test_list_contacts_isolation",
-    "tests/test_contacts_crud.py::test_update_contact",
-    "tests/test_daily_plan_routes.py::test_regenerate_creates_generating_row_and_dispatches_task",
-    "tests/test_daily_plan_service.py::test_empty_lead_set_produces_ready_plan_with_zero_items",
-    "tests/test_daily_plan_service.py::test_failed_llm_falls_back_to_deterministic_hint",
-    "tests/test_daily_plan_service.py::test_packs_items_into_work_hour_budget",
-    "tests/test_daily_plan_service.py::test_replaces_prior_plan_for_same_date",
-    "tests/test_daily_plan_service.py::test_writes_status_failed_on_complete_blowup",
-    "tests/test_enrichment_routes.py::test_concurrency_limit_does_not_count_succeeded_runs",
-    "tests/test_enrichment_routes.py::test_trigger_creates_new_run_when_previous_is_succeeded",
-    "tests/test_enrichment_routes.py::test_trigger_creates_running_row_returns_202",
     "tests/test_inbox_matcher.py::test_processor_creates_activity_on_high_confidence_match",
-    "tests/test_inbox_telegram.py::test_receive_matched_inbound_writes_activity_and_kicks_agent",
-    "tests/test_leads_crud.py::test_sprint_respects_workspace_capacity_when_limit_none",
-    "tests/test_llm_providers.py::test_factory_raises_when_all_fail",
-    "tests/test_stage_change.py::test_move_to_stage_6_with_economic_buyer_allowed",
 }
 
 

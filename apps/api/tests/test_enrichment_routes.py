@@ -105,6 +105,18 @@ from app.enrichment.services import (  # noqa: E402
 from app.leads.services import LeadNotFound  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def _neutralize_sa_builders():
+    """No-op service-level select/desc — see test_daily_plan_service.
+
+    Service receives mocked model classes; real sqlalchemy (full CI run) would
+    reject select(<mock>). The mocked session ignores the query object.
+    """
+    with patch.object(svc_mod, "select", lambda *a, **k: MagicMock()), \
+         patch.object(svc_mod, "desc", lambda *a, **k: MagicMock()):
+        yield
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

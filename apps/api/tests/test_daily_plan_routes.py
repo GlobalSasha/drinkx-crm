@@ -150,6 +150,15 @@ def _make_user(workspace_id=None):
 import app.daily_plan.services as svc_mod  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def _neutralize_sa_builders():
+    """No-op service-level select/delete/update — see test_daily_plan_service."""
+    with patch.object(svc_mod, "select", lambda *a, **k: MagicMock()), \
+         patch.object(svc_mod, "delete", lambda *a, **k: MagicMock()), \
+         patch.object(svc_mod, "update", lambda *a, **k: MagicMock()):
+        yield
+
+
 @pytest.mark.asyncio
 async def test_get_my_today_returns_none_when_no_plan():
     """get_today_plan_for_user returns None → endpoint returns None."""
