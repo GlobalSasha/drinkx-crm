@@ -48,13 +48,17 @@ except Exception:
 # ---------------------------------------------------------------------------
 if POSTGRES_AVAILABLE and PYTEST_ASYNCIO_AVAILABLE:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+    from sqlalchemy.pool import NullPool
 
     from app.common.models import Base
 
-    _test_engine = create_async_engine(TEST_DB_URL, echo=False, pool_pre_ping=True)
+    # NullPool: never reuse a connection across event loops. pytest-asyncio runs
+    # each test on a fresh function-scoped loop, so a pooled connection bound to
+    # the session-loop schema fixture would raise "attached to a different loop".
+    _test_engine = create_async_engine(TEST_DB_URL, echo=False, poolclass=NullPool)
     _test_session_factory = async_sessionmaker(_test_engine, expire_on_commit=False, class_=AsyncSession)
 
-    @pytest_asyncio.fixture(scope="session", autouse=True)
+    @pytest_asyncio.fixture(scope="session", loop_scope="session", autouse=True)
     async def _create_tables():
         """Create all tables once per session, drop afterwards."""
         async with _test_engine.begin() as conn:
