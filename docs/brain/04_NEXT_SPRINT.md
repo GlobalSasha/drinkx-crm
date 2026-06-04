@@ -65,14 +65,16 @@ Existing rows have NULL `phone_e164` / `email_normalized` / `email_domain_criter
 
 ### G5 — Finish the 2 quarantined tests  (needs a local Postgres)
 In `apps/api/tests/conftest.py` → `_KNOWN_PRE_EXISTING_FAILURES`:
-- [ ] `test_inbox_matcher::test_processor_creates_activity_on_high_confidence_match` — the
+- [x] `test_inbox_matcher::test_processor_creates_activity_on_high_confidence_match` — the
       attach_to_lead path fans out to Automation Builder + Celery (imported in-function in
       `app/inbox/processor.py`); the broad `try/except` swallows the failure. Mock the
       collaborators (`safe_evaluate_trigger`, `collect_pending_email_dispatches`,
       `lead_agent_refresh_suggestion`) so the path returns True, then remove the quarantine entry.
-- [ ] `base_update/test_e2e::test_e2e_extract_match_apply` — `run_extract_and_match` now creates
-      0 leads (final assert `len(leads) >= 1` fails). Find where lead creation moved (likely
-      `run_apply_resolutions`) and fix the assertion/flow, then un-quarantine.
+- [x] `base_update/test_e2e::test_e2e_extract_match_apply` — root cause was NOT a moved flow:
+      the shared `pipeline` fixture is stale (Sprint 2.4 made the default pipeline a
+      workspace FK + first stage `position == 0`). Without that, `get_default_first_stage`
+      returns None and `apply_record` bails to ACTION_CONFLICT before creating the lead. Fixed
+      in-test (set `workspace.default_pipeline_id` + `stage.position = 0`); un-quarantined.
 - Run locally: `cd apps/api && TEST_DATABASE_URL=postgresql+asyncpg://drinkx:dev@localhost:5432/drinkx_test uv run pytest`
   (needs a local Postgres — Docker `infra/docker/docker-compose.yml` or a `drinkx_test` DB).
 

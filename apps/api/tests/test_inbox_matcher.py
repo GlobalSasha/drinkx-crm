@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import sys
 import uuid
+from contextlib import asynccontextmanager
 from types import ModuleType
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -70,6 +71,8 @@ def _stub_sqlalchemy():
     sa_orm.relationship = _Callable()
     sa_orm.selectinload = _Callable()
     sa_orm.joinedload = _Callable()
+    # @validates("col") is a decorator factory — keep the wrapped method intact.
+    sa_orm.validates = lambda *a, **kw: (lambda f: f)
 
     sa_pg.UUID = _Callable
     sa_pg.JSON = _Callable
@@ -316,10 +319,33 @@ async def test_processor_creates_activity_on_high_confidence_match():
         def __init__(self, **kw):
             inbox_item_calls.append(kw)
 
+    # The attach_to_lead path fans out to the Automation Builder + Lead AI
+    # Agent via in-function imports (Sprint 2.5 G1 / 2.6 G1 / 3.1 Phase E).
+    # Inject fakes for those modules — like the celery injection in the
+    # unmatched test — so the fan-out is a no-op and the path returns True.
+    @asynccontextmanager
+    async def _fake_collect():
+        yield []
+
+    dispatch_module = ModuleType("app.automation_builder.dispatch")
+    dispatch_module.collect_pending_email_dispatches = _fake_collect
+    dispatch_module.flush_pending_email_dispatches = AsyncMock()
+
+    services_module = ModuleType("app.automation_builder.services")
+    services_module.safe_evaluate_trigger = AsyncMock()
+
+    jobs_module = ModuleType("app.scheduled.jobs")
+    jobs_module.lead_agent_refresh_suggestion = MagicMock()
+
     with patch.object(processor_mod, "_already_processed", new=AsyncMock(return_value=False)), \
          patch.object(processor_mod, "match_email", new=AsyncMock(return_value=fake_match)), \
          patch.object(processor_mod, "Activity", _ActivitySpy), \
-         patch.object(processor_mod, "InboxItem", _InboxItemSpy):
+         patch.object(processor_mod, "InboxItem", _InboxItemSpy), \
+         patch.dict(sys.modules, {
+             "app.automation_builder.dispatch": dispatch_module,
+             "app.automation_builder.services": services_module,
+             "app.scheduled.jobs": jobs_module,
+         }):
         out = await processor_mod.process_message(
             db,
             raw_message=_gmail_message(msg_id="g-100"),

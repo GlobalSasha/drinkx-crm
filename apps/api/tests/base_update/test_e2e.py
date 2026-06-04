@@ -111,6 +111,14 @@ async def test_e2e_extract_match_apply(
 ):
     # 1. Build a job with the 4 staged files
     pipeline_obj, stage = pipeline
+    # Sprint 2.4 made the default pipeline a workspace-scoped FK and the first
+    # stage `position == 0`; the shared `pipeline` fixture predates that, so
+    # wire both here. Without this, get_default_first_stage() returns None and
+    # apply_record bails to ACTION_CONFLICT without ever creating the pool lead.
+    workspace.default_pipeline_id = pipeline_obj.id
+    stage.position = 0
+    await db.flush()
+
     staged = [{"filename": fn, "text": md} for fn, (md, _) in _FIXTURES.items()]
     job = IngestJob(
         workspace_id=workspace.id,

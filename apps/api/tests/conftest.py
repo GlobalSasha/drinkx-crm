@@ -52,11 +52,13 @@ except Exception:
 # any current feature work (mocks passed into SQLAlchemy select/insert after a
 # version bump, a test helper that omits workspace_id, a stale enum count, etc.).
 # DO NOT add new entries — fix the test instead.
-_KNOWN_PRE_EXISTING_FAILURES = {
-    # Need local test execution to debug (the cause is swallowed by a broad
-    # try/except / deep orchestrator flow) — see the cleanup task:
-    "tests/base_update/test_e2e.py::test_e2e_extract_match_apply",
-    "tests/test_inbox_matcher.py::test_processor_creates_activity_on_high_confidence_match",
+_KNOWN_PRE_EXISTING_FAILURES: set[str] = {
+    # Empty — the two legacy failures were fixed in G5 of the Odoo-reuse
+    # follow-up sprint:
+    #   * test_inbox_matcher … high_confidence_match — the attach_to_lead path's
+    #     Automation-Builder / Lead-AI-Agent fan-out is now mocked.
+    #   * base_update/test_e2e … extract_match_apply — the stale `pipeline`
+    #     fixture now sets the workspace default-pipeline FK + position-0 stage.
 }
 
 
