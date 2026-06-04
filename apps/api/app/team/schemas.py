@@ -86,3 +86,58 @@ class WorkloadManagerOut(BaseModel):
 class WorkloadOut(BaseModel):
     stages: list[WorkloadStageOut]
     managers: list[WorkloadManagerOut]
+
+
+# ---------------------------------------------------------------------------
+# Manager deal portfolio (deal analytics)
+# ---------------------------------------------------------------------------
+
+class PortfolioKpiOut(BaseModel):
+    active_count: int
+    total_amount: float
+    total_quantity: int
+    avg_amount: float | None = None
+    new_7d: int
+    new_30d: int
+    at_risk_count: int
+    at_risk_amount: float
+
+
+class PortfolioSegmentOut(BaseModel):
+    segment: str
+    count: int
+    amount: float
+    quantity: int
+
+
+class PortfolioStageOut(BaseModel):
+    stage_id: str
+    stage_name: str
+    position: int
+    count: int
+    amount: float
+
+
+class PortfolioPriorityOut(BaseModel):
+    priority: str
+    label: str
+    count: int
+    amount: float
+
+
+class PortfolioTopDealOut(BaseModel):
+    lead_id: str
+    company_name: str
+    segment: str | None = None
+    amount: float
+
+
+class ManagerPortfolioOut(BaseModel):
+    user_id: uuid.UUID
+    name: str
+    email: str
+    kpi: PortfolioKpiOut
+    by_segment: list[PortfolioSegmentOut]
+    by_stage: list[PortfolioStageOut]
+    by_priority: list[PortfolioPriorityOut]
+    top_deals: list[PortfolioTopDealOut]

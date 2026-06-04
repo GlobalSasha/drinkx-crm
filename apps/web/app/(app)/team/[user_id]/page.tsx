@@ -12,6 +12,7 @@ import { T } from "@/lib/design-system";
 import { useMe } from "@/lib/hooks/use-me";
 import { useManagerStats } from "@/lib/hooks/use-team-stats";
 import { useTeamWorkload } from "@/lib/hooks/use-team-workload";
+import { ManagerPortfolio } from "@/components/team/ManagerPortfolio";
 import { pageContainerVariants } from "@/components/ui/PageContainer";
 import type { TeamPeriod } from "@/lib/types";
 
@@ -119,6 +120,13 @@ export default function ManagerStatsPage() {
           ))}
         </div>
       </header>
+
+      {/* Deal portfolio — active deals broken down by segment / stage /
+          priority + headline KPIs. Self-fetching, period-independent. */}
+      <section className="mb-8">
+        <h2 className="type-card-title mb-3">Портфель сделок</h2>
+        <ManagerPortfolio userId={userId} />
+      </section>
 
       {stats.isLoading && (
         <div className="bg-white border border-black/5 rounded-2xl shadow-soft p-6 animate-pulse h-[260px]" />

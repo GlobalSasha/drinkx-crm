@@ -211,6 +211,27 @@ export interface StageDwellStat {
   stuck_count: number;
 }
 
+/** A manager's active-deal portfolio (`GET /team/{id}/portfolio`). */
+export interface ManagerPortfolio {
+  user_id: string;
+  name: string;
+  email: string;
+  kpi: {
+    active_count: number;
+    total_amount: number;
+    total_quantity: number;
+    avg_amount: number | null;
+    new_7d: number;
+    new_30d: number;
+    at_risk_count: number;
+    at_risk_amount: number;
+  };
+  by_segment: { segment: string; count: number; amount: number; quantity: number }[];
+  by_stage: { stage_id: string; stage_name: string; position: number; count: number; amount: number }[];
+  by_priority: { priority: string; label: string; count: number; amount: number }[];
+  top_deals: { lead_id: string; company_name: string; segment: string | null; amount: number }[];
+}
+
 export interface SprintCreateIn {
   cities: string[];
   segment?: string | null;
