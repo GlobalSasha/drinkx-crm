@@ -19,13 +19,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 async def _search_ilike(
     db: AsyncSession, *, workspace_id: UUID, q: str, limit: int
 ) -> list[dict[str, Any]]:
-    """Short query (1-2 chars): exact ILIKE only, no fuzzy."""
+    """Short query (1-2 chars): exact ILIKE only, no fuzzy.
+
+    Each UNION arm is parenthesised so its per-arm LIMIT is legal — an
+    unparenthesised `SELECT … LIMIT n UNION ALL …` is a Postgres syntax error.
+    """
     pattern = f"%{q}%"
     rows = (
         await db.execute(
             text(
                 """
-                SELECT 'company' AS type, c.id::text AS id,
+                (SELECT 'company' AS type, c.id::text AS id,
                   c.name AS title,
                   COALESCE('ИНН: ' || c.inn, c.city, '') AS subtitle,
                   NULL::uuid AS lead_id,
@@ -34,11 +38,11 @@ async def _search_ilike(
                 FROM companies c
                 WHERE c.workspace_id = :wid AND c.is_archived = false
                   AND (c.name ILIKE :pat OR c.inn ILIKE :pat OR c.email ILIKE :pat OR c.phone ILIKE :pat)
-                LIMIT :lim
+                LIMIT :lim)
 
                 UNION ALL
 
-                SELECT 'lead' AS type, l.id::text,
+                (SELECT 'lead' AS type, l.id::text,
                   l.company_name AS title,
                   s.name AS subtitle,
                   l.id AS lead_id,
@@ -48,11 +52,11 @@ async def _search_ilike(
                 LEFT JOIN stages s ON s.id = l.stage_id
                 WHERE l.workspace_id = :wid
                   AND (l.company_name ILIKE :pat OR l.email ILIKE :pat OR l.phone ILIKE :pat OR l.inn ILIKE :pat)
-                LIMIT :lim
+                LIMIT :lim)
 
                 UNION ALL
 
-                SELECT 'contact' AS type, ct.id::text,
+                (SELECT 'contact' AS type, ct.id::text,
                   ct.name AS title,
                   COALESCE(ct.email, ct.phone, '') AS subtitle,
                   ct.lead_id,
@@ -65,11 +69,11 @@ async def _search_ilike(
                 FROM contacts ct
                 WHERE ct.workspace_id = :wid
                   AND (ct.name ILIKE :pat OR ct.email ILIKE :pat OR ct.phone ILIKE :pat)
-                LIMIT :lim
+                LIMIT :lim)
 
                 UNION ALL
 
-                SELECT 'file' AS type, a.id::text,
+                (SELECT 'file' AS type, a.id::text,
                   COALESCE(a.payload_json->>'file_name', a.file_url) AS title,
                   l.company_name AS subtitle,
                   a.lead_id,
@@ -80,7 +84,7 @@ async def _search_ilike(
                 WHERE l.workspace_id = :wid AND a.type = 'file'
                   AND (a.payload_json->>'file_name' ILIKE :pat
                        OR a.payload_json->>'extracted_text' ILIKE :pat)
-                LIMIT :lim
+                LIMIT :lim)
                 """
             ),
             {"wid": str(workspace_id), "pat": pattern, "lim": limit},
