@@ -379,6 +379,10 @@ async def test_notes_activity_created_when_comment_in_payload():
     comment = next(a for a in activities if a.get("type") == "comment")
     assert "Хочу узнать цены" in comment["payload_json"]["text"]
     assert comment["payload_json"]["source"] == "webform"
+    # `body` must carry the text too — the Activity Feed (FeedItemComment)
+    # renders item.body, so a comment with text only in payload_json shows
+    # up blank in the lead card.
+    assert "Хочу узнать цены" in comment["body"]
 
 
 @pytest.mark.asyncio
