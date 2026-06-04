@@ -274,6 +274,22 @@ class MergeLeadsIn(BaseModel):
     duplicate_ids: list[UUID] = Field(..., min_length=1)
 
 
+class StageDwellOut(BaseModel):
+    """One row of «где застревают сделки» — dwell stats for one active stage.
+
+    `*_days` are None when no lead has completed the stage yet. `stuck_count`
+    is leads currently in the stage past its rot_days (fallback 14d).
+    """
+    stage_id: UUID
+    stage_name: str
+    position: int
+    completed_count: int
+    avg_days: float | None = None
+    median_days: float | None = None
+    p90_days: float | None = None
+    stuck_count: int
+
+
 class UtmSourceStatOut(BaseModel):
     """One row of «какой канал приносит сделки» — leads grouped by UTM source.
 
