@@ -209,16 +209,16 @@ function ManagerCard({ m }: { m: TeamManagerStats }) {
             <p className="text-sm font-semibold text-ink truncate">
               {m.name || m.email}
             </p>
-            <p className="text-[11px] font-mono text-muted-3 truncate">
+            <p className="text-xs font-mono text-muted-3 truncate">
               {m.email}
             </p>
-            <p className="text-[10px] font-mono text-muted-3 mt-0.5">
+            <p className="text-2xs font-mono text-muted-3 mt-0.5">
               последняя активность:{" "}
               {m.last_active_at ? relativeTime(m.last_active_at) : "никогда"}
             </p>
           </div>
         </div>
-        <span className="shrink-0 text-[10px] font-mono uppercase tracking-[0.15em] text-muted-3 bg-canvas/80 rounded-pill px-2 py-1">
+        <span className="shrink-0 text-2xs font-mono uppercase tracking-[0.15em] text-muted-3 bg-canvas/80 rounded-pill px-2 py-1">
           {ROLE_LABEL[m.role] ?? m.role}
         </span>
       </div>
@@ -236,7 +236,7 @@ function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="text-center">
       <p className="text-xl font-bold tabular-nums text-ink">{value}</p>
-      <p className="text-[10px] font-mono uppercase tracking-[0.15em] text-muted-3 mt-0.5">
+      <p className="text-2xs font-mono uppercase tracking-[0.15em] text-muted-3 mt-0.5">
         {label}
       </p>
     </div>

@@ -39,7 +39,7 @@ export function ProgressStep({ jobId, initialJob, onClose }: Props) {
           {isSucceeded && "Импорт завершён"}
           {isFailed && "Импорт завершён с ошибками"}
         </h3>
-        <p className="text-[13px] text-muted mt-1">
+        <p className="text-md text-muted mt-1">
           {isRunning &&
             "Не закрывайте окно — мы создаём карточки одну за другой и обновляем счётчики каждые две секунды."}
           {(isSucceeded || isFailed) && "Можно перейти к базе лидов."}
@@ -48,7 +48,7 @@ export function ProgressStep({ jobId, initialJob, onClose }: Props) {
 
       {/* Progress bar */}
       <div className="space-y-2">
-        <div className="flex items-baseline justify-between text-[12px] font-mono text-muted-2">
+        <div className="flex items-baseline justify-between text-sm font-mono text-muted-2">
           <span>
             <span className="font-bold text-ink tabular-nums">{processed}</span>
             <span className="text-muted-3"> / </span>
@@ -79,7 +79,7 @@ export function ProgressStep({ jobId, initialJob, onClose }: Props) {
       {isSucceeded && (
         <div className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-emerald-50 text-emerald-800">
           <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
-          <div className="text-[13px] leading-relaxed">
+          <div className="text-md leading-relaxed">
             Импортировано{" "}
             <span className="font-bold tabular-nums">{job.succeeded}</span>{" "}
             {pluralKartochek(job.succeeded)}.
@@ -96,13 +96,13 @@ export function ProgressStep({ jobId, initialJob, onClose }: Props) {
       {isFailed && (
         <div className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-amber-50 text-amber-800">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-          <div className="text-[13px] leading-relaxed">
+          <div className="text-md leading-relaxed">
             Импортировано{" "}
             <span className="font-bold tabular-nums">{job.succeeded}</span>,
             пропущено{" "}
             <span className="font-bold tabular-nums">{job.failed}</span>.
             {job.error_summary && (
-              <div className="mt-1 text-[11px] font-mono opacity-80">
+              <div className="mt-1 text-xs font-mono opacity-80">
                 {job.error_summary}
               </div>
             )}
@@ -112,7 +112,7 @@ export function ProgressStep({ jobId, initialJob, onClose }: Props) {
 
       <div className="flex items-center justify-end pt-1">
         {isRunning && (
-          <span className="inline-flex items-center gap-2 text-[12px] font-mono text-muted-2">
+          <span className="inline-flex items-center gap-2 text-sm font-mono text-muted-2">
             <Loader2 size={14} className="animate-spin" />
             Опрашиваем сервер каждые 2 сек.
           </span>
@@ -171,7 +171,7 @@ function Counter({
   }[tone];
   return (
     <div className="rounded-xl bg-canvas px-3 py-2.5 flex flex-col gap-0.5">
-      <span className="text-[10px] font-mono uppercase tracking-wider text-muted-3">
+      <span className="text-2xs font-mono uppercase tracking-wider text-muted-3">
         {label}
       </span>
       <span className={`text-xl font-bold tabular-nums ${valueColor}`}>

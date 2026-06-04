@@ -112,7 +112,7 @@ export function MultiSelectDropdown({
                     </span>
                     <span className="flex-1 truncate text-ink">{opt}</span>
                     {count !== undefined && (
-                      <span className="text-[11px] font-mono text-muted-3 tabular-nums">
+                      <span className="text-xs font-mono text-muted-3 tabular-nums">
                         {count}
                       </span>
                     )}

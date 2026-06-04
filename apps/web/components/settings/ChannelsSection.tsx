@@ -165,12 +165,12 @@ export function ChannelsSection() {
                 SMTP (исходящая почта)
               </h3>
               {smtp.configured ? (
-                <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wide bg-success/10 text-success rounded-pill px-2 py-0.5">
+                <span className="inline-flex items-center gap-1 text-2xs font-mono uppercase tracking-wide bg-success/10 text-success rounded-pill px-2 py-0.5">
                   <CheckCircle2 size={10} />
                   активен
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wide bg-warning/10 text-warning rounded-pill px-2 py-0.5">
+                <span className="inline-flex items-center gap-1 text-2xs font-mono uppercase tracking-wide bg-warning/10 text-warning rounded-pill px-2 py-0.5">
                   <AlertCircle size={10} />
                   stub-режим
                 </span>
@@ -189,7 +189,7 @@ export function ChannelsSection() {
               <Field label="Пользователь" value={smtp.user || "—"} mono />
             </div>
 
-            <p className="text-[11px] text-muted-3 mt-3 leading-tight">
+            <p className="text-xs text-muted-3 mt-3 leading-tight">
               Правка SMTP — через переменные окружения на сервере
               (SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASSWORD /
               SMTP_FROM). Из UI пока не настраивается — credentials-at-rest
@@ -213,7 +213,7 @@ function Field({
 }) {
   return (
     <div className="flex items-baseline gap-2">
-      <span className="text-[10px] font-mono uppercase tracking-wide text-muted-3 shrink-0">
+      <span className="text-2xs font-mono uppercase tracking-wide text-muted-3 shrink-0">
         {label}:
       </span>
       <span

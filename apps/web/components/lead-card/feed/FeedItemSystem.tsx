@@ -26,7 +26,7 @@ export function FeedItemSystem({ item }: Props) {
         {icon}
       </span>
       <span className="flex-1 min-w-0 truncate">{text}</span>
-      <span className="shrink-0 font-mono text-[10px] text-brand-muted">
+      <span className="shrink-0 font-mono text-2xs text-brand-muted">
         {formatTimeShort(item.created_at)}
       </span>
     </div>

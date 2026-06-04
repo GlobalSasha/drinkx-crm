@@ -75,10 +75,10 @@ function SourceBody({ lead }: { lead: LeadOut }) {
 
       {utmEntries.length > 0 && (
         <li className="border-t border-brand-border pt-3">
-          <p className={`${C.color.mutedLight} uppercase tracking-wide text-[10px] mb-2`}>
+          <p className={`${C.color.mutedLight} uppercase tracking-wide text-2xs mb-2`}>
             UTM-параметры
           </p>
-          <dl className="grid grid-cols-[120px_1fr] gap-y-1 gap-x-3 font-mono text-[11px]">
+          <dl className="grid grid-cols-[120px_1fr] gap-y-1 gap-x-3 font-mono text-xs">
             {utmEntries.map(([k, v]) => (
               <UtmRow key={k} k={k} v={String(v)} />
             ))}
@@ -119,7 +119,7 @@ function RawPayloadDisclosure({ payload }: { payload: Record<string, unknown> })
         />
         Raw payload
       </summary>
-      <pre className="mt-2 p-2 bg-brand-panel rounded-md overflow-x-auto text-[10px] font-mono">
+      <pre className="mt-2 p-2 bg-brand-panel rounded-md overflow-x-auto text-2xs font-mono">
         {JSON.stringify(payload, null, 2)}
       </pre>
     </details>

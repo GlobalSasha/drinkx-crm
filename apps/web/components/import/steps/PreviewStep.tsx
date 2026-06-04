@@ -58,7 +58,7 @@ export function PreviewStep({ job, onBack, onApplied }: Props) {
         <h3 className="text-base font-bold tracking-tight text-ink">
           Проверьте перед импортом
         </h3>
-        <p className="text-[13px] text-muted mt-1">
+        <p className="text-md text-muted mt-1">
           После запуска данные попадут в базу лидов. Это можно отменить только
           вручную — каждое сопоставление мы создадим как отдельную карточку.
         </p>
@@ -98,7 +98,7 @@ export function PreviewStep({ job, onBack, onApplied }: Props) {
           >
             <span className="text-sm font-bold text-ink">
               Показать ошибки
-              <span className="ml-2 text-[11px] font-mono text-muted-2">
+              <span className="ml-2 text-xs font-mono text-muted-2">
                 {flatErrors.length}
               </span>
             </span>
@@ -109,7 +109,7 @@ export function PreviewStep({ job, onBack, onApplied }: Props) {
           </button>
           {showErrors && (
             <div className="border-t border-black/5">
-              <div className="grid grid-cols-[60px_1fr] text-[10px] font-mono uppercase tracking-wider text-muted-3 px-4 py-2 bg-canvas">
+              <div className="grid grid-cols-[60px_1fr] text-2xs font-mono uppercase tracking-wider text-muted-3 px-4 py-2 bg-canvas">
                 <span>Строка</span>
                 <span>Ошибка</span>
               </div>
@@ -117,14 +117,14 @@ export function PreviewStep({ job, onBack, onApplied }: Props) {
                 {flatErrors.slice(0, VISIBLE_ERRORS).map((e, i) => (
                   <div
                     key={`${e.row}-${i}`}
-                    className="grid grid-cols-[60px_1fr] items-start gap-3 px-4 py-2 text-[12px]"
+                    className="grid grid-cols-[60px_1fr] items-start gap-3 px-4 py-2 text-sm"
                   >
                     <span className="font-mono text-muted-2">#{e.row}</span>
                     <span className="text-ink">{e.msg}</span>
                   </div>
                 ))}
                 {flatErrors.length > VISIBLE_ERRORS && (
-                  <div className="px-4 py-2 text-[11px] font-mono text-muted-3">
+                  <div className="px-4 py-2 text-xs font-mono text-muted-3">
                     …и ещё {flatErrors.length - VISIBLE_ERRORS}
                   </div>
                 )}
@@ -135,7 +135,7 @@ export function PreviewStep({ job, onBack, onApplied }: Props) {
       )}
 
       {error && (
-        <div className="text-[13px] text-rose bg-rose/10 rounded-xl px-3 py-2.5">
+        <div className="text-md text-rose bg-rose/10 rounded-xl px-3 py-2.5">
           {error}
         </div>
       )}
@@ -198,7 +198,7 @@ function StatCard({
     <div
       className={`rounded-2xl border ${palette} px-4 py-3.5 flex flex-col gap-1.5`}
     >
-      <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider opacity-80">
+      <div className="flex items-center gap-1.5 text-2xs font-mono uppercase tracking-wider opacity-80">
         {icon}
         {label}
       </div>
@@ -206,7 +206,7 @@ function StatCard({
         <span className="text-3xl font-bold tracking-tight tabular-nums">
           {value}
         </span>
-        <span className="text-[11px] opacity-70">{unit}</span>
+        <span className="text-xs opacity-70">{unit}</span>
       </div>
     </div>
   );

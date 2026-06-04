@@ -88,7 +88,7 @@ export function UploadStep({ onUploaded }: Props) {
         <h3 className="text-base font-bold tracking-tight text-ink">
           Загрузите файл
         </h3>
-        <p className="text-[13px] text-muted mt-1">
+        <p className="text-md text-muted mt-1">
           Поддерживаются Excel, CSV, JSON, YAML — до {MAX_MB} МБ.
         </p>
       </div>
@@ -117,11 +117,11 @@ export function UploadStep({ onUploaded }: Props) {
             </div>
             <div>
               <div className="text-sm font-bold text-ink">{picked.name}</div>
-              <div className="text-[11px] font-mono text-muted-3 mt-0.5">
+              <div className="text-xs font-mono text-muted-3 mt-0.5">
                 {fmtSize(picked.size)}
               </div>
             </div>
-            <div className="text-[11px] text-muted-2">
+            <div className="text-xs text-muted-2">
               Нажмите чтобы выбрать другой файл
             </div>
           </>
@@ -141,7 +141,7 @@ export function UploadStep({ onUploaded }: Props) {
               <div className="text-sm font-bold text-ink">
                 Перетащите файл сюда
               </div>
-              <div className="text-[12px] text-muted mt-0.5">
+              <div className="text-sm text-muted mt-0.5">
                 или нажмите чтобы выбрать
               </div>
             </div>
@@ -149,7 +149,7 @@ export function UploadStep({ onUploaded }: Props) {
               {ACCEPTED_EXT.filter((e) => e !== ".yml").map((ext) => (
                 <span
                   key={ext}
-                  className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-pill bg-black/5 text-muted-2"
+                  className="text-2xs font-mono uppercase tracking-wider px-2 py-0.5 rounded-pill bg-black/5 text-muted-2"
                 >
                   {ext}
                 </span>
@@ -168,7 +168,7 @@ export function UploadStep({ onUploaded }: Props) {
       </button>
 
       {error && (
-        <div className="flex items-start gap-2 text-[13px] text-rose bg-rose/10 rounded-xl px-3 py-2.5">
+        <div className="flex items-start gap-2 text-md text-rose bg-rose/10 rounded-xl px-3 py-2.5">
           <AlertCircle size={14} className="shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>

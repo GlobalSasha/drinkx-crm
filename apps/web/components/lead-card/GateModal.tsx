@@ -97,7 +97,7 @@ export function GateModal({ leadId, targetStage, onClose, onSuccess }: Props) {
           {/* Gate criteria checklist */}
           {criteria.length > 0 && (
             <div className="mb-4">
-              <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-3 mb-2">
+              <p className="font-mono text-2xs uppercase tracking-[0.12em] text-muted-3 mb-2">
                 Критерии перехода
               </p>
               <div className="space-y-2">

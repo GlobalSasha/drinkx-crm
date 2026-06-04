@@ -295,13 +295,13 @@ export function LeadCard({ leadId }: Props) {
                     if (e.key === "Enter") commitName();
                     if (e.key === "Escape") setEditingName(false);
                   }}
-                  className="text-[28px] font-bold tracking-tight text-ink bg-transparent border-b-2 border-brand-accent outline-none w-full"
+                  className="text-4xl font-bold tracking-tight text-ink bg-transparent border-b-2 border-brand-accent outline-none w-full"
                   style={{ lineHeight: "1.2" }}
                 />
               ) : (
                 <h1
                   onClick={startEditName}
-                  className="text-[28px] font-bold tracking-tight text-ink cursor-text hover:text-brand-accent-text transition-colors truncate"
+                  className="text-4xl font-bold tracking-tight text-ink cursor-text hover:text-brand-accent-text transition-colors truncate"
                   style={{ lineHeight: "1.2" }}
                   title="Нажмите для редактирования"
                 >
@@ -507,7 +507,7 @@ export function LeadCard({ leadId }: Props) {
               <Link
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 href={`/leads-pool?form_id=${lead.source_form_id}` as any}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-brand-soft text-brand-accent-text text-[11px] font-semibold hover:bg-brand-soft/80 transition-colors"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-brand-soft text-brand-accent-text text-xs font-semibold hover:bg-brand-soft/80 transition-colors"
                 title="Открыть пул лидов этого лендинга"
               >
                 <Globe size={11} aria-hidden />
@@ -516,7 +516,7 @@ export function LeadCard({ leadId }: Props) {
             )}
             {lead.source?.startsWith("form:") && !lead.source_form_name && (
               <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-brand-panel text-brand-muted text-[11px] font-semibold"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-brand-panel text-brand-muted text-xs font-semibold"
                 title="Форма удалена"
               >
                 <Globe size={11} aria-hidden />

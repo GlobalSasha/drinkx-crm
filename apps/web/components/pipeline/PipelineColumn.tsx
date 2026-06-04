@@ -47,7 +47,7 @@ function PipelineColumnImpl({ stage, leads }: Props) {
                 {stage.rot_days}д
               </span>
             )}
-            <span className="text-[10px] font-mono text-brand-muted-strong bg-brand-panel px-1.5 py-0.5 rounded-full">
+            <span className="text-2xs font-mono text-brand-muted-strong bg-brand-panel px-1.5 py-0.5 rounded-full">
               {leads.length}
             </span>
           </div>

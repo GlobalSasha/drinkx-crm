@@ -104,7 +104,7 @@ function PipelineLeadCardImpl({ lead }: Props) {
       </p>
 
       {/* Row 3 — bottom info bar */}
-      <div className="flex items-center gap-1.5 text-[10px] text-brand-muted">
+      <div className="flex items-center gap-1.5 text-2xs text-brand-muted">
         {lead.segment && (
           <span
             className="font-mono uppercase tracking-[0.06em] bg-brand-panel text-brand-muted-strong px-1.5 py-0.5 rounded-md truncate max-w-[90px]"

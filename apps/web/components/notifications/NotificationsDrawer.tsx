@@ -144,7 +144,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
           <div className="flex items-center gap-2">
             <h2 className="text-base font-bold tracking-tight">Уведомления</h2>
             {unread > 0 && (
-              <span className="bg-brand-accent text-white text-[10px] font-mono font-bold px-2 py-0.5 rounded-pill tabular-nums">
+              <span className="bg-brand-accent text-white text-2xs font-mono font-bold px-2 py-0.5 rounded-pill tabular-nums">
                 {unread}
               </span>
             )}
@@ -172,7 +172,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
           <div className="flex items-center gap-1 bg-canvas rounded-pill p-0.5">
             <button
               onClick={() => setUnreadOnly(true)}
-              className={`px-3 py-1 text-[11px] font-semibold rounded-pill transition-colors ${
+              className={`px-3 py-1 text-xs font-semibold rounded-pill transition-colors ${
                 unreadOnly ? "bg-white text-ink shadow-soft" : "text-muted-2 hover:text-ink"
               }`}
             >
@@ -180,7 +180,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
             </button>
             <button
               onClick={() => setUnreadOnly(false)}
-              className={`px-3 py-1 text-[11px] font-semibold rounded-pill transition-colors ${
+              className={`px-3 py-1 text-xs font-semibold rounded-pill transition-colors ${
                 !unreadOnly ? "bg-white text-ink shadow-soft" : "text-muted-2 hover:text-ink"
               }`}
             >
@@ -190,7 +190,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
           <button
             onClick={() => markAll()}
             disabled={unread === 0 || isMarkingAll}
-            className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-muted hover:text-brand-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted hover:text-brand-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Check size={12} />
             Прочитать все
@@ -238,7 +238,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
                     className="bg-canvas/60 px-5 py-1.5 sticky top-0 z-10 border-b border-black/5"
                     role="presentation"
                   >
-                    <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-muted-3 font-semibold">
+                    <span className="text-2xs font-mono uppercase tracking-[0.18em] text-muted-3 font-semibold">
                       {group.header}
                     </span>
                   </li>
@@ -264,11 +264,11 @@ export function NotificationsDrawer({ open, onClose }: Props) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span
-                          className={`font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${kindStyle}`}
+                          className={`font-mono text-2xs font-semibold px-1.5 py-0.5 rounded-md ${kindStyle}`}
                         >
                           {kindLabel}
                         </span>
-                        <span className="font-mono text-[10px] text-muted-3">
+                        <span className="font-mono text-2xs text-muted-3">
                           {relativeTime(n.created_at)}
                         </span>
                       </div>

@@ -93,7 +93,7 @@ function PoolRow({
         <p className="font-semibold text-sm text-ink">{lead.company_name}</p>
         {lead.source_form_name && (
           <span
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono text-brand-accent-text bg-brand-soft"
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-2xs font-mono text-brand-accent-text bg-brand-soft"
             title="Источник заявки"
           >
             <Globe size={9} aria-hidden />
@@ -556,7 +556,7 @@ function LeadsPoolPageInner() {
           <button
             type="button"
             onClick={() => setNeedsReview((v) => (v === true ? undefined : true))}
-            className={`text-[11px] px-2 py-1 rounded ${
+            className={`text-xs px-2 py-1 rounded ${
               needsReview === true
                 ? "bg-amber-600 text-white"
                 : "bg-canvas border border-black/5 text-muted-2 hover:border-amber-400"

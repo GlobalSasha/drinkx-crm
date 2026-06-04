@@ -156,7 +156,7 @@ function SettingsPageInner() {
           {SECTIONS.some((s) => !s.ready) && (
             <details className="group mt-1 md:mt-2 hidden md:block">
               <summary
-                className="flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-mono uppercase tracking-[0.18em] text-muted-3 cursor-pointer list-none hover:bg-black/5 hover:text-muted [&::-webkit-details-marker]:hidden"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-mono uppercase tracking-[0.18em] text-muted-3 cursor-pointer list-none hover:bg-black/5 hover:text-muted [&::-webkit-details-marker]:hidden"
               >
                 <ChevronDown
                   size={12}
