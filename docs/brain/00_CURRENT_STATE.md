@@ -1,6 +1,13 @@
 # DrinkX CRM — Current State
 
-Last updated: 2026-06-04 — **Odoo-reuse arc** (8 PRs #102–#109, all in prod/main; details at the bottom of this file). Analysed `github.com/odoo/odoo` and shipped the reusable CRM logic adapted to FastAPI/Postgres: UI consistency (`PageContainer`, `PageHeader`), phone **E.164** normalization (`phone_validation`), lead duplicate **detection** + **merge** (`_compute_potential_lead_duplicates` / `_merge_opportunity`), **UTM** attribution (`utm` module). Also added the repo's **first test CI** (`.github/workflows/test.yml`, postgres:16) and un-quarantined 20/22 legacy tests. **Alembic head now 0045; next free 0046.** What to do next: `04_NEXT_SPRINT.md`. Earlier: 2026-05-23 base_update + task-file-attachments (heads 0035→0037); 2026-05-16 Lead Card Refresh (migrations 0026→0030).
+Last updated: 2026-06-04 — **Odoo-reuse follow-ups sprint** (PRs #110–#114, all in prod/main).
+Completed `04_NEXT_SPRINT.md`: **G1** dedup-merge UI on LeadCard (`DuplicatesModal` + «объединён из N» note);
+**G2** UTM channel analytics (`GET /leads/utm-stats` + «Каналы привлечения» card on `/forecast`);
+**G3** one-off backfill of normalized dedup keys (`app/common/backfill.py` + manual Celery task);
+**G4** shared `Empty` on `/team` + warn-level `drinkx/no-arbitrary-px` lint rule (the ~235-site px
+sweep + 617-line LeadCard split deferred to `docs/BACKLOG.md` #3); **G5** fixed + un-quarantined the
+last 2 legacy tests (`_KNOWN_PRE_EXISTING_FAILURES` now empty). No new migrations — Alembic head still 0045.
+Previous: **Odoo-reuse arc** (8 PRs #102–#109, all in prod/main; details at the bottom of this file). Analysed `github.com/odoo/odoo` and shipped the reusable CRM logic adapted to FastAPI/Postgres: UI consistency (`PageContainer`, `PageHeader`), phone **E.164** normalization (`phone_validation`), lead duplicate **detection** + **merge** (`_compute_potential_lead_duplicates` / `_merge_opportunity`), **UTM** attribution (`utm` module). Also added the repo's **first test CI** (`.github/workflows/test.yml`, postgres:16) and un-quarantined 20/22 legacy tests. **Alembic head now 0045; next free 0046.** What to do next: `04_NEXT_SPRINT.md`. Earlier: 2026-05-23 base_update + task-file-attachments (heads 0035→0037); 2026-05-16 Lead Card Refresh (migrations 0026→0030).
 
 ## Phase 0 — COMPLETED ✅ (lives in `crm-prototype` repo)
 
