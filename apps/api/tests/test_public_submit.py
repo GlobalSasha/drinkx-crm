@@ -153,6 +153,10 @@ def _make_form(*, slug="test-form-abc123", is_active=True, name="Test Form",
         "default_assignee_id": None,
         "contact_task_sla_hours": 2,
         "ingest_token": None,
+        # Auto-reply columns (migration 0046).
+        "autoreply_enabled": False,
+        "autoreply_subject": None,
+        "autoreply_body": None,
     })()
 
 
@@ -523,3 +527,93 @@ def test_embed_js_contains_slug():
     # Once-loaded guard (`__drinkxFormLoaded_<safe-id>`) survives the
     # hyphen → underscore transform in _safe_id
     assert "__drinkxFormLoaded_forma_dlya_horeca_a3x9kp" in js
+
+
+# ===========================================================================
+# 10. Per-form auto-reply to the lead (migration 0046)
+# ===========================================================================
+
+def test_text_to_html_escapes_and_autolinks():
+    """Manager-entered plain text must be HTML-escaped (no injection),
+    newlines become <br>, and bare URLs become clickable links."""
+    html = public_mod._text_to_html("A & <b>\nКП: https://drinkx.tech/kp")
+    assert "&amp;" in html
+    assert "&lt;b&gt;" in html  # tag escaped, not rendered
+    assert "<br>" in html
+    assert '<a href="https://drinkx.tech/kp">https://drinkx.tech/kp</a>' in html
+
+
+@pytest.mark.asyncio
+async def test_autoreply_skipped_when_disabled():
+    sent: list[dict] = []
+
+    async def fake_send(**kw):
+        sent.append(kw)
+        return True
+
+    form = _make_form()
+    form.autoreply_enabled = False
+    lead = MagicMock(email="client@example.ru")
+    with patch("app.notifications.email_sender.send_email", new=fake_send):
+        await public_mod._send_autoreply(lead=lead, form=form)
+    assert sent == []
+
+
+@pytest.mark.asyncio
+async def test_autoreply_skipped_when_no_email():
+    sent: list[dict] = []
+
+    async def fake_send(**kw):
+        sent.append(kw)
+        return True
+
+    form = _make_form()
+    form.autoreply_enabled = True
+    form.autoreply_subject = "КП"
+    form.autoreply_body = "Текст"
+    lead = MagicMock(email="")  # phone-only lead
+    with patch("app.notifications.email_sender.send_email", new=fake_send):
+        await public_mod._send_autoreply(lead=lead, form=form)
+    assert sent == []
+
+
+@pytest.mark.asyncio
+async def test_autoreply_sends_to_lead_email():
+    sent: list[dict] = []
+
+    async def fake_send(**kw):
+        sent.append(kw)
+        return True
+
+    form = _make_form()
+    form.autoreply_enabled = True
+    form.autoreply_subject = "КП DrinkX"
+    form.autoreply_body = "Здравствуйте! КП: https://drinkx.tech/kp"
+    lead = MagicMock(email=" client@example.ru ")  # trimmed before send
+    with patch("app.notifications.email_sender.send_email", new=fake_send):
+        await public_mod._send_autoreply(lead=lead, form=form)
+
+    assert len(sent) == 1
+    assert sent[0]["to"] == "client@example.ru"
+    assert sent[0]["subject"] == "КП DrinkX"
+    assert '<a href="https://drinkx.tech/kp">' in sent[0]["html"]
+
+
+@pytest.mark.asyncio
+async def test_autoreply_subject_falls_back_to_form_name():
+    sent: list[dict] = []
+
+    async def fake_send(**kw):
+        sent.append(kw)
+        return True
+
+    form = _make_form(name="Сайт drinkx.ru")
+    form.autoreply_enabled = True
+    form.autoreply_subject = None  # no subject → fall back to form name
+    form.autoreply_body = "Спасибо за заявку!"
+    lead = MagicMock(email="client@example.ru")
+    with patch("app.notifications.email_sender.send_email", new=fake_send):
+        await public_mod._send_autoreply(lead=lead, form=form)
+
+    assert len(sent) == 1
+    assert "Сайт drinkx.ru" in sent[0]["subject"]

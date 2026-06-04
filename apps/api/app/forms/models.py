@@ -18,6 +18,7 @@ from sqlalchemy import (
     Integer,
     JSON,
     String,
+    Text,
     func,
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -82,6 +83,17 @@ class WebForm(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     # S2S secret. NULL → open form (browser/embed). NOT NULL → submit
     # requires matching X-Form-Key header.
     ingest_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    # Per-form auto-reply (КП / welcome letter) sent to the LEAD's own
+    # email on submit. `autoreply_body` is plain text entered by the
+    # manager; the public submit flow converts it to HTML (nl2br +
+    # autolink) before sending. Only fires when enabled AND the lead
+    # left an email.
+    autoreply_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False
+    )
+    autoreply_subject: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    autoreply_body: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class FormSubmission(Base, UUIDPrimaryKeyMixin):

@@ -84,6 +84,9 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
   const [sourceLabel, setSourceLabel] = useState("");
   const [notifyEmail, setNotifyEmail] = useState("");
   const [requireKey, setRequireKey] = useState(false);
+  const [autoreplyEnabled, setAutoreplyEnabled] = useState(false);
+  const [autoreplySubject, setAutoreplySubject] = useState("");
+  const [autoreplyBody, setAutoreplyBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -110,6 +113,9 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
       setSourceLabel(form.source_label ?? "");
       setNotifyEmail(form.notify_email ?? "");
       setRequireKey(!!form.ingest_token);
+      setAutoreplyEnabled(form.autoreply_enabled ?? false);
+      setAutoreplySubject(form.autoreply_subject ?? "");
+      setAutoreplyBody(form.autoreply_body ?? "");
     } else {
       setName("");
       setFields(withClientIds(DEFAULT_FIELDS));
@@ -121,6 +127,9 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
       setSourceLabel("");
       setNotifyEmail("");
       setRequireKey(false);
+      setAutoreplyEnabled(false);
+      setAutoreplySubject("");
+      setAutoreplyBody("");
     }
   }, [open, form]);
 
@@ -230,6 +239,9 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
       source_label: sourceLabel.trim() || null,
       notify_email: notifyEmail.trim() || null,
       require_key: requireKey,
+      autoreply_enabled: autoreplyEnabled,
+      autoreply_subject: autoreplySubject.trim() || null,
+      autoreply_body: autoreplyBody.trim() || null,
     };
 
     const opts = {
@@ -335,6 +347,12 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
                 onNotifyEmail={setNotifyEmail}
                 requireKey={requireKey}
                 onRequireKey={setRequireKey}
+                autoreplyEnabled={autoreplyEnabled}
+                onAutoreplyEnabled={setAutoreplyEnabled}
+                autoreplySubject={autoreplySubject}
+                onAutoreplySubject={setAutoreplySubject}
+                autoreplyBody={autoreplyBody}
+                onAutoreplyBody={setAutoreplyBody}
               />
             )}
             {tab === "embed" && form && (
@@ -442,6 +460,12 @@ function SettingsTab({
   onNotifyEmail,
   requireKey,
   onRequireKey,
+  autoreplyEnabled,
+  onAutoreplyEnabled,
+  autoreplySubject,
+  onAutoreplySubject,
+  autoreplyBody,
+  onAutoreplyBody,
 }: {
   name: string;
   onName: (v: string) => void;
@@ -465,6 +489,12 @@ function SettingsTab({
   onNotifyEmail: (v: string) => void;
   requireKey: boolean;
   onRequireKey: (v: boolean) => void;
+  autoreplyEnabled: boolean;
+  onAutoreplyEnabled: (v: boolean) => void;
+  autoreplySubject: string;
+  onAutoreplySubject: (v: string) => void;
+  autoreplyBody: string;
+  onAutoreplyBody: (v: string) => void;
 }) {
   return (
     <div className="space-y-5">
@@ -621,6 +651,53 @@ function SettingsTab({
           автоматически и виден во вкладке «Встроить».
         </p>
       </div>
+
+      {/* Auto-reply to the lead */}
+      <div>
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={autoreplyEnabled}
+            onChange={(e) => onAutoreplyEnabled(e.target.checked)}
+            className="h-4 w-4 rounded border-black/20 accent-brand-accent"
+          />
+          <span className="text-sm font-semibold text-ink">
+            Авто-ответ на почту лида
+          </span>
+        </label>
+        <p className="text-xs text-muted-3 mt-1 leading-snug ml-7">
+          Если в заявке указана почта — на неё автоматически уйдёт это
+          письмо (например, КП и ссылка на калькулятор). Без почты —
+          просто не отправится.
+        </p>
+      </div>
+
+      {autoreplyEnabled && (
+        <>
+          <Field label="Тема письма">
+            <input
+              value={autoreplySubject}
+              onChange={(e) => onAutoreplySubject(e.target.value)}
+              placeholder="DrinkX — коммерческое предложение"
+              className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
+            />
+          </Field>
+          <Field
+            label="Текст письма"
+            hint="Обычный текст. Вставьте ссылку на КП и на калькулятор — в письме они станут кликабельными."
+          >
+            <textarea
+              value={autoreplyBody}
+              onChange={(e) => onAutoreplyBody(e.target.value)}
+              rows={6}
+              placeholder={
+                "Здравствуйте!\n\nСпасибо за заявку. Наше коммерческое предложение: https://...\nКалькулятор окупаемости: https://..."
+              }
+              className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors resize-none"
+            />
+          </Field>
+        </>
+      )}
 
       {/* Redirect URL */}
       <Field

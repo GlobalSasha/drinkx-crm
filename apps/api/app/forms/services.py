@@ -118,6 +118,9 @@ async def create_form(
     source_label: str | None = None,
     notify_email: str | None = None,
     require_key: bool = False,
+    autoreply_enabled: bool = False,
+    autoreply_subject: str | None = None,
+    autoreply_body: str | None = None,
 ) -> WebForm:
     """Persist a new form. Auto-generates the slug from `name`; retries
     on the rare slug collision (random suffix keeps this near-zero in
@@ -161,6 +164,9 @@ async def create_form(
                 source_label=source_label,
                 notify_email=notify_email,
                 ingest_token=ingest_token,
+                autoreply_enabled=autoreply_enabled,
+                autoreply_subject=autoreply_subject,
+                autoreply_body=autoreply_body,
             )
             return form
         except IntegrityError as exc:

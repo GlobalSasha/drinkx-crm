@@ -35,6 +35,9 @@ class WebFormCreateIn(BaseModel):
     source_label: str | None = Field(default=None, max_length=120)
     notify_email: str | None = Field(default=None, max_length=254)
     require_key: bool = False  # True → server generates ingest_token
+    autoreply_enabled: bool = False
+    autoreply_subject: str | None = Field(default=None, max_length=200)
+    autoreply_body: str | None = Field(default=None, max_length=5000)
 
 
 class WebFormUpdateIn(BaseModel):
@@ -49,6 +52,9 @@ class WebFormUpdateIn(BaseModel):
     source_label: str | None = Field(default=None, max_length=120)
     notify_email: str | None = Field(default=None, max_length=254)
     require_key: bool | None = None
+    autoreply_enabled: bool | None = None
+    autoreply_subject: str | None = Field(default=None, max_length=200)
+    autoreply_body: str | None = Field(default=None, max_length=5000)
 
 
 class WebFormOut(BaseModel):
@@ -76,6 +82,9 @@ class WebFormOut(BaseModel):
     source_label: str | None = None
     notify_email: str | None = None
     ingest_token: str | None = None
+    autoreply_enabled: bool = False
+    autoreply_subject: str | None = None
+    autoreply_body: str | None = None
 
 
 class WebFormPageOut(BaseModel):
