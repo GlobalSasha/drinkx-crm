@@ -49,6 +49,14 @@ def regenerate_for_user(user_id: str, plan_date_iso: str) -> dict:
     return asyncio.run(_run_one_user_regen(UUID(user_id), date.fromisoformat(plan_date_iso)))
 
 
+@celery_app.task(name="app.scheduled.jobs.backfill_normalized_keys")
+def backfill_normalized_keys() -> dict:
+    """One-off: re-derive phone_e164 / email_normalized / email_domain_criterion
+    on legacy leads + contacts rows. Idempotent — safe to re-run."""
+    from app.common.backfill import backfill_normalized_keys as _core
+    return asyncio.run(_run("backfill_normalized_keys", _core))
+
+
 @celery_app.task(name="app.scheduled.jobs.gmail_history_sync")
 def gmail_history_sync(user_id: str) -> dict:
     """One-time backfill dispatched from /api/inbox/gmail/callback.
