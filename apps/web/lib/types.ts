@@ -198,6 +198,19 @@ export interface UtmSourceStat {
   won_sum: number;
 }
 
+/** One row of «Где застревают сделки» — dwell stats for one active stage.
+ *  `*_days` are null when no lead has completed the stage yet. */
+export interface StageDwellStat {
+  stage_id: string;
+  stage_name: string;
+  position: number;
+  completed_count: number;
+  avg_days: number | null;
+  median_days: number | null;
+  p90_days: number | null;
+  stuck_count: number;
+}
+
 export interface SprintCreateIn {
   cities: string[];
   segment?: string | null;

@@ -2,12 +2,13 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { TrendingUp, Wallet, AlertTriangle, Trophy, ArrowUpRight, Radio } from "lucide-react";
+import { TrendingUp, Wallet, AlertTriangle, Trophy, ArrowUpRight, Radio, Timer } from "lucide-react";
 import { usePipelines } from "@/lib/hooks/use-pipelines";
 import { pageContainerVariants } from "@/components/ui/PageContainer";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useLeads } from "@/lib/hooks/use-leads";
 import { useUtmStats } from "@/lib/hooks/use-utm-stats";
+import { useStageDwell } from "@/lib/hooks/use-stage-dwell";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/Empty";
@@ -28,6 +29,7 @@ export default function ForecastPage() {
   const { data: pipelines } = usePipelines();
   const { data: leadsData, isLoading } = useLeads(FORECAST_LEADS_FILTER);
   const { data: utmStats, isLoading: utmLoading } = useUtmStats();
+  const { data: dwell, isLoading: dwellLoading } = useStageDwell();
 
   const { pipelineTotal, weightedTotal, atRiskTotal, atRiskDeals, wonRecent, stageBars } =
     useMemo(() => {
@@ -269,6 +271,69 @@ export default function ForecastPage() {
                       </tr>
                     );
                   })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {/* Stage dwell — where deals get stuck */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Где застревают сделки</CardTitle>
+        </CardHeader>
+        {!dwellLoading &&
+        (dwell ?? []).every((s) => s.completed_count === 0 && s.stuck_count === 0) ? (
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon"><Timer /></EmptyMedia>
+              <EmptyTitle>Пока нет данных о переходах</EmptyTitle>
+              <EmptyDescription>
+                Как только сделки начнут двигаться по этапам, здесь появится
+                средняя скорость и список «застрявших».
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="type-caption text-brand-muted uppercase tracking-wider">
+                  <th className="font-semibold py-2 pr-3">Этап</th>
+                  <th className="font-semibold py-2 px-3 text-right tabular-nums">Прошло</th>
+                  <th className="font-semibold py-2 px-3 text-right tabular-nums">Медиана</th>
+                  <th className="font-semibold py-2 px-3 text-right tabular-nums">p90</th>
+                  <th className="font-semibold py-2 pl-3 text-right tabular-nums">Застряли</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dwellLoading ? (
+                  <tr>
+                    <td colSpan={5} className="py-4 type-caption text-brand-muted">…</td>
+                  </tr>
+                ) : (
+                  (dwell ?? []).map((s) => (
+                    <tr key={s.stage_id} className="border-t border-brand-border">
+                      <td className="py-2.5 pr-3 type-body text-brand-primary">{s.stage_name}</td>
+                      <td className="py-2.5 px-3 text-right tabular-nums type-caption text-brand-muted">
+                        {s.completed_count}
+                      </td>
+                      <td className="py-2.5 px-3 text-right tabular-nums type-body text-brand-primary">
+                        {s.median_days != null ? `${s.median_days} дн` : "—"}
+                      </td>
+                      <td className="py-2.5 px-3 text-right tabular-nums type-caption text-brand-muted">
+                        {s.p90_days != null ? `${s.p90_days} дн` : "—"}
+                      </td>
+                      <td className="py-2.5 pl-3 text-right tabular-nums">
+                        {s.stuck_count > 0 ? (
+                          <Badge variant="rose">{s.stuck_count}</Badge>
+                        ) : (
+                          <span className="type-caption text-brand-muted">0</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>

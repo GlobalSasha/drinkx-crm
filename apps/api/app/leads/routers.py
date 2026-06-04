@@ -28,6 +28,7 @@ from app.leads.schemas import (
     SprintCreateIn,
     SprintCreateOut,
     StageDurationOut,
+    StageDwellOut,
     TransferIn,
     UtmSourceStatOut,
 )
@@ -182,6 +183,21 @@ async def create_sprint(
         requested=requested,
         items=items,  # type: ignore[arg-type]
     )
+
+
+@router.get("/stage-dwell", response_model=list[StageDwellOut])
+async def lead_stage_dwell(
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> list[StageDwellOut]:
+    """«Где застревают сделки» — per active stage dwell stats (median/p90 days
+    + how many leads are stuck past rot_days), bottlenecks first. Declared
+    before `/{lead_id}` so the literal path wins.
+    """
+    from app.leads.analytics import stage_dwell_summary
+
+    rows = await stage_dwell_summary(db, user.workspace_id)
+    return [StageDwellOut(**r) for r in rows]
 
 
 @router.get("/utm-stats", response_model=list[UtmSourceStatOut])

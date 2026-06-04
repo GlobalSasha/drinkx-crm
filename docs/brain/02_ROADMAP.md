@@ -239,7 +239,11 @@
 
 To be decided by the operator after the Lead Card Refresh arc is smoked in production. Candidates:
 
-### Phase 3 — Stage Dwell Analytics (~2-3 days)
+### Phase 3 — Stage Dwell Analytics — ✅ DONE (PR #121)
+Shipped: `stage_dwell_summary()` in `app/leads/analytics.py` (median/p90/avg dwell
+per active stage + stuck-past-rot_days count, bottlenecks first), `GET /api/leads/stage-dwell`,
+and a «Где застревают сделки» table card on `/forecast`. 4 DB-backed tests.
+Original note (for context):
 Consume the `lead_stage_history` data that now accumulates on every transition. ADR-025 sized the table for fast aggregation — nothing reads it workspace-wide yet.
 - Service: `get_stage_dwell_summary(workspace_id)` over `lead_stage_history` × `stages` × `pipelines` — avg / median / p90 days per stage; count of leads stuck > 14 days; bottleneck rank
 - Endpoint: `GET /api/analytics/stage-dwell` (admin/head)
