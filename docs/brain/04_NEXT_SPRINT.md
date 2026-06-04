@@ -38,9 +38,9 @@ The merge backend is live but unreachable from the app. Build the human-in-the-l
 
 ### G2 — UTM channel analytics
 UTM dims now land on leads. Surface «какой канал приносит сделки».
-- [ ] `GET /api/leads/utm-stats` (or under `/forms`) — GROUP BY source → `{leads, won, sum}`.
+- [x] `GET /api/leads/utm-stats` (or under `/forms`) — GROUP BY source → `{leads, won, sum}`.
       DB-backed test.
-- [ ] A «Каналы привлечения» table card on `/forecast` (or `/forms`).
+- [x] A «Каналы привлечения» table card on `/forecast` (or `/forms`).
 
 ### G3 — Backfill normalized columns
 Existing rows have NULL `phone_e164` / `email_normalized` / `email_domain_criterion`

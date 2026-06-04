@@ -189,6 +189,15 @@ export interface LeadListOut {
   page_size: number;
 }
 
+/** One row of «Каналы привлечения» — leads grouped by UTM source.
+ *  `source` is null for direct / unattributed leads. */
+export interface UtmSourceStat {
+  source: string | null;
+  leads: number;
+  won: number;
+  won_sum: number;
+}
+
 export interface SprintCreateIn {
   cities: string[];
   segment?: string | null;
