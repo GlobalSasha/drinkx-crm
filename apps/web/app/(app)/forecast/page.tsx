@@ -2,11 +2,12 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { TrendingUp, Wallet, AlertTriangle, Trophy, ArrowUpRight } from "lucide-react";
+import { TrendingUp, Wallet, AlertTriangle, Trophy, ArrowUpRight, Radio } from "lucide-react";
 import { usePipelines } from "@/lib/hooks/use-pipelines";
 import { pageContainerVariants } from "@/components/ui/PageContainer";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useLeads } from "@/lib/hooks/use-leads";
+import { useUtmStats } from "@/lib/hooks/use-utm-stats";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/Empty";
@@ -26,6 +27,7 @@ function fmtMoney(n: number): string {
 export default function ForecastPage() {
   const { data: pipelines } = usePipelines();
   const { data: leadsData, isLoading } = useLeads(FORECAST_LEADS_FILTER);
+  const { data: utmStats, isLoading: utmLoading } = useUtmStats();
 
   const { pipelineTotal, weightedTotal, atRiskTotal, atRiskDeals, wonRecent, stageBars } =
     useMemo(() => {
@@ -203,6 +205,74 @@ export default function ForecastPage() {
               <Bar dataKey="total" fill={BRAND_CHART_COLORS[0]} radius={[6, 6, 0, 0]} />
             </BarChart>
           </ChartContainer>
+        )}
+      </Card>
+
+      {/* Acquisition channels — leads grouped by UTM source */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Каналы привлечения</CardTitle>
+        </CardHeader>
+        {!utmLoading && (utmStats?.length ?? 0) === 0 ? (
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon"><Radio /></EmptyMedia>
+              <EmptyTitle>Пока нет данных по каналам</EmptyTitle>
+              <EmptyDescription>
+                Лиды с UTM-метками (из веб-форм с <code>?utm_source=…</code>)
+                появятся здесь, сгруппированные по источнику.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="type-caption text-brand-muted uppercase tracking-wider">
+                  <th className="font-semibold py-2 pr-3">Источник</th>
+                  <th className="font-semibold py-2 px-3 text-right tabular-nums">Лиды</th>
+                  <th className="font-semibold py-2 px-3 text-right tabular-nums">Сделки</th>
+                  <th className="font-semibold py-2 px-3 text-right tabular-nums">Конверсия</th>
+                  <th className="font-semibold py-2 pl-3 text-right tabular-nums">Выручка</th>
+                </tr>
+              </thead>
+              <tbody>
+                {utmLoading ? (
+                  <tr>
+                    <td colSpan={5} className="py-4 type-caption text-brand-muted">…</td>
+                  </tr>
+                ) : (
+                  (utmStats ?? []).map((row) => {
+                    const conv = row.leads > 0 ? Math.round((row.won / row.leads) * 100) : 0;
+                    return (
+                      <tr
+                        key={row.source ?? "__none__"}
+                        className="border-t border-brand-border"
+                      >
+                        <td className="py-2.5 pr-3 type-body text-brand-primary">
+                          {row.source ?? (
+                            <span className="text-brand-muted">Прямые / без UTM</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-right tabular-nums type-body text-brand-primary">
+                          {row.leads}
+                        </td>
+                        <td className="py-2.5 px-3 text-right tabular-nums type-body text-brand-primary">
+                          {row.won}
+                        </td>
+                        <td className="py-2.5 px-3 text-right tabular-nums type-caption text-brand-muted">
+                          {conv}%
+                        </td>
+                        <td className="py-2.5 pl-3 text-right tabular-nums type-body text-brand-primary font-semibold whitespace-nowrap">
+                          {fmtMoney(Number(row.won_sum))}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
 

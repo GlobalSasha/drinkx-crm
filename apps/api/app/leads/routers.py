@@ -29,6 +29,7 @@ from app.leads.schemas import (
     SprintCreateOut,
     StageDurationOut,
     TransferIn,
+    UtmSourceStatOut,
 )
 from app.leads.services import (
     LeadAlreadyClaimed,
@@ -181,6 +182,21 @@ async def create_sprint(
         requested=requested,
         items=items,  # type: ignore[arg-type]
     )
+
+
+@router.get("/utm-stats", response_model=list[UtmSourceStatOut])
+async def lead_utm_stats(
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> list[UtmSourceStatOut]:
+    """«Какой канал приносит сделки» — leads grouped by UTM source with
+    won-deal count + revenue. Declared before `/{lead_id}` so the literal
+    path wins over the path-param route.
+    """
+    from app.leads.analytics import utm_source_stats
+
+    rows = await utm_source_stats(db, user.workspace_id)
+    return [UtmSourceStatOut(**r) for r in rows]
 
 
 @router.get("/{lead_id}", response_model=LeadOut)

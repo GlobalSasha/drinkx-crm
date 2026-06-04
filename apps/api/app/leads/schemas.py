@@ -272,3 +272,15 @@ class MoveStageBlockedDetail(BaseModel):
 class MergeLeadsIn(BaseModel):
     """Merge the listed duplicate leads into the path lead (the master)."""
     duplicate_ids: list[UUID] = Field(..., min_length=1)
+
+
+class UtmSourceStatOut(BaseModel):
+    """One row of «какой канал приносит сделки» — leads grouped by UTM source.
+
+    `source` is the dictionary name, or None for leads with no UTM source
+    (direct / unattributed). `won_sum` is the revenue of won deals only.
+    """
+    source: str | None
+    leads: int
+    won: int
+    won_sum: Decimal
