@@ -1552,7 +1552,7 @@ export interface CompanyListOut {
   total: number;
 }
 
-export type SearchHitType = "company" | "lead" | "contact";
+export type SearchHitType = "company" | "lead" | "contact" | "file";
 
 export interface SearchHit {
   type: SearchHitType;

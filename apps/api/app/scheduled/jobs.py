@@ -310,6 +310,39 @@ def purge_orphan_storage_files() -> dict:
     return asyncio.run(_core())
 
 
+@celery_app.task(name="app.scheduled.jobs.backfill_file_extraction")
+def backfill_file_extraction() -> dict:
+    """One-off: re-dispatch content extraction for file attachments uploaded
+    before extraction was wired (payload_json has no 'extracted_text'). Makes
+    global file search work over historical files, not just new uploads.
+    Idempotent — already-indexed files are skipped by the WHERE clause."""
+    from sqlalchemy import select, text
+    from app.activity.models import Activity, ActivityType
+
+    async def _core():
+        engine, factory = _build_task_engine_and_factory()
+        try:
+            async with factory() as db:
+                rows = (
+                    await db.execute(
+                        select(Activity.id).where(
+                            Activity.type == ActivityType.file.value,
+                            Activity.file_url.isnot(None),
+                            text("payload_json->>'extracted_text' IS NULL"),
+                        )
+                    )
+                ).scalars().all()
+            for aid in rows:
+                celery_app.send_task(
+                    "app.scheduled.jobs.extract_task_file_content", args=[str(aid)]
+                )
+            return {"job": "backfill_file_extraction", "dispatched": len(rows)}
+        finally:
+            await engine.dispose()
+
+    return asyncio.run(_core())
+
+
 @celery_app.task(name="app.scheduled.jobs.extract_task_file_content")
 def extract_task_file_content(activity_id: str) -> dict:
     """Best-effort post-upload: download the file from storage, extract
