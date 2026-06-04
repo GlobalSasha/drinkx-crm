@@ -66,6 +66,21 @@ async def _search_ilike(
                 WHERE ct.workspace_id = :wid
                   AND (ct.name ILIKE :pat OR ct.email ILIKE :pat OR ct.phone ILIKE :pat)
                 LIMIT :lim
+
+                UNION ALL
+
+                SELECT 'file' AS type, a.id::text,
+                  COALESCE(a.payload_json->>'file_name', a.file_url) AS title,
+                  l.company_name AS subtitle,
+                  a.lead_id,
+                  '/leads/' || a.lead_id || '?tab=tasks' AS url,
+                  NULL::float AS rank
+                FROM activities a
+                JOIN leads l ON l.id = a.lead_id
+                WHERE l.workspace_id = :wid AND a.type = 'file'
+                  AND (a.payload_json->>'file_name' ILIKE :pat
+                       OR a.payload_json->>'extracted_text' ILIKE :pat)
+                LIMIT :lim
                 """
             ),
             {"wid": str(workspace_id), "pat": pattern, "lim": limit},
@@ -136,6 +151,24 @@ async def _search_trgm(
                   FROM contacts ct, query q
                   WHERE ct.workspace_id = q.workspace_id
                     AND (ct.name % q.q OR ct.email ILIKE q.q_like OR ct.phone ILIKE q.q_like)
+
+                  UNION ALL
+
+                  SELECT 'file' AS type, a.id::text,
+                    COALESCE(a.payload_json->>'file_name', a.file_url) AS title,
+                    l.company_name AS subtitle,
+                    a.lead_id,
+                    '/leads/' || a.lead_id || '?tab=tasks' AS url,
+                    -- Filename drives the rank; a content-only match floors at
+                    -- 0.1 so it still surfaces below sharper name hits. ILIKE
+                    -- (not %) on extracted_text — it can be 100 KB, too big for
+                    -- a trigram similarity scan.
+                    GREATEST(similarity(COALESCE(a.payload_json->>'file_name', ''), q.q), 0.1) AS rank
+                  FROM activities a
+                  JOIN leads l ON l.id = a.lead_id, query q
+                  WHERE l.workspace_id = q.workspace_id AND a.type = 'file'
+                    AND (a.payload_json->>'file_name' ILIKE q.q_like
+                         OR a.payload_json->>'extracted_text' ILIKE q.q_like)
 
                 ) results
                 ORDER BY rank DESC NULLS LAST

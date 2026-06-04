@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 
 class SearchHit(BaseModel):
-    type: Literal["company", "lead", "contact"]
+    type: Literal["company", "lead", "contact", "file"]
     id: UUID
     title: str
     subtitle: str | None = None

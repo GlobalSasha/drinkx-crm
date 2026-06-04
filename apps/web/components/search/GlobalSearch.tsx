@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Building2, Briefcase, User, X, Loader2 } from "lucide-react";
+import { Search, Building2, Briefcase, User, FileText, X, Loader2 } from "lucide-react";
 import { useGlobalSearch } from "@/lib/hooks/use-search";
 import type { SearchHit, SearchHitType } from "@/lib/types";
 import { C, T } from "@/lib/design-system";
@@ -10,12 +10,14 @@ const TYPE_LABEL: Record<SearchHitType, string> = {
   company: "Компании",
   lead: "Лиды",
   contact: "Контакты",
+  file: "Файлы",
 };
 
 const TYPE_ICON: Record<SearchHitType, React.ReactNode> = {
   company: <Building2 size={14} />,
   lead: <Briefcase size={14} />,
   contact: <User size={14} />,
+  file: <FileText size={14} />,
 };
 
 interface Props {
@@ -43,13 +45,14 @@ export function GlobalSearch({ open, onClose }: Props) {
       company: [],
       lead: [],
       contact: [],
+      file: [],
     };
     for (const it of items) groups[it.type].push(it);
     return groups;
   }, [data]);
 
   const flat = useMemo<SearchHit[]>(() => {
-    const order: SearchHitType[] = ["company", "lead", "contact"];
+    const order: SearchHitType[] = ["company", "lead", "contact", "file"];
     return order.flatMap((t) => grouped[t]);
   }, [grouped]);
 
@@ -123,7 +126,7 @@ export function GlobalSearch({ open, onClose }: Props) {
             </p>
           )}
 
-          {(["company", "lead", "contact"] as SearchHitType[]).map((type) => {
+          {(["company", "lead", "contact", "file"] as SearchHitType[]).map((type) => {
             const items = grouped[type];
             if (items.length === 0) return null;
             return (

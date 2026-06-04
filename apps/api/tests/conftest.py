@@ -100,6 +100,10 @@ if POSTGRES_AVAILABLE and PYTEST_ASYNCIO_AVAILABLE:
         async with _test_engine.begin() as conn:
             await conn.execute(text("DROP SCHEMA public CASCADE"))
             await conn.execute(text("CREATE SCHEMA public"))
+            # Global search uses pg_trgm (similarity()/% operator). Prod installs
+            # it via migration 0023; the create_all path needs it explicitly so
+            # search tests can exercise the trgm mode.
+            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
             await conn.run_sync(Base.metadata.create_all)
         yield
         async with _test_engine.begin() as conn:
