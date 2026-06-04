@@ -27,12 +27,12 @@ and Website Leads Intake are done; their record is in git history + `00_CURRENT_
 
 ### G1 — Dedup merge UI  ⭐ highest value
 The merge backend is live but unreachable from the app. Build the human-in-the-loop UI.
-- [ ] On LeadCard, a «Найти дубли» action → `GET /leads/{id}/duplicates` → list candidates
+- [x] On LeadCard, a «Найти дубли» action → `GET /leads/{id}/duplicates` → list candidates
       (company, email domain, phone, city). Empty → nothing shown.
-- [ ] «Объединить» → confirmation modal: the current lead is the master; user picks which
+- [x] «Объединить» → confirmation modal: the current lead is the master; user picks which
       duplicates → `POST /leads/{id}/merge {duplicate_ids}` → toast + refresh.
       **Never auto-merge** (anti-pattern #4 — human confirms).
-- [ ] On a lead that absorbed dups, show a «← объединён из N» note (read it from the
+- [x] On a lead that absorbed dups, show a «← объединён из N» note (read it from the
       `system` audit Activity the merge writes).
 - Frontend only (backend done). Pre-PR: `npm run typecheck` + `npm run lint` + `pnpm build`.
 
