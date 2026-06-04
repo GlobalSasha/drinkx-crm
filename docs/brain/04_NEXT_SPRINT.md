@@ -53,11 +53,15 @@ Existing rows have NULL `phone_e164` / `email_normalized` / `email_domain_criter
       form_submissions.utm_json join — separate follow-up if wanted).
 
 ### G4 — UI consistency fixes 3–5 (from the UI plan)
-- [ ] One shared empty-state component used everywhere (replace ad-hoc divs e.g. `/team`).
-- [ ] Lint rule banning arbitrary Tailwind sizes (`text-[28px]`, `border-[1.5px]`) — use the scale.
-- [ ] Break the 617-line `LeadCard` header + the `leads/[id]` / `companies/[id]` detail pages
-      into reusable sections and wrap them in `PageContainer` (detail pages were intentionally
-      left out of #102/#103).
+- [x] One shared empty-state component used everywhere (replace ad-hoc divs e.g. `/team`).
+      Done: `/team` access-denied + no-members states now use the shared `Empty`.
+- [x] Lint rule banning arbitrary Tailwind sizes (`text-[28px]`, `border-[1.5px]`) — use the scale.
+      Done: local `drinkx/no-arbitrary-px` at **warn** level (flags new ones, doesn't break the
+      build). The ~235 pre-existing usages are deliberately left untouched — see BACKLOG #3.
+- [~] Break the 617-line `LeadCard` header + the `leads/[id]` / `companies/[id]` detail pages
+      into reusable sections and wrap them in `PageContainer` — **deferred to BACKLOG #3**.
+      These are bespoke full-bleed layouts (own sticky header); wrapping/splitting risks visual
+      regressions on the most-used screen with no E2E. Do it as its own PR with preview checks.
 
 ### G5 — Finish the 2 quarantined tests  (needs a local Postgres)
 In `apps/api/tests/conftest.py` → `_KNOWN_PRE_EXISTING_FAILURES`:
