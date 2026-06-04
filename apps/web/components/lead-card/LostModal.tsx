@@ -87,7 +87,7 @@ export function LostModal({
           </p>
 
           <div>
-            <label className="text-[11px] font-mono uppercase tracking-wide text-muted-3">
+            <label className="text-xs font-mono uppercase tracking-wide text-muted-3">
               Причина <span className="text-muted-3">(необязательно)</span>
             </label>
             <textarea
@@ -97,7 +97,7 @@ export function LostModal({
               rows={3}
               className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 resize-none"
             />
-            <p className="text-[10px] text-muted-3 mt-1">
+            <p className="text-2xs text-muted-3 mt-1">
               Помогает с ретроспективой по проигранным сделкам.
             </p>
           </div>

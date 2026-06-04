@@ -155,13 +155,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
             <div className="min-w-0 flex-1">
               <p className="type-caption font-semibold truncate">{displayName}</p>
-              <p className="text-[10px] font-mono opacity-60 truncate">{displayEmail}</p>
+              <p className="text-2xs font-mono opacity-60 truncate">{displayEmail}</p>
             </div>
           </Link>
           {user && (
             <button
               onClick={handleSignOut}
-              className="mt-1 w-full text-[10px] font-mono opacity-60 hover:opacity-100 text-center py-1 transition-opacity"
+              className="mt-1 w-full text-2xs font-mono opacity-60 hover:opacity-100 text-center py-1 transition-opacity"
             >
               Выйти
             </button>

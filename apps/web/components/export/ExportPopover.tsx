@@ -190,7 +190,7 @@ export function ExportPopover({
           onMouseDown={(e) => e.stopPropagation()}
         >
           <div className="mb-3">
-            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-3">
+            <div className="text-2xs font-mono uppercase tracking-wider text-muted-3">
               Экспорт лидов
             </div>
             <div className="text-sm font-bold text-ink mt-0.5">
@@ -200,7 +200,7 @@ export function ExportPopover({
 
           {/* Format grid */}
           <div>
-            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-3 mb-1.5">
+            <div className="text-2xs font-mono uppercase tracking-wider text-muted-3 mb-1.5">
               Формат
             </div>
             <div className="grid grid-cols-2 gap-1.5">
@@ -233,13 +233,13 @@ export function ExportPopover({
                     <div className="min-w-0">
                       <div
                         className={clsx(
-                          "text-[12px] font-semibold leading-snug",
+                          "text-sm font-semibold leading-snug",
                           active ? "text-ink" : "text-ink",
                         )}
                       >
                         {f.label}
                       </div>
-                      <div className="text-[10px] font-mono text-muted-3 truncate">
+                      <div className="text-2xs font-mono text-muted-3 truncate">
                         {f.hint}
                       </div>
                     </div>
@@ -263,10 +263,10 @@ export function ExportPopover({
             aria-pressed={includeAiBrief}
           >
             <div className="text-left">
-              <div className="text-[12px] font-semibold text-ink">
+              <div className="text-sm font-semibold text-ink">
                 Включить AI Brief
               </div>
-              <div className="text-[10px] text-muted-2 leading-snug">
+              <div className="text-2xs text-muted-2 leading-snug">
                 {format === "md_zip"
                   ? "Markdown ZIP всегда содержит AI Brief"
                   : "Добавит колонку с кратким описанием компании"}
@@ -293,13 +293,13 @@ export function ExportPopover({
 
           {/* Scope */}
           <div className="mt-3 rounded-xl border border-black/5 px-3 py-2">
-            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-3">
+            <div className="text-2xs font-mono uppercase tracking-wider text-muted-3">
               Область
             </div>
             <div className="flex items-baseline justify-between mt-0.5">
-              <div className="text-[12px] text-ink">Текущие фильтры</div>
+              <div className="text-sm text-ink">Текущие фильтры</div>
               {typeof leadCount === "number" && (
-                <div className="text-[11px] font-mono text-muted-2 tabular-nums">
+                <div className="text-xs font-mono text-muted-2 tabular-nums">
                   {leadCount} {pluralLeads(leadCount)}
                 </div>
               )}
@@ -308,7 +308,7 @@ export function ExportPopover({
 
           {/* Error inline */}
           {phase === "error" && errorText && (
-            <div className="mt-3 flex items-start gap-2 text-[12px] text-rose bg-rose/10 rounded-xl px-3 py-2">
+            <div className="mt-3 flex items-start gap-2 text-sm text-rose bg-rose/10 rounded-xl px-3 py-2">
               <AlertCircle size={13} className="shrink-0 mt-0.5" />
               <span>{errorText}</span>
             </div>
@@ -320,7 +320,7 @@ export function ExportPopover({
               type="button"
               onClick={() => setOpen(false)}
               disabled={busy}
-              className="text-[12px] font-semibold text-muted hover:text-ink disabled:opacity-40 transition-colors"
+              className="text-sm font-semibold text-muted hover:text-ink disabled:opacity-40 transition-colors"
             >
               Отмена
             </button>
@@ -329,7 +329,7 @@ export function ExportPopover({
               onClick={handleSubmit}
               disabled={busy || phase === "done"}
               className={clsx(
-                "inline-flex items-center gap-2 px-4 py-2 rounded-pill text-[12px] font-semibold transition-all duration-300",
+                "inline-flex items-center gap-2 px-4 py-2 rounded-pill text-sm font-semibold transition-all duration-300",
                 phase === "done"
                   ? "bg-emerald-600 text-white"
                   : "bg-brand-accent text-white hover:bg-brand-accent/90",

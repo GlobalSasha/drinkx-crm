@@ -90,7 +90,7 @@ export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }:
           <div className="mb-3">
             <label
               htmlFor="transfer-to-user"
-              className="block font-mono text-[10px] uppercase tracking-[0.12em] text-muted-3 mb-1.5"
+              className="block font-mono text-2xs uppercase tracking-[0.12em] text-muted-3 mb-1.5"
             >
               UUID получателя
             </label>
@@ -105,7 +105,7 @@ export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }:
               spellCheck={false}
               className="w-full px-3 py-2 text-sm font-mono bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white transition-all"
             />
-            <p className="text-[11px] text-muted-3 mt-1">
+            <p className="text-xs text-muted-3 mt-1">
               Спросите получателя в Settings → Profile (или у админа). Список
               пользователей появится в Phase 2.
             </p>
@@ -115,7 +115,7 @@ export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }:
           <div className="mb-4">
             <label
               htmlFor="transfer-comment"
-              className="block font-mono text-[10px] uppercase tracking-[0.12em] text-muted-3 mb-1.5"
+              className="block font-mono text-2xs uppercase tracking-[0.12em] text-muted-3 mb-1.5"
             >
               Комментарий <span className="text-muted-3">(необязательно)</span>
             </label>

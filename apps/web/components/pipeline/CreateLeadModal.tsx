@@ -123,7 +123,7 @@ export function CreateLeadModal() {
 
           <form onSubmit={handleSubmit} className="space-y-3">
             <label className="block">
-              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-2 block mb-1.5">
+              <span className="font-mono text-2xs uppercase tracking-[0.12em] text-muted-2 block mb-1.5">
                 Компания *
               </span>
               <div className="relative">

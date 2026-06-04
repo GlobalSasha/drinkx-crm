@@ -267,14 +267,14 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
           {/* Header */}
           <div className="px-6 py-4 border-b border-black/5 flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-muted-3">
+              <div className="text-2xs font-mono uppercase tracking-wider text-muted-3">
                 Форма
               </div>
               <h2 className="text-lg font-bold tracking-tight text-ink mt-0.5 truncate">
                 {isEdit ? form?.name : "Новая форма"}
               </h2>
               {isEdit && form?.slug && (
-                <div className="text-[11px] font-mono text-muted-3 mt-0.5">
+                <div className="text-xs font-mono text-muted-3 mt-0.5">
                   /{form.slug}
                 </div>
               )}
@@ -352,7 +352,7 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
           {tab === "settings" && (
             <div className="px-6 py-4 border-t border-black/5 flex items-center justify-between">
               {error ? (
-                <div className="flex items-center gap-1.5 text-[12px] text-rose">
+                <div className="flex items-center gap-1.5 text-sm text-rose">
                   <AlertCircle size={13} />
                   <span>{error}</span>
                 </div>
@@ -403,7 +403,7 @@ function TabButton({
     <button
       onClick={onClick}
       className={clsx(
-        "inline-flex items-center gap-1.5 px-3 py-2 text-[12px] font-semibold border-b-2 transition-colors -mb-px",
+        "inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold border-b-2 transition-colors -mb-px",
         active
           ? "border-brand-accent text-ink"
           : "border-transparent text-muted-2 hover:text-ink",
@@ -481,24 +481,24 @@ function SettingsTab({
       {/* Fields */}
       <div>
         <div className="flex items-baseline justify-between mb-1.5">
-          <label className="text-[10px] font-mono uppercase tracking-wider text-muted-2">
+          <label className="text-2xs font-mono uppercase tracking-wider text-muted-2">
             Поля формы
           </label>
           {fields.length === 0 && (
-            <span className="text-[11px] text-amber-700">
+            <span className="text-xs text-amber-700">
               Без полей форма всё равно создаст лид (только source/UTM)
             </span>
           )}
         </div>
         <div className="rounded-2xl border border-black/5 bg-white">
-          <div className="grid grid-cols-[1fr_140px_90px_24px] items-center gap-2 px-3 py-2 bg-canvas border-b border-black/5 text-[10px] font-mono uppercase tracking-wider text-muted-3">
+          <div className="grid grid-cols-[1fr_140px_90px_24px] items-center gap-2 px-3 py-2 bg-canvas border-b border-black/5 text-2xs font-mono uppercase tracking-wider text-muted-3">
             <span>Заголовок</span>
             <span>Тип</span>
             <span>Обязательное</span>
             <span />
           </div>
           {fields.length === 0 && (
-            <div className="px-3 py-4 text-[12px] text-muted-3 text-center">
+            <div className="px-3 py-4 text-sm text-muted-3 text-center">
               Поля не добавлены
             </div>
           )}
@@ -515,7 +515,7 @@ function SettingsTab({
         </div>
         <button
           onClick={onAddField}
-          className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-muted hover:text-ink transition-colors"
+          className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-ink transition-colors"
         >
           <Plus size={13} />
           Добавить поле
@@ -615,7 +615,7 @@ function SettingsTab({
             Защищённый приём (S2S ключ)
           </span>
         </label>
-        <p className="text-[11px] text-muted-3 mt-1 leading-snug ml-7">
+        <p className="text-xs text-muted-3 mt-1 leading-snug ml-7">
           При включении все запросы к эндпоинту должны содержать заголовок{" "}
           <code className="font-mono">X-Form-Key</code>. Ключ генерируется
           автоматически и виден во вкладке «Встроить».
@@ -651,13 +651,13 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-[10px] font-mono uppercase tracking-wider text-muted-2 mb-1.5">
+      <label className="block text-2xs font-mono uppercase tracking-wider text-muted-2 mb-1.5">
         {label}
         {required && <span className="text-amber-700"> *</span>}
       </label>
       {children}
       {hint && (
-        <p className="text-[11px] text-muted-3 mt-1 leading-snug">{hint}</p>
+        <p className="text-xs text-muted-3 mt-1 leading-snug">{hint}</p>
       )}
     </div>
   );
@@ -694,7 +694,7 @@ function FieldRowEditor({
       <button
         onClick={() => onPatch({ required: !field.required })}
         className={clsx(
-          "h-7 rounded-pill text-[11px] font-semibold transition-colors",
+          "h-7 rounded-pill text-xs font-semibold transition-colors",
           field.required
             ? "bg-brand-accent text-white"
             : "bg-canvas text-muted-2 hover:bg-canvas-2",
@@ -761,13 +761,13 @@ function EmbedTab({
         <h3 className="text-base font-bold tracking-tight text-ink">
           Встроить форму
         </h3>
-        <p className="text-[13px] text-muted mt-1">
+        <p className="text-md text-muted mt-1">
           Вставьте этот код в HTML страницы, где должна появиться форма.
         </p>
       </div>
 
       <div>
-        <label className="block text-[10px] font-mono uppercase tracking-wider text-muted-2 mb-1.5">
+        <label className="block text-2xs font-mono uppercase tracking-wider text-muted-2 mb-1.5">
           Код для вставки
         </label>
         <textarea
@@ -776,16 +776,16 @@ function EmbedTab({
           value={fullSnippet}
           rows={3}
           onFocus={(e) => e.currentTarget.select()}
-          className="w-full text-[11px] font-mono leading-relaxed bg-canvas border border-black/10 rounded-xl p-3 outline-none focus:border-brand-accent/40 resize-none"
+          className="w-full text-xs font-mono leading-relaxed bg-canvas border border-black/10 rounded-xl p-3 outline-none focus:border-brand-accent/40 resize-none"
         />
         <div className="flex items-center justify-between mt-2">
-          <span className="text-[10px] text-muted-3">
+          <span className="text-2xs text-muted-3">
             Кликните в поле — выделится весь текст.
           </span>
           <button
             onClick={onCopy}
             className={clsx(
-              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-[11px] font-semibold transition-all",
+              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-xs font-semibold transition-all",
               copied
                 ? "bg-emerald-600 text-white"
                 : "bg-canvas text-ink border border-black/10 hover:bg-canvas-2",
@@ -799,14 +799,14 @@ function EmbedTab({
 
       {directUrl && (
         <div className="rounded-2xl border border-black/5 bg-canvas/40 px-4 py-3">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-3 mb-1">
+          <div className="text-2xs font-mono uppercase tracking-wider text-muted-3 mb-1">
             Прямая ссылка на embed.js
           </div>
           <a
             href={directUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[12px] font-mono text-brand-accent hover:underline break-all"
+            className="text-sm font-mono text-brand-accent hover:underline break-all"
           >
             {directUrl}
           </a>
@@ -819,28 +819,28 @@ function EmbedTab({
             <h3 className="text-base font-bold tracking-tight text-ink">
               Интеграция (S2S)
             </h3>
-            <p className="text-[13px] text-muted mt-1">
+            <p className="text-md text-muted mt-1">
               Сервер-серверная отправка. Передавайте ключ в заголовке{" "}
-              <code className="font-mono text-[11px]">X-Form-Key</code>.
+              <code className="font-mono text-xs">X-Form-Key</code>.
             </p>
           </div>
           <div>
-            <label className="block text-[10px] font-mono uppercase tracking-wider text-muted-2 mb-1.5">
+            <label className="block text-2xs font-mono uppercase tracking-wider text-muted-2 mb-1.5">
               Пример запроса (curl)
             </label>
-            <pre className="w-full text-[11px] font-mono leading-relaxed bg-canvas border border-black/10 rounded-xl p-3 whitespace-pre-wrap break-all">
+            <pre className="w-full text-xs font-mono leading-relaxed bg-canvas border border-black/10 rounded-xl p-3 whitespace-pre-wrap break-all">
               {curlExample}
             </pre>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[11px] text-muted-3">
+            <span className="text-xs text-muted-3">
               Ключ:{" "}
               <code className="font-mono">{form.ingest_token}</code>
             </span>
             <button
               onClick={onRotateKey}
               disabled={rotatingKey}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-[11px] font-semibold bg-canvas text-ink border border-black/10 hover:bg-canvas-2 disabled:opacity-40 transition-all"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-xs font-semibold bg-canvas text-ink border border-black/10 hover:bg-canvas-2 disabled:opacity-40 transition-all"
             >
               {rotatingKey ? (
                 <Loader2 size={12} className="animate-spin" />
@@ -853,7 +853,7 @@ function EmbedTab({
         </div>
       )}
 
-      <div className="rounded-2xl border border-amber-200/60 bg-amber-50 px-4 py-3 text-[12px] text-amber-900">
+      <div className="rounded-2xl border border-amber-200/60 bg-amber-50 px-4 py-3 text-sm text-amber-900">
         <strong>Совет:</strong> при изменении полей формы slug не меняется —
         embed-код остаётся валидным, обновлять разметку на сайте не нужно.
         Если форму нужно «архивировать», переключите тумблер «Активна» в

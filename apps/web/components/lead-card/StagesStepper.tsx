@@ -159,7 +159,7 @@ function FullRow({
                     className={
                       isCurrent
                         ? "type-body font-semibold text-brand-accent-text mt-0.5"
-                        : "text-[10px] text-brand-muted mt-0.5"
+                        : "text-2xs text-brand-muted mt-0.5"
                     }
                   >
                     {s.days} {pluralDays(s.days)}

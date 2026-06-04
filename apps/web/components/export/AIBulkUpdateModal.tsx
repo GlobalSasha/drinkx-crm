@@ -127,7 +127,7 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
                 <Sparkles size={16} />
               </div>
               <div>
-                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-3">
+                <div className="text-2xs font-mono uppercase tracking-wider text-muted-3">
                   PRD §6.14
                 </div>
                 <h2 className="text-base font-bold tracking-tight text-ink mt-0.5">
@@ -156,7 +156,7 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
                   onClick={handleDownloadSnapshot}
                   disabled={snapshotPhase === "loading"}
                   className={clsx(
-                    "inline-flex items-center gap-2 px-4 py-2 rounded-pill text-[12px] font-semibold transition-all duration-300",
+                    "inline-flex items-center gap-2 px-4 py-2 rounded-pill text-sm font-semibold transition-all duration-300",
                     snapshotPhase === "done"
                       ? "bg-emerald-600 text-white"
                       : "bg-ink text-white hover:bg-ink/90",
@@ -177,7 +177,7 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
                     "Скачать snapshot"}
                 </button>
                 {snapshotPhase === "error" && snapshotError && (
-                  <span className="text-[11px] text-rose">
+                  <span className="text-xs text-rose">
                     {snapshotError}
                   </span>
                 )}
@@ -198,18 +198,18 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
                     : promptQuery.data?.prompt ?? "Не удалось загрузить промпт"
                 }
                 rows={6}
-                className="w-full text-[11px] font-mono leading-relaxed bg-canvas border border-black/10 rounded-xl p-3 outline-none focus:border-brand-accent/40 resize-none"
+                className="w-full text-xs font-mono leading-relaxed bg-canvas border border-black/10 rounded-xl p-3 outline-none focus:border-brand-accent/40 resize-none"
                 onFocus={(e) => e.currentTarget.select()}
               />
               <div className="flex items-center justify-between mt-2">
-                <span className="text-[10px] text-muted-3">
+                <span className="text-2xs text-muted-3">
                   Кликните в поле — выделится весь текст.
                 </span>
                 <button
                   onClick={handleCopyPrompt}
                   disabled={!promptQuery.data?.prompt}
                   className={clsx(
-                    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-[11px] font-semibold transition-all",
+                    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-xs font-semibold transition-all",
                     copied
                       ? "bg-emerald-600 text-white"
                       : "bg-canvas text-ink border border-black/10 hover:bg-canvas-2",
@@ -229,7 +229,7 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
             >
               <button
                 onClick={handleHandoff}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-pill bg-brand-accent text-white text-[12px] font-semibold hover:bg-brand-accent/90 transition-all duration-300"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-pill bg-brand-accent text-white text-sm font-semibold hover:bg-brand-accent/90 transition-all duration-300"
               >
                 Продолжить — загрузить файл
                 <ArrowRight size={13} />
@@ -256,12 +256,12 @@ function Step({
   return (
     <div className="rounded-2xl border border-black/5 bg-canvas/40 p-4">
       <div className="flex items-start gap-3">
-        <span className="shrink-0 w-6 h-6 rounded-full bg-ink text-white text-[11px] font-bold flex items-center justify-center tabular-nums">
+        <span className="shrink-0 w-6 h-6 rounded-full bg-ink text-white text-xs font-bold flex items-center justify-center tabular-nums">
           {n}
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-bold text-ink">{title}</div>
-          <p className="text-[12px] text-muted-2 mt-0.5">{hint}</p>
+          <p className="text-sm text-muted-2 mt-0.5">{hint}</p>
           <div className="mt-3">{children}</div>
         </div>
       </div>

@@ -72,7 +72,7 @@ export function TaskEditModal({
 
         <div className="px-5 py-4 space-y-3">
           <div>
-            <label className="text-[11px] font-mono uppercase tracking-wide text-muted-3">
+            <label className="text-xs font-mono uppercase tracking-wide text-muted-3">
               Название
             </label>
             <input
@@ -88,7 +88,7 @@ export function TaskEditModal({
           </div>
 
           <div>
-            <label className="text-[11px] font-mono uppercase tracking-wide text-muted-3">
+            <label className="text-xs font-mono uppercase tracking-wide text-muted-3">
               Срок и время
             </label>
             <input
@@ -102,7 +102,7 @@ export function TaskEditModal({
               <button
                 type="button"
                 onClick={() => setDue("")}
-                className="mt-1 text-[11px] text-muted hover:text-ink"
+                className="mt-1 text-xs text-muted hover:text-ink"
               >
                 Очистить срок
               </button>

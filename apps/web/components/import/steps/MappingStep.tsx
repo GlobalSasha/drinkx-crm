@@ -97,7 +97,7 @@ export function MappingStep({ job, onBack, onConfirmed }: Props) {
         <h3 className="text-base font-bold tracking-tight text-ink">
           Сопоставьте колонки
         </h3>
-        <p className="text-[13px] text-muted mt-1">
+        <p className="text-md text-muted mt-1">
           Подсказали что смогли. Поправьте где не совпадает или поставьте «не
           импортировать».
         </p>
@@ -105,7 +105,7 @@ export function MappingStep({ job, onBack, onConfirmed }: Props) {
 
       {/* Required-field banner */}
       {missingRequired.length > 0 && (
-        <div className="flex items-start gap-2 text-[13px] text-amber-800 bg-amber-50 rounded-xl px-3 py-2.5">
+        <div className="flex items-start gap-2 text-md text-amber-800 bg-amber-50 rounded-xl px-3 py-2.5">
           <AlertTriangle size={14} className="shrink-0 mt-0.5" />
           <span>
             Обязательно нужно сопоставить:{" "}
@@ -119,7 +119,7 @@ export function MappingStep({ job, onBack, onConfirmed }: Props) {
 
       {/* Duplicate-field banner */}
       {duplicateFields.size > 0 && (
-        <div className="flex items-start gap-2 text-[13px] text-amber-800 bg-amber-50 rounded-xl px-3 py-2.5">
+        <div className="flex items-start gap-2 text-md text-amber-800 bg-amber-50 rounded-xl px-3 py-2.5">
           <AlertTriangle size={14} className="shrink-0 mt-0.5" />
           <span>
             Одно поле CRM сопоставлено с несколькими колонками. Уберите дубли
@@ -130,7 +130,7 @@ export function MappingStep({ job, onBack, onConfirmed }: Props) {
 
       {/* Mapping table */}
       <div className="rounded-2xl border border-black/5 bg-white overflow-hidden">
-        <div className="grid grid-cols-[1fr_1fr_minmax(180px,1.2fr)_24px] items-center gap-3 px-4 py-2.5 bg-canvas border-b border-black/5 text-[10px] font-mono uppercase tracking-wider text-muted-2">
+        <div className="grid grid-cols-[1fr_1fr_minmax(180px,1.2fr)_24px] items-center gap-3 px-4 py-2.5 bg-canvas border-b border-black/5 text-2xs font-mono uppercase tracking-wider text-muted-2">
           <span>Колонка в файле</span>
           <span className="hidden md:block">Пример значения</span>
           <span>Поле CRM</span>
@@ -149,7 +149,7 @@ export function MappingStep({ job, onBack, onConfirmed }: Props) {
                 <span className="text-sm font-semibold text-ink truncate">
                   {header}
                 </span>
-                <span className="hidden md:block text-[12px] font-mono text-muted-3 truncate">
+                <span className="hidden md:block text-sm font-mono text-muted-3 truncate">
                   {sample || "—"}
                 </span>
                 <select
@@ -172,7 +172,7 @@ export function MappingStep({ job, onBack, onConfirmed }: Props) {
                 </select>
                 <span
                   className={clsx(
-                    "flex items-center justify-center text-[11px] font-mono",
+                    "flex items-center justify-center text-xs font-mono",
                     current && !isDuplicate
                       ? "text-emerald-600"
                       : "text-muted-3",
@@ -188,7 +188,7 @@ export function MappingStep({ job, onBack, onConfirmed }: Props) {
       </div>
 
       {error && (
-        <div className="text-[13px] text-rose bg-rose/10 rounded-xl px-3 py-2.5">
+        <div className="text-md text-rose bg-rose/10 rounded-xl px-3 py-2.5">
           {error}
         </div>
       )}
@@ -221,7 +221,7 @@ function FieldHint({ catalog }: { catalog: ImportFieldDef[] }) {
   const required = catalog.filter((f) => f.required);
   if (required.length === 0) return null;
   return (
-    <p className="text-[11px] text-muted-3">
+    <p className="text-xs text-muted-3">
       <span className="font-mono">*</span> — обязательное поле. Достаточно
       {required.length > 1 ? " их" : " его"} сопоставить, остальные
       опциональны.

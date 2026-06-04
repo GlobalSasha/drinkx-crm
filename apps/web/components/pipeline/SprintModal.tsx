@@ -136,7 +136,7 @@ export function SprintModal({ isOpen: isOpenProp, onClose: onCloseProp }: Props 
 
           {/* Segment selector */}
           <div className="mb-5">
-            <label className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-2 block mb-2">
+            <label className="font-mono text-2xs uppercase tracking-[0.12em] text-muted-2 block mb-2">
               Сегмент
             </label>
             <div className="flex flex-wrap gap-1.5">
@@ -162,7 +162,7 @@ export function SprintModal({ isOpen: isOpenProp, onClose: onCloseProp }: Props 
 
           {/* City multi-select */}
           <div className="mb-5">
-            <label className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-2 block mb-2">
+            <label className="font-mono text-2xs uppercase tracking-[0.12em] text-muted-2 block mb-2">
               Города
               {poolQuery.isLoading && (
                 <Loader2 size={10} className="inline-block ml-1 animate-spin" />

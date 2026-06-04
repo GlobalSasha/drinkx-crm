@@ -71,7 +71,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
           <h3 className="text-base font-bold tracking-tight text-ink">
             Изменения от AI
           </h3>
-          <p className="text-[13px] text-muted mt-1">
+          <p className="text-md text-muted mt-1">
             Проверьте предложенные обновления. Применяются в фоне; неизменные
             лиды AI исключил из ответа.
           </p>
@@ -106,7 +106,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
       {/* Actionable items list */}
       {actionable.length > 0 && (
         <div className="rounded-2xl border border-black/5 bg-white">
-          <div className="px-4 py-2.5 bg-canvas border-b border-black/5 text-[10px] font-mono uppercase tracking-wider text-muted-2">
+          <div className="px-4 py-2.5 bg-canvas border-b border-black/5 text-2xs font-mono uppercase tracking-wider text-muted-2">
             Изменения{" "}
             <span className="text-muted-3 ml-1">
               {actionable.length > VISIBLE_ITEMS
@@ -125,7 +125,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
       {/* Errors panel */}
       {failed.length > 0 && (
         <div className="rounded-2xl border border-amber-200/60 bg-amber-50">
-          <div className="px-4 py-2.5 border-b border-amber-200/60 flex items-center gap-1.5 text-[11px] font-bold text-amber-800">
+          <div className="px-4 py-2.5 border-b border-amber-200/60 flex items-center gap-1.5 text-xs font-bold text-amber-800">
             <AlertTriangle size={13} />
             Не удалось распознать
             <span className="font-mono ml-1">{failed.length}</span>
@@ -134,7 +134,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
             {failed.slice(0, VISIBLE_ITEMS).map((item, i) => (
               <div
                 key={`err-${i}`}
-                className="px-4 py-2.5 text-[12px] flex items-baseline gap-2"
+                className="px-4 py-2.5 text-sm flex items-baseline gap-2"
               >
                 <span className="font-semibold text-ink">
                   {item.company_name || "—"}
@@ -143,7 +143,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
               </div>
             ))}
             {failed.length > VISIBLE_ITEMS && (
-              <div className="px-4 py-2 text-[11px] font-mono text-amber-800/70">
+              <div className="px-4 py-2 text-xs font-mono text-amber-800/70">
                 …и ещё {failed.length - VISIBLE_ITEMS}
               </div>
             )}
@@ -152,7 +152,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
       )}
 
       {error && (
-        <div className="text-[13px] text-rose bg-rose/10 rounded-xl px-3 py-2.5">
+        <div className="text-md text-rose bg-rose/10 rounded-xl px-3 py-2.5">
           {error}
         </div>
       )}
@@ -212,13 +212,13 @@ function DiffRow({ item }: { item: BulkUpdateDiffItem }) {
             </span>
             <ActionBadge isCreate={isCreate} />
             {item.inn && (
-              <span className="font-mono text-[10px] text-muted-3">
+              <span className="font-mono text-2xs text-muted-3">
                 ИНН {item.inn}
               </span>
             )}
           </div>
           {summary && (
-            <div className="text-[12px] text-muted-2 mt-0.5 truncate">
+            <div className="text-sm text-muted-2 mt-0.5 truncate">
               {summary}
             </div>
           )}
@@ -229,7 +229,7 @@ function DiffRow({ item }: { item: BulkUpdateDiffItem }) {
         <div className="px-4 pb-3 -mt-1">
           <div className="rounded-xl bg-canvas/60 px-3 py-2 space-y-1">
             {item.changes.length === 0 && (
-              <div className="text-[12px] text-muted-3">
+              <div className="text-sm text-muted-3">
                 Полей для изменения нет.
               </div>
             )}
@@ -247,7 +247,7 @@ function ActionBadge({ isCreate }: { isCreate: boolean }) {
   return (
     <span
       className={clsx(
-        "text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-md",
+        "text-2xs font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-md",
         isCreate
           ? "bg-emerald-500/10 text-emerald-700"
           : "bg-info/100/10 text-info",
@@ -262,11 +262,11 @@ function ChangeLine({ change }: { change: BulkUpdateChange }) {
   const sign = OP_SIGN[change.op] ?? "·";
   const tone = OP_TONE[change.op] ?? "text-muted-2";
   return (
-    <div className="flex items-baseline gap-2 text-[12px]">
+    <div className="flex items-baseline gap-2 text-sm">
       <span className={clsx("font-mono shrink-0 w-3 text-center", tone)}>
         {sign}
       </span>
-      <span className="font-mono text-[10px] text-muted-3 shrink-0">
+      <span className="font-mono text-2xs text-muted-3 shrink-0">
         {change.field}
       </span>
       <span className="text-ink truncate">{formatValue(change)}</span>
@@ -359,7 +359,7 @@ function StatCard({
     <div
       className={`rounded-2xl border ${palette} px-4 py-3.5 flex flex-col gap-1.5`}
     >
-      <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider opacity-80">
+      <div className="flex items-center gap-1.5 text-2xs font-mono uppercase tracking-wider opacity-80">
         {icon}
         {label}
       </div>
@@ -367,7 +367,7 @@ function StatCard({
         <span className="text-3xl font-bold tracking-tight tabular-nums">
           {value}
         </span>
-        <span className="text-[11px] opacity-70">{unit}</span>
+        <span className="text-xs opacity-70">{unit}</span>
       </div>
     </div>
   );

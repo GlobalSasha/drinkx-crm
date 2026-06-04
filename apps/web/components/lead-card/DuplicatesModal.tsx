@@ -92,7 +92,7 @@ export function DuplicatesModal({ leadId, masterName, onClose, onSuccess }: Prop
         <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl bg-brand-soft/50 border border-brand-accent/15">
           <Crown size={14} className="text-brand-accent shrink-0" />
           <span className="text-sm font-semibold text-ink truncate">{masterName}</span>
-          <span className="ml-auto shrink-0 text-[10px] font-mono uppercase tracking-[0.12em] text-brand-accent-text">
+          <span className="ml-auto shrink-0 text-2xs font-mono uppercase tracking-[0.12em] text-brand-accent-text">
             основной
           </span>
         </div>

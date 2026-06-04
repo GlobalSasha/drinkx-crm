@@ -96,7 +96,7 @@ function LeadSearchPicker({
 
       <div className="max-h-[260px] overflow-y-auto flex flex-col gap-0.5">
         {items.length === 0 && (
-          <div className="text-[11px] text-muted-3 px-2 py-3">Ничего не найдено</div>
+          <div className="text-xs text-muted-3 px-2 py-3">Ничего не найдено</div>
         )}
         {items.map((l) => (
           <button
@@ -105,7 +105,7 @@ function LeadSearchPicker({
             className="text-left px-2 py-1.5 rounded-lg hover:bg-canvas transition-colors"
           >
             <div className="text-sm font-semibold text-ink truncate">{l.company_name}</div>
-            <div className="text-[11px] font-mono text-muted-3 truncate">
+            <div className="text-xs font-mono text-muted-3 truncate">
               {l.city || "—"} · {l.segment || "—"}
             </div>
           </button>
@@ -146,16 +146,16 @@ function UnmatchedRow({ msg }: { msg: InboxMessageOut }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 mb-1 flex-wrap">
           <span
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-semibold ${badgeClass}`}
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-semibold ${badgeClass}`}
           >
             {PhoneStateIcon ? <PhoneStateIcon size={12} /> : <ChannelIcon size={12} />}
             {channelLabel}
           </span>
-          <span className="text-[11px] font-mono text-muted-3 truncate">
+          <span className="text-xs font-mono text-muted-3 truncate">
             от {msg.sender_id || "—"}
           </span>
-          <span className="text-[11px] font-mono text-muted-3">·</span>
-          <span className="text-[11px] font-mono text-muted-3">
+          <span className="text-xs font-mono text-muted-3">·</span>
+          <span className="text-xs font-mono text-muted-3">
             {formatDateTime(msg.created_at)}
           </span>
         </div>
@@ -167,7 +167,7 @@ function UnmatchedRow({ msg }: { msg: InboxMessageOut }) {
             href={msg.media_url}
             target="_blank"
             rel="noreferrer"
-            className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-brand-accent hover:underline"
+            className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-brand-accent hover:underline"
           >
             <Play size={12} />
             Запись
@@ -180,7 +180,7 @@ function UnmatchedRow({ msg }: { msg: InboxMessageOut }) {
           <button
             onClick={() => setPickerOpen((v) => !v)}
             disabled={assign.isPending}
-            className="text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-black/5 text-ink hover:bg-black/10 disabled:opacity-50"
+            className="text-sm font-semibold px-3 py-1.5 rounded-lg bg-black/5 text-ink hover:bg-black/10 disabled:opacity-50"
           >
             {assign.isPending ? (
               <span className="inline-flex items-center gap-1">
@@ -252,7 +252,7 @@ export function UnmatchedMessagesSection() {
     <section className="mt-10">
       <header className="mb-3 flex items-baseline justify-between">
         <h2 className="text-base font-bold text-ink">Мессенджеры и звонки</h2>
-        <span className="text-[11px] font-mono text-muted-3">
+        <span className="text-xs font-mono text-muted-3">
           {items.length} {items.length === 1 ? "сообщение" : "сообщений"}
         </span>
       </header>

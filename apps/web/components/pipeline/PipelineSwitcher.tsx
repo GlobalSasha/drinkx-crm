@@ -133,7 +133,7 @@ export function PipelineSwitcher() {
                   {p.name}
                 </span>
                 {isDefault && (
-                  <span className="text-[10px] font-mono uppercase tracking-wide text-muted-3 shrink-0">
+                  <span className="text-2xs font-mono uppercase tracking-wide text-muted-3 shrink-0">
                     по умолчанию
                   </span>
                 )}

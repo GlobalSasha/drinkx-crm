@@ -139,7 +139,7 @@ export function AISection() {
                 Дневной бюджет
               </h3>
               <span
-                className={`text-[11px] font-mono ${
+                className={`text-xs font-mono ${
                   overBudget ? "text-rose" : "text-muted-2"
                 }`}
               >
@@ -161,7 +161,7 @@ export function AISection() {
             </div>
 
             {overBudget && (
-              <p className="mt-2 text-[11px] text-rose flex items-center gap-1.5">
+              <p className="mt-2 text-xs text-rose flex items-center gap-1.5">
                 <AlertTriangle size={11} />
                 Бюджет на сегодня исчерпан — обогащение лидов приостановлено
                 до завтра или повышения лимита.
@@ -176,7 +176,7 @@ export function AISection() {
         <div>
           <label
             htmlFor="ai-budget"
-            className="text-[11px] font-mono uppercase tracking-wide text-muted-3"
+            className="text-xs font-mono uppercase tracking-wide text-muted-3"
           >
             Лимит USD/день
           </label>
@@ -189,7 +189,7 @@ export function AISection() {
             onChange={(e) => setBudget(e.target.value)}
             className="mt-1 w-full max-w-[200px] bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
           />
-          <p className="text-[11px] text-muted-3 mt-1">
+          <p className="text-xs text-muted-3 mt-1">
             При достижении лимита фоновые исследования останавливаются.
             Дневной счётчик сбрасывается в полночь UTC.
           </p>
@@ -198,7 +198,7 @@ export function AISection() {
         <div>
           <label
             htmlFor="ai-model"
-            className="text-[11px] font-mono uppercase tracking-wide text-muted-3"
+            className="text-xs font-mono uppercase tracking-wide text-muted-3"
           >
             Основная модель
           </label>
@@ -233,7 +233,7 @@ export function AISection() {
             Сохранить
           </button>
           {update.isSuccess && !dirty && (
-            <span className="text-[11px] text-success font-mono">
+            <span className="text-xs text-success font-mono">
               · сохранено
             </span>
           )}

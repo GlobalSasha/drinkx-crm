@@ -239,7 +239,7 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
           {/* Header */}
           <div className="px-6 py-4 border-b border-black/5 flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-muted-3">
+              <div className="text-2xs font-mono uppercase tracking-wider text-muted-3">
                 Воронка
               </div>
               <h2 className="text-lg font-bold tracking-tight text-ink mt-0.5 truncate">
@@ -260,7 +260,7 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
           <div className="px-6 py-5 overflow-y-auto flex-1 space-y-5">
             {/* Name */}
             <div>
-              <label className="block text-[11px] font-mono uppercase tracking-wide text-muted-3 mb-1.5">
+              <label className="block text-xs font-mono uppercase tracking-wide text-muted-3 mb-1.5">
                 Название
               </label>
               <input
@@ -275,10 +275,10 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
             {/* Stages */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-[11px] font-mono uppercase tracking-wide text-muted-3">
+                <label className="block text-xs font-mono uppercase tracking-wide text-muted-3">
                   Стадии
                 </label>
-                <span className="text-[10px] font-mono text-muted-3">
+                <span className="text-2xs font-mono text-muted-3">
                   {stages.length} {stages.length === 1 ? "стадия" : "стадий"}
                 </span>
               </div>
@@ -309,7 +309,7 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
               <button
                 type="button"
                 onClick={addStage}
-                className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-[12px] font-semibold text-muted hover:text-ink bg-canvas hover:bg-canvas-2 transition-colors"
+                className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-sm font-semibold text-muted hover:text-ink bg-canvas hover:bg-canvas-2 transition-colors"
               >
                 <Plus size={13} />
                 Добавить стадию
@@ -320,7 +320,7 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
           {/* Footer */}
           <div className="px-6 py-4 border-t border-black/5 flex items-center justify-between">
             {error ? (
-              <div className="flex items-center gap-1.5 text-[12px] text-rose">
+              <div className="flex items-center gap-1.5 text-sm text-rose">
                 <AlertCircle size={13} />
                 <span>{error}</span>
               </div>
@@ -430,7 +430,7 @@ function StageRowItem({
           className="w-14 px-1.5 py-1 text-sm font-mono bg-white border border-black/10 rounded-lg outline-none focus:border-brand-accent/40 transition-colors text-right tabular-nums"
           title="Срок до пометки «протухает»"
         />
-        <span className="text-[10px] font-mono text-muted-3">дн.</span>
+        <span className="text-2xs font-mono text-muted-3">дн.</span>
       </div>
 
       <button
