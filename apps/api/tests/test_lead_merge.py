@@ -90,6 +90,31 @@ async def test_merge_keeps_master_nonempty_fields(db, workspace):
 
 
 @skip_no_pg
+async def test_merge_repoints_followups(db, workspace):
+    master = _lead(workspace.id)
+    dup = _lead(workspace.id, company_name="Acme Dup")
+    db.add_all([master, dup])
+    await db.flush()
+
+    db.add(Followup(lead_id=dup.id, name="Позвонить ЛПР"))
+    await db.flush()
+
+    await merge_leads(
+        db, workspace_id=workspace.id, master_id=master.id, duplicate_ids=[dup.id], user_id=None
+    )
+
+    # The dup's open follow-up now belongs to the master (history re-pointed).
+    master_followups = (
+        await db.execute(select(Followup).where(Followup.lead_id == master.id))
+    ).scalars().all()
+    assert any(f.name == "Позвонить ЛПР" for f in master_followups)
+    dup_followups = (
+        await db.execute(select(Followup).where(Followup.lead_id == dup.id))
+    ).scalars().all()
+    assert dup_followups == []
+
+
+@skip_no_pg
 async def test_merge_no_valid_dups_raises(db, workspace):
     master = _lead(workspace.id)
     db.add(master)
