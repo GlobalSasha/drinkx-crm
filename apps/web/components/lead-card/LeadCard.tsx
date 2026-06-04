@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
@@ -19,6 +19,8 @@ import {
   Calendar,
   Activity as ActivityIcon,
   Archive,
+  Users,
+  GitMerge,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import {
@@ -44,7 +46,9 @@ import { StagesStepper } from "./StagesStepper";
 import { GateModal } from "./GateModal";
 import { LostModal } from "./LostModal";
 import { TransferModal } from "./TransferModal";
+import { DuplicatesModal } from "./DuplicatesModal";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
+import { useFeed } from "@/lib/hooks/use-feed";
 import { C } from "@/lib/design-system";
 import { Button } from "@/components/ui/Button";
 
@@ -129,6 +133,7 @@ export function LeadCard({ leadId }: Props) {
   const [gateTarget, setGateTarget] = useState<Stage | null>(null);
   const [lostStage, setLostStage] = useState<Stage | null>(null);
   const [transferOpen, setTransferOpen] = useState(false);
+  const [dupOpen, setDupOpen] = useState(false);
   // Lead Card v2: «Закрыто» button is now a tiny dropdown so the
   // manager picks Won / Lost without going through CloseModal's
   // grid. Won → straight call into useMoveStage; Lost → opens the
@@ -139,6 +144,21 @@ export function LeadCard({ leadId }: Props) {
   const [toast, setToast] = useState<string | null>(null);
 
   const nameInputRef = useRef<HTMLInputElement>(null);
+
+  // «← объединён из N» note — derived from the `system` audit Activity the
+  // merge writes (payload_json.merged_lead_ids). Reuses the feed cache that
+  // the Activity tab already populates (same query key), so no extra fetch.
+  const feed = useFeed(leadId);
+  const mergedFromCount = useMemo(() => {
+    let n = 0;
+    for (const page of feed.data?.pages ?? []) {
+      for (const item of page.items) {
+        const ids = item.payload_json?.merged_lead_ids;
+        if (item.type === "system" && Array.isArray(ids)) n += ids.length;
+      }
+    }
+    return n;
+  }, [feed.data]);
 
   const stages: Stage[] =
     pipelinesQuery.data?.[0]?.stages ??
@@ -365,6 +385,11 @@ export function LeadCard({ leadId }: Props) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem onSelect={() => setDupOpen(true)}>
+                    <Users size={13} />
+                    Найти дубли
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem
                     destructive
                     onSelect={() => setDeleteOpen(true)}
@@ -458,6 +483,16 @@ export function LeadCard({ leadId }: Props) {
                 className={`type-caption ${C.color.muted} bg-brand-panel px-2 py-0.5 rounded-full`}
               >
                 {lead.segment}
+              </span>
+            )}
+
+            {mergedFromCount > 0 && (
+              <span
+                className="inline-flex items-center gap-1 type-caption text-brand-muted bg-brand-panel px-2 py-0.5 rounded-full"
+                title="Этот лид поглотил дубликаты"
+              >
+                <GitMerge size={11} />
+                объединён из {mergedFromCount}
               </span>
             )}
 
@@ -576,6 +611,19 @@ export function LeadCard({ leadId }: Props) {
           currentAssignedTo={lead.assigned_to ?? null}
           onClose={() => setTransferOpen(false)}
           onSuccess={() => showToast("Лид передан")}
+        />
+      )}
+
+      {dupOpen && (
+        <DuplicatesModal
+          leadId={lead.id}
+          masterName={lead.company_name}
+          onClose={() => setDupOpen(false)}
+          onSuccess={(n) =>
+            showToast(
+              n === 1 ? "1 дубль объединён" : `${n} дублей объединено`,
+            )
+          }
         />
       )}
 
