@@ -195,3 +195,60 @@ async def workload(
         ],
         "managers": managers,
     }
+
+
+async def manager_portfolio(
+    db: AsyncSession, *, workspace_id: uuid.UUID, user_id: uuid.UUID
+) -> dict:
+    """A manager's active-deal portfolio: headline KPIs, segment / stage /
+    priority breakdowns, and the top deals by value. Active = assigned, not
+    archived, on a non-terminal stage. Read-only point-in-time snapshot."""
+    from app.leads.scoring import priority_label
+
+    user = await users_repo.get_by_id(db, user_id=user_id, workspace_id=workspace_id)
+    if user is None:
+        raise UserNotFound(str(user_id))
+
+    kpi = await repo.portfolio_kpi(db, workspace_id=workspace_id, user_id=user.id)
+    by_segment = await repo.portfolio_by_segment(db, workspace_id=workspace_id, user_id=user.id)
+    by_stage = await repo.portfolio_by_stage(db, workspace_id=workspace_id, user_id=user.id)
+    by_priority = await repo.portfolio_by_priority(db, workspace_id=workspace_id, user_id=user.id)
+    top_deals = await repo.portfolio_top_deals(db, workspace_id=workspace_id, user_id=user.id)
+
+    avg = kpi["avg_amount"]
+    return {
+        "user_id": user.id,
+        "name": user.name or user.email,
+        "email": user.email,
+        "kpi": {
+            "active_count": int(kpi["active_count"]),
+            "total_amount": kpi["total_amount"],
+            "total_quantity": int(kpi["total_quantity"]),
+            "avg_amount": (round(float(avg), 2) if avg is not None else None),
+            "new_7d": int(kpi["new_7d"]),
+            "new_30d": int(kpi["new_30d"]),
+            "at_risk_count": int(kpi["at_risk_count"]),
+            "at_risk_amount": kpi["at_risk_amount"],
+        },
+        "by_segment": [
+            {"segment": r["segment"], "count": int(r["cnt"]),
+             "amount": r["amount"], "quantity": int(r["quantity"])}
+            for r in by_segment
+        ],
+        "by_stage": [
+            {"stage_id": r["stage_id"], "stage_name": r["stage_name"],
+             "position": int(r["position"]), "count": int(r["cnt"]), "amount": r["amount"]}
+            for r in by_stage
+        ],
+        "by_priority": [
+            {"priority": r["priority"],
+             "label": (priority_label(r["priority"]) if r["priority"] != "—" else "Без приоритета"),
+             "count": int(r["cnt"]), "amount": r["amount"]}
+            for r in by_priority
+        ],
+        "top_deals": [
+            {"lead_id": r["lead_id"], "company_name": r["company_name"],
+             "segment": r["segment"], "amount": r["amount"]}
+            for r in top_deals
+        ],
+    }

@@ -286,3 +286,82 @@ async def non_terminal_stages(
     """)
     rows = (await db.execute(sql, {"wid": workspace_id})).all()
     return [(r.id, r.name, int(r.position), r.color) for r in rows]
+
+
+# ── manager deal portfolio (Sprint — deal analytics) ───────────────
+# All sections scope to ONE manager's ACTIVE deals: assigned, not archived,
+# on a non-terminal (not won/lost) stage. Read-only point-in-time portfolio.
+_PORTFOLIO_BASE = """
+    FROM leads l
+    JOIN stages s ON s.id = l.stage_id
+    WHERE l.workspace_id = :wid
+      AND l.assigned_to = :uid
+      AND l.assignment_status = 'assigned'
+      AND l.archived_at IS NULL
+      AND s.is_won = false AND s.is_lost = false
+"""
+
+
+async def portfolio_kpi(db: AsyncSession, *, workspace_id, user_id) -> dict:
+    """Headline numbers + at-risk, in one pass."""
+    sql = text(f"""
+        SELECT
+          count(*)                                          AS active_count,
+          COALESCE(sum(l.deal_amount), 0)                   AS total_amount,
+          COALESCE(sum(l.deal_quantity), 0)                 AS total_quantity,
+          AVG(l.deal_amount)                                AS avg_amount,
+          count(*) FILTER (WHERE l.created_at >= now() - interval '7 days')  AS new_7d,
+          count(*) FILTER (WHERE l.created_at >= now() - interval '30 days') AS new_30d,
+          count(*) FILTER (WHERE l.is_rotting_stage OR l.is_rotting_next_step) AS at_risk_count,
+          COALESCE(sum(l.deal_amount) FILTER (WHERE l.is_rotting_stage OR l.is_rotting_next_step), 0) AS at_risk_amount
+        {_PORTFOLIO_BASE}
+    """)
+    r = (await db.execute(sql, {"wid": str(workspace_id), "uid": str(user_id)})).mappings().one()
+    return dict(r)
+
+
+async def portfolio_by_segment(db: AsyncSession, *, workspace_id, user_id) -> list[dict]:
+    sql = text(f"""
+        SELECT COALESCE(l.segment, '—') AS segment,
+               count(*) AS cnt,
+               COALESCE(sum(l.deal_amount), 0)   AS amount,
+               COALESCE(sum(l.deal_quantity), 0) AS quantity
+        {_PORTFOLIO_BASE}
+        GROUP BY COALESCE(l.segment, '—')
+        ORDER BY amount DESC, cnt DESC
+    """)
+    return [dict(r) for r in (await db.execute(sql, {"wid": str(workspace_id), "uid": str(user_id)})).mappings().all()]
+
+
+async def portfolio_by_stage(db: AsyncSession, *, workspace_id, user_id) -> list[dict]:
+    sql = text(f"""
+        SELECT s.id::text AS stage_id, s.name AS stage_name, s.position,
+               count(*) AS cnt, COALESCE(sum(l.deal_amount), 0) AS amount
+        {_PORTFOLIO_BASE}
+        GROUP BY s.id, s.name, s.position
+        ORDER BY s.position
+    """)
+    return [dict(r) for r in (await db.execute(sql, {"wid": str(workspace_id), "uid": str(user_id)})).mappings().all()]
+
+
+async def portfolio_by_priority(db: AsyncSession, *, workspace_id, user_id) -> list[dict]:
+    sql = text(f"""
+        SELECT COALESCE(l.priority, '—') AS priority,
+               count(*) AS cnt, COALESCE(sum(l.deal_amount), 0) AS amount
+        {_PORTFOLIO_BASE}
+        GROUP BY COALESCE(l.priority, '—')
+        ORDER BY priority
+    """)
+    return [dict(r) for r in (await db.execute(sql, {"wid": str(workspace_id), "uid": str(user_id)})).mappings().all()]
+
+
+async def portfolio_top_deals(db: AsyncSession, *, workspace_id, user_id, limit: int = 5) -> list[dict]:
+    sql = text(f"""
+        SELECT l.id::text AS lead_id, l.company_name, l.segment,
+               COALESCE(l.deal_amount, 0) AS amount
+        {_PORTFOLIO_BASE}
+        ORDER BY l.deal_amount DESC NULLS LAST
+        LIMIT :lim
+    """)
+    rows = (await db.execute(sql, {"wid": str(workspace_id), "uid": str(user_id), "lim": limit})).mappings().all()
+    return [dict(r) for r in rows]

@@ -18,7 +18,12 @@ from app.auth.dependencies import require_admin_or_head
 from app.auth.models import User
 from app.db import get_db
 from app.team import services as svc
-from app.team.schemas import ManagerStatsOut, TeamStatsOut, WorkloadOut
+from app.team.schemas import (
+    ManagerPortfolioOut,
+    ManagerStatsOut,
+    TeamStatsOut,
+    WorkloadOut,
+)
 
 router = APIRouter(prefix="/team", tags=["team"])
 
@@ -59,6 +64,26 @@ async def get_manager_stats(
             detail="пользователь не найден",
         ) from exc
     return ManagerStatsOut(**data)
+
+
+@router.get("/{user_id}/portfolio", response_model=ManagerPortfolioOut)
+async def get_manager_portfolio(
+    user_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(require_admin_or_head)] = ...,
+) -> ManagerPortfolioOut:
+    """Admin/head only. One manager's ACTIVE-deal portfolio — headline KPIs,
+    segment / stage / priority breakdowns + top deals by value."""
+    try:
+        data = await svc.manager_portfolio(
+            db, workspace_id=user.workspace_id, user_id=user_id
+        )
+    except svc.UserNotFound as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="пользователь не найден",
+        ) from exc
+    return ManagerPortfolioOut(**data)
 
 
 @router.get("/workload", response_model=WorkloadOut)
