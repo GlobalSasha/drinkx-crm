@@ -576,6 +576,19 @@ def test_serialize_form_shows_token_when_privileged():
     assert result.ingest_token == "supersecret"
 
 
+def test_build_embed_snippet_points_to_public_route():
+    """The copy-paste <script> must target the public, unauthed route
+    (/api/public/forms/...), NOT the admin /api/forms/ prefix which
+    requires auth and a UUID — otherwise the embedded form 404s."""
+    from app.forms.routers import build_embed_snippet
+
+    snippet = build_embed_snippet("landing-qsr-a3x9kp")
+
+    assert "/api/public/forms/landing-qsr-a3x9kp/embed.js" in snippet
+    # Guard against regressing to the admin prefix.
+    assert "/api/forms/landing-qsr-a3x9kp/embed.js" not in snippet
+
+
 @pytest.mark.asyncio
 async def test_rotate_key_raises_on_keyless_form():
     """rotate_key must raise WebFormInvalidTarget when the form has no
