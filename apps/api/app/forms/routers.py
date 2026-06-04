@@ -46,7 +46,7 @@ def build_embed_snippet(slug: str) -> str:
     `api_base_url` so the embed URL works across staging / prod /
     preview deployments without a frontend rebuild."""
     base = get_settings().api_base_url.rstrip("/")
-    return f'<script src="{base}/api/forms/{slug}/embed.js" async></script>'
+    return f'<script src="{base}/api/public/forms/{slug}/embed.js" async></script>'
 
 
 def serialize_form(form, *, include_token: bool = True) -> WebFormOut:
