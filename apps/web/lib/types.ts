@@ -1052,6 +1052,9 @@ export interface WebFormOut {
   source_label: string | null;
   notify_email: string | null;
   ingest_token: string | null;
+  autoreply_enabled: boolean;
+  autoreply_subject: string | null;
+  autoreply_body: string | null;
 }
 
 export interface WebFormCreateIn {
@@ -1065,6 +1068,9 @@ export interface WebFormCreateIn {
   source_label?: string | null;
   notify_email?: string | null;
   require_key?: boolean;
+  autoreply_enabled?: boolean;
+  autoreply_subject?: string | null;
+  autoreply_body?: string | null;
 }
 
 export interface WebFormUpdateIn {
@@ -1079,6 +1085,9 @@ export interface WebFormUpdateIn {
   source_label?: string | null;
   notify_email?: string | null;
   require_key?: boolean;
+  autoreply_enabled?: boolean;
+  autoreply_subject?: string | null;
+  autoreply_body?: string | null;
 }
 
 export interface WebFormPageOut {

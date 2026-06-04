@@ -189,6 +189,9 @@ async def create_form(
             source_label=payload.source_label,
             notify_email=payload.notify_email,
             require_key=payload.require_key,
+            autoreply_enabled=payload.autoreply_enabled,
+            autoreply_subject=payload.autoreply_subject,
+            autoreply_body=payload.autoreply_body,
         )
     except svc.WebFormInvalidTarget as exc:
         raise HTTPException(

@@ -12,6 +12,8 @@ No auth dependency. Rate-limited per (slug, IP) via Redis.
 from __future__ import annotations
 
 import hmac
+import html as _html
+import re as _re
 from typing import Annotated, Any
 from urllib.parse import urlparse
 
@@ -166,6 +168,39 @@ async def _notify_workspace_admins(
             form_name=form_name,
             error=str(exc)[:200],
         )
+
+
+_URL_RE = _re.compile(r"(https?://[^\s<]+)")
+
+
+def _text_to_html(text: str) -> str:
+    """Render manager-entered plain text as a safe HTML email body:
+    HTML-escape, turn bare http(s) URLs into clickable links, and
+    convert newlines to <br>. Keeps the auto-reply editor a plain
+    textarea — no HTML knowledge required from the manager."""
+    escaped = _html.escape(text or "")
+    linked = _URL_RE.sub(r'<a href="\1">\1</a>', escaped)
+    return linked.replace("\n", "<br>")
+
+
+async def _send_autoreply(*, lead, form) -> None:
+    """Per-form auto-reply (КП / welcome letter) to the LEAD's own email.
+    Best-effort — never raises into the public submit response. Fires
+    only when the form has it enabled AND the lead left an email."""
+    if not getattr(form, "autoreply_enabled", False):
+        return
+    to = (getattr(lead, "email", None) or "").strip()
+    if not to:
+        return
+    subject = (form.autoreply_subject or "").strip() or f"DrinkX — {form.name}"
+    try:
+        from app.notifications.email_sender import send_email
+
+        await send_email(
+            to=to, subject=subject, html=_text_to_html(form.autoreply_body or "")
+        )
+    except Exception as exc:  # noqa: BLE001 — public flow must not 5xx
+        log.warning("forms.autoreply_failed", error=str(exc)[:200])
 
 
 async def _send_lead_email_notification(
@@ -324,6 +359,9 @@ async def submit_form(
         lead_id=lead.id,
     )
     await _send_lead_email_notification(db, lead=lead, form=form)
+    # Per-form auto-reply to the lead (КП / welcome letter). Best-effort,
+    # post-commit — independent of the internal notification above.
+    await _send_autoreply(lead=lead, form=form)
     try:
         await db.commit()
     except Exception:  # noqa: BLE001
