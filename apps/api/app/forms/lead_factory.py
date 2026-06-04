@@ -200,6 +200,11 @@ async def create_lead_from_submission(
                 lead_id=lead.id,
                 user_id=None,
                 type="comment",
+                # `body` is the canonical comment text the Activity Feed renders
+                # (FeedItemComment reads item.body). Mirror it into payload_json
+                # for forensic metadata (source/form_slug). Without body the
+                # webform comment showed up as an empty entry in the card.
+                body=notes[:5000],
                 payload_json={
                     "text": notes[:5000],
                     "source": "webform",
