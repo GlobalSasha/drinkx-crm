@@ -45,9 +45,12 @@ UTM dims now land on leads. Surface «какой канал приносит с�
 ### G3 — Backfill normalized columns
 Existing rows have NULL `phone_e164` / `email_normalized` / `email_domain_criterion`
 (they fill only on next save). UTM ids likewise only on new form leads.
-- [ ] One-off Celery task (or `scripts/…`) iterating leads + contacts, re-deriving the keys
+- [x] One-off Celery task (or `scripts/…`) iterating leads + contacts, re-deriving the keys
       via `app.common.phone.to_e164` + `app.common.email.normalize_email/email_domain_criterion`.
       Idempotent; batch-commit. DB-backed test on a few rows.
+      Done: `app/common/backfill.py` core + `app.scheduled.jobs.backfill_normalized_keys`
+      manual-trigger task + 4 DB-backed tests. UTM-id backfill left out of scope (needs the
+      form_submissions.utm_json join — separate follow-up if wanted).
 
 ### G4 — UI consistency fixes 3–5 (from the UI plan)
 - [ ] One shared empty-state component used everywhere (replace ad-hoc divs e.g. `/team`).
