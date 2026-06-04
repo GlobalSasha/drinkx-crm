@@ -13,6 +13,14 @@ import { useMe } from "@/lib/hooks/use-me";
 import { useTeamStats } from "@/lib/hooks/use-team-stats";
 import { WorkloadTable } from "@/components/team/WorkloadTable";
 import { pageContainerVariants } from "@/components/ui/PageContainer";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+  EmptyContent,
+} from "@/components/ui/Empty";
 import { relativeTime } from "@/lib/relative-time";
 import type {
   TeamManagerStats,
@@ -60,28 +68,25 @@ export default function TeamPage() {
   if (me.data.role !== "admin" && me.data.role !== "head") {
     return (
       <div className={pageContainerVariants({ width: "narrow" })}>
-        <div className="bg-white border border-black/5 rounded-2xl shadow-soft p-10">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-full bg-brand-soft flex items-center justify-center">
-              <ShieldAlert size={20} className="text-brand-accent" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold tracking-tight">Раздел «Команда»</h1>
-              <p className="text-xs text-muted-2">Доступен руководителям и админам</p>
-            </div>
-          </div>
-          <p className="text-sm text-muted-2 leading-relaxed mb-5">
-            На этой странице руководитель видит активность всей команды: количество звонков,
-            писем, движения по воронке, время отклика. Если тебе нужны метрики по себе —
-            открой /today, там собраны твои задачи и сделки за день.
-          </p>
-          <Link
-            href="/today"
-            className="inline-flex items-center gap-2 text-sm font-medium text-brand-accent-text hover:underline"
-          >
-            ← Вернуться на «Сегодня»
-          </Link>
-        </div>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon"><ShieldAlert /></EmptyMedia>
+            <EmptyTitle>Раздел «Команда»</EmptyTitle>
+            <EmptyDescription>
+              Доступен руководителям и админам. Здесь видно активность всей команды:
+              звонки, письма, движения по воронке, время отклика. Нужны метрики по себе —
+              открой «Сегодня».
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Link
+              href="/today"
+              className="inline-flex items-center gap-2 text-sm font-medium text-brand-accent-text hover:underline"
+            >
+              ← Вернуться на «Сегодня»
+            </Link>
+          </EmptyContent>
+        </Empty>
       </div>
     );
   }
@@ -163,9 +168,15 @@ export default function TeamPage() {
           )}
 
           {stats.data && stats.data.managers.length === 0 && (
-            <div className="bg-white border border-black/5 rounded-2xl p-12 text-center">
-              <p className="text-sm text-muted-2">В команде пока нет участников.</p>
-            </div>
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon"><Users /></EmptyMedia>
+                <EmptyTitle>В команде пока нет участников</EmptyTitle>
+                <EmptyDescription>
+                  Пригласите коллег в настройках — и их активность появится здесь.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           )}
 
           {stats.data && stats.data.managers.length > 0 && (
