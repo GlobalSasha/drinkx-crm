@@ -17,9 +17,11 @@ import {
   Search,
   TrendingUp,
   ListChecks,
+  Inbox,
 } from "lucide-react";
 import { Kbd } from "@/components/ui/Kbd";
 import { useNotificationsBadge } from "@/lib/hooks/use-notifications";
+import { useIncomingBadge } from "@/lib/hooks/use-incoming";
 import { useMe } from "@/lib/hooks/use-me";
 import { SidebarNav, type NavItem } from "./SidebarNav";
 
@@ -37,9 +39,11 @@ export function SidebarNavContainer({
 }: SidebarNavContainerProps) {
   const pathname = usePathname();
   const { data: badge } = useNotificationsBadge();
+  const { data: incomingBadge } = useIncomingBadge();
   const { data: me } = useMe();
 
   const unreadCount = badge?.unread ?? 0;
+  const incomingCount = incomingBadge?.new ?? 0;
   const isAdmin = me?.role === "admin";
   const isAdminOrHead = me?.role === "admin" || me?.role === "head";
 
@@ -60,6 +64,14 @@ export function SidebarNavContainer({
       { id: "tasks",      label: "Задачи",    href: "/tasks",      icon: <ListChecks size={18} /> },
       { id: "forecast",   label: "Прогноз",   href: "/forecast",   icon: <TrendingUp size={18} /> },
       { id: "pipeline",   label: "Воронка",   href: "/pipeline",   icon: <Kanban size={18} /> },
+      {
+        id: "incoming",
+        label: "Входящие",
+        href: "/incoming",
+        icon: <Inbox size={18} />,
+        badge: incomingCount,
+        ariaLabel: `Входящие заявки${incomingCount > 0 ? ` (${incomingCount} новых)` : ""}`,
+      },
       { id: "leads-pool", label: "База лидов", href: "/leads-pool", icon: <Target size={18} /> },
       { id: "triage",     label: "Мессенджеры", href: "/triage",    icon: <MessageCircle size={18} /> },
     ];
@@ -88,7 +100,7 @@ export function SidebarNavContainer({
     });
     base.push({ id: "settings", label: "Настройки", href: "/settings", icon: <Settings size={18} /> });
     return base;
-  }, [isAdmin, isAdminOrHead, unreadCount, onNotificationsClick, onSearchClick]);
+  }, [isAdmin, isAdminOrHead, unreadCount, incomingCount, onNotificationsClick, onSearchClick]);
 
   // The active item is whichever route currently matches. Notifications
   // (no href) can never be "active" — only highlighted on hover.

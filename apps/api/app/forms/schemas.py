@@ -134,3 +134,41 @@ class FormAnalyticsOut(BaseModel):
     total_submissions: int
     total_leads: int
     total_won: int
+
+
+# ---------------------------------------------------------------------------
+# Website-leads inbox
+# ---------------------------------------------------------------------------
+
+class InboxItemOut(BaseModel):
+    """One row in the «Входящие заявки» section. All optional-with-defaults
+    so a partially-populated submission (e.g. lead hard-deleted) never
+    breaks serialisation."""
+    submission_id: UUID
+    lead_id: UUID | None = None
+    created_at: datetime
+    is_new: bool = False
+    snippet: str = ""
+    source_domain: str | None = None
+    utm_json: dict | None = None
+    form_id: UUID
+    form_name: str = ""
+    form_slug: str = ""
+    channel: str = ""
+    company_name: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    assignment_status: str | None = None
+    assignee_name: str | None = None
+
+
+class InboxPageOut(BaseModel):
+    items: list[InboxItemOut]
+    total: int
+    page: int
+    page_size: int
+    new_count: int
+
+
+class InboxBadgeOut(BaseModel):
+    new: int = 0

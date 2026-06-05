@@ -25,6 +25,7 @@ from app.auth.dependencies import current_user, require_admin_or_head
 from app.auth.models import User
 from app.config import get_settings
 from app.db import get_db
+from app.forms import inbox as inbox_mod
 from app.forms import repositories as repo
 from app.forms import services as svc
 from app.forms.schemas import (
@@ -32,6 +33,9 @@ from app.forms.schemas import (
     FormStatsOut,
     FormSubmissionOut,
     FormSubmissionPageOut,
+    InboxBadgeOut,
+    InboxItemOut,
+    InboxPageOut,
     WebFormCreateIn,
     WebFormOut,
     WebFormPageOut,
@@ -95,6 +99,74 @@ async def get_analytics(
     return await svc.get_channel_analytics(
         db, workspace_id=user.workspace_id, date_from=date_from, date_to=date_to
     )
+
+
+# ---------------------------------------------------------------------------
+# Website-leads inbox — «Входящие заявки» section
+#
+# Declared BEFORE the parametric `/{form_id}` routes so the literal
+# `inbox` segment never gets parsed as a UUID (same guard as /analytics).
+# ---------------------------------------------------------------------------
+
+@router.get("/inbox", response_model=InboxPageOut)
+async def get_inbox(
+    form_id: Annotated[UUID | None, Query()] = None,
+    unseen_only: Annotated[bool, Query()] = False,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 30,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> InboxPageOut:
+    seen_at = user.forms_inbox_seen_at
+    items, total = await inbox_mod.list_inbox(
+        db,
+        workspace_id=user.workspace_id,
+        seen_at=seen_at,
+        form_id=form_id,
+        unseen_only=unseen_only,
+        page=page,
+        page_size=page_size,
+    )
+    new_count = await inbox_mod.count_new(
+        db, workspace_id=user.workspace_id, seen_at=seen_at
+    )
+    return InboxPageOut(
+        items=[InboxItemOut(**it) for it in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+        new_count=new_count,
+    )
+
+
+@router.get("/inbox/badge", response_model=InboxBadgeOut)
+async def get_inbox_badge(
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> InboxBadgeOut:
+    n = await inbox_mod.count_new(
+        db, workspace_id=user.workspace_id, seen_at=user.forms_inbox_seen_at
+    )
+    return InboxBadgeOut(new=n)
+
+
+@router.post("/inbox/seen", response_model=InboxBadgeOut)
+async def mark_inbox_seen(
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> InboxBadgeOut:
+    """Advance the caller's inbox 'seen' marker to now → badge resets to 0."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy import update
+
+    await db.execute(
+        update(User)
+        .where(User.id == user.id)
+        .values(forms_inbox_seen_at=datetime.now(timezone.utc))
+    )
+    await db.commit()
+    return InboxBadgeOut(new=0)
 
 
 @router.get("/{form_id}", response_model=WebFormOut)
