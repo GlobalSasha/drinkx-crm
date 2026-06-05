@@ -26,7 +26,6 @@ export default function IncomingPage() {
   const router = useRouter();
   const [channel, setChannel] = useState<string | null>(null); // form_id
   const [unseenOnly, setUnseenOnly] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const formsQuery = useForms();
   const inboxQuery = useIncoming({ formId: channel, unseenOnly });
@@ -47,11 +46,8 @@ export default function IncomingPage() {
     }
   }, [inboxQuery.isSuccess, markSeen]);
 
-  // Keep a selection in sync with the list.
-  const selected = items.find((i) => i.submission_id === selectedId) ?? items[0] ?? null;
-
-  function openLead(it: InboxItemOut | null) {
-    if (it?.lead_id) {
+  function openLead(it: InboxItemOut) {
+    if (it.lead_id) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       router.push(`/leads/${it.lead_id}` as any);
     }
@@ -100,45 +96,30 @@ export default function IncomingPage() {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1">
-        {/* List */}
-        <div className="flex-1 px-6 py-4 overflow-y-auto">
-          {inboxQuery.isLoading && (
-            <div className="flex justify-center py-12">
-              <Loader2 size={20} className="animate-spin text-muted-2" />
-            </div>
-          )}
-
-          {inboxQuery.isError && (
-            <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose/10 text-rose text-sm">
-              <AlertCircle size={14} />
-              Не удалось загрузить заявки.
-            </div>
-          )}
-
-          {!inboxQuery.isLoading && !inboxQuery.isError && items.length === 0 && (
-            <EmptyState />
-          )}
-
-          <div className="flex flex-col gap-2.5">
-            {items.map((it) => (
-              <Row
-                key={it.submission_id}
-                item={it}
-                selected={selected?.submission_id === it.submission_id}
-                onSelect={() => setSelectedId(it.submission_id)}
-                onOpenLead={() => openLead(it)}
-              />
-            ))}
+      {/* List */}
+      <div className="px-6 py-4 overflow-y-auto">
+        {inboxQuery.isLoading && (
+          <div className="flex justify-center py-12">
+            <Loader2 size={20} className="animate-spin text-muted-2" />
           </div>
-        </div>
-
-        {/* Detail preview — hidden on small screens */}
-        {selected && (
-          <aside className="hidden lg:block w-[360px] flex-none border-l border-black/5 bg-white px-5 py-5 overflow-y-auto">
-            <Detail item={selected} onOpenLead={() => openLead(selected)} />
-          </aside>
         )}
+
+        {inboxQuery.isError && (
+          <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose/10 text-rose text-sm">
+            <AlertCircle size={14} />
+            Не удалось загрузить заявки.
+          </div>
+        )}
+
+        {!inboxQuery.isLoading && !inboxQuery.isError && items.length === 0 && (
+          <EmptyState />
+        )}
+
+        <div className="flex flex-col gap-2.5 max-w-3xl">
+          {items.map((it) => (
+            <Row key={it.submission_id} item={it} onOpenLead={() => openLead(it)} />
+          ))}
+        </div>
       </div>
     </>
   );
@@ -170,28 +151,18 @@ function Chip({
   );
 }
 
-function Row({
-  item,
-  selected,
-  onSelect,
-  onOpenLead,
-}: {
-  item: InboxItemOut;
-  selected: boolean;
-  onSelect: () => void;
-  onOpenLead: () => void;
-}) {
+function Row({ item, onOpenLead }: { item: InboxItemOut; onOpenLead: () => void }) {
   const st = statusLabel(item);
   const title = item.company_name || "Без названия";
   return (
     <div
-      onClick={onSelect}
-      className={clsx(
-        "relative rounded-2xl border bg-white px-4 py-3.5 pl-5 cursor-pointer transition-all",
-        selected
-          ? "border-brand-accent ring-2 ring-brand-accent/15"
-          : "border-black/5 hover:border-black/15",
-      )}
+      onClick={onOpenLead}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onOpenLead();
+      }}
+      className="relative rounded-2xl border border-black/5 bg-white px-4 py-3.5 pl-5 cursor-pointer transition-all hover:border-black/15"
     >
       {item.is_new && (
         <span className="absolute left-2 top-5 w-2 h-2 rounded-full bg-brand-accent" />
@@ -219,15 +190,9 @@ function Row({
           {item.channel}
         </span>
         <StatusPill st={st} />
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenLead();
-          }}
-          className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-brand-accent hover:underline"
-        >
+        <span className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-brand-accent">
           Открыть лида <ArrowRight size={12} />
-        </button>
+        </span>
       </div>
     </div>
   );
@@ -244,68 +209,6 @@ function StatusPill({ st }: { st: ReturnType<typeof statusLabel> }) {
     <span className={clsx("text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-md", cls)}>
       {st.text}
     </span>
-  );
-}
-
-function Detail({ item, onOpenLead }: { item: InboxItemOut; onOpenLead: () => void }) {
-  const utm = item.utm_json
-    ? Object.entries(item.utm_json)
-        .map(([k, v]) => `${k}=${v}`)
-        .join(" · ")
-    : null;
-  return (
-    <div>
-      <div className="text-[17px] font-bold text-ink tracking-tight">
-        {item.company_name || "Без названия"}
-      </div>
-      <div className={`${T.mono} text-[11px] text-muted-2 mt-1.5 mb-5`}>
-        {item.channel} · {relativeTime(item.created_at)}
-      </div>
-
-      <dl className="flex flex-col gap-3.5 mb-5">
-        <Field k="Телефон" v={item.phone} />
-        <Field k="Email" v={item.email} />
-        <Field k="Сообщение" v={item.snippet} multiline />
-        <Field k="Источник (домен)" v={item.source_domain} />
-        <Field k="UTM" v={utm} mono />
-      </dl>
-
-      <button
-        onClick={onOpenLead}
-        disabled={!item.lead_id}
-        className="block w-full text-center bg-ink text-white font-semibold text-sm py-3 rounded-pill hover:bg-ink/90 disabled:opacity-40 transition-colors"
-      >
-        Открыть карточку лида →
-      </button>
-    </div>
-  );
-}
-
-function Field({
-  k,
-  v,
-  multiline,
-  mono,
-}: {
-  k: string;
-  v: string | null | undefined;
-  multiline?: boolean;
-  mono?: boolean;
-}) {
-  if (!v) return null;
-  return (
-    <div>
-      <dt className={`${T.mono} text-[9.5px] uppercase tracking-wider text-muted-2`}>{k}</dt>
-      <dd
-        className={clsx(
-          "mt-1 text-ink",
-          multiline ? "text-sm font-normal leading-relaxed text-ink/80" : "text-sm font-semibold",
-          mono && "font-mono text-xs",
-        )}
-      >
-        {v}
-      </dd>
-    </div>
   );
 }
 
