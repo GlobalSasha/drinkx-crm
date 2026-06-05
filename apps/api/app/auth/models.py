@@ -87,6 +87,13 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # Website-leads inbox: per-user "last seen" marker. The inbox badge counts
+    # form submissions created after this timestamp; opening the inbox (or
+    # "mark all read") advances it to now. NULL → everything is still "new".
+    forms_inbox_seen_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # Editable profile fields (Sprint manager-profile, migration 0027).
     # Avatar is just a URL for now — file upload is a separate task.
     phone: Mapped[str | None] = mapped_column(String(30), nullable=True)

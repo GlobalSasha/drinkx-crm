@@ -1639,6 +1639,38 @@ export type FormAnalytics = {
   total_won: number;
 };
 
+// «Входящие заявки» (website-leads inbox).
+export interface InboxItemOut {
+  submission_id: string;
+  lead_id: string | null;
+  created_at: string;
+  is_new: boolean;
+  snippet: string;
+  source_domain: string | null;
+  utm_json: Record<string, string> | null;
+  form_id: string;
+  form_name: string;
+  form_slug: string;
+  channel: string;
+  company_name: string | null;
+  phone: string | null;
+  email: string | null;
+  assignment_status: string | null;
+  assignee_name: string | null;
+}
+
+export interface InboxPageOut {
+  items: InboxItemOut[];
+  total: number;
+  page: number;
+  page_size: number;
+  new_count: number;
+}
+
+export interface InboxBadgeOut {
+  new: number;
+}
+
 // Sprint 4.0 G7 — admin LLM cost counter (Settings → Расходы).
 export interface ProviderCost {
   provider: string;

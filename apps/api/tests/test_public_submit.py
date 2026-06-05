@@ -617,3 +617,21 @@ async def test_autoreply_subject_falls_back_to_form_name():
 
     assert len(sent) == 1
     assert "Сайт drinkx.ru" in sent[0]["subject"]
+
+
+# ===========================================================================
+# 11. Inbox snippet extraction (migration 0047 / forms.inbox)
+# ===========================================================================
+
+def test_inbox_extract_snippet_prefers_message_keys():
+    from app.forms.inbox import extract_snippet
+    assert extract_snippet({"comment": "Нужен S300"}) == "Нужен S300"
+    # whitespace/newlines collapsed to single spaces
+    assert extract_snippet({"сообщение": "Привет\n\n  мир"}) == "Привет мир"
+    # no recognised message key → empty
+    assert extract_snippet({"phone": "+7 900 000-00-00"}) == ""
+    # non-dict payloads are safe
+    assert extract_snippet(None) == ""
+    assert extract_snippet("oops") == ""
+    # truncated to the 160-char limit
+    assert len(extract_snippet({"message": "x" * 500})) == 160
