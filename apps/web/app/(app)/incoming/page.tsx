@@ -57,29 +57,19 @@ export default function IncomingPage() {
     <>
       {/* Sticky header */}
       <div className="sticky top-0 z-10 bg-white border-b border-black/5 px-6 py-4">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-baseline gap-2.5">
-            <h1 className="type-card-title">Входящие заявки</h1>
-            {newCount > 0 && (
-              <span className="bg-brand-accent/10 text-brand-accent font-semibold text-xs px-2 py-0.5 rounded-md">
-                {newCount} новых
-              </span>
-            )}
-            <span className="text-muted-3 text-xs font-mono tabular-nums">
-              всего {total}
+        <div className="flex items-baseline gap-2.5">
+          <h1 className="type-card-title">Входящие заявки</h1>
+          {newCount > 0 && (
+            <span className="bg-brand-accent/10 text-brand-accent font-semibold text-xs px-2 py-0.5 rounded-md">
+              {newCount} новых
             </span>
-          </div>
-          <button
-            onClick={() => markSeen.mutate()}
-            disabled={markSeen.isPending}
-            className="inline-flex items-center gap-1.5 border border-black/10 bg-white text-muted rounded-pill px-3.5 py-2 text-sm font-semibold hover:text-ink hover:border-black/20 disabled:opacity-40 transition-colors"
-          >
-            <CheckCheck size={14} />
-            Отметить все прочитанными
-          </button>
+          )}
+          <span className="text-muted-3 text-xs font-mono tabular-nums">
+            всего {total}
+          </span>
         </div>
 
-        {/* Filter chips */}
+        {/* Filters + actions */}
         <div className="flex items-center gap-2 mt-3 flex-wrap">
           <Chip active={channel === null} onClick={() => setChannel(null)}>
             Все
@@ -93,6 +83,14 @@ export default function IncomingPage() {
           <Chip active={unseenOnly} onClick={() => setUnseenOnly((v) => !v)}>
             Только новые
           </Chip>
+          <button
+            onClick={() => markSeen.mutate()}
+            disabled={markSeen.isPending}
+            className="inline-flex items-center gap-1.5 border border-black/10 bg-white text-muted rounded-pill px-3.5 py-1.5 text-sm font-semibold hover:text-ink hover:border-black/20 disabled:opacity-40 transition-colors"
+          >
+            <CheckCheck size={14} />
+            Отметить все прочитанными
+          </button>
         </div>
       </div>
 
