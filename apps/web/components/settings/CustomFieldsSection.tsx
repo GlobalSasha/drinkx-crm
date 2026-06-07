@@ -116,7 +116,7 @@ export function CustomFieldsSection() {
           <Loader2 size={20} className="animate-spin text-muted-2" />
         </div>
       ) : items.length === 0 ? (
-        <div className="bg-canvas/60 border border-black/5 rounded-card px-6 py-12 text-center">
+        <div className="bg-canvas/60 border border-brand-border rounded-card px-6 py-12 text-center">
           <Sparkles size={20} className="text-muted-2 mx-auto mb-2" />
           <p className="text-sm text-muted">Пока нет кастомных полей.</p>
           <p className="text-xs text-muted-3 mt-1">
@@ -247,7 +247,7 @@ function CustomFieldEditor({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
       <div className="bg-white rounded-card shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-black/5">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-brand-border">
           <h3 className="type-card-title">
             {isEdit ? "Редактировать поле" : "Новое поле"}
           </h3>
@@ -270,7 +270,7 @@ function CustomFieldEditor({
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="Регион"
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+              className="mt-1 w-full bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             />
           </label>
 
@@ -286,7 +286,7 @@ function CustomFieldEditor({
               }
               disabled={isEdit}
               placeholder="region"
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 disabled:opacity-60"
+              className="mt-1 w-full bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 disabled:opacity-60"
             />
             <p className="text-xs text-muted-3 mt-1">
               Латиница, цифры, подчёркивания.
@@ -301,7 +301,7 @@ function CustomFieldEditor({
               value={kind}
               onChange={(e) => setKind(e.target.value as AttributeKind)}
               disabled={isEdit}
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 disabled:opacity-60"
+              className="mt-1 w-full bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 disabled:opacity-60"
             >
               {(Object.keys(KIND_LABELS) as AttributeKind[]).map((k) => (
                 <option key={k} value={k}>
@@ -335,7 +335,7 @@ function CustomFieldEditor({
                         updateOption(i, { value: e.target.value })
                       }
                       placeholder="value"
-                      className="flex-1 bg-canvas border border-black/10 rounded-lg px-2 py-1 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                      className="flex-1 bg-canvas border border-brand-border rounded-lg px-2 py-1 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                     />
                     <input
                       type="text"
@@ -344,7 +344,7 @@ function CustomFieldEditor({
                         updateOption(i, { label: e.target.value })
                       }
                       placeholder="Метка"
-                      className="flex-1 bg-canvas border border-black/10 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                      className="flex-1 bg-canvas border border-brand-border rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                     />
                     <button
                       type="button"
@@ -466,7 +466,7 @@ function DraggableList({
   }
 
   return (
-    <div className="bg-white border border-black/5 rounded-card shadow-soft overflow-hidden">
+    <div className="bg-white border border-brand-border rounded-card shadow-soft overflow-hidden">
       <div className={`bg-canvas grid grid-cols-[28px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,140px)_minmax(0,90px)_64px] gap-3 px-4 py-2 ${T.mono} uppercase text-muted-3 font-semibold`}>
         <span aria-hidden />
         <span>Метка</span>
@@ -533,7 +533,7 @@ function SortableRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="grid grid-cols-[28px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,140px)_minmax(0,90px)_64px] gap-3 px-4 py-3 border-t border-black/5 hover:bg-canvas/40 transition-colors text-sm items-center"
+      className="grid grid-cols-[28px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,140px)_minmax(0,90px)_64px] gap-3 px-4 py-3 border-t border-brand-border hover:bg-canvas/40 transition-colors text-sm items-center"
     >
       {isAdminOrHead ? (
         <button

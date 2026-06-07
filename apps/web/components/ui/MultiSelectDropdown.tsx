@@ -64,7 +64,7 @@ export function MultiSelectDropdown({
         className={`h-8 inline-flex items-center gap-1.5 px-3 rounded-pill text-xs font-semibold transition-all duration-300 ${
           isActive
             ? "bg-brand-accent text-white"
-            : "bg-canvas text-muted hover:bg-canvas-2 border border-black/5"
+            : "bg-canvas text-muted hover:bg-canvas-2 border border-brand-border"
         }`}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -78,7 +78,7 @@ export function MultiSelectDropdown({
 
       {open && (
         <div
-          className={`absolute top-full mt-1.5 z-30 min-w-[14rem] max-w-[20rem] max-h-[20rem] flex flex-col bg-white border border-black/10 rounded-xl shadow-[0_8px_32px_-4px_rgba(0,0,0,0.12)] overflow-hidden ${
+          className={`absolute top-full mt-1.5 z-30 min-w-[14rem] max-w-[20rem] max-h-[20rem] flex flex-col bg-white border border-brand-border rounded-xl shadow-[0_8px_32px_-4px_rgba(0,0,0,0.12)] overflow-hidden ${
             align === "right" ? "right-0" : "left-0"
           }`}
           role="listbox"
@@ -105,7 +105,7 @@ export function MultiSelectDropdown({
                       className={`w-4 h-4 shrink-0 rounded border flex items-center justify-center transition-all duration-150 ${
                         checked
                           ? "bg-brand-accent border-brand-accent"
-                          : "bg-white border-black/20"
+                          : "bg-white border-brand-border"
                       }`}
                     >
                       {checked && <Check size={11} className="text-white" />}
@@ -122,7 +122,7 @@ export function MultiSelectDropdown({
             })}
           </ul>
           {selected.length > 0 && (
-            <div className="border-t border-black/5 px-3 py-2 bg-canvas/60">
+            <div className="border-t border-brand-border px-3 py-2 bg-canvas/60">
               <button
                 type="button"
                 onClick={() => onChange([])}

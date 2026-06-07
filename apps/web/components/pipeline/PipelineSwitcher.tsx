@@ -75,7 +75,7 @@ export function PipelineSwitcher() {
   // switch when there's nothing to switch to.
   if (pipelines.length === 1) {
     return (
-      <span className="inline-flex items-center gap-1.5 bg-canvas border border-black/10 rounded-pill px-3 py-1.5 text-sm font-semibold text-ink">
+      <span className="inline-flex items-center gap-1.5 bg-canvas border border-brand-border rounded-pill px-3 py-1.5 text-sm font-semibold text-ink">
         {selectedPipeline.name}
       </span>
     );
@@ -86,7 +86,7 @@ export function PipelineSwitcher() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1.5 bg-canvas text-ink border border-black/10 rounded-pill px-3 py-1.5 text-sm font-semibold transition-all duration-300 hover:bg-canvas-2 hover:border-black/20 active:scale-[0.98]"
+        className="inline-flex items-center gap-1.5 bg-canvas text-ink border border-brand-border rounded-pill px-3 py-1.5 text-sm font-semibold transition-all duration-300 hover:bg-canvas-2 hover:border-brand-border active:scale-[0.98]"
         aria-haspopup="listbox"
         aria-expanded={open}
       >
@@ -100,7 +100,7 @@ export function PipelineSwitcher() {
       {open && (
         <div
           role="listbox"
-          className="absolute left-0 top-full mt-1 z-30 min-w-[260px] bg-white border border-black/10 rounded-xl shadow-soft py-1 overflow-hidden"
+          className="absolute left-0 top-full mt-1 z-30 min-w-[260px] bg-white border border-brand-border rounded-xl shadow-soft py-1 overflow-hidden"
         >
           {pipelines.map((p) => {
             const isSelected = p.id === selectedPipeline.id;
@@ -141,7 +141,7 @@ export function PipelineSwitcher() {
             );
           })}
 
-          <div className="border-t border-black/5 my-1" />
+          <div className="border-t border-brand-border my-1" />
 
           <button
             type="button"

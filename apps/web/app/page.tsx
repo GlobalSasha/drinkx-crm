@@ -3,7 +3,7 @@ import Link from "next/link";
 export default function HomePage() {
   return (
     <main className="min-h-screen flex items-center justify-center p-8">
-      <div className="max-w-2xl w-full bg-white border border-black/10 rounded-card p-12 shadow-soft">
+      <div className="max-w-2xl w-full bg-white border border-brand-border rounded-card p-12 shadow-soft">
         <div className="font-mono text-xs uppercase tracking-[0.2em] text-muted mb-3">
           Phase 1 · Foundation
         </div>

@@ -129,14 +129,14 @@ export function MappingStep({ job, onBack, onConfirmed }: Props) {
       )}
 
       {/* Mapping table */}
-      <div className="rounded-card border border-black/5 bg-white overflow-hidden">
-        <div className="grid grid-cols-[1fr_1fr_minmax(180px,1.2fr)_24px] items-center gap-3 px-4 py-2.5 bg-canvas border-b border-black/5 text-2xs font-mono uppercase tracking-wider text-muted-2">
+      <div className="rounded-card border border-brand-border bg-white overflow-hidden">
+        <div className="grid grid-cols-[1fr_1fr_minmax(180px,1.2fr)_24px] items-center gap-3 px-4 py-2.5 bg-canvas border-b border-brand-border text-2xs font-mono uppercase tracking-wider text-muted-2">
           <span>Колонка в файле</span>
           <span className="hidden md:block">Пример значения</span>
           <span>Поле CRM</span>
           <span />
         </div>
-        <div className="divide-y divide-black/5 max-h-[42vh] overflow-y-auto">
+        <div className="divide-y divide-brand-border max-h-[42vh] overflow-y-auto">
           {headers.map((header) => {
             const current = mapping[header];
             const isDuplicate = current && duplicateFields.has(current);
@@ -159,7 +159,7 @@ export function MappingStep({ job, onBack, onConfirmed }: Props) {
                     "text-sm bg-canvas border rounded-lg px-2.5 py-1.5 outline-none transition-colors w-full",
                     isDuplicate
                       ? "border-amber-400 focus:border-amber-500"
-                      : "border-black/10 focus:border-brand-accent",
+                      : "border-brand-border focus:border-brand-accent",
                   )}
                 >
                   <option value={NONE_VALUE}>— не импортировать</option>

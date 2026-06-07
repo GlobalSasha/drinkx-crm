@@ -154,7 +154,7 @@ export function GateModal({ leadId, targetStage, onClose, onSuccess }: Props) {
           )}
 
           {/* Force skip toggle */}
-          <div className="mb-4 pt-2 border-t border-black/5">
+          <div className="mb-4 pt-2 border-t border-brand-border">
             <label className="flex items-center gap-2.5 cursor-pointer">
               <input
                 type="checkbox"
@@ -172,7 +172,7 @@ export function GateModal({ leadId, targetStage, onClose, onSuccess }: Props) {
                 onChange={(e) => setSkipReason(e.target.value)}
                 placeholder="Укажите причину..."
                 rows={2}
-                className="mt-2 w-full px-3 py-2 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white resize-none transition-all"
+                className="mt-2 w-full px-3 py-2 text-sm bg-canvas border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white resize-none transition-all"
               />
             )}
           </div>

@@ -24,10 +24,10 @@ export function WorkloadTable() {
   }
 
   return (
-    <div className="overflow-x-auto rounded-card border border-black/5 bg-white">
+    <div className="overflow-x-auto rounded-card border border-brand-border bg-white">
       <table className="min-w-full text-sm">
         <thead>
-          <tr className="border-b border-black/5 text-left text-xs text-muted-2">
+          <tr className="border-b border-brand-border text-left text-xs text-muted-2">
             <th className="px-4 py-3 font-semibold sticky left-0 z-10 bg-white">Менеджер</th>
             {data.stages.map((s) => (
               <th key={s.id} className="px-3 py-3 font-semibold whitespace-nowrap">
@@ -40,7 +40,7 @@ export function WorkloadTable() {
         </thead>
         <tbody>
           {data.managers.map((m) => (
-            <tr key={m.user_id} className="border-b border-black/5 hover:bg-black/[0.02]">
+            <tr key={m.user_id} className="border-b border-brand-border hover:bg-black/[0.02]">
               <td className="px-4 py-3 font-medium sticky left-0 z-10 bg-white">
                 <Link
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -133,14 +133,14 @@ export function NotificationsDrawer({ open, onClose }: Props) {
 
       {/* Panel */}
       <aside
-        className={`fixed top-0 right-0 z-40 h-screen w-[420px] max-w-[92vw] bg-white border-l border-black/5 shadow-soft flex flex-col transition-transform duration-300 ease-soft ${
+        className={`fixed top-0 right-0 z-40 h-screen w-[420px] max-w-[92vw] bg-white border-l border-brand-border shadow-soft flex flex-col transition-transform duration-300 ease-soft ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
         role="dialog"
         aria-label="Уведомления"
       >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between gap-2">
+        <div className="px-5 py-4 border-b border-brand-border flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-bold tracking-tight">Уведомления</h2>
             {unread > 0 && (
@@ -168,7 +168,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
         </div>
 
         {/* Filter row */}
-        <div className="px-5 py-3 border-b border-black/5 flex items-center justify-between gap-2">
+        <div className="px-5 py-3 border-b border-brand-border flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 bg-canvas rounded-pill p-0.5">
             <button
               onClick={() => setUnreadOnly(true)}
@@ -204,7 +204,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
               {Array.from({ length: 5 }).map((_, i) => (
                 <div
                   key={i}
-                  className="animate-pulse h-16 bg-canvas rounded-xl border border-black/5"
+                  className="animate-pulse h-16 bg-canvas rounded-xl border border-brand-border"
                 />
               ))}
             </div>
@@ -231,11 +231,11 @@ export function NotificationsDrawer({ open, onClose }: Props) {
           )}
 
           {!isLoading && !isError && items.length > 0 && (
-            <ul className="divide-y divide-black/5">
+            <ul className="divide-y divide-brand-border">
               {groupByDay(items).map((group) => (
                 <Fragment key={group.key}>
                   <li
-                    className="bg-canvas/60 px-5 py-1.5 sticky top-0 z-10 border-b border-black/5"
+                    className="bg-canvas/60 px-5 py-1.5 sticky top-0 z-10 border-b border-brand-border"
                     role="presentation"
                   >
                     <span className="text-2xs font-mono uppercase tracking-[0.18em] text-muted-3 font-semibold">

@@ -151,10 +151,10 @@ export function PipelinesSection() {
       </div>
 
       {/* Table */}
-      <div className="bg-white border border-black/5 rounded-card shadow-soft overflow-hidden">
+      <div className="bg-white border border-brand-border rounded-card shadow-soft overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-canvas/60">
-            <tr className="border-b border-black/5">
+            <tr className="border-b border-brand-border">
               <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold`}>
                 Название
               </th>
@@ -182,7 +182,7 @@ export function PipelinesSection() {
               return (
                 <tr
                   key={p.id}
-                  className="border-b border-black/5 last:border-0 hover:bg-canvas/40 transition-colors"
+                  className="border-b border-brand-border last:border-0 hover:bg-canvas/40 transition-colors"
                 >
                   <td className="px-4 py-3 align-middle">
                     <button
@@ -332,7 +332,7 @@ function DeleteModal({
           role="alertdialog"
           aria-modal="true"
           aria-label={title}
-          className="bg-white rounded-card border border-black/5 shadow-soft w-full max-w-md p-6"
+          className="bg-white rounded-card border border-brand-border shadow-soft w-full max-w-md p-6"
         >
           <h3 className="type-card-title text-ink mb-2">
             {title}

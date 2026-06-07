@@ -106,7 +106,7 @@ export function UploadStep({ onUploaded }: Props) {
             ? "border-brand-accent bg-brand-soft"
             : picked
               ? "border-emerald-400/40 bg-emerald-50/40"
-              : "border-black/15 hover:border-brand-accent/60 hover:bg-canvas/60",
+              : "border-brand-border hover:border-brand-accent/60 hover:bg-canvas/60",
           busy && "opacity-60 cursor-wait",
         )}
       >

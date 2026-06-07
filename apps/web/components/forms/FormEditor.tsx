@@ -274,10 +274,10 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
           role="dialog"
           aria-modal="true"
           aria-label={isEdit ? "Редактирование формы" : "Новая форма"}
-          className="bg-white rounded-card border border-black/5 shadow-soft w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden"
+          className="bg-white rounded-card border border-brand-border shadow-soft w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden"
         >
           {/* Header */}
-          <div className="px-6 py-4 border-b border-black/5 flex items-start justify-between gap-4">
+          <div className="px-6 py-4 border-b border-brand-border flex items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="text-2xs font-mono uppercase tracking-wider text-muted-3">
                 Форма
@@ -302,7 +302,7 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
           </div>
 
           {/* Tabs — only show «Встроить» when editing (need slug) */}
-          <div className="px-6 pt-3 border-b border-black/5">
+          <div className="px-6 pt-3 border-b border-brand-border">
             <div className="flex gap-1">
               <TabButton
                 active={tab === "settings"}
@@ -368,7 +368,7 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
 
           {/* Footer — only on settings tab; embed tab is read-only */}
           {tab === "settings" && (
-            <div className="px-6 py-4 border-t border-black/5 flex items-center justify-between">
+            <div className="px-6 py-4 border-t border-brand-border flex items-center justify-between">
               {error ? (
                 <div className="flex items-center gap-1.5 text-sm text-rose">
                   <AlertCircle size={13} />
@@ -504,7 +504,7 @@ function SettingsTab({
           value={name}
           onChange={(e) => onName(e.target.value)}
           placeholder="Например: Заявка с лендинга QSR"
-          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
+          className="w-full text-sm bg-canvas border border-brand-border rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
         />
       </Field>
 
@@ -520,8 +520,8 @@ function SettingsTab({
             </span>
           )}
         </div>
-        <div className="rounded-card border border-black/5 bg-white">
-          <div className="grid grid-cols-[1fr_140px_90px_24px] items-center gap-2 px-3 py-2 bg-canvas border-b border-black/5 text-2xs font-mono uppercase tracking-wider text-muted-3">
+        <div className="rounded-card border border-brand-border bg-white">
+          <div className="grid grid-cols-[1fr_140px_90px_24px] items-center gap-2 px-3 py-2 bg-canvas border-b border-brand-border text-2xs font-mono uppercase tracking-wider text-muted-3">
             <span>Заголовок</span>
             <span>Тип</span>
             <span>Обязательное</span>
@@ -532,7 +532,7 @@ function SettingsTab({
               Поля не добавлены
             </div>
           )}
-          <div className="divide-y divide-black/5">
+          <div className="divide-y divide-brand-border">
             {fields.map((f) => (
               <FieldRowEditor
                 key={f._clientId}
@@ -560,7 +560,7 @@ function SettingsTab({
         <select
           value={targetStageId ?? ""}
           onChange={(e) => onStageChange(e.target.value)}
-          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
+          className="w-full text-sm bg-canvas border border-brand-border rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
         >
           <option value="">— по умолчанию (первая стадия)</option>
           {stageOptions.map((o) => (
@@ -579,7 +579,7 @@ function SettingsTab({
         <select
           value={defaultAssigneeId ?? ""}
           onChange={(e) => onDefaultAssigneeId(e.target.value || null)}
-          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
+          className="w-full text-sm bg-canvas border border-brand-border rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
         >
           <option value="">— в общий пул —</option>
           {users.map((u) => (
@@ -601,7 +601,7 @@ function SettingsTab({
           max={240}
           value={contactTaskSlaHours}
           onChange={(e) => onContactTaskSlaHours(Math.min(240, Math.max(1, Number(e.target.value))))}
-          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
+          className="w-full text-sm bg-canvas border border-brand-border rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
         />
       </Field>
 
@@ -614,7 +614,7 @@ function SettingsTab({
           value={sourceLabel}
           onChange={(e) => onSourceLabel(e.target.value)}
           placeholder="Например: landing-horeca"
-          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
+          className="w-full text-sm bg-canvas border border-brand-border rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
         />
       </Field>
 
@@ -628,7 +628,7 @@ function SettingsTab({
           value={notifyEmail}
           onChange={(e) => onNotifyEmail(e.target.value)}
           placeholder="manager@drinkx.ru"
-          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
+          className="w-full text-sm bg-canvas border border-brand-border rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
         />
       </Field>
 
@@ -639,7 +639,7 @@ function SettingsTab({
             type="checkbox"
             checked={requireKey}
             onChange={(e) => onRequireKey(e.target.checked)}
-            className="h-4 w-4 rounded border-black/20 accent-brand-accent"
+            className="h-4 w-4 rounded border-brand-border accent-brand-accent"
           />
           <span className="text-sm font-semibold text-ink">
             Защищённый приём (S2S ключ)
@@ -659,7 +659,7 @@ function SettingsTab({
             type="checkbox"
             checked={autoreplyEnabled}
             onChange={(e) => onAutoreplyEnabled(e.target.checked)}
-            className="h-4 w-4 rounded border-black/20 accent-brand-accent"
+            className="h-4 w-4 rounded border-brand-border accent-brand-accent"
           />
           <span className="text-sm font-semibold text-ink">
             Авто-ответ на почту лида
@@ -679,7 +679,7 @@ function SettingsTab({
               value={autoreplySubject}
               onChange={(e) => onAutoreplySubject(e.target.value)}
               placeholder="DrinkX — коммерческое предложение"
-              className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
+              className="w-full text-sm bg-canvas border border-brand-border rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
             />
           </Field>
           <Field
@@ -693,7 +693,7 @@ function SettingsTab({
               placeholder={
                 "Здравствуйте!\n\nСпасибо за заявку. Наше коммерческое предложение: https://...\nКалькулятор окупаемости: https://..."
               }
-              className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors resize-none"
+              className="w-full text-sm bg-canvas border border-brand-border rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors resize-none"
             />
           </Field>
         </>
@@ -708,7 +708,7 @@ function SettingsTab({
           value={redirectUrl}
           onChange={(e) => onRedirectUrl(e.target.value)}
           placeholder="https://drinkx.ru/thanks"
-          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
+          className="w-full text-sm bg-canvas border border-brand-border rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
         />
       </Field>
     </div>
@@ -755,12 +755,12 @@ function FieldRowEditor({
         value={field.label}
         onChange={(e) => onPatch({ label: e.target.value })}
         placeholder="Например: Имя"
-        className="text-sm bg-canvas border border-black/10 rounded-lg px-2.5 py-1.5 outline-none focus:border-brand-accent"
+        className="text-sm bg-canvas border border-brand-border rounded-lg px-2.5 py-1.5 outline-none focus:border-brand-accent"
       />
       <select
         value={field.type}
         onChange={(e) => onPatch({ type: e.target.value as FieldType })}
-        className="text-sm bg-canvas border border-black/10 rounded-lg px-2.5 py-1.5 outline-none focus:border-brand-accent"
+        className="text-sm bg-canvas border border-brand-border rounded-lg px-2.5 py-1.5 outline-none focus:border-brand-accent"
       >
         {FIELD_TYPES.map((t) => (
           <option key={t.value} value={t.value}>
@@ -853,7 +853,7 @@ function EmbedTab({
           value={fullSnippet}
           rows={3}
           onFocus={(e) => e.currentTarget.select()}
-          className="w-full text-xs font-mono leading-relaxed bg-canvas border border-black/10 rounded-xl p-3 outline-none focus:border-brand-accent/40 resize-none"
+          className="w-full text-xs font-mono leading-relaxed bg-canvas border border-brand-border rounded-xl p-3 outline-none focus:border-brand-accent/40 resize-none"
         />
         <div className="flex items-center justify-between mt-2">
           <span className="text-2xs text-muted-3">
@@ -865,7 +865,7 @@ function EmbedTab({
               "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-xs font-semibold transition-all",
               copied
                 ? "bg-emerald-600 text-white"
-                : "bg-canvas text-ink border border-black/10 hover:bg-canvas-2",
+                : "bg-canvas text-ink border border-brand-border hover:bg-canvas-2",
             )}
           >
             {copied ? <Check size={12} /> : <Copy size={12} />}
@@ -875,7 +875,7 @@ function EmbedTab({
       </div>
 
       {directUrl && (
-        <div className="rounded-card border border-black/5 bg-canvas/40 px-4 py-3">
+        <div className="rounded-card border border-brand-border bg-canvas/40 px-4 py-3">
           <div className="text-2xs font-mono uppercase tracking-wider text-muted-3 mb-1">
             Прямая ссылка на embed.js
           </div>
@@ -905,7 +905,7 @@ function EmbedTab({
             <label className="block text-2xs font-mono uppercase tracking-wider text-muted-2 mb-1.5">
               Пример запроса (curl)
             </label>
-            <pre className="w-full text-xs font-mono leading-relaxed bg-canvas border border-black/10 rounded-xl p-3 whitespace-pre-wrap break-all">
+            <pre className="w-full text-xs font-mono leading-relaxed bg-canvas border border-brand-border rounded-xl p-3 whitespace-pre-wrap break-all">
               {curlExample}
             </pre>
           </div>
@@ -917,7 +917,7 @@ function EmbedTab({
             <button
               onClick={onRotateKey}
               disabled={rotatingKey}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-xs font-semibold bg-canvas text-ink border border-black/10 hover:bg-canvas-2 disabled:opacity-40 transition-all"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-xs font-semibold bg-canvas text-ink border border-brand-border hover:bg-canvas-2 disabled:opacity-40 transition-all"
             >
               {rotatingKey ? (
                 <Loader2 size={12} className="animate-spin" />

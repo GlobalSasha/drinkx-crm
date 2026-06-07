@@ -87,7 +87,7 @@ function PoolRow({
       aria-label={`Открыть лид ${lead.company_name}`}
       onClick={openLead}
       onKeyDown={handleKey}
-      className={`border-b border-black/5 transition-opacity duration-300 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-inset ${claiming ? "opacity-40" : "hover:bg-canvas"}`}
+      className={`border-b border-brand-border transition-opacity duration-300 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-inset ${claiming ? "opacity-40" : "hover:bg-canvas"}`}
     >
       <td className="px-4 py-3">
         <p className="font-semibold text-sm text-ink">{lead.company_name}</p>
@@ -420,7 +420,7 @@ function LeadsPoolPageInner() {
   return (
     <>
       {/* Sticky header */}
-      <div className="sticky top-0 z-10 bg-white border-b border-black/5 px-6 py-4">
+      <div className="sticky top-0 z-10 bg-white border-b border-brand-border px-6 py-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-baseline gap-2">
             <h1 className="type-page-title">База лидов</h1>
@@ -436,7 +436,7 @@ function LeadsPoolPageInner() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setAiUpdateOpen(true)}
-              className="inline-flex items-center gap-1.5 bg-canvas text-ink border border-black/10 rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-canvas-2 hover:border-black/20 active:scale-[0.98]"
+              className="inline-flex items-center gap-1.5 bg-canvas text-ink border border-brand-border rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-canvas-2 hover:border-brand-border active:scale-[0.98]"
               aria-label="Обновление через AI"
             >
               <Sparkles size={14} />
@@ -482,7 +482,7 @@ function LeadsPoolPageInner() {
               placeholder="Поиск: имя, email, телефон, ИНН"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 pr-3 py-1.5 text-sm bg-canvas border border-black/10 rounded-pill outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300 w-64"
+              className="pl-8 pr-3 py-1.5 text-sm bg-canvas border border-brand-border rounded-pill outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300 w-64"
             />
           </div>
 
@@ -541,7 +541,7 @@ function LeadsPoolPageInner() {
           <select
             value={formId ?? ""}
             onChange={(e) => setFormId(e.target.value || undefined)}
-            className="text-sm px-2 py-1.5 rounded-lg bg-canvas border border-black/5 outline-none focus:border-brand-accent"
+            className="text-sm px-2 py-1.5 rounded-lg bg-canvas border border-brand-border outline-none focus:border-brand-accent"
           >
             <option value="">Все источники</option>
             {forms
@@ -559,7 +559,7 @@ function LeadsPoolPageInner() {
             className={`text-xs px-2 py-1 rounded ${
               needsReview === true
                 ? "bg-amber-600 text-white"
-                : "bg-canvas border border-black/5 text-muted-2 hover:border-amber-400"
+                : "bg-canvas border border-brand-border text-muted-2 hover:border-amber-400"
             }`}
           >
             Только AI-созданные
@@ -589,7 +589,7 @@ function LeadsPoolPageInner() {
             className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-pill text-xs font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
               hasEmailOnly
                 ? "bg-brand-soft text-brand-accent-text border-brand-accent/30"
-                : "bg-canvas text-muted border-black/10 hover:border-black/20"
+                : "bg-canvas text-muted border-brand-border hover:border-brand-border"
             }`}
           >
             С email
@@ -601,7 +601,7 @@ function LeadsPoolPageInner() {
             className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-pill text-xs font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
               hasPhoneOnly
                 ? "bg-brand-soft text-brand-accent-text border-brand-accent/30"
-                : "bg-canvas text-muted border-black/10 hover:border-black/20"
+                : "bg-canvas text-muted border-brand-border hover:border-brand-border"
             }`}
           >
             С телефоном
@@ -639,7 +639,7 @@ function LeadsPoolPageInner() {
 
         {!isLoading && !isError && filtered.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="bg-white border border-black/5 rounded-card p-10 shadow-soft max-w-sm w-full">
+            <div className="bg-white border border-brand-border rounded-card p-10 shadow-soft max-w-sm w-full">
               <p className="type-card-title mb-2">В пуле пока пусто</p>
               <p className="text-sm text-muted">
                 Импортируйте лиды или добавьте вручную.
@@ -649,10 +649,10 @@ function LeadsPoolPageInner() {
         )}
 
         {!isLoading && !isError && filtered.length > 0 && (
-          <div className="overflow-x-auto rounded-xl border border-black/5 bg-white">
+          <div className="overflow-x-auto rounded-xl border border-brand-border bg-white">
             <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-black/5">
+                <tr className="border-b border-brand-border">
                   {["Компания", "Город", "Сегмент", "Tier", "Fit Score", "Статус", ""].map((h) => (
                     <th
                       key={h}

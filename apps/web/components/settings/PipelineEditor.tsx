@@ -234,10 +234,10 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
           role="dialog"
           aria-modal="true"
           aria-label={isEdit ? "Редактирование воронки" : "Новая воронка"}
-          className="bg-white rounded-card border border-black/5 shadow-soft w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden"
+          className="bg-white rounded-card border border-brand-border shadow-soft w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden"
         >
           {/* Header */}
-          <div className="px-6 py-4 border-b border-black/5 flex items-start justify-between gap-4">
+          <div className="px-6 py-4 border-b border-brand-border flex items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="text-2xs font-mono uppercase tracking-wider text-muted-3">
                 Воронка
@@ -268,7 +268,7 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Например: Партнёры"
-                className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-colors"
+                className="w-full px-3 py-2 text-sm bg-white border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 transition-colors"
               />
             </div>
 
@@ -318,7 +318,7 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 border-t border-black/5 flex items-center justify-between">
+          <div className="px-6 py-4 border-t border-brand-border flex items-center justify-between">
             {error ? (
               <div className="flex items-center gap-1.5 text-sm text-rose">
                 <AlertCircle size={13} />
@@ -385,7 +385,7 @@ function StageRowItem({
     <div
       ref={setNodeRef}
       style={style}
-      className="grid grid-cols-[20px_1fr_64px_84px_28px] items-center gap-2 bg-canvas/60 border border-black/5 rounded-xl px-2 py-1.5"
+      className="grid grid-cols-[20px_1fr_64px_84px_28px] items-center gap-2 bg-canvas/60 border border-brand-border rounded-xl px-2 py-1.5"
     >
       <button
         type="button"
@@ -402,7 +402,7 @@ function StageRowItem({
         value={row.name}
         onChange={(e) => onPatch({ name: e.target.value })}
         placeholder="Название стадии"
-        className="px-2 py-1 text-sm bg-white border border-black/10 rounded-lg outline-none focus:border-brand-accent/40 transition-colors min-w-0"
+        className="px-2 py-1 text-sm bg-white border border-brand-border rounded-lg outline-none focus:border-brand-accent/40 transition-colors min-w-0"
       />
 
       <input
@@ -410,7 +410,7 @@ function StageRowItem({
         value={row.color}
         onChange={(e) => onPatch({ color: e.target.value })}
         title="Цвет стадии"
-        className="w-full h-7 border border-black/10 rounded-lg cursor-pointer"
+        className="w-full h-7 border border-brand-border rounded-lg cursor-pointer"
       />
 
       <div className="flex items-center gap-1">
@@ -427,7 +427,7 @@ function StageRowItem({
               ),
             })
           }
-          className="w-14 px-1.5 py-1 text-sm font-mono bg-white border border-black/10 rounded-lg outline-none focus:border-brand-accent/40 transition-colors text-right tabular-nums"
+          className="w-14 px-1.5 py-1 text-sm font-mono bg-white border border-brand-border rounded-lg outline-none focus:border-brand-accent/40 transition-colors text-right tabular-nums"
           title="Срок до пометки «протухает»"
         />
         <span className="text-2xs font-mono text-muted-3">дн.</span>

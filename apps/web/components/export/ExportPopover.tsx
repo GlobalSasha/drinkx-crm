@@ -175,7 +175,7 @@ export function ExportPopover({
         aria-expanded={open}
         className={clsx(
           triggerClassName ??
-            "inline-flex items-center gap-1.5 bg-canvas text-ink border border-black/10 rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-canvas-2 hover:border-black/20 active:scale-[0.98]",
+            "inline-flex items-center gap-1.5 bg-canvas text-ink border border-brand-border rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-canvas-2 hover:border-brand-border active:scale-[0.98]",
         )}
       >
         <Download size={14} />
@@ -186,7 +186,7 @@ export function ExportPopover({
         <div
           role="dialog"
           aria-label="Экспорт лидов"
-          className="absolute right-0 top-full mt-2 w-[20rem] sm:w-[22rem] bg-white rounded-card border border-black/5 shadow-soft p-4 z-30 max-w-[calc(100vw-2rem)]"
+          className="absolute right-0 top-full mt-2 w-[20rem] sm:w-[22rem] bg-white rounded-card border border-brand-border shadow-soft p-4 z-30 max-w-[calc(100vw-2rem)]"
           onMouseDown={(e) => e.stopPropagation()}
         >
           <div className="mb-3">
@@ -216,7 +216,7 @@ export function ExportPopover({
                       "flex items-start gap-2 rounded-xl border px-2.5 py-2 text-left transition-all duration-200 outline-none",
                       active
                         ? "border-brand-accent bg-brand-soft"
-                        : "border-black/10 hover:border-black/20 hover:bg-canvas",
+                        : "border-brand-border hover:border-brand-border hover:bg-canvas",
                       f.value === "md_zip" && "col-span-2",
                       busy && "opacity-50 cursor-not-allowed",
                     )}
@@ -292,7 +292,7 @@ export function ExportPopover({
           </button>
 
           {/* Scope */}
-          <div className="mt-3 rounded-xl border border-black/5 px-3 py-2">
+          <div className="mt-3 rounded-xl border border-brand-border px-3 py-2">
             <div className="text-2xs font-mono uppercase tracking-wider text-muted-3">
               Область
             </div>

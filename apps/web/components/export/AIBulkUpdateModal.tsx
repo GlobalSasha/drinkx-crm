@@ -118,10 +118,10 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
           role="dialog"
           aria-modal="true"
           aria-label="Обновление через AI"
-          className="bg-white rounded-card border border-black/5 shadow-soft w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden"
+          className="bg-white rounded-card border border-brand-border shadow-soft w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden"
         >
           {/* Header */}
-          <div className="px-6 py-4 border-b border-black/5 flex items-start justify-between gap-4">
+          <div className="px-6 py-4 border-b border-brand-border flex items-start justify-between gap-4">
             <div className="min-w-0 flex items-start gap-2">
               <div className="w-8 h-8 rounded-xl bg-brand-soft text-brand-accent flex items-center justify-center shrink-0">
                 <Sparkles size={16} />
@@ -198,7 +198,7 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
                     : promptQuery.data?.prompt ?? "Не удалось загрузить промпт"
                 }
                 rows={6}
-                className="w-full text-xs font-mono leading-relaxed bg-canvas border border-black/10 rounded-xl p-3 outline-none focus:border-brand-accent/40 resize-none"
+                className="w-full text-xs font-mono leading-relaxed bg-canvas border border-brand-border rounded-xl p-3 outline-none focus:border-brand-accent/40 resize-none"
                 onFocus={(e) => e.currentTarget.select()}
               />
               <div className="flex items-center justify-between mt-2">
@@ -212,7 +212,7 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
                     "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-xs font-semibold transition-all",
                     copied
                       ? "bg-emerald-600 text-white"
-                      : "bg-canvas text-ink border border-black/10 hover:bg-canvas-2",
+                      : "bg-canvas text-ink border border-brand-border hover:bg-canvas-2",
                     "disabled:opacity-40 disabled:cursor-not-allowed",
                   )}
                 >
@@ -254,7 +254,7 @@ function Step({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-card border border-black/5 bg-canvas/40 p-4">
+    <div className="rounded-card border border-brand-border bg-canvas/40 p-4">
       <div className="flex items-start gap-3">
         <span className="shrink-0 w-6 h-6 rounded-full bg-ink text-white text-xs font-bold flex items-center justify-center tabular-nums">
           {n}

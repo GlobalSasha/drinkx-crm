@@ -71,7 +71,7 @@ export function PipelineHeader({ leads, totalCount }: Props) {
     filters.cities.length === 1 ? filters.cities[0] : undefined;
 
   return (
-    <div className="flex flex-col gap-4 px-4 sm:px-6 py-4 bg-white border-b border-black/5">
+    <div className="flex flex-col gap-4 px-4 sm:px-6 py-4 bg-white border-b border-brand-border">
       {/* Top row */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 shrink-0">
@@ -93,7 +93,7 @@ export function PipelineHeader({ leads, totalCount }: Props) {
           </Button>
           <button
             onClick={openImportWizard}
-            className="inline-flex items-center gap-1.5 bg-canvas text-ink border border-black/10 rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-canvas-2 hover:border-black/20 active:scale-[0.98]"
+            className="inline-flex items-center gap-1.5 bg-canvas text-ink border border-brand-border rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-canvas-2 hover:border-brand-border active:scale-[0.98]"
             aria-label="Импорт лидов из файла"
           >
             <Upload size={14} />
@@ -132,7 +132,7 @@ export function PipelineHeader({ leads, totalCount }: Props) {
             placeholder="Поиск..."
             value={filters.q}
             onChange={(e) => setQ(e.target.value)}
-            className="h-8 pl-8 pr-3 text-sm bg-canvas border border-black/10 rounded-pill outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300 w-44"
+            className="h-8 pl-8 pr-3 text-sm bg-canvas border border-brand-border rounded-pill outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300 w-44"
           />
         </div>
 

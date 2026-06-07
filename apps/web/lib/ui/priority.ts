@@ -49,7 +49,7 @@ export const priorityConfig: Record<Priority, PriorityVariant> = {
   },
   D: {
     chip: "bg-black/5 text-muted",
-    chipBordered: "bg-black/5 text-muted border-black/10",
+    chipBordered: "bg-black/5 text-muted border-brand-border",
     solid: "bg-muted text-white",
   },
 };

@@ -110,7 +110,7 @@ export function CreateLeadModal() {
         onClick={closeCreateLeadModal}
       />
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-card border border-black/5 shadow-soft w-full max-w-md p-6">
+        <div className="bg-white rounded-card border border-brand-border shadow-soft w-full max-w-md p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold tracking-tight">Новый лид</h2>
             <button
@@ -138,7 +138,7 @@ export function CreateLeadModal() {
                     setError(null);
                   }}
                   placeholder="Начните печатать название…"
-                  className="w-full px-4 py-2.5 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-200"
+                  className="w-full px-4 py-2.5 text-sm bg-canvas border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-200"
                 />
                 {isFetching && (
                   <Loader2
@@ -149,7 +149,7 @@ export function CreateLeadModal() {
               </div>
 
               {!picked && query.trim().length > 0 && (
-                <ul className="mt-2 border border-black/10 rounded-card overflow-hidden max-h-60 overflow-y-auto bg-white">
+                <ul className="mt-2 border border-brand-border rounded-card overflow-hidden max-h-60 overflow-y-auto bg-white">
                   {companyHits.slice(0, 8).map((it) => (
                     <li key={it.id}>
                       <button
@@ -167,7 +167,7 @@ export function CreateLeadModal() {
                     </li>
                   ))}
                   {showCreateNewItem && (
-                    <li className="border-t border-black/5">
+                    <li className="border-t border-brand-border">
                       <button
                         type="submit"
                         className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-canvas transition-colors"

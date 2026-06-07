@@ -206,7 +206,7 @@ function CandidateRow({
         className={`flex items-start gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-colors ${
           checked
             ? "border-brand-accent/40 bg-brand-soft/40"
-            : "border-black/8 hover:bg-canvas"
+            : "border-brand-border hover:bg-canvas"
         }`}
       >
         <input

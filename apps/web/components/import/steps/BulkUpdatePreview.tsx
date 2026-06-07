@@ -105,8 +105,8 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
 
       {/* Actionable items list */}
       {actionable.length > 0 && (
-        <div className="rounded-card border border-black/5 bg-white">
-          <div className="px-4 py-2.5 bg-canvas border-b border-black/5 text-2xs font-mono uppercase tracking-wider text-muted-2">
+        <div className="rounded-card border border-brand-border bg-white">
+          <div className="px-4 py-2.5 bg-canvas border-b border-brand-border text-2xs font-mono uppercase tracking-wider text-muted-2">
             Изменения{" "}
             <span className="text-muted-3 ml-1">
               {actionable.length > VISIBLE_ITEMS
@@ -114,7 +114,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
                 : actionable.length}
             </span>
           </div>
-          <div className="divide-y divide-black/5 max-h-[44vh] overflow-y-auto">
+          <div className="divide-y divide-brand-border max-h-[44vh] overflow-y-auto">
             {actionable.slice(0, VISIBLE_ITEMS).map((item, i) => (
               <DiffRow key={`${item.lead_id ?? "new"}-${i}`} item={item} />
             ))}
@@ -353,7 +353,7 @@ function StatCard({
     info: "bg-info/10 text-info border-info/20",
     success: "bg-emerald-50 text-emerald-700 border-emerald-200/60",
     warning: "bg-amber-50 text-amber-800 border-amber-200/60",
-    neutral: "bg-canvas text-ink border-black/5",
+    neutral: "bg-canvas text-ink border-brand-border",
   }[tone];
   return (
     <div

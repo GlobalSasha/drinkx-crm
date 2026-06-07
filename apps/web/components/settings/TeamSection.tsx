@@ -138,10 +138,10 @@ export function TeamSection() {
       </div>
 
       {/* Users table */}
-      <div className="bg-white border border-black/5 rounded-card shadow-soft overflow-hidden">
+      <div className="bg-white border border-brand-border rounded-card shadow-soft overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-canvas/60">
-            <tr className="border-b border-black/5">
+            <tr className="border-b border-brand-border">
               <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold`}>
                 Имя / Email
               </th>
@@ -191,10 +191,10 @@ export function TeamSection() {
           <h3 className={`${T.mono} uppercase text-muted-3 mb-2`}>
             Ожидают принятия приглашения
           </h3>
-          <div className="bg-white border border-black/5 rounded-card shadow-soft overflow-hidden">
+          <div className="bg-white border border-brand-border rounded-card shadow-soft overflow-hidden">
             <table className="w-full text-left">
               <thead className="bg-canvas/60">
-                <tr className="border-b border-black/5">
+                <tr className="border-b border-brand-border">
                   <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold`}>
                     Email
                   </th>
@@ -210,7 +210,7 @@ export function TeamSection() {
                 {pendingInvites.map((i) => (
                   <tr
                     key={i.id}
-                    className="border-b border-black/5 last:border-0"
+                    className="border-b border-brand-border last:border-0"
                   >
                     <td className="px-4 py-3 align-middle">
                       <div className="flex items-center gap-2">
@@ -307,7 +307,7 @@ function UserRow({
   const initial = (user.name || user.email).slice(0, 1).toUpperCase();
 
   return (
-    <tr className="border-b border-black/5 last:border-0 hover:bg-canvas/40 transition-colors">
+    <tr className="border-b border-brand-border last:border-0 hover:bg-canvas/40 transition-colors">
       <td className="px-4 py-3 align-middle">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-full bg-brand-soft flex items-center justify-center shrink-0">
@@ -330,7 +330,7 @@ function UserRow({
               value={user.role}
               onChange={(e) => onRoleChange(e.target.value)}
               disabled={change.isPending}
-              className="px-2 py-1 text-xs bg-white border border-black/10 rounded-lg outline-none focus:border-brand-accent/40 transition-colors disabled:opacity-40"
+              className="px-2 py-1 text-xs bg-white border border-brand-border rounded-lg outline-none focus:border-brand-accent/40 transition-colors disabled:opacity-40"
             >
               {ROLE_OPTIONS.map((r) => (
                 <option key={r} value={r}>
@@ -518,9 +518,9 @@ function InviteModal({
           role="dialog"
           aria-modal="true"
           aria-label="Пригласить пользователя"
-          className="bg-white rounded-card border border-black/5 shadow-soft w-full max-w-md overflow-hidden"
+          className="bg-white rounded-card border border-brand-border shadow-soft w-full max-w-md overflow-hidden"
         >
-          <div className="px-6 py-4 border-b border-black/5 flex items-start justify-between gap-4">
+          <div className="px-6 py-4 border-b border-brand-border flex items-start justify-between gap-4">
             <div>
               <div className={`${T.mono} uppercase text-muted-3`}>
                 Команда
@@ -563,7 +563,7 @@ function InviteModal({
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="manager@drinkx.tech"
-                    className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-colors"
+                    className="w-full px-3 py-2 text-sm bg-white border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 transition-colors"
                   />
                 </div>
                 <div>
@@ -575,7 +575,7 @@ function InviteModal({
                     onChange={(e) =>
                       setRole(e.target.value as "admin" | "head" | "manager")
                     }
-                    className="w-full px-3 py-2 text-sm bg-white border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 transition-colors"
+                    className="w-full px-3 py-2 text-sm bg-white border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 transition-colors"
                   >
                     {ROLE_OPTIONS.map((r) => (
                       <option key={r} value={r}>
@@ -596,7 +596,7 @@ function InviteModal({
             )}
           </div>
 
-          <div className="px-6 py-4 border-t border-black/5 flex items-center justify-end gap-2">
+          <div className="px-6 py-4 border-t border-brand-border flex items-center justify-end gap-2">
             {sent ? (
               <button
                 onClick={handleClose}

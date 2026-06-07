@@ -50,7 +50,7 @@ export function AISection() {
 
   if (!isAdmin) {
     return (
-      <div className="bg-canvas/60 border border-black/5 rounded-card px-6 py-12 text-center">
+      <div className="bg-canvas/60 border border-brand-border rounded-card px-6 py-12 text-center">
         <ShieldAlert size={20} className="text-muted mx-auto mb-2" />
         <p className="text-sm text-muted">
           Доступ к настройкам AI — только у администратора.
@@ -128,7 +128,7 @@ export function AISection() {
       </div>
 
       {/* Spend gauge card */}
-      <div className="bg-white border border-black/5 rounded-card shadow-soft p-5">
+      <div className="bg-white border border-brand-border rounded-card shadow-soft p-5">
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded-xl bg-canvas flex items-center justify-center shrink-0">
             <Bot size={18} className="text-muted" />
@@ -172,7 +172,7 @@ export function AISection() {
       </div>
 
       {/* Editor card */}
-      <div className="bg-white border border-black/5 rounded-card shadow-soft p-5 space-y-4">
+      <div className="bg-white border border-brand-border rounded-card shadow-soft p-5 space-y-4">
         <div>
           <label
             htmlFor="ai-budget"
@@ -187,7 +187,7 @@ export function AISection() {
             step="0.5"
             value={budget}
             onChange={(e) => setBudget(e.target.value)}
-            className="mt-1 w-full max-w-[200px] bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+            className="mt-1 w-full max-w-[200px] bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
           />
           <p className="text-xs text-muted-3 mt-1">
             При достижении лимита фоновые исследования останавливаются.
@@ -206,7 +206,7 @@ export function AISection() {
             id="ai-model"
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            className="mt-1 w-full max-w-[280px] bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+            className="mt-1 w-full max-w-[280px] bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
           >
             {data.available_models.map((m) => (
               <option key={m} value={m}>

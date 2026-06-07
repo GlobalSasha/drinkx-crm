@@ -120,7 +120,7 @@ export function SprintModal({ isOpen: isOpenProp, onClose: onCloseProp }: Props 
 
       {/* Dialog */}
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-card border border-black/5 shadow-soft w-full max-w-md p-6 relative">
+        <div className="bg-white rounded-card border border-brand-border shadow-soft w-full max-w-md p-6 relative">
           {/* Header */}
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-lg font-bold tracking-tight">
@@ -179,7 +179,7 @@ export function SprintModal({ isOpen: isOpenProp, onClose: onCloseProp }: Props 
                     className={`px-3 py-1.5 rounded-pill text-xs font-semibold border transition-all duration-200 ${
                       selectedCities.includes(city)
                         ? "bg-brand-accent text-white border-brand-accent"
-                        : "bg-canvas border-black/10 text-muted hover:border-brand-accent/40"
+                        : "bg-canvas border-brand-border text-muted hover:border-brand-accent/40"
                     }`}
                   >
                     {city}

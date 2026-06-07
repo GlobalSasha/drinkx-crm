@@ -129,7 +129,7 @@ export default function ManagerStatsPage() {
       </section>
 
       {stats.isLoading && (
-        <div className="bg-white border border-black/5 rounded-card shadow-soft p-6 animate-pulse h-[260px]" />
+        <div className="bg-white border border-brand-border rounded-card shadow-soft p-6 animate-pulse h-[260px]" />
       )}
 
       {stats.isError && (
@@ -141,7 +141,7 @@ export default function ManagerStatsPage() {
       {stats.data && (
         <>
           {/* Total stats */}
-          <div className="bg-white border border-black/5 rounded-card shadow-soft p-5 mb-6">
+          <div className="bg-white border border-brand-border rounded-card shadow-soft p-5 mb-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Stat label="КП" value={stats.data.stats.kp_sent} />
               <Stat label="Из пула" value={stats.data.stats.leads_taken_from_pool} />
@@ -152,7 +152,7 @@ export default function ManagerStatsPage() {
 
           {/* Current lead distribution by stage — independent of period */}
           {myWorkload && (
-            <div className="bg-white border border-black/5 rounded-card shadow-soft p-5 mb-6">
+            <div className="bg-white border border-brand-border rounded-card shadow-soft p-5 mb-6">
               <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
                 <div>
                   <h2 className="type-card-title">Лиды по этапам</h2>
@@ -177,7 +177,7 @@ export default function ManagerStatsPage() {
                 </p>
               ) : (
                 <>
-                  <ul className="divide-y divide-black/5">
+                  <ul className="divide-y divide-brand-border">
                     {myWorkload.rows.map(({ stage, cell }) => (
                       <li key={stage.id} className="flex items-center gap-3 py-2.5">
                         <span
@@ -201,7 +201,7 @@ export default function ManagerStatsPage() {
                       </li>
                     ))}
                   </ul>
-                  <div className="flex items-center gap-3 mt-3 pt-3 border-t border-black/5">
+                  <div className="flex items-center gap-3 mt-3 pt-3 border-t border-brand-border">
                     <span className={`${T.mono} uppercase text-muted-3 flex-1`}>
                       Всего в работе
                     </span>
@@ -218,10 +218,10 @@ export default function ManagerStatsPage() {
           )}
 
           {/* Daily table */}
-          <div className="bg-white border border-black/5 rounded-card shadow-soft overflow-hidden">
+          <div className="bg-white border border-brand-border rounded-card shadow-soft overflow-hidden">
             <table className="w-full text-left">
               <thead className="bg-canvas/60">
-                <tr className="border-b border-black/5">
+                <tr className="border-b border-brand-border">
                   <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold`}>
                     Дата
                   </th>
@@ -250,7 +250,7 @@ export default function ManagerStatsPage() {
                   </tr>
                 )}
                 {stats.data.daily.map((d) => (
-                  <tr key={d.date} className="border-b border-black/5 last:border-0 hover:bg-canvas/40">
+                  <tr key={d.date} className="border-b border-brand-border last:border-0 hover:bg-canvas/40">
                     <td className="px-4 py-2.5 align-middle">
                       <span className="text-sm text-ink">{formatDay(d.date)}</span>
                     </td>

@@ -102,7 +102,7 @@ export function TemplatesSection() {
           <Loader2 size={20} className="animate-spin text-muted-2" />
         </div>
       ) : items.length === 0 ? (
-        <div className="bg-canvas/60 border border-black/5 rounded-card px-6 py-12 text-center">
+        <div className="bg-canvas/60 border border-brand-border rounded-card px-6 py-12 text-center">
           <ScrollText size={20} className="text-muted-2 mx-auto mb-2" />
           <p className="text-sm text-muted">Шаблонов пока нет.</p>
           <p className="text-xs text-muted-3 mt-1">
@@ -110,7 +110,7 @@ export function TemplatesSection() {
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-black/5 rounded-card shadow-soft overflow-hidden">
+        <div className="bg-white border border-brand-border rounded-card shadow-soft overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-canvas">
               <tr className={`text-left ${T.mono} uppercase text-muted-3`}>
@@ -129,7 +129,7 @@ export function TemplatesSection() {
               {items.map((t) => (
                 <tr
                   key={t.id}
-                  className="border-t border-black/5 hover:bg-canvas/40 transition-colors"
+                  className="border-t border-brand-border hover:bg-canvas/40 transition-colors"
                 >
                   <td className="px-4 py-3 font-semibold text-ink truncate max-w-[200px]">
                     {t.name}
@@ -274,7 +274,7 @@ function TemplateEditor({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
       <div className="bg-white rounded-card shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-black/5">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-brand-border">
           <h3 className="type-card-title">
             {isEdit ? "Редактировать шаблон" : "Новый шаблон"}
           </h3>
@@ -297,7 +297,7 @@ function TemplateEditor({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Первое касание"
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+              className="mt-1 w-full bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             />
           </label>
 
@@ -308,7 +308,7 @@ function TemplateEditor({
             <select
               value={channel}
               onChange={(e) => setChannel(e.target.value as TemplateChannel)}
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+              className="mt-1 w-full bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             >
               {(Object.keys(CHANNEL_LABELS) as TemplateChannel[]).map((c) => (
                 <option key={c} value={c}>
@@ -327,7 +327,7 @@ function TemplateEditor({
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               placeholder="Онбординг"
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+              className="mt-1 w-full bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             />
           </label>
 
@@ -340,7 +340,7 @@ function TemplateEditor({
               onChange={(e) => setText(e.target.value)}
               rows={6}
               placeholder="Здравствуйте, {{lead.contact_name}}…"
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 font-mono"
+              className="mt-1 w-full bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 font-mono"
             />
             <p className="text-xs text-muted-3 mt-1">
               Подстановки появятся в Sprint 2.5 — пока обычный текст.

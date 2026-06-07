@@ -58,7 +58,7 @@ export function AppearanceSection() {
                 className={`relative rounded-card border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 ${
                   active
                     ? "border-brand-accent ring-2 ring-brand-accent/30"
-                    : "border-black/10 hover:border-black/20"
+                    : "border-brand-border hover:border-brand-border"
                 }`}
                 aria-pressed={active}
               >
@@ -89,12 +89,12 @@ export function AppearanceSection() {
                 className={`rounded-card border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 ${
                   active
                     ? "border-brand-accent ring-2 ring-brand-accent/30"
-                    : "border-black/10 hover:border-black/20"
+                    : "border-brand-border hover:border-brand-border"
                 }`}
                 aria-pressed={active}
               >
                 <div
-                  className="w-full h-14 rounded-xl mb-2 border border-black/10"
+                  className="w-full h-14 rounded-xl mb-2 border border-brand-border"
                   style={{ backgroundColor: p.bg }}
                 />
                 <p className="text-xs font-semibold">{p.label}</p>

@@ -91,7 +91,7 @@ export function PreviewStep({ job, onBack, onApplied }: Props) {
 
       {/* Errors */}
       {flatErrors.length > 0 && (
-        <div className="rounded-card border border-black/5 bg-white">
+        <div className="rounded-card border border-brand-border bg-white">
           <button
             onClick={() => setShowErrors((v) => !v)}
             className="flex items-center justify-between w-full px-4 py-3 text-left"
@@ -108,12 +108,12 @@ export function PreviewStep({ job, onBack, onApplied }: Props) {
             />
           </button>
           {showErrors && (
-            <div className="border-t border-black/5">
+            <div className="border-t border-brand-border">
               <div className="grid grid-cols-[60px_1fr] text-2xs font-mono uppercase tracking-wider text-muted-3 px-4 py-2 bg-canvas">
                 <span>Строка</span>
                 <span>Ошибка</span>
               </div>
-              <div className="divide-y divide-black/5 max-h-[28vh] overflow-y-auto">
+              <div className="divide-y divide-brand-border max-h-[28vh] overflow-y-auto">
                 {flatErrors.slice(0, VISIBLE_ERRORS).map((e, i) => (
                   <div
                     key={`${e.row}-${i}`}
@@ -191,7 +191,7 @@ function StatCard({
   const palette = {
     success: "bg-emerald-50 text-emerald-700 border-emerald-200/60",
     warning: "bg-amber-50 text-amber-800 border-amber-200/60",
-    neutral: "bg-canvas text-ink border-black/5",
+    neutral: "bg-canvas text-ink border-brand-border",
   }[tone];
 
   return (

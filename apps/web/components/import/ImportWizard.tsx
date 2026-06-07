@@ -87,10 +87,10 @@ export function ImportWizard({ open, onClose }: Props) {
           role="dialog"
           aria-modal="true"
           aria-label="Импорт лидов"
-          className="bg-white rounded-card border border-black/5 shadow-soft w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden"
+          className="bg-white rounded-card border border-brand-border shadow-soft w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden"
         >
           {/* Header */}
-          <div className="px-6 py-4 border-b border-black/5 flex items-start justify-between gap-4">
+          <div className="px-6 py-4 border-b border-brand-border flex items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="text-2xs font-mono uppercase tracking-wider text-muted-3">
                 Импорт лидов
@@ -177,7 +177,7 @@ function Stepper({
 }) {
   const items: Step[] = isBulkUpdate ? [1, 3, 4] : [1, 2, 3, 4];
   return (
-    <div className="px-6 py-3 border-b border-black/5 bg-canvas/40">
+    <div className="px-6 py-3 border-b border-brand-border bg-canvas/40">
       <ol className="flex items-center gap-2">
         {items.map((n, i) => {
           const state =
@@ -193,7 +193,7 @@ function Stepper({
                   "shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold tabular-nums transition-colors",
                   state === "done" && "bg-emerald-500 text-white",
                   state === "current" && "bg-brand-accent text-white",
-                  state === "upcoming" && "bg-canvas text-muted-3 border border-black/10",
+                  state === "upcoming" && "bg-canvas text-muted-3 border border-brand-border",
                 )}
                 aria-current={state === "current" ? "step" : undefined}
               >

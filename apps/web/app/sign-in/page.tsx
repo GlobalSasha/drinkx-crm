@@ -87,7 +87,7 @@ function SignInForm() {
   }
 
   return (
-    <div className="relative max-w-md w-full bg-white border border-black/10 rounded-card p-12 shadow-soft">
+    <div className="relative max-w-md w-full bg-white border border-brand-border rounded-card p-12 shadow-soft">
       <div className={`${T.mono} text-muted mb-3`}>
         ВХОД В CRM
       </div>
@@ -109,7 +109,7 @@ function SignInForm() {
       <button
         onClick={handleGoogle}
         disabled={loading}
-        className="w-full py-3.5 px-4 rounded-pill border border-black/10 bg-white flex items-center justify-center gap-3 text-sm font-medium hover:border-brand-accent/30 transition-all duration-700 ease-soft active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+        className="w-full py-3.5 px-4 rounded-pill border border-brand-border bg-white flex items-center justify-center gap-3 text-sm font-medium hover:border-brand-accent/30 transition-all duration-700 ease-soft active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
       >
         <span
           className="w-[18px] h-[18px] rounded-full shrink-0"
@@ -156,7 +156,7 @@ function SignInForm() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@drinkx.tech"
             required
-            className="w-full bg-black/[0.03] border border-black/10 rounded-lg px-4 py-2.5 text-sm text-ink placeholder:text-muted-2 focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1/40"
+            className="w-full bg-black/[0.03] border border-brand-border rounded-lg px-4 py-2.5 text-sm text-ink placeholder:text-muted-2 focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1/40"
           />
           <button
             type="submit"
@@ -177,7 +177,7 @@ function SignInForm() {
       <button
         onClick={handleTestUser}
         disabled={loading}
-        className="w-full py-2.5 px-4 rounded-pill border border-black/15 bg-transparent text-sm text-muted hover:text-ink hover:border-black/30 transition-all duration-300 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+        className="w-full py-2.5 px-4 rounded-pill border border-brand-border bg-transparent text-sm text-muted hover:text-ink hover:border-brand-border transition-all duration-300 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
       >
         🧪 Войти как тестовый пользователь
       </button>
@@ -189,7 +189,7 @@ function SignInForm() {
         без явного согласия.
       </p>
 
-      <div className="mt-6 pt-6 border-t border-black/10 text-center">
+      <div className="mt-6 pt-6 border-t border-brand-border text-center">
         <Link href="/" className="text-xs text-muted hover:text-brand-accent">
           ← на главную
         </Link>

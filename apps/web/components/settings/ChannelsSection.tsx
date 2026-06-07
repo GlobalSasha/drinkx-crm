@@ -78,7 +78,7 @@ export function ChannelsSection() {
       </div>
 
       {/* Gmail card */}
-      <div className="bg-white border border-black/5 rounded-card shadow-soft p-5">
+      <div className="bg-white border border-brand-border rounded-card shadow-soft p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-canvas flex items-center justify-center shrink-0">
@@ -144,7 +144,7 @@ export function ChannelsSection() {
               <button
                 onClick={handleConnectGmail}
                 disabled={connect.isPending}
-                className="inline-flex items-center gap-1.5 bg-canvas text-ink border border-black/10 rounded-pill px-3 py-1.5 text-xs font-semibold hover:bg-canvas-2 hover:border-black/20 disabled:opacity-40 transition-all duration-300"
+                className="inline-flex items-center gap-1.5 bg-canvas text-ink border border-brand-border rounded-pill px-3 py-1.5 text-xs font-semibold hover:bg-canvas-2 hover:border-brand-border disabled:opacity-40 transition-all duration-300"
               >
                 Переподключить
               </button>
@@ -154,7 +154,7 @@ export function ChannelsSection() {
       </div>
 
       {/* SMTP card */}
-      <div className="bg-white border border-black/5 rounded-card shadow-soft p-5">
+      <div className="bg-white border border-brand-border rounded-card shadow-soft p-5">
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded-xl bg-canvas flex items-center justify-center shrink-0">
             <Send size={18} className="text-muted" />

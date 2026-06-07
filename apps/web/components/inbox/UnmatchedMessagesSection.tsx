@@ -35,7 +35,7 @@ function getMeta(channel: string): {
     case "phone":
       return { icon: Phone, label: "Телефон", badgeClass: "bg-amber-100 text-amber-700 border-amber-200" };
     default:
-      return { icon: Mail, label: channel, badgeClass: "bg-black/5 text-muted-2 border-black/5" };
+      return { icon: Mail, label: channel, badgeClass: "bg-black/5 text-muted-2 border-brand-border" };
   }
 }
 
@@ -76,14 +76,14 @@ function LeadSearchPicker({
   const items = data?.items ?? [];
 
   return (
-    <div className="absolute right-0 top-full mt-1 w-[320px] bg-white rounded-xl border border-black/10 shadow-lg z-30 p-2">
+    <div className="absolute right-0 top-full mt-1 w-[320px] bg-white rounded-xl border border-brand-border shadow-lg z-30 p-2">
       <div className="flex items-center justify-between gap-2 mb-2">
         <input
           autoFocus
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Найти лид по компании…"
-          className="flex-1 text-sm px-2 py-1.5 rounded-lg bg-canvas border border-black/5 outline-none focus:border-brand-accent"
+          className="flex-1 text-sm px-2 py-1.5 rounded-lg bg-canvas border border-brand-border outline-none focus:border-brand-accent"
         />
         <button
           onClick={onClose}
@@ -142,7 +142,7 @@ function UnmatchedRow({ msg }: { msg: InboxMessageOut }) {
   }
 
   return (
-    <div className="rounded-xl border border-black/5 bg-white p-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+    <div className="rounded-xl border border-brand-border bg-white p-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 mb-1 flex-wrap">
           <span

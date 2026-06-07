@@ -64,7 +64,7 @@ export function LostModal({
   return (
     <Modal open onClose={onClose} title="Перевести в Проигран?" dismissOnBackdrop={false}>
       <div className="-m-6">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-black/5">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-brand-border">
           <h3 className="text-base font-bold">
             Перевести в «Проигран»?
           </h3>
@@ -95,7 +95,7 @@ export function LostModal({
               onChange={(e) => setReason(e.target.value)}
               placeholder="Например: бюджет не подтверждён, конкурент выиграл, клиент закрыл проект"
               rows={3}
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 resize-none"
+              className="mt-1 w-full bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 resize-none"
             />
             <p className="text-2xs text-muted-3 mt-1">
               Помогает с ретроспективой по проигранным сделкам.

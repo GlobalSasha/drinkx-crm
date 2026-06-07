@@ -54,7 +54,7 @@ export function PipelineList({ stages, leads }: Props) {
     <div className="flex-1 overflow-y-auto">
       {/* Stage filter chips — horizontal scroll, sticky under the page
           header so it stays reachable while the list scrolls. */}
-      <div className="sticky top-0 z-10 bg-canvas/95 backdrop-blur-sm px-4 py-2 border-b border-black/5">
+      <div className="sticky top-0 z-10 bg-canvas/95 backdrop-blur-sm px-4 py-2 border-b border-brand-border">
         <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button
             type="button"
@@ -62,7 +62,7 @@ export function PipelineList({ stages, leads }: Props) {
             className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full type-caption font-semibold transition-colors ${
               filterStageId === null
                 ? "bg-brand-accent text-white"
-                : "bg-white border border-black/5 text-muted-2 hover:border-brand-accent/40"
+                : "bg-white border border-brand-border text-muted-2 hover:border-brand-accent/40"
             }`}
           >
             Все
@@ -81,7 +81,7 @@ export function PipelineList({ stages, leads }: Props) {
                 className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full type-caption font-semibold transition-colors ${
                   selected
                     ? "bg-brand-accent text-white"
-                    : "bg-white border border-black/5 text-muted-2 hover:border-brand-accent/40"
+                    : "bg-white border border-brand-border text-muted-2 hover:border-brand-accent/40"
                 }`}
               >
                 <span
@@ -124,7 +124,7 @@ export function PipelineList({ stages, leads }: Props) {
                     key={lead.id}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     href={`/leads/${lead.id}` as any}
-                    className="flex items-center gap-3 px-3 py-2.5 bg-white border border-black/5 rounded-xl active:bg-canvas hover:border-brand-accent/30 transition-colors"
+                    className="flex items-center gap-3 px-3 py-2.5 bg-white border border-brand-border rounded-xl active:bg-canvas hover:border-brand-accent/30 transition-colors"
                   >
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-ink truncate">

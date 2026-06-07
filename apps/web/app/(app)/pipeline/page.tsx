@@ -133,7 +133,7 @@ function PipelinePageInner() {
           whole workspace, otherwise a specific manager's leads. Deep-linked
           to from the /team workload table via ?assigned_to=<id>. */}
       {!meQuery.isLoading && isPrivileged && (
-        <div className="flex items-center gap-2 px-4 sm:px-6 py-2 bg-white border-b border-black/5">
+        <div className="flex items-center gap-2 px-4 sm:px-6 py-2 bg-white border-b border-brand-border">
           <label htmlFor="owner-scope" className="text-muted-2 text-xs">
             Ответственный
           </label>
@@ -141,7 +141,7 @@ function PipelinePageInner() {
             id="owner-scope"
             value={ownerScope}
             onChange={(e) => setOwnerScope(e.target.value)}
-            className="h-8 px-3 text-sm bg-canvas border border-black/10 rounded-pill outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300"
+            className="h-8 px-3 text-sm bg-canvas border border-brand-border rounded-pill outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300"
           >
             <option value="">Мои</option>
             <option value="all">Все</option>

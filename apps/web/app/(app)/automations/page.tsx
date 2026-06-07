@@ -159,7 +159,7 @@ export default function AutomationsPage() {
           <Loader2 size={20} className="animate-spin text-muted-2" />
         </div>
       ) : items.length === 0 ? (
-        <div className="bg-canvas/60 border border-black/5 rounded-card px-6 py-12 text-center">
+        <div className="bg-canvas/60 border border-brand-border rounded-card px-6 py-12 text-center">
           <Workflow size={20} className="text-muted-2 mx-auto mb-2" />
           <p className="text-sm text-muted">Автоматизаций пока нет.</p>
           <p className="text-xs text-muted-3 mt-1">
@@ -168,7 +168,7 @@ export default function AutomationsPage() {
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-black/5 rounded-card shadow-soft overflow-hidden">
+        <div className="bg-white border border-brand-border rounded-card shadow-soft overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-canvas">
               <tr className={`text-left ${T.mono} uppercase text-muted-3`}>
@@ -187,7 +187,7 @@ export default function AutomationsPage() {
               {items.map((a) => (
                 <tr
                   key={a.id}
-                  className="border-t border-black/5 hover:bg-canvas/40 transition-colors"
+                  className="border-t border-brand-border hover:bg-canvas/40 transition-colors"
                 >
                   <td className="px-4 py-3 font-semibold text-ink">
                     <button
@@ -551,7 +551,7 @@ function AutomationEditor({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
       <div className="bg-white rounded-card shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-black/5">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-brand-border">
           <h3 className="type-card-title">
             {isEdit ? "Редактировать автоматизацию" : "Новая автоматизация"}
           </h3>
@@ -574,7 +574,7 @@ function AutomationEditor({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="При попадании в Pilot — отправить welcome"
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+              className="mt-1 w-full bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             />
           </div>
 
@@ -587,7 +587,7 @@ function AutomationEditor({
               onChange={(e) =>
                 setTrigger(e.target.value as AutomationTrigger)
               }
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+              className="mt-1 w-full bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             >
               {(Object.keys(TRIGGER_LABELS) as AutomationTrigger[]).map((t) => (
                 <option key={t} value={t}>
@@ -597,7 +597,7 @@ function AutomationEditor({
             </select>
           </div>
 
-          <fieldset className="border border-black/5 rounded-xl p-3 space-y-2">
+          <fieldset className="border border-brand-border rounded-xl p-3 space-y-2">
             <legend className={`px-1 ${T.mono} uppercase text-muted-3`}>
               Условие (необязательно)
             </legend>
@@ -605,7 +605,7 @@ function AutomationEditor({
               <select
                 value={conditionField}
                 onChange={(e) => setConditionField(e.target.value)}
-                className="bg-canvas border border-black/10 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                className="bg-canvas border border-brand-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
               >
                 <option value="">— без условия —</option>
                 <option value="priority">priority</option>
@@ -618,7 +618,7 @@ function AutomationEditor({
                 value={conditionOp}
                 onChange={(e) => setConditionOp(e.target.value)}
                 disabled={!conditionField}
-                className="bg-canvas border border-black/10 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 disabled:opacity-50"
+                className="bg-canvas border border-brand-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 disabled:opacity-50"
               >
                 <option value="eq">=</option>
                 <option value="neq">≠</option>
@@ -639,7 +639,7 @@ function AutomationEditor({
                   conditionOp === "is_not_null"
                 }
                 placeholder="value"
-                className="bg-canvas border border-black/10 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 disabled:opacity-50"
+                className="bg-canvas border border-brand-border rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 disabled:opacity-50"
               />
             </div>
           </fieldset>
@@ -653,7 +653,7 @@ function AutomationEditor({
               onChange={(e) =>
                 setActionType(e.target.value as AutomationAction)
               }
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+              className="mt-1 w-full bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             >
               {(Object.keys(ACTION_LABELS) as AutomationAction[]).map((a) => (
                 <option key={a} value={a}>
@@ -671,7 +671,7 @@ function AutomationEditor({
               <select
                 value={templateId}
                 onChange={(e) => setTemplateId(e.target.value)}
-                className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                className="mt-1 w-full bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
               >
                 <option value="">— выберите шаблон —</option>
                 {templates.map((t) => (
@@ -694,7 +694,7 @@ function AutomationEditor({
                   value={taskTitle}
                   onChange={(e) => setTaskTitle(e.target.value)}
                   placeholder="Связаться с ЛПР"
-                  className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                  className="mt-1 w-full bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                 />
                 <p className="text-xs text-muted-3 mt-1">
                   Поддерживает подстановки <code>{"{{lead.field}}"}</code>.
@@ -709,7 +709,7 @@ function AutomationEditor({
                   min="1"
                   value={dueInHours}
                   onChange={(e) => setDueInHours(e.target.value)}
-                  className="mt-1 w-32 bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                  className="mt-1 w-32 bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                 />
               </div>
             </>
@@ -725,7 +725,7 @@ function AutomationEditor({
                 value={targetStageId}
                 onChange={(e) => setTargetStageId(e.target.value)}
                 placeholder="00000000-0000-0000-0000-000000000000"
-                className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                className="mt-1 w-full bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
               />
               <p className="text-xs text-muted-3 mt-1">
                 ID можно скопировать из URL карточки стадии в /settings →
@@ -738,7 +738,7 @@ function AutomationEditor({
               Step 0 is the primary action above; these are scheduled
               after step 0 fires. Delay steps gate the next step's
               schedule (no side-effect of their own). */}
-          <fieldset className="border border-black/5 rounded-xl p-3 space-y-2">
+          <fieldset className="border border-brand-border rounded-xl p-3 space-y-2">
             <legend className={`px-1 ${T.mono} uppercase text-muted-3`}>
               Цепочка после первого шага (необязательно)
             </legend>
@@ -752,7 +752,7 @@ function AutomationEditor({
                 {extraSteps.map((step, idx) => (
                   <li
                     key={idx}
-                    className="bg-canvas/60 border border-black/10 rounded-xl p-2 space-y-2"
+                    className="bg-canvas/60 border border-brand-border rounded-xl p-2 space-y-2"
                   >
                     <div className={`flex items-center gap-1.5 ${T.mono} text-muted-3`}>
                       <span>Шаг {idx + 2}</span>
@@ -771,7 +771,7 @@ function AutomationEditor({
                                     : { target_stage_id: "" },
                           })
                         }
-                        className="ml-1 bg-white border border-black/10 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                        className="ml-1 bg-white border border-brand-border rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                       >
                         {(Object.keys(STEP_TYPE_LABELS) as AutomationStepType[]).map(
                           (t) => (
@@ -827,7 +827,7 @@ function AutomationEditor({
                               },
                             })
                           }
-                          className="ml-2 w-24 bg-white border border-black/10 rounded-lg px-2 py-1 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                          className="ml-2 w-24 bg-white border border-brand-border rounded-lg px-2 py-1 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                         />
                         <span className="ml-2 text-xs text-muted-3">
                           (1—720)
@@ -843,7 +843,7 @@ function AutomationEditor({
                             config: { template_id: e.target.value },
                           })
                         }
-                        className="w-full bg-white border border-black/10 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                        className="w-full bg-white border border-brand-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                       >
                         <option value="">— шаблон —</option>
                         {templates.map((t) => (
@@ -865,7 +865,7 @@ function AutomationEditor({
                               config: { title: e.target.value },
                             })
                           }
-                          className="bg-white border border-black/10 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                          className="bg-white border border-brand-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                         />
                         <input
                           type="number"
@@ -880,7 +880,7 @@ function AutomationEditor({
                               },
                             })
                           }
-                          className="w-20 bg-white border border-black/10 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                          className="w-20 bg-white border border-brand-border rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                         />
                       </div>
                     )}
@@ -895,7 +895,7 @@ function AutomationEditor({
                             config: { target_stage_id: e.target.value },
                           })
                         }
-                        className="w-full bg-white border border-black/10 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                        className="w-full bg-white border border-brand-border rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                       />
                     )}
                   </li>
@@ -906,28 +906,28 @@ function AutomationEditor({
               <button
                 type="button"
                 onClick={() => addExtraStep("delay_hours")}
-                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-black/10 hover:border-brand-accent"
+                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-brand-border hover:border-brand-accent"
               >
                 <Plus size={10} /> Пауза
               </button>
               <button
                 type="button"
                 onClick={() => addExtraStep("send_template")}
-                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-black/10 hover:border-brand-accent"
+                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-brand-border hover:border-brand-accent"
               >
                 <Plus size={10} /> Шаблон
               </button>
               <button
                 type="button"
                 onClick={() => addExtraStep("create_task")}
-                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-black/10 hover:border-brand-accent"
+                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-brand-border hover:border-brand-accent"
               >
                 <Plus size={10} /> Задача
               </button>
               <button
                 type="button"
                 onClick={() => addExtraStep("move_stage")}
-                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-black/10 hover:border-brand-accent"
+                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-brand-border hover:border-brand-accent"
               >
                 <Plus size={10} /> Стадия
               </button>
@@ -989,7 +989,7 @@ function RunsDrawer({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/30">
       <aside className="bg-white h-full w-full max-w-md shadow-xl flex flex-col">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-black/5">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-brand-border">
           <div className="min-w-0">
             <h3 className="type-card-title truncate">
               История запусков
@@ -1045,7 +1045,7 @@ function RunRow({
   const stepsQuery = useAutomationStepRuns(expanded ? run.id : null);
 
   return (
-    <li className="rounded-xl bg-canvas/60 border border-black/5 overflow-hidden">
+    <li className="rounded-xl bg-canvas/60 border border-brand-border overflow-hidden">
       <button
         type="button"
         onClick={() => expandable && setExpanded((v) => !v)}
@@ -1080,7 +1080,7 @@ function RunRow({
       </button>
 
       {expanded && (
-        <div className="border-t border-black/5 px-3 py-2 bg-white">
+        <div className="border-t border-brand-border px-3 py-2 bg-white">
           {stepsQuery.isLoading ? (
             <div className="flex items-center gap-1.5 text-xs text-muted-2 py-1">
               <Loader2 size={10} className="animate-spin" /> Загрузка шагов...
