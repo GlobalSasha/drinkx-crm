@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 
 export default function KnowledgePage() {
   return (
-    <div className={pageContainerVariants({ width: "wide" })}>
+    <div className={pageContainerVariants({ surface: "reading" })}>
       <PageHeader
         icon={<BookOpen size={20} />}
         title="База знаний"

@@ -230,7 +230,7 @@ export default function TasksPage() {
 
   return (
     <>
-      <div className={pageContainerVariants({ width: "wide" })}>
+      <div className={pageContainerVariants({ surface: "data" })}>
         <PageHeader icon={<ListChecks size={20} />} title="Задачи" />
 
         {/* Filter bar */}

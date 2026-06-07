@@ -79,7 +79,7 @@ export default function ManagerStatsPage() {
   if (me.data.role !== "admin" && me.data.role !== "head") return null;
 
   return (
-    <div className={pageContainerVariants({ width: "content" })}>
+    <div className={pageContainerVariants({ surface: "detail" })}>
       <Link
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         href={"/team" as any}

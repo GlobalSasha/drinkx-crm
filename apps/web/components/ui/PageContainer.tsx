@@ -1,50 +1,49 @@
 import * as React from "react";
-import { cva, type VariantProps } from "class-variance-authority";
+import { cva } from "class-variance-authority";
 import { cn } from "@/lib/cn";
 
 /**
- * PageContainer — the single page frame for every top-level screen.
+ * PageContainer — единый фрейм страницы для всех топ-левел экранов.
  *
- * Before this primitive, each page rolled its own wrapper, so the same
- * kind of screen rendered at different widths (max-w-6xl / 1280 / 1100 /
- * 920…) with different padding (px-4 sm:px-6 vs px-6, py-6 vs py-6 sm:py-8),
- * which made content "jump" when navigating between sections.
+ * Ширина задаётся АРХЕТИПОМ контента, а не пикселями. Контейнер fluid
+ * (заполняет рабочую область, гаттеры растут с вьюпортом) и центрируется
+ * только под sanity-cap 1760px на очень широких мониторах — чтобы таблицы
+ * не растягивались в нечитаемую строку. Читаемость удерживается на уровне
+ * компонента (текст-колонки, блоки форм), а не сужением всей страницы.
  *
- * This centralises the outer frame: one horizontal/vertical rhythm, and a
- * small fixed set of named widths. New pages should wrap their content in
- * <PageContainer>. The `pageContainerVariants` export lets existing pages
- * adopt the same frame at the className level without restructuring JSX.
+ *   data    — таблицы, канбан, дашборды, списки (по умолчанию)
+ *   detail  — рабочие поверхности записи (карточка лида и подобные)
+ *   reading — проза и формы (читаемый блок внутри кэпится отдельно)
  *
- *   <PageContainer>…</PageContainer>            // standard list/admin screen
- *   <PageContainer width="wide">…</PageContainer>   // dashboards
- *   <PageContainer width="narrow">…</PageContainer> // focused forms / reading
+ *   <PageContainer surface="data">…</PageContainer>
  */
+export type Surface = "data" | "detail" | "reading";
+
 const pageContainerVariants = cva(
-  // shared frame: centred, full-bleed-safe, consistent gutters + vertical rhythm
-  "mx-auto w-full px-4 sm:px-6 py-6 sm:py-8",
+  // fluid-база: заполняем ширину, гаттеры растут, единый вертикальный ритм
+  "w-full px-4 sm:px-6 lg:px-8 2xl:px-12 py-6 sm:py-8",
   {
     variants: {
-      width: {
-        narrow: "max-w-3xl", // 768px — focused forms, short reading pages
-        content: "max-w-4xl", // 896px — single-column content
-        default: "max-w-6xl", // 1152px — standard list / admin screens
-        wide: "max-w-[1280px]", // dashboards, dense overviews
-        full: "max-w-[1800px]", // boards / near full-bleed
+      // Сегодня все три дают одинаковый фрейм; это семантические хуки, чтобы
+      // detail (2 колонки) и reading (внутренний ch-cap) могли разойтись
+      // позже без правки call-site'ов.
+      surface: {
+        data: "max-w-[1760px] mx-auto",
+        detail: "max-w-[1760px] mx-auto",
+        reading: "max-w-[1760px] mx-auto",
       },
     },
-    defaultVariants: { width: "default" },
+    defaultVariants: { surface: "data" },
   },
 );
 
-export type PageWidth = NonNullable<VariantProps<typeof pageContainerVariants>["width"]>;
-
-export interface PageContainerProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof pageContainerVariants> {}
+export interface PageContainerProps extends React.HTMLAttributes<HTMLDivElement> {
+  surface?: Surface;
+}
 
 const PageContainer = React.forwardRef<HTMLDivElement, PageContainerProps>(
-  ({ className, width, ...props }, ref) => (
-    <div ref={ref} className={cn(pageContainerVariants({ width, className }))} {...props} />
+  ({ className, surface, ...props }, ref) => (
+    <div ref={ref} className={cn(pageContainerVariants({ surface, className }))} {...props} />
   ),
 );
 PageContainer.displayName = "PageContainer";

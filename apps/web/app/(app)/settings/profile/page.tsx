@@ -91,7 +91,7 @@ export default function ProfilePage() {
     "?";
 
   return (
-    <div className={pageContainerVariants({ width: "narrow" })}>
+    <div className={pageContainerVariants({ surface: "reading" })}>
       <Link
         href="/settings"
         className="inline-flex items-center gap-1 text-xs font-mono text-brand-muted hover:text-brand-primary mb-4 transition-colors"

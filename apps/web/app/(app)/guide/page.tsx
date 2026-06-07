@@ -236,7 +236,7 @@ export default function GuidePage() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   return (
-    <div className={pageContainerVariants({ width: "default" })}>
+    <div className={pageContainerVariants({ surface: "reading" })}>
       {/* Hero */}
       <div className="bg-brand-dark text-white rounded-[2rem] p-8 sm:p-10 mb-8 relative overflow-hidden">
         <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-brand-accent/20 blur-3xl pointer-events-none" />

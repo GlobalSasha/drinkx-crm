@@ -56,7 +56,7 @@ export default function IncomingPage() {
   }
 
   return (
-    <div className={pageContainerVariants({ width: "wide" })}>
+    <div className={pageContainerVariants({ surface: "data" })}>
       <PageHeader
         icon={<Inbox size={20} />}
         title="Входящие заявки"

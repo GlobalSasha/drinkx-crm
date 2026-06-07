@@ -68,7 +68,7 @@ export default function TeamPage() {
   }
   if (me.data.role !== "admin" && me.data.role !== "head") {
     return (
-      <div className={pageContainerVariants({ width: "narrow" })}>
+      <div className={pageContainerVariants({ surface: "reading" })}>
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon"><ShieldAlert /></EmptyMedia>
@@ -93,7 +93,7 @@ export default function TeamPage() {
   }
 
   return (
-    <div className={pageContainerVariants({ width: "wide" })}>
+    <div className={pageContainerVariants({ surface: "data" })}>
       <PageHeader
         icon={<Users size={20} />}
         title="Команда"

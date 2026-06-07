@@ -778,7 +778,7 @@ function TodayPageInner() {
   }
 
   return (
-    <div className={pageContainerVariants({ width: "wide" })}>
+    <div className={pageContainerVariants({ surface: "data" })}>
       {/* Header */}
       <div className="bg-white border border-brand-border border-l-[3px] border-l-brand-accent rounded-[2rem] p-6 mb-6">
           <div className="type-caption text-brand-muted">{dateTimeCaption}</div>

@@ -133,7 +133,7 @@ export default function CompaniesPage() {
   }
 
   return (
-    <main className={pageContainerVariants({ width: "default" })}>
+    <main className={pageContainerVariants({ surface: "data" })}>
       <PageHeader
         icon={<Building2 size={20} />}
         title="Компании"

@@ -200,7 +200,7 @@ export default function AuditPage() {
   }
 
   return (
-    <div className={pageContainerVariants({ width: "wide" })}>
+    <div className={pageContainerVariants({ surface: "data" })}>
       <PageHeader
         icon={<History size={20} />}
         title="Журнал изменений"

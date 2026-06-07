@@ -89,7 +89,7 @@ export default function FormsPage() {
 
   return (
     <>
-      <div className={pageContainerVariants({ width: "wide" })}>
+      <div className={pageContainerVariants({ surface: "data" })}>
         <PageHeader
           icon={<ClipboardList size={20} />}
           title="Формы"

@@ -106,7 +106,7 @@ function SettingsPageInner() {
   }, [params]);
 
   return (
-    <div className={pageContainerVariants({ width: "wide" })}>
+    <div className={pageContainerVariants({ surface: "reading" })}>
       <PageHeader icon={<SettingsIcon size={20} />} title="Настройки" />
 
       <div className="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-6">

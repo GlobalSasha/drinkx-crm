@@ -135,7 +135,7 @@ export default function AutomationsPage() {
   }
 
   return (
-    <div className={pageContainerVariants({ width: "default" })}>
+    <div className={pageContainerVariants({ surface: "data" })}>
       <PageHeader
         icon={<Workflow size={20} />}
         title="Автоматизации"
