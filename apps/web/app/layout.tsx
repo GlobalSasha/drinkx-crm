@@ -1,26 +1,13 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, JetBrains_Mono, Inter, Manrope } from "next/font/google";
+import { Manrope, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
-const inter = Inter({
-  subsets: ["latin", "cyrillic"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-ui",
-  display: "swap",
-});
-
 const manrope = Manrope({
   subsets: ["latin", "cyrillic"],
-  weight: ["600", "700", "800"],
-  variable: "--font-display",
-  display: "swap",
-});
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin", "latin-ext"],
-  variable: "--font-jakarta",
   weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-ui",
+  display: "swap",
 });
 
 const mono = JetBrains_Mono({
@@ -40,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru" className={`${inter.variable} ${manrope.variable} ${jakarta.variable} ${mono.variable}`}>
+    <html lang="ru" className={`${manrope.variable} ${mono.variable}`}>
       <body>
         <Providers>{children}</Providers>
       </body>

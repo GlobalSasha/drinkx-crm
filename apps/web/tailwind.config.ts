@@ -19,11 +19,6 @@ const config: Config = {
           2: "#71717A",
           3: "#aeaeb2",
         },
-        accent: {
-          DEFAULT: "#1F4D3F",
-          glow: "#5A8C7A",
-          soft: "rgba(31,77,63,0.08)",
-        },
         success: "#2D7A5A",
         warning: "#B7672D",
         rose: "#B23A48",
@@ -46,10 +41,10 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ["var(--font-jakarta)", "system-ui", "sans-serif"],
+        sans: ["var(--font-ui)", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
         ui: ["var(--font-ui)", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
-        display: ["var(--font-display)", "var(--font-ui)", "sans-serif"],
+        display: ["var(--font-ui)", "sans-serif"],
       },
       fontSize: {
         "2xs": ["10px", { lineHeight: "1.3" }],
@@ -76,6 +71,7 @@ const config: Config = {
         lg: "1.5rem",
         xl: "1.75rem",
         "2xl": "2.25rem",
+        card: "2rem",
         pill: "999px",
       },
       transitionTimingFunction: {

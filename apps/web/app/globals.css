@@ -72,7 +72,7 @@ body {
    override individual properties when used on the same element. */
 @layer components {
   .type-page-title {
-    font-family: var(--font-display), var(--font-ui), sans-serif;
+    font-family: var(--font-ui), sans-serif;
     font-size: var(--text-4xl);
     font-weight: 700;
     line-height: var(--leading-tight);
@@ -80,7 +80,7 @@ body {
   }
 
   .type-section-title {
-    font-family: var(--font-display), var(--font-ui), sans-serif;
+    font-family: var(--font-ui), sans-serif;
     font-size: var(--text-2xl);
     font-weight: 600;
     line-height: var(--leading-snug);
@@ -135,7 +135,7 @@ body {
   }
 
   .type-empty-title {
-    font-family: var(--font-display), var(--font-ui), sans-serif;
+    font-family: var(--font-ui), sans-serif;
     font-size: var(--text-2xl);
     font-weight: 600;
     line-height: var(--leading-snug);
