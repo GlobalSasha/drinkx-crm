@@ -217,7 +217,7 @@ function SettingsPageInner() {
             active !== "templates" &&
             active !== "appearance" &&
             active !== "base_update" && (
-              <div className="bg-brand-bg/60 border border-brand-border rounded-[2rem] px-6 py-12 text-center">
+              <div className="bg-brand-bg/60 border border-brand-border rounded-card px-6 py-12 text-center">
                 <p className="text-sm text-brand-muted">Эта секция появится позже.</p>
               </div>
             )}

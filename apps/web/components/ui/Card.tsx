@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
 
 /**
  * Card primitive — taste-soft surface. Wraps the canonical
- * "bg-white border border-brand-border rounded-[2rem]" chrome plus the
+ * "bg-white border border-brand-border rounded-card" chrome plus the
  * variants in C.card.* into a composable shell.
  *
  *   <Card>
@@ -17,22 +17,22 @@ import { cn } from "@/lib/cn";
  *   </Card>
  *
  * NOTE: Every variant string below is an EXACT paste of the corresponding
- * C.card.* token from lib/design-system.ts, minus the "rounded-[2rem]"
+ * C.card.* token from lib/design-system.ts, minus the "rounded-card"
  * and "border" classes that live in the shared chrome above.
  */
 const cardVariants = cva(
-  "rounded-[2rem] border", // shared chrome
+  "rounded-card border", // shared chrome
   {
     variants: {
       variant: {
         // Exact mirrors of C.card.* from lib/design-system.ts
-        // C.card.base = 'bg-white border border-brand-border rounded-[2rem] p-6'
+        // C.card.base = 'bg-white border border-brand-border rounded-card p-6'
         default: "bg-white border-brand-border",
-        // C.card.panel = 'bg-brand-panel border border-brand-border rounded-[2rem] p-6'
+        // C.card.panel = 'bg-brand-panel border border-brand-border rounded-card p-6'
         panel: "bg-brand-panel border-brand-border",
-        // C.card.accent = 'bg-brand-soft border border-brand-accent/20 rounded-[2rem] p-6'
+        // C.card.accent = 'bg-brand-soft border border-brand-accent/20 rounded-card p-6'
         accent: "bg-brand-soft border-brand-accent/20",
-        // C.card.dark = 'bg-brand-dark text-white rounded-[2rem] p-6'
+        // C.card.dark = 'bg-brand-dark text-white rounded-card p-6'
         dark: "bg-brand-dark text-white border-transparent",
       },
       padding: {

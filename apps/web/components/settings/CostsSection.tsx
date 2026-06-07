@@ -44,7 +44,7 @@ export function CostsSection() {
 
   if (!isAdmin) {
     return (
-      <div className="bg-canvas/60 border border-black/5 rounded-2xl px-6 py-12 text-center">
+      <div className="bg-canvas/60 border border-black/5 rounded-card px-6 py-12 text-center">
         <ShieldAlert size={20} className="text-muted mx-auto mb-2" />
         <p className="text-sm text-muted">
           Раздел доступен только администратору.
@@ -93,7 +93,7 @@ export function CostsSection() {
           {data.by_provider.length === 0 ? (
             <p className="text-sm text-muted">Нет данных за период</p>
           ) : (
-            <ul className="divide-y divide-black/5 rounded-2xl border border-black/5 bg-white">
+            <ul className="divide-y divide-black/5 rounded-card border border-black/5 bg-white">
               {data.by_provider.map((p) => (
                 <li
                   key={p.provider}

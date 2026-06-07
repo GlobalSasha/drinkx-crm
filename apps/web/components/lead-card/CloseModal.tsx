@@ -67,7 +67,7 @@ export function CloseModal({
             type="button"
             onClick={handleWon}
             disabled={!wonStage || pendingChoice !== null}
-            className="flex flex-col items-center gap-2 py-5 rounded-2xl border-2 border-success/20 bg-success/5 hover:bg-success/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex flex-col items-center gap-2 py-5 rounded-card border-2 border-success/20 bg-success/5 hover:bg-success/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <Trophy size={28} className="text-success" />
             <span className="type-caption font-semibold text-success">
@@ -78,7 +78,7 @@ export function CloseModal({
             type="button"
             onClick={handleLost}
             disabled={!lostStage}
-            className="flex flex-col items-center gap-2 py-5 rounded-2xl border-2 border-rose/20 bg-rose/5 hover:bg-rose/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex flex-col items-center gap-2 py-5 rounded-card border-2 border-rose/20 bg-rose/5 hover:bg-rose/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <XCircle size={28} className="text-rose" />
             <span className="type-caption font-semibold text-rose">Проиграна</span>

@@ -233,7 +233,7 @@ export default function AuditPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white border border-brand-border rounded-[2rem] overflow-hidden">
+      <div className="bg-white border border-brand-border rounded-card overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-brand-bg/60">
             <tr className="border-b border-brand-border">

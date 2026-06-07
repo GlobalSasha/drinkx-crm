@@ -129,7 +129,7 @@ export function MappingStep({ job, onBack, onConfirmed }: Props) {
       )}
 
       {/* Mapping table */}
-      <div className="rounded-2xl border border-black/5 bg-white overflow-hidden">
+      <div className="rounded-card border border-black/5 bg-white overflow-hidden">
         <div className="grid grid-cols-[1fr_1fr_minmax(180px,1.2fr)_24px] items-center gap-3 px-4 py-2.5 bg-canvas border-b border-black/5 text-2xs font-mono uppercase tracking-wider text-muted-2">
           <span>Колонка в файле</span>
           <span className="hidden md:block">Пример значения</span>

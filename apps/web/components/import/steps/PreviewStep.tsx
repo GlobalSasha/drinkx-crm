@@ -91,7 +91,7 @@ export function PreviewStep({ job, onBack, onApplied }: Props) {
 
       {/* Errors */}
       {flatErrors.length > 0 && (
-        <div className="rounded-2xl border border-black/5 bg-white">
+        <div className="rounded-card border border-black/5 bg-white">
           <button
             onClick={() => setShowErrors((v) => !v)}
             className="flex items-center justify-between w-full px-4 py-3 text-left"
@@ -196,7 +196,7 @@ function StatCard({
 
   return (
     <div
-      className={`rounded-2xl border ${palette} px-4 py-3.5 flex flex-col gap-1.5`}
+      className={`rounded-card border ${palette} px-4 py-3.5 flex flex-col gap-1.5`}
     >
       <div className="flex items-center gap-1.5 text-2xs font-mono uppercase tracking-wider opacity-80">
         {icon}

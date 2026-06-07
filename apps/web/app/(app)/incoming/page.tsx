@@ -83,7 +83,7 @@ export default function IncomingPage() {
       />
 
       {/* Filter row */}
-      <div className="bg-white border border-brand-border rounded-[2rem] p-4 sm:p-5 mb-4 flex flex-wrap items-center gap-2">
+      <div className="bg-white border border-brand-border rounded-card p-4 sm:p-5 mb-4 flex flex-wrap items-center gap-2">
         <Chip active={channel === null} onClick={() => setChannel(null)}>
           Все
         </Chip>
@@ -164,7 +164,7 @@ function Row({ item, onOpenLead }: { item: InboxItemOut; onOpenLead: () => void 
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onOpenLead();
       }}
-      className="relative rounded-[2rem] border border-brand-border bg-white px-4 py-3.5 pl-5 cursor-pointer transition-colors hover:border-brand-muted"
+      className="relative rounded-card border border-brand-border bg-white px-4 py-3.5 pl-5 cursor-pointer transition-colors hover:border-brand-muted"
     >
       {item.is_new && (
         <span className="absolute left-2 top-5 w-2 h-2 rounded-full bg-brand-accent" />

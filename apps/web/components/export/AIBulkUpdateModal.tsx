@@ -118,7 +118,7 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
           role="dialog"
           aria-modal="true"
           aria-label="Обновление через AI"
-          className="bg-white rounded-2xl border border-black/5 shadow-soft w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden"
+          className="bg-white rounded-card border border-black/5 shadow-soft w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden"
         >
           {/* Header */}
           <div className="px-6 py-4 border-b border-black/5 flex items-start justify-between gap-4">
@@ -254,7 +254,7 @@ function Step({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-black/5 bg-canvas/40 p-4">
+    <div className="rounded-card border border-black/5 bg-canvas/40 p-4">
       <div className="flex items-start gap-3">
         <span className="shrink-0 w-6 h-6 rounded-full bg-ink text-white text-xs font-bold flex items-center justify-center tabular-nums">
           {n}

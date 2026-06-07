@@ -55,7 +55,7 @@ export function AppearanceSection() {
                 type="button"
                 disabled={update.isPending}
                 onClick={() => update.mutate({ sidebar_color: key })}
-                className={`relative rounded-2xl border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 ${
+                className={`relative rounded-card border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 ${
                   active
                     ? "border-brand-accent ring-2 ring-brand-accent/30"
                     : "border-black/10 hover:border-black/20"
@@ -86,7 +86,7 @@ export function AppearanceSection() {
                 type="button"
                 disabled={update.isPending}
                 onClick={() => update.mutate({ background_color: key })}
-                className={`rounded-2xl border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 ${
+                className={`rounded-card border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 ${
                   active
                     ? "border-brand-accent ring-2 ring-brand-accent/30"
                     : "border-black/10 hover:border-black/20"

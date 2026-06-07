@@ -165,7 +165,7 @@ function Card({ title, icon: Icon, children, className = "" }: {
   title?: string; icon?: LucideIcon; children: React.ReactNode; className?: string;
 }) {
   return (
-    <div className={`bg-white border border-brand-border rounded-[2rem] p-6 ${className}`}>
+    <div className={`bg-white border border-brand-border rounded-card p-6 ${className}`}>
       {title && (
         <div className="flex items-center gap-2.5 mb-3">
           {Icon && (
@@ -192,7 +192,7 @@ function Alert({ kind, children }: { kind: keyof typeof ALERT_STYLES; children: 
   const s = ALERT_STYLES[kind];
   const Icon = s.icon;
   return (
-    <div className={`flex gap-3 items-start border rounded-2xl px-4 py-3.5 my-4 ${s.bg} ${s.text}`}>
+    <div className={`flex gap-3 items-start border rounded-card px-4 py-3.5 my-4 ${s.bg} ${s.text}`}>
       <Icon size={18} className={`shrink-0 mt-0.5 ${s.ic}`} />
       <div className="type-body">{children}</div>
     </div>
@@ -238,7 +238,7 @@ export default function GuidePage() {
   return (
     <div className={pageContainerVariants({ surface: "reading" })}>
       {/* Hero */}
-      <div className="bg-brand-dark text-white rounded-[2rem] p-8 sm:p-10 mb-8 relative overflow-hidden">
+      <div className="bg-brand-dark text-white rounded-card p-8 sm:p-10 mb-8 relative overflow-hidden">
         <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-brand-accent/20 blur-3xl pointer-events-none" />
         <div className="relative">
           <div className="inline-flex items-center gap-1.5 bg-white/10 text-white/90 type-caption px-3 py-1 rounded-full mb-4">
@@ -276,7 +276,7 @@ export default function GuidePage() {
           <Section id="start" icon={HelpCircle} kicker="Добро пожаловать" title="Ключевые понятия">
             <div className="grid sm:grid-cols-2 gap-3">
               {GLOSSARY.map((g) => (
-                <div key={g.term} className="bg-white border border-brand-border rounded-2xl p-4">
+                <div key={g.term} className="bg-white border border-brand-border rounded-card p-4">
                   <div className="type-label text-brand-primary mb-1">{g.term}</div>
                   <div className="type-body text-brand-muted-strong">{g.def}</div>
                 </div>
@@ -657,7 +657,7 @@ export default function GuidePage() {
               {FAQ.map((item, i) => {
                 const open = openFaq === i;
                 return (
-                  <div key={i} className="bg-white border border-brand-border rounded-2xl overflow-hidden">
+                  <div key={i} className="bg-white border border-brand-border rounded-card overflow-hidden">
                     <button
                       onClick={() => setOpenFaq(open ? null : i)}
                       className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-brand-bg/50 transition-colors"

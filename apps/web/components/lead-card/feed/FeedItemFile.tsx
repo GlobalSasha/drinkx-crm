@@ -94,7 +94,7 @@ export function FeedItemFile({ item, leadId }: Props) {
           </p>
         </div>
 
-        <div className="mt-1 flex items-center gap-2 px-3 py-2.5 rounded-2xl bg-white border border-brand-border">
+        <div className="mt-1 flex items-center gap-2 px-3 py-2.5 rounded-card bg-white border border-brand-border">
           <span className="text-brand-muted shrink-0">{kindIcon(fileKind)}</span>
           <div className="flex-1 min-w-0">
             <p className="type-body text-brand-primary truncate" title={fileName}>

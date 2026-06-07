@@ -87,7 +87,7 @@ export function ImportWizard({ open, onClose }: Props) {
           role="dialog"
           aria-modal="true"
           aria-label="Импорт лидов"
-          className="bg-white rounded-2xl border border-black/5 shadow-soft w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden"
+          className="bg-white rounded-card border border-black/5 shadow-soft w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden"
         >
           {/* Header */}
           <div className="px-6 py-4 border-b border-black/5 flex items-start justify-between gap-4">

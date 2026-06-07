@@ -38,7 +38,7 @@ export function FeedItemAI({ item, onAskFollowUp }: Props) {
           <span className="mx-1.5">·</span>
           <span>{formatTimeShort(item.created_at)}</span>
         </p>
-        <div className="mt-1 rounded-2xl bg-brand-soft/40 border border-brand-soft border-l-[3px] border-l-brand-accent p-3">
+        <div className="mt-1 rounded-card bg-brand-soft/40 border border-brand-soft border-l-[3px] border-l-brand-accent p-3">
           {item.body && (
             <p className="type-body text-brand-primary whitespace-pre-wrap break-words">
               {item.body}

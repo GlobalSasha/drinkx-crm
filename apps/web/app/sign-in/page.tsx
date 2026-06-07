@@ -87,7 +87,7 @@ function SignInForm() {
   }
 
   return (
-    <div className="relative max-w-md w-full bg-white border border-black/10 rounded-2xl p-12 shadow-soft">
+    <div className="relative max-w-md w-full bg-white border border-black/10 rounded-card p-12 shadow-soft">
       <div className={`${T.mono} text-muted mb-3`}>
         ВХОД В CRM
       </div>

@@ -101,7 +101,7 @@ export function UploadStep({ onUploaded }: Props) {
         onDragLeave={onDragLeave}
         disabled={busy}
         className={clsx(
-          "w-full rounded-2xl border-2 border-dashed transition-all duration-200 px-6 py-12 text-center flex flex-col items-center justify-center gap-3 outline-none",
+          "w-full rounded-card border-2 border-dashed transition-all duration-200 px-6 py-12 text-center flex flex-col items-center justify-center gap-3 outline-none",
           dragOver
             ? "border-brand-accent bg-brand-soft"
             : picked
@@ -112,7 +112,7 @@ export function UploadStep({ onUploaded }: Props) {
       >
         {picked ? (
           <>
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-700 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-card bg-emerald-500/10 text-emerald-700 flex items-center justify-center">
               <FileText size={22} />
             </div>
             <div>
@@ -129,7 +129,7 @@ export function UploadStep({ onUploaded }: Props) {
           <>
             <div
               className={clsx(
-                "w-12 h-12 rounded-2xl flex items-center justify-center transition-colors",
+                "w-12 h-12 rounded-card flex items-center justify-center transition-colors",
                 dragOver
                   ? "bg-brand-accent text-white"
                   : "bg-canvas text-muted",

@@ -150,7 +150,7 @@ function ContactRow({
 
   return (
     <li
-      className={`rounded-2xl border bg-white p-3.5 cursor-pointer transition-colors ${
+      className={`rounded-card border bg-white p-3.5 cursor-pointer transition-colors ${
         isPrimary
           ? "border-brand-accent ring-1 ring-brand-accent/30"
           : "border-brand-border hover:border-brand-accent"

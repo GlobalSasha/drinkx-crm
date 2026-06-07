@@ -394,7 +394,7 @@ export function LeadCardHeader({
 
       {(isWon || isLost) && (
         <div
-          className={`mt-3 ml-9 flex items-center gap-2 px-3 py-2 rounded-2xl type-caption font-semibold ${
+          className={`mt-3 ml-9 flex items-center gap-2 px-3 py-2 rounded-card type-caption font-semibold ${
             isWon ? "bg-success/10 text-success" : "bg-rose/10 text-rose"
           }`}
         >

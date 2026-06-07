@@ -127,7 +127,7 @@ export default function FormsPage() {
         )}
 
         {items.length > 0 && (
-          <div className="rounded-[2rem] border border-brand-border bg-white overflow-hidden">
+          <div className="rounded-card border border-brand-border bg-white overflow-hidden">
             <div className={`grid grid-cols-[1fr_180px_90px_110px_140px_100px] items-center gap-3 px-4 py-2.5 bg-brand-bg border-b border-brand-border ${T.mono} uppercase text-brand-muted`}>
               <span>Название</span>
               <span>Slug</span>
@@ -320,7 +320,7 @@ function ChannelAnalyticsSection({
       )}
 
       {!isLoading && !isError && rows.length > 0 && (
-        <div className="overflow-x-auto rounded-[2rem] border border-brand-border bg-white">
+        <div className="overflow-x-auto rounded-card border border-brand-border bg-white">
           <table className="w-full text-sm min-w-[480px]">
             <thead>
               <tr className={`bg-brand-bg border-b border-brand-border ${T.mono} uppercase text-brand-muted text-left`}>
@@ -388,7 +388,7 @@ function ConfirmDeleteModal({
         <div
           role="dialog"
           aria-modal="true"
-          className="bg-white rounded-[2rem] border border-brand-border w-full max-w-md p-5"
+          className="bg-white rounded-card border border-brand-border w-full max-w-md p-5"
         >
           <h2 className="type-card-title text-brand-primary">
             Удалить форму?

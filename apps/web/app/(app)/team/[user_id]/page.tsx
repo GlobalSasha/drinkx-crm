@@ -129,7 +129,7 @@ export default function ManagerStatsPage() {
       </section>
 
       {stats.isLoading && (
-        <div className="bg-white border border-black/5 rounded-2xl shadow-soft p-6 animate-pulse h-[260px]" />
+        <div className="bg-white border border-black/5 rounded-card shadow-soft p-6 animate-pulse h-[260px]" />
       )}
 
       {stats.isError && (
@@ -141,7 +141,7 @@ export default function ManagerStatsPage() {
       {stats.data && (
         <>
           {/* Total stats */}
-          <div className="bg-white border border-black/5 rounded-2xl shadow-soft p-5 mb-6">
+          <div className="bg-white border border-black/5 rounded-card shadow-soft p-5 mb-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Stat label="КП" value={stats.data.stats.kp_sent} />
               <Stat label="Из пула" value={stats.data.stats.leads_taken_from_pool} />
@@ -152,7 +152,7 @@ export default function ManagerStatsPage() {
 
           {/* Current lead distribution by stage — independent of period */}
           {myWorkload && (
-            <div className="bg-white border border-black/5 rounded-2xl shadow-soft p-5 mb-6">
+            <div className="bg-white border border-black/5 rounded-card shadow-soft p-5 mb-6">
               <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
                 <div>
                   <h2 className="type-card-title">Лиды по этапам</h2>
@@ -218,7 +218,7 @@ export default function ManagerStatsPage() {
           )}
 
           {/* Daily table */}
-          <div className="bg-white border border-black/5 rounded-2xl shadow-soft overflow-hidden">
+          <div className="bg-white border border-black/5 rounded-card shadow-soft overflow-hidden">
             <table className="w-full text-left">
               <thead className="bg-canvas/60">
                 <tr className="border-b border-black/5">

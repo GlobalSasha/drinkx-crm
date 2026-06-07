@@ -120,7 +120,7 @@ export function SprintModal({ isOpen: isOpenProp, onClose: onCloseProp }: Props 
 
       {/* Dialog */}
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl border border-black/5 shadow-soft w-full max-w-md p-6 relative">
+        <div className="bg-white rounded-card border border-black/5 shadow-soft w-full max-w-md p-6 relative">
           {/* Header */}
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-lg font-bold tracking-tight">

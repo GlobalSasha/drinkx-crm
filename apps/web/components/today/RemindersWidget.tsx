@@ -30,7 +30,7 @@ export function RemindersWidget() {
   }
 
   return (
-    <div className="bg-white border border-brand-border rounded-[2rem] p-5 h-full flex flex-col">
+    <div className="bg-white border border-brand-border rounded-card p-5 h-full flex flex-col">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Pin size={16} className="text-brand-muted" />
@@ -105,7 +105,7 @@ export function RemindersWidget() {
           reminders.map((r) => (
             <div
               key={r.id}
-              className="group flex items-start gap-2 px-3 py-2 rounded-2xl bg-brand-bg"
+              className="group flex items-start gap-2 px-3 py-2 rounded-card bg-brand-bg"
             >
               <p className={`type-caption ${C.color.text} flex-1 break-words`}>
                 {r.text}

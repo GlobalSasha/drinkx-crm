@@ -105,7 +105,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
 
       {/* Actionable items list */}
       {actionable.length > 0 && (
-        <div className="rounded-2xl border border-black/5 bg-white">
+        <div className="rounded-card border border-black/5 bg-white">
           <div className="px-4 py-2.5 bg-canvas border-b border-black/5 text-2xs font-mono uppercase tracking-wider text-muted-2">
             Изменения{" "}
             <span className="text-muted-3 ml-1">
@@ -124,7 +124,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
 
       {/* Errors panel */}
       {failed.length > 0 && (
-        <div className="rounded-2xl border border-amber-200/60 bg-amber-50">
+        <div className="rounded-card border border-amber-200/60 bg-amber-50">
           <div className="px-4 py-2.5 border-b border-amber-200/60 flex items-center gap-1.5 text-xs font-bold text-amber-800">
             <AlertTriangle size={13} />
             Не удалось распознать
@@ -357,7 +357,7 @@ function StatCard({
   }[tone];
   return (
     <div
-      className={`rounded-2xl border ${palette} px-4 py-3.5 flex flex-col gap-1.5`}
+      className={`rounded-card border ${palette} px-4 py-3.5 flex flex-col gap-1.5`}
     >
       <div className="flex items-center gap-1.5 text-2xs font-mono uppercase tracking-wider opacity-80">
         {icon}

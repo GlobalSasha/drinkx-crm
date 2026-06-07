@@ -274,7 +274,7 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
           role="dialog"
           aria-modal="true"
           aria-label={isEdit ? "Редактирование формы" : "Новая форма"}
-          className="bg-white rounded-2xl border border-black/5 shadow-soft w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden"
+          className="bg-white rounded-card border border-black/5 shadow-soft w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden"
         >
           {/* Header */}
           <div className="px-6 py-4 border-b border-black/5 flex items-start justify-between gap-4">
@@ -520,7 +520,7 @@ function SettingsTab({
             </span>
           )}
         </div>
-        <div className="rounded-2xl border border-black/5 bg-white">
+        <div className="rounded-card border border-black/5 bg-white">
           <div className="grid grid-cols-[1fr_140px_90px_24px] items-center gap-2 px-3 py-2 bg-canvas border-b border-black/5 text-2xs font-mono uppercase tracking-wider text-muted-3">
             <span>Заголовок</span>
             <span>Тип</span>
@@ -875,7 +875,7 @@ function EmbedTab({
       </div>
 
       {directUrl && (
-        <div className="rounded-2xl border border-black/5 bg-canvas/40 px-4 py-3">
+        <div className="rounded-card border border-black/5 bg-canvas/40 px-4 py-3">
           <div className="text-2xs font-mono uppercase tracking-wider text-muted-3 mb-1">
             Прямая ссылка на embed.js
           </div>
@@ -930,7 +930,7 @@ function EmbedTab({
         </div>
       )}
 
-      <div className="rounded-2xl border border-amber-200/60 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      <div className="rounded-card border border-amber-200/60 bg-amber-50 px-4 py-3 text-sm text-amber-900">
         <strong>Совет:</strong> при изменении полей формы slug не меняется —
         embed-код остаётся валидным, обновлять разметку на сайте не нужно.
         Если форму нужно «архивировать», переключите тумблер «Активна» в

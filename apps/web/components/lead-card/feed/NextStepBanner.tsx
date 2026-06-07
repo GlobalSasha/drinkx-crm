@@ -54,7 +54,7 @@ export function NextStepBanner({ items, onCreateTaskRequest }: Props) {
   return (
     <a
       href={`#activity-${nextTask.id}`}
-      className="block rounded-2xl border border-brand-accent/30 bg-brand-soft/40 px-4 py-3 hover:bg-brand-soft/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2"
+      className="block rounded-card border border-brand-accent/30 bg-brand-soft/40 px-4 py-3 hover:bg-brand-soft/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2"
     >
       <p className="type-caption font-semibold uppercase tracking-wide text-brand-accent-text mb-1">
         Следующий шаг

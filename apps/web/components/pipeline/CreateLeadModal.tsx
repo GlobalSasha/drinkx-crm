@@ -110,7 +110,7 @@ export function CreateLeadModal() {
         onClick={closeCreateLeadModal}
       />
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl border border-black/5 shadow-soft w-full max-w-md p-6">
+        <div className="bg-white rounded-card border border-black/5 shadow-soft w-full max-w-md p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold tracking-tight">Новый лид</h2>
             <button
@@ -149,7 +149,7 @@ export function CreateLeadModal() {
               </div>
 
               {!picked && query.trim().length > 0 && (
-                <ul className="mt-2 border border-black/10 rounded-2xl overflow-hidden max-h-60 overflow-y-auto bg-white">
+                <ul className="mt-2 border border-black/10 rounded-card overflow-hidden max-h-60 overflow-y-auto bg-white">
                   {companyHits.slice(0, 8).map((it) => (
                     <li key={it.id}>
                       <button
@@ -183,7 +183,7 @@ export function CreateLeadModal() {
               )}
 
               {picked && (
-                <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-2xl bg-brand-bg">
+                <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-card bg-brand-bg">
                   <Sparkles size={13} className="text-brand-accent shrink-0" />
                   <span className="text-sm font-semibold text-brand-accent-text">
                     Использовать «{picked.title}»
@@ -203,7 +203,7 @@ export function CreateLeadModal() {
             </label>
 
             {duplicateCandidates && duplicateCandidates.length > 0 && (
-              <div className="rounded-2xl bg-warning/5 border border-warning/30 p-3">
+              <div className="rounded-card bg-warning/5 border border-warning/30 p-3">
                 <p className="text-xs font-semibold text-warning mb-2">
                   Похожая компания уже существует:
                 </p>

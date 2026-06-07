@@ -16,7 +16,7 @@ export default function KnowledgePage() {
         title="База знаний"
         subtitle="Раздел в разработке"
       />
-      <div className="bg-white border border-brand-border rounded-[2rem] p-10">
+      <div className="bg-white border border-brand-border rounded-card p-10">
         <p className="text-sm text-brand-muted leading-relaxed mb-5">
           Здесь будут жить сегментные плейбуки, скрипты возражений и шаблоны коммерческих
           предложений. Блейк будет ссылаться на материалы прямо из ленты лида, а менеджеры

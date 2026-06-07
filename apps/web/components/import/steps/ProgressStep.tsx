@@ -77,7 +77,7 @@ export function ProgressStep({ jobId, initialJob, onClose }: Props) {
 
       {/* Final-state banner */}
       {isSucceeded && (
-        <div className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-emerald-50 text-emerald-800">
+        <div className="flex items-start gap-3 px-4 py-3 rounded-card bg-emerald-50 text-emerald-800">
           <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
           <div className="text-md leading-relaxed">
             Импортировано{" "}
@@ -94,7 +94,7 @@ export function ProgressStep({ jobId, initialJob, onClose }: Props) {
       )}
 
       {isFailed && (
-        <div className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-amber-50 text-amber-800">
+        <div className="flex items-start gap-3 px-4 py-3 rounded-card bg-amber-50 text-amber-800">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" />
           <div className="text-md leading-relaxed">
             Импортировано{" "}

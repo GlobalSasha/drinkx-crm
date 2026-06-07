@@ -176,7 +176,7 @@ export function FeedComposer({
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-2xl border border-brand-border bg-white p-2.5"
+      className="rounded-card border border-brand-border bg-white p-2.5"
     >
       <div className="flex items-end gap-2">
         <textarea

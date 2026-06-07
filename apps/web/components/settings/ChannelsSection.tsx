@@ -78,7 +78,7 @@ export function ChannelsSection() {
       </div>
 
       {/* Gmail card */}
-      <div className="bg-white border border-black/5 rounded-2xl shadow-soft p-5">
+      <div className="bg-white border border-black/5 rounded-card shadow-soft p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-canvas flex items-center justify-center shrink-0">
@@ -154,7 +154,7 @@ export function ChannelsSection() {
       </div>
 
       {/* SMTP card */}
-      <div className="bg-white border border-black/5 rounded-2xl shadow-soft p-5">
+      <div className="bg-white border border-black/5 rounded-card shadow-soft p-5">
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded-xl bg-canvas flex items-center justify-center shrink-0">
             <Send size={18} className="text-muted" />

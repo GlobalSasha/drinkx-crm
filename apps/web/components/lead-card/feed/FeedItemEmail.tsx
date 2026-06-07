@@ -36,7 +36,7 @@ export function FeedItemEmail({ item, onOpen }: Props) {
         <button
           type="button"
           onClick={onOpen}
-          className="mt-1 w-full text-left rounded-2xl border border-brand-border bg-white p-3 hover:border-brand-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+          className="mt-1 w-full text-left rounded-card border border-brand-border bg-white p-3 hover:border-brand-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
         >
           <div className="flex items-start justify-between gap-2 mb-1.5">
             <p className="type-caption text-brand-muted truncate">

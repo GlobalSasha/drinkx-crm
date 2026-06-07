@@ -184,7 +184,7 @@ export default function CompanyCardPage({ params }: Props) {
 
       <main className="max-w-6xl mx-auto w-full px-4 sm:px-6 py-6 grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Left: data */}
-        <section className="md:col-span-2 bg-white rounded-2xl border border-brand-border p-5">
+        <section className="md:col-span-2 bg-white rounded-card border border-brand-border p-5">
           <h2 className={`type-card-title ${C.color.text} mb-4`}>
             Реквизиты
           </h2>
@@ -270,7 +270,7 @@ export default function CompanyCardPage({ params }: Props) {
 
         {/* Right: leads + contacts */}
         <aside className="flex flex-col gap-4">
-          <section className="bg-white rounded-2xl border border-brand-border p-5">
+          <section className="bg-white rounded-card border border-brand-border p-5">
             <h2 className={`type-card-title ${C.color.text} mb-3`}>
               Сделки <span className={`type-caption ${C.color.muted}`}>({company.leads.length})</span>
             </h2>
@@ -298,7 +298,7 @@ export default function CompanyCardPage({ params }: Props) {
             )}
           </section>
 
-          <section className="bg-white rounded-2xl border border-brand-border p-5">
+          <section className="bg-white rounded-card border border-brand-border p-5">
             <h2 className={`type-card-title ${C.color.text} mb-3`}>
               Контакты <span className={`type-caption ${C.color.muted}`}>({company.contacts.length})</span>
             </h2>
@@ -330,7 +330,7 @@ export default function CompanyCardPage({ params }: Props) {
             )}
           </section>
 
-          <section className="bg-white rounded-2xl border border-brand-border p-5">
+          <section className="bg-white rounded-card border border-brand-border p-5">
             <h2 className={`type-card-title ${C.color.text} mb-3`}>
               Активность{" "}
               <span className={`type-caption ${C.color.muted}`}>

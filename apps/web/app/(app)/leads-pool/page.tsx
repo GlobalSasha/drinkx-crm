@@ -639,7 +639,7 @@ function LeadsPoolPageInner() {
 
         {!isLoading && !isError && filtered.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="bg-white border border-black/5 rounded-2xl p-10 shadow-soft max-w-sm w-full">
+            <div className="bg-white border border-black/5 rounded-card p-10 shadow-soft max-w-sm w-full">
               <p className="type-card-title mb-2">В пуле пока пусто</p>
               <p className="text-sm text-muted">
                 Импортируйте лиды или добавьте вручную.

@@ -46,7 +46,7 @@ export function ConflictCard({ jobId, conflict }: Props) {
   });
 
   return (
-    <div className="bg-white border border-brand-border rounded-2xl p-4 space-y-3">
+    <div className="bg-white border border-brand-border rounded-card p-4 space-y-3">
       <div className="flex items-center justify-between gap-2">
         <div className="type-caption text-brand-muted">
           {TYPE_LABEL[conflict.type] ?? conflict.type}

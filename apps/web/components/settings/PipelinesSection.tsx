@@ -151,7 +151,7 @@ export function PipelinesSection() {
       </div>
 
       {/* Table */}
-      <div className="bg-white border border-black/5 rounded-2xl shadow-soft overflow-hidden">
+      <div className="bg-white border border-black/5 rounded-card shadow-soft overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-canvas/60">
             <tr className="border-b border-black/5">
@@ -332,7 +332,7 @@ function DeleteModal({
           role="alertdialog"
           aria-modal="true"
           aria-label={title}
-          className="bg-white rounded-2xl border border-black/5 shadow-soft w-full max-w-md p-6"
+          className="bg-white rounded-card border border-black/5 shadow-soft w-full max-w-md p-6"
         >
           <h3 className="type-card-title text-ink mb-2">
             {title}

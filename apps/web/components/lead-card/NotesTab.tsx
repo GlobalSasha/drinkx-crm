@@ -81,7 +81,7 @@ export function NotesTab({ leadId }: Props) {
           placeholder="Написать заметку…"
           rows={3}
           maxLength={2000}
-          className={`w-full bg-white border border-brand-border rounded-2xl px-4 py-2.5 text-sm text-brand-primary outline-none focus:border-brand-accent transition-colors resize-y`}
+          className={`w-full bg-white border border-brand-border rounded-card px-4 py-2.5 text-sm text-brand-primary outline-none focus:border-brand-accent transition-colors resize-y`}
         />
         <div className="flex justify-end mt-2">
           <button
@@ -135,7 +135,7 @@ export function NotesTab({ leadId }: Props) {
                       onChange={(e) => setEditText(e.target.value)}
                       rows={3}
                       maxLength={2000}
-                      className="w-full bg-white border border-brand-border rounded-2xl px-4 py-2.5 text-sm text-brand-primary outline-none focus:border-brand-accent resize-y"
+                      className="w-full bg-white border border-brand-border rounded-card px-4 py-2.5 text-sm text-brand-primary outline-none focus:border-brand-accent resize-y"
                     />
                     <div className="flex gap-2 justify-end mt-2">
                       <button

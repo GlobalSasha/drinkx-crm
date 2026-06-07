@@ -148,7 +148,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Link
             href="/settings/profile"
             style={{ backgroundColor: "var(--sidebar-hover)" }}
-            className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl hover:opacity-90 transition-opacity"
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-card hover:opacity-90 transition-opacity"
           >
             <div className="w-7 h-7 rounded-xl bg-brand-accent flex items-center justify-center shrink-0">
               <span className="type-caption font-bold text-white">{avatarLetter}</span>

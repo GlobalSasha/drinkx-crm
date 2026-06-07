@@ -24,7 +24,7 @@ export function WorkloadTable() {
   }
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-black/5 bg-white">
+    <div className="overflow-x-auto rounded-card border border-black/5 bg-white">
       <table className="min-w-full text-sm">
         <thead>
           <tr className="border-b border-black/5 text-left text-xs text-muted-2">

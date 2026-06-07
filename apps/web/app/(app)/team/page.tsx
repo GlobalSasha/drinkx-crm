@@ -155,7 +155,7 @@ export default function TeamPage() {
               {[0, 1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className="bg-white border border-brand-border rounded-[2rem] p-5 animate-pulse h-[148px]"
+                  className="bg-white border border-brand-border rounded-card p-5 animate-pulse h-[148px]"
                 />
               ))}
             </div>
@@ -198,7 +198,7 @@ function ManagerCard({ m }: { m: TeamManagerStats }) {
     <Link
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       href={`/team/${m.user_id}` as any}
-      className="block bg-white border border-brand-border rounded-[2rem] p-5 hover:border-brand-muted transition-colors"
+      className="block bg-white border border-brand-border rounded-card p-5 hover:border-brand-muted transition-colors"
     >
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="flex items-center gap-3 min-w-0">

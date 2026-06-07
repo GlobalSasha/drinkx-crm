@@ -138,7 +138,7 @@ export function TeamSection() {
       </div>
 
       {/* Users table */}
-      <div className="bg-white border border-black/5 rounded-2xl shadow-soft overflow-hidden">
+      <div className="bg-white border border-black/5 rounded-card shadow-soft overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-canvas/60">
             <tr className="border-b border-black/5">
@@ -191,7 +191,7 @@ export function TeamSection() {
           <h3 className={`${T.mono} uppercase text-muted-3 mb-2`}>
             Ожидают принятия приглашения
           </h3>
-          <div className="bg-white border border-black/5 rounded-2xl shadow-soft overflow-hidden">
+          <div className="bg-white border border-black/5 rounded-card shadow-soft overflow-hidden">
             <table className="w-full text-left">
               <thead className="bg-canvas/60">
                 <tr className="border-b border-black/5">
@@ -399,7 +399,7 @@ function DeleteUserModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="bg-white rounded-2xl shadow-soft max-w-md w-full p-6">
+      <div className="bg-white rounded-card shadow-soft max-w-md w-full p-6">
         <h3 className="type-card-title text-ink mb-2">
           Удалить {name}?
         </h3>
@@ -518,7 +518,7 @@ function InviteModal({
           role="dialog"
           aria-modal="true"
           aria-label="Пригласить пользователя"
-          className="bg-white rounded-2xl border border-black/5 shadow-soft w-full max-w-md overflow-hidden"
+          className="bg-white rounded-card border border-black/5 shadow-soft w-full max-w-md overflow-hidden"
         >
           <div className="px-6 py-4 border-b border-black/5 flex items-start justify-between gap-4">
             <div>

@@ -70,7 +70,7 @@ export function CustomFieldsPanel({ leadId }: Props) {
 
   return (
     <aside className="w-full md:w-[296px] md:shrink-0 flex flex-col gap-4 order-1 md:order-2">
-      <section className="bg-white border border-black/5 rounded-2xl shadow-soft p-4">
+      <section className="bg-white border border-black/5 rounded-card shadow-soft p-4">
         <h3 className="type-caption text-brand-muted mb-3">
           Кастомные поля
         </h3>

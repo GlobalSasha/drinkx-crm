@@ -15,7 +15,7 @@ function PipelineColumnImpl({ stage, leads }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
 
   // Column geometry:
-  //   - No outer card chrome (was bg-brand-bg + rounded-[2rem] + border).
+  //   - No outer card chrome (was bg-brand-bg + rounded-card + border).
   //     The previous rounded card couldn't grow vertically beyond the
   //     viewport, so a tall column overflowed its own border. Now the
   //     column is a transparent flex container, cards live directly on
@@ -60,7 +60,7 @@ function PipelineColumnImpl({ stage, leads }: Props) {
           actually kicks in. */}
       <div
         ref={setNodeRef}
-        className={`flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto overflow-x-visible rounded-2xl p-2 transition-colors duration-200 ${
+        className={`flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto overflow-x-visible rounded-card p-2 transition-colors duration-200 ${
           isOver ? "bg-brand-soft ring-1 ring-brand-accent/20" : "bg-transparent"
         }`}
       >
@@ -74,7 +74,7 @@ function PipelineColumnImpl({ stage, leads }: Props) {
         </SortableContext>
 
         {leads.length === 0 && isOver && (
-          <div className="flex-1 flex items-center justify-center border border-dashed border-brand-border rounded-2xl min-h-[60px]">
+          <div className="flex-1 flex items-center justify-center border border-dashed border-brand-border rounded-card min-h-[60px]">
             <p className={`type-caption ${C.color.mutedLight} text-center px-2`}>
               Перетащите карточку сюда
             </p>

@@ -116,7 +116,7 @@ export function CustomFieldsSection() {
           <Loader2 size={20} className="animate-spin text-muted-2" />
         </div>
       ) : items.length === 0 ? (
-        <div className="bg-canvas/60 border border-black/5 rounded-2xl px-6 py-12 text-center">
+        <div className="bg-canvas/60 border border-black/5 rounded-card px-6 py-12 text-center">
           <Sparkles size={20} className="text-muted-2 mx-auto mb-2" />
           <p className="text-sm text-muted">Пока нет кастомных полей.</p>
           <p className="text-xs text-muted-3 mt-1">
@@ -246,7 +246,7 @@ function CustomFieldEditor({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-card shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-black/5">
           <h3 className="type-card-title">
             {isEdit ? "Редактировать поле" : "Новое поле"}
@@ -466,7 +466,7 @@ function DraggableList({
   }
 
   return (
-    <div className="bg-white border border-black/5 rounded-2xl shadow-soft overflow-hidden">
+    <div className="bg-white border border-black/5 rounded-card shadow-soft overflow-hidden">
       <div className={`bg-canvas grid grid-cols-[28px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,140px)_minmax(0,90px)_64px] gap-3 px-4 py-2 ${T.mono} uppercase text-muted-3 font-semibold`}>
         <span aria-hidden />
         <span>Метка</span>

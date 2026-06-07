@@ -44,18 +44,18 @@ export const C = {
   // ─── Радиусы ─────────────────────────────────────────────
   radius: {
     sm:   'rounded-full',
-    md:   'rounded-2xl',
-    lg:   'rounded-[2rem]',
+    md:   'rounded-card',
+    lg:   'rounded-card',
     pill: 'rounded-full',
   },
 
   // ─── Карточки (без тени) ─────────────────────────────────
   card: {
-    base:         'bg-white border border-brand-border rounded-[2rem] p-6',
-    dark:         'bg-brand-dark text-white rounded-[2rem] p-6',
-    panel:        'bg-brand-panel border border-brand-border rounded-[2rem] p-6',
-    accent:       'bg-brand-soft border border-brand-accent/20 rounded-[2rem] p-6',
-    mediaOverlay: 'absolute inset-0 bg-gradient-to-t from-black/60 to-transparent rounded-[2rem]',
+    base:         'bg-white border border-brand-border rounded-card p-6',
+    dark:         'bg-brand-dark text-white rounded-card p-6',
+    panel:        'bg-brand-panel border border-brand-border rounded-card p-6',
+    accent:       'bg-brand-soft border border-brand-accent/20 rounded-card p-6',
+    mediaOverlay: 'absolute inset-0 bg-gradient-to-t from-black/60 to-transparent rounded-card',
   },
 
   // ─── Кнопки (всегда rounded-full) ────────────────────────
