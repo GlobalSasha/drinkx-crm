@@ -54,7 +54,7 @@ export function PipelineList({ stages, leads }: Props) {
     <div className="flex-1 overflow-y-auto">
       {/* Stage filter chips — horizontal scroll, sticky under the page
           header so it stays reachable while the list scrolls. */}
-      <div className="sticky top-0 z-10 bg-canvas/95 backdrop-blur-sm px-4 py-2 border-b border-brand-border">
+      <div className="sticky top-0 z-10 bg-brand-bg/95 backdrop-blur-sm px-4 py-2 border-b border-brand-border">
         <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button
             type="button"
@@ -62,7 +62,7 @@ export function PipelineList({ stages, leads }: Props) {
             className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full type-caption font-semibold transition-colors ${
               filterStageId === null
                 ? "bg-brand-accent text-white"
-                : "bg-white border border-brand-border text-muted-2 hover:border-brand-accent/40"
+                : "bg-white border border-brand-border text-brand-muted hover:border-brand-accent/40"
             }`}
           >
             Все
@@ -81,7 +81,7 @@ export function PipelineList({ stages, leads }: Props) {
                 className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full type-caption font-semibold transition-colors ${
                   selected
                     ? "bg-brand-accent text-white"
-                    : "bg-white border border-brand-border text-muted-2 hover:border-brand-accent/40"
+                    : "bg-white border border-brand-border text-brand-muted hover:border-brand-accent/40"
                 }`}
               >
                 <span
@@ -109,10 +109,10 @@ export function PipelineList({ stages, leads }: Props) {
                 className="w-2 h-2 rounded-full shrink-0"
                 style={{ backgroundColor: stage.color }}
               />
-              <h3 className="type-caption font-bold text-ink truncate">
+              <h3 className="type-caption font-bold text-brand-primary truncate">
                 {stage.name}
               </h3>
-              <span className={`${T.mono} text-muted-2 tabular-nums`}>
+              <span className={`${T.mono} text-brand-muted tabular-nums`}>
                 {stageLeads.length}
               </span>
             </div>
@@ -124,10 +124,10 @@ export function PipelineList({ stages, leads }: Props) {
                     key={lead.id}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     href={`/leads/${lead.id}` as any}
-                    className="flex items-center gap-3 px-3 py-2.5 bg-white border border-brand-border rounded-xl active:bg-canvas hover:border-brand-accent/30 transition-colors"
+                    className="flex items-center gap-3 px-3 py-2.5 bg-white border border-brand-border rounded-xl active:bg-brand-bg hover:border-brand-accent/30 transition-colors"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-ink truncate">
+                      <p className="text-sm font-semibold text-brand-primary truncate">
                         {lead.company_name}
                       </p>
                       <div className="flex items-center gap-1.5 mt-0.5">
@@ -135,7 +135,7 @@ export function PipelineList({ stages, leads }: Props) {
                             so fast-scroll context isn't lost when
                             section headings scroll out of view. */}
                         <span
-                          className={`inline-flex items-center gap-1 ${T.mono} uppercase text-muted-2 truncate`}
+                          className={`inline-flex items-center gap-1 ${T.mono} uppercase text-brand-muted truncate`}
                           style={{ maxWidth: "60%" }}
                         >
                           <span
@@ -145,7 +145,7 @@ export function PipelineList({ stages, leads }: Props) {
                           {stage.name}
                         </span>
                         {segCity && (
-                          <span className={`${T.mono} text-muted-3 truncate lowercase`}>
+                          <span className={`${T.mono} text-brand-muted truncate lowercase`}>
                             · {segCity}
                           </span>
                         )}
@@ -170,13 +170,13 @@ export function PipelineList({ stages, leads }: Props) {
           user filtered to a stage with no leads. */}
       {filterStageId === null && leads.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-sm text-muted-2">Ни одной карточки в воронке</p>
+          <p className="text-sm text-brand-muted">Ни одной карточки в воронке</p>
         </div>
       )}
       {filterStageId !== null &&
         (grouped[filterStageId] ?? []).length === 0 && (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-sm text-muted-2">
+            <p className="text-sm text-brand-muted">
               На этом этапе пока пусто
             </p>
             <button

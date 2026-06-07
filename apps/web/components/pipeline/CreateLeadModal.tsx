@@ -115,7 +115,7 @@ export function CreateLeadModal() {
             <h2 className="text-lg font-bold tracking-tight">Новый лид</h2>
             <button
               onClick={closeCreateLeadModal}
-              className="text-muted hover:text-ink transition-colors p-1 rounded-lg hover:bg-black/5"
+              className="text-brand-muted hover:text-brand-primary transition-colors p-1 rounded-lg hover:bg-black/5"
             >
               <X size={18} />
             </button>
@@ -123,7 +123,7 @@ export function CreateLeadModal() {
 
           <form onSubmit={handleSubmit} className="space-y-3">
             <label className="block">
-              <span className="font-mono text-2xs uppercase tracking-[0.12em] text-muted-2 block mb-1.5">
+              <span className="font-mono text-2xs uppercase tracking-[0.12em] text-brand-muted block mb-1.5">
                 Компания *
               </span>
               <div className="relative">
@@ -138,12 +138,12 @@ export function CreateLeadModal() {
                     setError(null);
                   }}
                   placeholder="Начните печатать название…"
-                  className="w-full px-4 py-2.5 text-sm bg-canvas border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-200"
+                  className="w-full px-4 py-2.5 text-sm bg-brand-bg border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-200"
                 />
                 {isFetching && (
                   <Loader2
                     size={14}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-muted"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-brand-muted"
                   />
                 )}
               </div>
@@ -155,13 +155,13 @@ export function CreateLeadModal() {
                       <button
                         type="button"
                         onClick={() => pickExisting(it)}
-                        className="flex flex-col w-full px-3 py-2 text-left hover:bg-canvas transition-colors"
+                        className="flex flex-col w-full px-3 py-2 text-left hover:bg-brand-bg transition-colors"
                       >
-                        <span className="text-sm font-semibold text-ink truncate">
+                        <span className="text-sm font-semibold text-brand-primary truncate">
                           {it.title}
                         </span>
                         {it.subtitle && (
-                          <span className="text-xs text-muted truncate">{it.subtitle}</span>
+                          <span className="text-xs text-brand-muted truncate">{it.subtitle}</span>
                         )}
                       </button>
                     </li>
@@ -170,7 +170,7 @@ export function CreateLeadModal() {
                     <li className="border-t border-brand-border">
                       <button
                         type="submit"
-                        className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-canvas transition-colors"
+                        className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-brand-bg transition-colors"
                       >
                         <Plus size={13} className="text-brand-accent" />
                         <span className="text-sm font-semibold text-brand-accent-text">
@@ -194,7 +194,7 @@ export function CreateLeadModal() {
                       setPicked(null);
                       setTimeout(() => inputRef.current?.focus(), 0);
                     }}
-                    className="ml-auto text-xs text-muted hover:text-ink"
+                    className="ml-auto text-xs text-brand-muted hover:text-brand-primary"
                   >
                     Сбросить
                   </button>
@@ -215,10 +215,10 @@ export function CreateLeadModal() {
                         onClick={() => createWithExisting(c.id)}
                         className="flex items-baseline justify-between w-full px-2 py-1.5 rounded-xl hover:bg-white transition-colors text-left"
                       >
-                        <span className="text-sm font-semibold text-ink truncate">
+                        <span className="text-sm font-semibold text-brand-primary truncate">
                           {c.name}
                         </span>
-                        <span className="text-xs text-muted shrink-0 ml-2 font-mono">
+                        <span className="text-xs text-brand-muted shrink-0 ml-2 font-mono">
                           {c.leads_count} сделок
                           {c.inn && ` · ИНН ${c.inn}`}
                         </span>
@@ -242,7 +242,7 @@ export function CreateLeadModal() {
               <button
                 type="button"
                 onClick={closeCreateLeadModal}
-                className="px-4 py-2 rounded-pill text-sm font-semibold text-muted bg-canvas hover:bg-canvas-2 transition-all"
+                className="px-4 py-2 rounded-pill text-sm font-semibold text-brand-muted bg-brand-bg hover:bg-brand-panel transition-all"
               >
                 Отмена
               </button>

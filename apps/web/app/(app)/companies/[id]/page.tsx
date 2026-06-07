@@ -84,14 +84,14 @@ export default function CompanyCardPage({ params }: Props) {
 
   if (isLoading) {
     return (
-      <div className="font-sans min-h-screen bg-canvas flex items-center justify-center">
+      <div className="font-sans min-h-screen bg-brand-bg flex items-center justify-center">
         <Loader2 size={24} className="animate-spin text-brand-muted" />
       </div>
     );
   }
   if (isError || !company) {
     return (
-      <div className="font-sans min-h-screen bg-canvas flex flex-col items-center justify-center gap-4">
+      <div className="font-sans min-h-screen bg-brand-bg flex flex-col items-center justify-center gap-4">
         <AlertTriangle size={24} className="text-rose" />
         <p className="type-body text-rose">Компания не найдена</p>
         <Link href="/pipeline" className={`type-body ${C.color.accent}`}>
@@ -104,7 +104,7 @@ export default function CompanyCardPage({ params }: Props) {
   const isAdmin = me?.role === "admin";
 
   return (
-    <div className="font-sans min-h-screen bg-canvas">
+    <div className="font-sans min-h-screen bg-brand-bg">
       <header className="sticky top-0 z-20 bg-white border-b border-brand-border">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
           <Link
@@ -125,11 +125,11 @@ export default function CompanyCardPage({ params }: Props) {
                   if (e.key === "Escape") setEditField(null);
                 }}
                 autoFocus
-                className="text-xl font-semibold tracking-tight text-ink bg-transparent border-b-2 border-brand-accent outline-none w-full"
+                className="text-xl font-semibold tracking-tight text-brand-primary bg-transparent border-b-2 border-brand-accent outline-none w-full"
               />
             ) : (
               <h1
-                className="text-xl font-semibold tracking-tight text-ink cursor-text hover:text-brand-accent-text transition-colors truncate"
+                className="text-xl font-semibold tracking-tight text-brand-primary cursor-text hover:text-brand-accent-text transition-colors truncate"
                 onClick={() => startEdit("name", company.name)}
                 title="Редактировать"
               >
@@ -443,7 +443,7 @@ function DataRow({
       ) : (
         <>
           <span
-            className={`flex-1 ${value ? "type-body text-ink" : "type-hint text-brand-muted"}`}
+            className={`flex-1 ${value ? "type-body text-brand-primary" : "type-hint text-brand-muted"}`}
           >
             {value ? (
               isLink ? (

@@ -127,17 +127,17 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
                 <Sparkles size={16} />
               </div>
               <div>
-                <div className="text-2xs font-mono uppercase tracking-wider text-muted-3">
+                <div className="text-2xs font-mono uppercase tracking-wider text-brand-muted">
                   PRD §6.14
                 </div>
-                <h2 className="text-base font-bold tracking-tight text-ink mt-0.5">
+                <h2 className="text-base font-bold tracking-tight text-brand-primary mt-0.5">
                   Обновление через AI
                 </h2>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="shrink-0 p-1.5 -mr-1.5 rounded-lg text-muted-2 hover:bg-canvas hover:text-ink transition-colors"
+              className="shrink-0 p-1.5 -mr-1.5 rounded-lg text-brand-muted hover:bg-brand-bg hover:text-brand-primary transition-colors"
               aria-label="Закрыть"
             >
               <X size={16} />
@@ -198,11 +198,11 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
                     : promptQuery.data?.prompt ?? "Не удалось загрузить промпт"
                 }
                 rows={6}
-                className="w-full text-xs font-mono leading-relaxed bg-canvas border border-brand-border rounded-xl p-3 outline-none focus:border-brand-accent/40 resize-none"
+                className="w-full text-xs font-mono leading-relaxed bg-brand-bg border border-brand-border rounded-xl p-3 outline-none focus:border-brand-accent/40 resize-none"
                 onFocus={(e) => e.currentTarget.select()}
               />
               <div className="flex items-center justify-between mt-2">
-                <span className="text-2xs text-muted-3">
+                <span className="text-2xs text-brand-muted">
                   Кликните в поле — выделится весь текст.
                 </span>
                 <button
@@ -212,7 +212,7 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
                     "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-xs font-semibold transition-all",
                     copied
                       ? "bg-emerald-600 text-white"
-                      : "bg-canvas text-ink border border-brand-border hover:bg-canvas-2",
+                      : "bg-brand-bg text-brand-primary border border-brand-border hover:bg-brand-panel",
                     "disabled:opacity-40 disabled:cursor-not-allowed",
                   )}
                 >
@@ -254,14 +254,14 @@ function Step({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-card border border-brand-border bg-canvas/40 p-4">
+    <div className="rounded-card border border-brand-border bg-brand-bg/40 p-4">
       <div className="flex items-start gap-3">
         <span className="shrink-0 w-6 h-6 rounded-full bg-ink text-white text-xs font-bold flex items-center justify-center tabular-nums">
           {n}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-bold text-ink">{title}</div>
-          <p className="text-sm text-muted-2 mt-0.5">{hint}</p>
+          <div className="text-sm font-bold text-brand-primary">{title}</div>
+          <p className="text-sm text-brand-muted mt-0.5">{hint}</p>
           <div className="mt-3">{children}</div>
         </div>
       </div>

@@ -36,7 +36,7 @@ export function AppearanceSection() {
     <div className="space-y-8 max-w-3xl">
       <header>
         <h2 className="text-lg font-bold tracking-tight mb-1">Внешний вид</h2>
-        <p className="text-sm text-muted">
+        <p className="text-sm text-brand-muted">
           Эти настройки видите только вы. Сохраняются в профиль и
           синхронизируются между устройствами.
         </p>
@@ -107,7 +107,7 @@ export function AppearanceSection() {
       {/* Density */}
       <section>
         <h3 className="text-sm font-semibold mb-2">Плотность</h3>
-        <p className="text-xs text-muted-2 mb-2">
+        <p className="text-xs text-brand-muted mb-2">
           Компактный режим уменьшает внутренние отступы — больше
           информации помещается на экране.
         </p>
@@ -122,8 +122,8 @@ export function AppearanceSection() {
                 onClick={() => update.mutate({ density: key })}
                 className={`px-4 py-1.5 rounded-pill text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
                   active
-                    ? "bg-white text-ink shadow-soft"
-                    : "text-muted hover:text-ink"
+                    ? "bg-white text-brand-primary shadow-soft"
+                    : "text-brand-muted hover:text-brand-primary"
                 }`}
                 aria-pressed={active}
               >
@@ -137,7 +137,7 @@ export function AppearanceSection() {
       {/* Font size */}
       <section>
         <h3 className="text-sm font-semibold mb-2">Размер шрифта</h3>
-        <p className="text-xs text-muted-2 mb-2">
+        <p className="text-xs text-brand-muted mb-2">
           Применяется ко всем экранам приложения.
         </p>
         <div className="inline-flex rounded-pill bg-black/5 p-1">
@@ -151,8 +151,8 @@ export function AppearanceSection() {
                 onClick={() => update.mutate({ font_size: key })}
                 className={`px-4 py-1.5 rounded-pill font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
                   active
-                    ? "bg-white text-ink shadow-soft"
-                    : "text-muted hover:text-ink"
+                    ? "bg-white text-brand-primary shadow-soft"
+                    : "text-brand-muted hover:text-brand-primary"
                 }`}
                 style={{ fontSize: FONT_SIZE_PX[key] }}
                 aria-pressed={active}
@@ -165,7 +165,7 @@ export function AppearanceSection() {
       </section>
 
       {/* Save indicator */}
-      <div className="text-xs text-muted-3 h-4 flex items-center gap-1.5">
+      <div className="text-xs text-brand-muted h-4 flex items-center gap-1.5">
         {update.isPending && (
           <>
             <Loader2 size={11} className="animate-spin" />

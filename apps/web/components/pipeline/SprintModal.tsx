@@ -128,7 +128,7 @@ export function SprintModal({ isOpen: isOpenProp, onClose: onCloseProp }: Props 
             </h2>
             <button
               onClick={closeModal}
-              className="text-muted hover:text-ink transition-colors p-1 rounded-lg hover:bg-black/5"
+              className="text-brand-muted hover:text-brand-primary transition-colors p-1 rounded-lg hover:bg-black/5"
             >
               <X size={18} />
             </button>
@@ -136,7 +136,7 @@ export function SprintModal({ isOpen: isOpenProp, onClose: onCloseProp }: Props 
 
           {/* Segment selector */}
           <div className="mb-5">
-            <label className="font-mono text-2xs uppercase tracking-[0.12em] text-muted-2 block mb-2">
+            <label className="font-mono text-2xs uppercase tracking-[0.12em] text-brand-muted block mb-2">
               Сегмент
             </label>
             <div className="flex flex-wrap gap-1.5">
@@ -162,14 +162,14 @@ export function SprintModal({ isOpen: isOpenProp, onClose: onCloseProp }: Props 
 
           {/* City multi-select */}
           <div className="mb-5">
-            <label className="font-mono text-2xs uppercase tracking-[0.12em] text-muted-2 block mb-2">
+            <label className="font-mono text-2xs uppercase tracking-[0.12em] text-brand-muted block mb-2">
               Города
               {poolQuery.isLoading && (
                 <Loader2 size={10} className="inline-block ml-1 animate-spin" />
               )}
             </label>
             {poolCities.length === 0 && !poolQuery.isLoading ? (
-              <p className="text-xs text-muted-2">Нет доступных городов в пуле</p>
+              <p className="text-xs text-brand-muted">Нет доступных городов в пуле</p>
             ) : (
               <div className="flex flex-wrap gap-1.5">
                 {poolCities.map((city) => (
@@ -179,7 +179,7 @@ export function SprintModal({ isOpen: isOpenProp, onClose: onCloseProp }: Props 
                     className={`px-3 py-1.5 rounded-pill text-xs font-semibold border transition-all duration-200 ${
                       selectedCities.includes(city)
                         ? "bg-brand-accent text-white border-brand-accent"
-                        : "bg-canvas border-brand-border text-muted hover:border-brand-accent/40"
+                        : "bg-brand-bg border-brand-border text-brand-muted hover:border-brand-accent/40"
                     }`}
                   >
                     {city}
@@ -190,10 +190,10 @@ export function SprintModal({ isOpen: isOpenProp, onClose: onCloseProp }: Props 
           </div>
 
           {/* Preview */}
-          <div className="bg-canvas rounded-xl px-4 py-3 mb-5">
-            <p className="text-sm text-muted">
+          <div className="bg-brand-bg rounded-xl px-4 py-3 mb-5">
+            <p className="text-sm text-brand-muted">
               Найдено{" "}
-              <span className="font-semibold text-ink">{previewFound}</span>{" "}
+              <span className="font-semibold text-brand-primary">{previewFound}</span>{" "}
               карточек → добавится{" "}
               <span className="font-semibold text-brand-accent">{previewAdded}</span>
             </p>
@@ -203,7 +203,7 @@ export function SprintModal({ isOpen: isOpenProp, onClose: onCloseProp }: Props 
           <div className="flex gap-2 justify-end">
             <button
               onClick={closeModal}
-              className="px-4 py-2 rounded-pill text-sm font-semibold text-muted bg-canvas hover:bg-canvas-2 transition-all duration-200"
+              className="px-4 py-2 rounded-pill text-sm font-semibold text-brand-muted bg-brand-bg hover:bg-brand-panel transition-all duration-200"
             >
               Отмена
             </button>
@@ -246,7 +246,7 @@ function SegmentChip({
       className={`px-3 py-1.5 rounded-pill text-xs font-semibold transition-all duration-200 ${
         active
           ? "bg-ink text-white"
-          : "bg-canvas text-muted hover:bg-canvas-2"
+          : "bg-brand-bg text-brand-muted hover:bg-brand-panel"
       }`}
     >
       {children}

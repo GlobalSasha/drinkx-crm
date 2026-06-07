@@ -92,7 +92,7 @@ export function TeamSection() {
   if (usersQuery.isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <Loader2 size={20} className="animate-spin text-muted-2" />
+        <Loader2 size={20} className="animate-spin text-brand-muted" />
       </div>
     );
   }
@@ -110,7 +110,7 @@ export function TeamSection() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="type-card-title">Команда</h2>
-          <p className="text-xs text-muted-2 mt-0.5">
+          <p className="text-xs text-brand-muted mt-0.5">
             Все пользователи общего workspace. Админ может приглашать
             новых членов и менять роли.
           </p>
@@ -120,7 +120,7 @@ export function TeamSection() {
             <Link
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               href={"/team" as any}
-              className={`inline-flex items-center gap-1.5 ${T.mono} uppercase text-muted-2 hover:text-ink transition-colors`}
+              className={`inline-flex items-center gap-1.5 ${T.mono} uppercase text-brand-muted hover:text-brand-primary transition-colors`}
             >
               Дашборд →
             </Link>
@@ -140,19 +140,19 @@ export function TeamSection() {
       {/* Users table */}
       <div className="bg-white border border-brand-border rounded-card shadow-soft overflow-hidden">
         <table className="w-full text-left">
-          <thead className="bg-canvas/60">
+          <thead className="bg-brand-bg/60">
             <tr className="border-b border-brand-border">
-              <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold`}>
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold`}>
                 Имя / Email
               </th>
-              <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold w-[160px]`}>
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[160px]`}>
                 Роль
               </th>
-              <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold w-[150px]`}>
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[150px]`}>
                 Последний вход
               </th>
               {isAdmin && (
-                <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold w-[60px]`}>
+                <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[60px]`}>
                   {/* actions */}
                 </th>
               )}
@@ -162,7 +162,7 @@ export function TeamSection() {
             {users.length === 0 && (
               <tr>
                 <td colSpan={isAdmin ? 4 : 3} className="px-4 py-12 text-center">
-                  <p className="text-sm text-muted-2">
+                  <p className="text-sm text-brand-muted">
                     Пользователей нет — это аномалия, как минимум вы
                     должны быть в списке.
                   </p>
@@ -188,20 +188,20 @@ export function TeamSection() {
       {/* Pending invites */}
       {pendingInvites.length > 0 && (
         <div>
-          <h3 className={`${T.mono} uppercase text-muted-3 mb-2`}>
+          <h3 className={`${T.mono} uppercase text-brand-muted mb-2`}>
             Ожидают принятия приглашения
           </h3>
           <div className="bg-white border border-brand-border rounded-card shadow-soft overflow-hidden">
             <table className="w-full text-left">
-              <thead className="bg-canvas/60">
+              <thead className="bg-brand-bg/60">
                 <tr className="border-b border-brand-border">
-                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold`}>
+                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold`}>
                     Email
                   </th>
-                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold w-[180px]`}>
+                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[180px]`}>
                     Предложенная роль
                   </th>
-                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold w-[150px]`}>
+                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[150px]`}>
                     Приглашён
                   </th>
                 </tr>
@@ -214,17 +214,17 @@ export function TeamSection() {
                   >
                     <td className="px-4 py-3 align-middle">
                       <div className="flex items-center gap-2">
-                        <Mail size={13} className="text-muted-3 shrink-0" />
-                        <span className="text-sm text-ink">{i.email}</span>
+                        <Mail size={13} className="text-brand-muted shrink-0" />
+                        <span className="text-sm text-brand-primary">{i.email}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 align-middle">
-                      <span className="text-xs text-muted-2">
+                      <span className="text-xs text-brand-muted">
                         {ROLE_LABEL[i.suggested_role] ?? i.suggested_role}
                       </span>
                     </td>
                     <td className="px-4 py-3 align-middle">
-                      <span className="text-xs text-muted-3">
+                      <span className="text-xs text-brand-muted">
                         {relativeTime(i.created_at)}
                       </span>
                     </td>
@@ -307,17 +307,17 @@ function UserRow({
   const initial = (user.name || user.email).slice(0, 1).toUpperCase();
 
   return (
-    <tr className="border-b border-brand-border last:border-0 hover:bg-canvas/40 transition-colors">
+    <tr className="border-b border-brand-border last:border-0 hover:bg-brand-bg/40 transition-colors">
       <td className="px-4 py-3 align-middle">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-full bg-brand-soft flex items-center justify-center shrink-0">
             <span className="text-xs font-bold text-brand-accent">{initial}</span>
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-ink truncate">
+            <p className="text-sm font-semibold text-brand-primary truncate">
               {user.name || "—"}
             </p>
-            <p className={`${T.mono} text-muted-3 truncate`}>
+            <p className={`${T.mono} text-brand-muted truncate`}>
               {user.email}
             </p>
           </div>
@@ -339,15 +339,15 @@ function UserRow({
               ))}
             </select>
             {change.isPending && (
-              <Loader2 size={12} className="animate-spin text-muted-2" />
+              <Loader2 size={12} className="animate-spin text-brand-muted" />
             )}
           </div>
         ) : (
-          <span className="inline-flex items-center gap-1 text-xs text-muted">
+          <span className="inline-flex items-center gap-1 text-xs text-brand-muted">
             {user.role === "admin" ? (
               <Shield size={11} className="text-brand-accent" />
             ) : (
-              <UserCircle2 size={11} className="text-muted-3" />
+              <UserCircle2 size={11} className="text-brand-muted" />
             )}
             {ROLE_LABEL[user.role] ?? user.role}
           </span>
@@ -359,7 +359,7 @@ function UserRow({
         )}
       </td>
       <td className="px-4 py-3 align-middle">
-        <span className="text-xs text-muted-3 font-mono">
+        <span className="text-xs text-brand-muted font-mono">
           {relativeTime(user.last_login_at)}
         </span>
       </td>
@@ -368,7 +368,7 @@ function UserRow({
           <button
             type="button"
             onClick={() => onRequestDelete(user)}
-            className="p-1.5 text-muted-3 hover:text-rose hover:bg-rose/5 rounded-lg transition-colors"
+            className="p-1.5 text-brand-muted hover:text-rose hover:bg-rose/5 rounded-lg transition-colors"
             aria-label="Удалить пользователя"
             title="Удалить"
           >
@@ -400,10 +400,10 @@ function DeleteUserModal({
       aria-modal="true"
     >
       <div className="bg-white rounded-card shadow-soft max-w-md w-full p-6">
-        <h3 className="type-card-title text-ink mb-2">
+        <h3 className="type-card-title text-brand-primary mb-2">
           Удалить {name}?
         </h3>
-        <p className="text-sm text-muted-2 mb-5">
+        <p className="text-sm text-brand-muted mb-5">
           Все его активные лиды вернутся в пул. История активности и
           аудит-лог сохранятся.
         </p>
@@ -417,7 +417,7 @@ function DeleteUserModal({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="px-3 py-2 text-sm text-muted hover:bg-canvas/80 rounded-pill transition-colors disabled:opacity-40"
+            className="px-3 py-2 text-sm text-brand-muted hover:bg-brand-bg/80 rounded-pill transition-colors disabled:opacity-40"
           >
             Отмена
           </button>
@@ -522,17 +522,17 @@ function InviteModal({
         >
           <div className="px-6 py-4 border-b border-brand-border flex items-start justify-between gap-4">
             <div>
-              <div className={`${T.mono} uppercase text-muted-3`}>
+              <div className={`${T.mono} uppercase text-brand-muted`}>
                 Команда
               </div>
-              <h2 className="type-card-title text-ink mt-0.5">
+              <h2 className="type-card-title text-brand-primary mt-0.5">
                 Пригласить пользователя
               </h2>
             </div>
             <button
               onClick={handleClose}
               disabled={busy}
-              className="shrink-0 p-1.5 -mr-1.5 rounded-lg text-muted-2 hover:bg-canvas hover:text-ink transition-colors disabled:opacity-40"
+              className="shrink-0 p-1.5 -mr-1.5 rounded-lg text-brand-muted hover:bg-brand-bg hover:text-brand-primary transition-colors disabled:opacity-40"
               aria-label="Закрыть"
             >
               <X size={16} />
@@ -543,10 +543,10 @@ function InviteModal({
             {sent ? (
               <div className="text-center py-4">
                 <Mail size={28} className="mx-auto text-brand-accent mb-2" />
-                <p className="text-sm font-semibold text-ink">
+                <p className="text-sm font-semibold text-brand-primary">
                   Приглашение отправлено
                 </p>
-                <p className="text-xs text-muted-2 mt-1">
+                <p className="text-xs text-brand-muted mt-1">
                   Пользователь получит письмо со ссылкой для входа. После
                   первого входа он появится в списке команды как
                   «Менеджер» — измените роль здесь.
@@ -555,7 +555,7 @@ function InviteModal({
             ) : (
               <>
                 <div>
-                  <label className={`block ${T.mono} uppercase text-muted-3 mb-1.5`}>
+                  <label className={`block ${T.mono} uppercase text-brand-muted mb-1.5`}>
                     Email
                   </label>
                   <input
@@ -567,7 +567,7 @@ function InviteModal({
                   />
                 </div>
                 <div>
-                  <label className={`block ${T.mono} uppercase text-muted-3 mb-1.5`}>
+                  <label className={`block ${T.mono} uppercase text-brand-muted mb-1.5`}>
                     Предложенная роль
                   </label>
                   <select
@@ -583,7 +583,7 @@ function InviteModal({
                       </option>
                     ))}
                   </select>
-                  <p className="text-xs text-muted-3 mt-1 leading-tight">
+                  <p className="text-xs text-brand-muted mt-1 leading-tight">
                     После принятия приглашения пользователь получит роль
                     «Менеджер». Эта подсказка для вас — в админке справа
                     можно изменить роль.
@@ -609,7 +609,7 @@ function InviteModal({
                 <button
                   onClick={handleClose}
                   disabled={busy}
-                  className="text-sm font-semibold text-muted hover:text-ink disabled:opacity-40 transition-colors"
+                  className="text-sm font-semibold text-brand-muted hover:text-brand-primary disabled:opacity-40 transition-colors"
                 >
                   Отмена
                 </button>

@@ -35,7 +35,7 @@ function getMeta(channel: string): {
     case "phone":
       return { icon: Phone, label: "Телефон", badgeClass: "bg-amber-100 text-amber-700 border-amber-200" };
     default:
-      return { icon: Mail, label: channel, badgeClass: "bg-black/5 text-muted-2 border-brand-border" };
+      return { icon: Mail, label: channel, badgeClass: "bg-black/5 text-brand-muted border-brand-border" };
   }
 }
 
@@ -83,11 +83,11 @@ function LeadSearchPicker({
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Найти лид по компании…"
-          className="flex-1 text-sm px-2 py-1.5 rounded-lg bg-canvas border border-brand-border outline-none focus:border-brand-accent"
+          className="flex-1 text-sm px-2 py-1.5 rounded-lg bg-brand-bg border border-brand-border outline-none focus:border-brand-accent"
         />
         <button
           onClick={onClose}
-          className="p-1 rounded-lg text-muted-3 hover:bg-black/5"
+          className="p-1 rounded-lg text-brand-muted hover:bg-black/5"
           aria-label="Закрыть"
         >
           <X size={14} />
@@ -96,16 +96,16 @@ function LeadSearchPicker({
 
       <div className="max-h-[260px] overflow-y-auto flex flex-col gap-0.5">
         {items.length === 0 && (
-          <div className="text-xs text-muted-3 px-2 py-3">Ничего не найдено</div>
+          <div className="text-xs text-brand-muted px-2 py-3">Ничего не найдено</div>
         )}
         {items.map((l) => (
           <button
             key={l.id}
             onClick={() => onPick(l)}
-            className="text-left px-2 py-1.5 rounded-lg hover:bg-canvas transition-colors"
+            className="text-left px-2 py-1.5 rounded-lg hover:bg-brand-bg transition-colors"
           >
-            <div className="text-sm font-semibold text-ink truncate">{l.company_name}</div>
-            <div className="text-xs font-mono text-muted-3 truncate">
+            <div className="text-sm font-semibold text-brand-primary truncate">{l.company_name}</div>
+            <div className="text-xs font-mono text-brand-muted truncate">
               {l.city || "—"} · {l.segment || "—"}
             </div>
           </button>
@@ -151,16 +151,16 @@ function UnmatchedRow({ msg }: { msg: InboxMessageOut }) {
             {PhoneStateIcon ? <PhoneStateIcon size={12} /> : <ChannelIcon size={12} />}
             {channelLabel}
           </span>
-          <span className="text-xs font-mono text-muted-3 truncate">
+          <span className="text-xs font-mono text-brand-muted truncate">
             от {msg.sender_id || "—"}
           </span>
-          <span className="text-xs font-mono text-muted-3">·</span>
-          <span className="text-xs font-mono text-muted-3">
+          <span className="text-xs font-mono text-brand-muted">·</span>
+          <span className="text-xs font-mono text-brand-muted">
             {formatDateTime(msg.created_at)}
           </span>
         </div>
 
-        <div className="text-sm text-ink whitespace-pre-wrap break-words">{preview}</div>
+        <div className="text-sm text-brand-primary whitespace-pre-wrap break-words">{preview}</div>
 
         {isPhone && msg.media_url && (
           <a
@@ -180,7 +180,7 @@ function UnmatchedRow({ msg }: { msg: InboxMessageOut }) {
           <button
             onClick={() => setPickerOpen((v) => !v)}
             disabled={assign.isPending}
-            className="text-sm font-semibold px-3 py-1.5 rounded-lg bg-black/5 text-ink hover:bg-black/10 disabled:opacity-50"
+            className="text-sm font-semibold px-3 py-1.5 rounded-lg bg-black/5 text-brand-primary hover:bg-black/10 disabled:opacity-50"
           >
             {assign.isPending ? (
               <span className="inline-flex items-center gap-1">
@@ -207,9 +207,9 @@ export function UnmatchedMessagesSection() {
     return (
       <section className="mt-10">
         <header className="mb-3">
-          <h2 className="text-base font-bold text-ink">Мессенджеры и звонки</h2>
+          <h2 className="text-base font-bold text-brand-primary">Мессенджеры и звонки</h2>
         </header>
-        <div className="text-sm text-muted py-6 text-center">Загрузка…</div>
+        <div className="text-sm text-brand-muted py-6 text-center">Загрузка…</div>
       </section>
     );
   }
@@ -218,7 +218,7 @@ export function UnmatchedMessagesSection() {
     return (
       <section className="mt-10">
         <header className="mb-3">
-          <h2 className="text-base font-bold text-ink">Мессенджеры и звонки</h2>
+          <h2 className="text-base font-bold text-brand-primary">Мессенджеры и звонки</h2>
         </header>
         <div className="text-sm text-rose py-6 text-center">
           Не удалось загрузить нематченные сообщения.
@@ -231,7 +231,7 @@ export function UnmatchedMessagesSection() {
     return (
       <section className="mt-10">
         <header className="mb-3">
-          <h2 className="text-base font-bold text-ink">Мессенджеры и звонки</h2>
+          <h2 className="text-base font-bold text-brand-primary">Мессенджеры и звонки</h2>
         </header>
         <Empty>
           <EmptyHeader>
@@ -251,8 +251,8 @@ export function UnmatchedMessagesSection() {
   return (
     <section className="mt-10">
       <header className="mb-3 flex items-baseline justify-between">
-        <h2 className="text-base font-bold text-ink">Мессенджеры и звонки</h2>
-        <span className="text-xs font-mono text-muted-3">
+        <h2 className="text-base font-bold text-brand-primary">Мессенджеры и звонки</h2>
+        <span className="text-xs font-mono text-brand-muted">
           {items.length} {items.length === 1 ? "сообщение" : "сообщений"}
         </span>
       </header>

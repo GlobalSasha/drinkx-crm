@@ -68,10 +68,10 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
           <Sparkles size={16} />
         </div>
         <div>
-          <h3 className="text-base font-bold tracking-tight text-ink">
+          <h3 className="text-base font-bold tracking-tight text-brand-primary">
             Изменения от AI
           </h3>
-          <p className="text-md text-muted mt-1">
+          <p className="text-md text-brand-muted mt-1">
             Проверьте предложенные обновления. Применяются в фоне; неизменные
             лиды AI исключил из ответа.
           </p>
@@ -106,9 +106,9 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
       {/* Actionable items list */}
       {actionable.length > 0 && (
         <div className="rounded-card border border-brand-border bg-white">
-          <div className="px-4 py-2.5 bg-canvas border-b border-brand-border text-2xs font-mono uppercase tracking-wider text-muted-2">
+          <div className="px-4 py-2.5 bg-brand-bg border-b border-brand-border text-2xs font-mono uppercase tracking-wider text-brand-muted">
             Изменения{" "}
-            <span className="text-muted-3 ml-1">
+            <span className="text-brand-muted ml-1">
               {actionable.length > VISIBLE_ITEMS
                 ? `первые ${VISIBLE_ITEMS} из ${actionable.length}`
                 : actionable.length}
@@ -136,7 +136,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
                 key={`err-${i}`}
                 className="px-4 py-2.5 text-sm flex items-baseline gap-2"
               >
-                <span className="font-semibold text-ink">
+                <span className="font-semibold text-brand-primary">
                   {item.company_name || "—"}
                 </span>
                 <span className="text-amber-800 truncate">{item.error}</span>
@@ -161,7 +161,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
         <button
           onClick={onClose}
           disabled={apply.isPending}
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted hover:text-ink disabled:opacity-40 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-muted hover:text-brand-primary disabled:opacity-40 transition-colors"
         >
           <ChevronLeft size={14} />
           Отмена
@@ -196,29 +196,29 @@ function DiffRow({ item }: { item: BulkUpdateDiffItem }) {
     <div>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full px-4 py-3 flex items-start gap-3 text-left hover:bg-canvas/50 transition-colors"
+        className="w-full px-4 py-3 flex items-start gap-3 text-left hover:bg-brand-bg/50 transition-colors"
       >
         <ChevronRight
           size={14}
           className={clsx(
-            "mt-0.5 shrink-0 text-muted-3 transition-transform",
+            "mt-0.5 shrink-0 text-brand-muted transition-transform",
             open && "rotate-90",
           )}
         />
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2 flex-wrap">
-            <span className="text-sm font-bold text-ink truncate">
+            <span className="text-sm font-bold text-brand-primary truncate">
               {item.company_name || "—"}
             </span>
             <ActionBadge isCreate={isCreate} />
             {item.inn && (
-              <span className="font-mono text-2xs text-muted-3">
+              <span className="font-mono text-2xs text-brand-muted">
                 ИНН {item.inn}
               </span>
             )}
           </div>
           {summary && (
-            <div className="text-sm text-muted-2 mt-0.5 truncate">
+            <div className="text-sm text-brand-muted mt-0.5 truncate">
               {summary}
             </div>
           )}
@@ -227,9 +227,9 @@ function DiffRow({ item }: { item: BulkUpdateDiffItem }) {
 
       {open && (
         <div className="px-4 pb-3 -mt-1">
-          <div className="rounded-xl bg-canvas/60 px-3 py-2 space-y-1">
+          <div className="rounded-xl bg-brand-bg/60 px-3 py-2 space-y-1">
             {item.changes.length === 0 && (
-              <div className="text-sm text-muted-3">
+              <div className="text-sm text-brand-muted">
                 Полей для изменения нет.
               </div>
             )}
@@ -260,16 +260,16 @@ function ActionBadge({ isCreate }: { isCreate: boolean }) {
 
 function ChangeLine({ change }: { change: BulkUpdateChange }) {
   const sign = OP_SIGN[change.op] ?? "·";
-  const tone = OP_TONE[change.op] ?? "text-muted-2";
+  const tone = OP_TONE[change.op] ?? "text-brand-muted";
   return (
     <div className="flex items-baseline gap-2 text-sm">
       <span className={clsx("font-mono shrink-0 w-3 text-center", tone)}>
         {sign}
       </span>
-      <span className="font-mono text-2xs text-muted-3 shrink-0">
+      <span className="font-mono text-2xs text-brand-muted shrink-0">
         {change.field}
       </span>
-      <span className="text-ink truncate">{formatValue(change)}</span>
+      <span className="text-brand-primary truncate">{formatValue(change)}</span>
     </div>
   );
 }
@@ -285,7 +285,7 @@ const OP_TONE: Record<BulkUpdateChange["op"], string> = {
   add: "text-emerald-600",
   remove: "text-rose",
   replace: "text-amber-600",
-  set: "text-muted",
+  set: "text-brand-muted",
 };
 
 function formatValue(c: BulkUpdateChange): string {
@@ -353,7 +353,7 @@ function StatCard({
     info: "bg-info/10 text-info border-info/20",
     success: "bg-emerald-50 text-emerald-700 border-emerald-200/60",
     warning: "bg-amber-50 text-amber-800 border-amber-200/60",
-    neutral: "bg-canvas text-ink border-brand-border",
+    neutral: "bg-brand-bg text-brand-primary border-brand-border",
   }[tone];
   return (
     <div

@@ -94,7 +94,7 @@ export function CustomFieldsSection() {
           <h2 className="type-card-title">
             Кастомные поля
           </h2>
-          <p className="text-xs text-muted-2 mt-0.5">
+          <p className="text-xs text-brand-muted mt-0.5">
             Дополнительные атрибуты лида под нужды воронки. v1 — только
             настройка; отображение на карточке лида приедет позже.
           </p>
@@ -113,13 +113,13 @@ export function CustomFieldsSection() {
 
       {listQuery.isLoading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 size={20} className="animate-spin text-muted-2" />
+          <Loader2 size={20} className="animate-spin text-brand-muted" />
         </div>
       ) : items.length === 0 ? (
-        <div className="bg-canvas/60 border border-brand-border rounded-card px-6 py-12 text-center">
-          <Sparkles size={20} className="text-muted-2 mx-auto mb-2" />
-          <p className="text-sm text-muted">Пока нет кастомных полей.</p>
-          <p className="text-xs text-muted-3 mt-1">
+        <div className="bg-brand-bg/60 border border-brand-border rounded-card px-6 py-12 text-center">
+          <Sparkles size={20} className="text-brand-muted mx-auto mb-2" />
+          <p className="text-sm text-brand-muted">Пока нет кастомных полей.</p>
+          <p className="text-xs text-brand-muted mt-1">
             Например: «Регион», «Тип заведения», «Источник лида».
           </p>
         </div>
@@ -254,7 +254,7 @@ function CustomFieldEditor({
           <button
             type="button"
             onClick={onClose}
-            className="text-muted hover:text-ink p-1"
+            className="text-brand-muted hover:text-brand-primary p-1"
           >
             <X size={16} />
           </button>
@@ -262,7 +262,7 @@ function CustomFieldEditor({
 
         <form onSubmit={onSubmit} className="px-5 py-4 space-y-3">
           <label className="block">
-            <span className={`${T.mono} uppercase text-muted-3`}>
+            <span className={`${T.mono} uppercase text-brand-muted`}>
               Метка
             </span>
             <input
@@ -270,13 +270,13 @@ function CustomFieldEditor({
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="Регион"
-              className="mt-1 w-full bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+              className="mt-1 w-full bg-brand-bg border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             />
           </label>
 
           <label className="block">
-            <span className={`${T.mono} uppercase text-muted-3`}>
-              Ключ {isEdit && <span className="text-muted-3">(нельзя менять)</span>}
+            <span className={`${T.mono} uppercase text-brand-muted`}>
+              Ключ {isEdit && <span className="text-brand-muted">(нельзя менять)</span>}
             </span>
             <input
               type="text"
@@ -286,22 +286,22 @@ function CustomFieldEditor({
               }
               disabled={isEdit}
               placeholder="region"
-              className="mt-1 w-full bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 disabled:opacity-60"
+              className="mt-1 w-full bg-brand-bg border border-brand-border rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 disabled:opacity-60"
             />
-            <p className="text-xs text-muted-3 mt-1">
+            <p className="text-xs text-brand-muted mt-1">
               Латиница, цифры, подчёркивания.
             </p>
           </label>
 
           <label className="block">
-            <span className={`${T.mono} uppercase text-muted-3`}>
-              Тип {isEdit && <span className="text-muted-3">(нельзя менять)</span>}
+            <span className={`${T.mono} uppercase text-brand-muted`}>
+              Тип {isEdit && <span className="text-brand-muted">(нельзя менять)</span>}
             </span>
             <select
               value={kind}
               onChange={(e) => setKind(e.target.value as AttributeKind)}
               disabled={isEdit}
-              className="mt-1 w-full bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 disabled:opacity-60"
+              className="mt-1 w-full bg-brand-bg border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 disabled:opacity-60"
             >
               {(Object.keys(KIND_LABELS) as AttributeKind[]).map((k) => (
                 <option key={k} value={k}>
@@ -314,7 +314,7 @@ function CustomFieldEditor({
           {kind === "select" && (
             <div>
               <div className="flex items-center justify-between">
-                <label className={`${T.mono} uppercase text-muted-3`}>
+                <label className={`${T.mono} uppercase text-brand-muted`}>
                   Варианты
                 </label>
                 <button
@@ -335,7 +335,7 @@ function CustomFieldEditor({
                         updateOption(i, { value: e.target.value })
                       }
                       placeholder="value"
-                      className="flex-1 bg-canvas border border-brand-border rounded-lg px-2 py-1 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                      className="flex-1 bg-brand-bg border border-brand-border rounded-lg px-2 py-1 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                     />
                     <input
                       type="text"
@@ -344,19 +344,19 @@ function CustomFieldEditor({
                         updateOption(i, { label: e.target.value })
                       }
                       placeholder="Метка"
-                      className="flex-1 bg-canvas border border-brand-border rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                      className="flex-1 bg-brand-bg border border-brand-border rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                     />
                     <button
                       type="button"
                       onClick={() => removeOption(i)}
-                      className="text-muted-2 hover:text-rose p-1"
+                      className="text-brand-muted hover:text-rose p-1"
                     >
                       <Trash2 size={11} />
                     </button>
                   </div>
                 ))}
                 {options.length === 0 && (
-                  <p className="text-xs text-muted-3">
+                  <p className="text-xs text-brand-muted">
                     Нужен хотя бы один вариант.
                   </p>
                 )}
@@ -388,7 +388,7 @@ function CustomFieldEditor({
             <button
               type="button"
               onClick={onClose}
-              className="text-sm text-muted hover:text-ink"
+              className="text-sm text-brand-muted hover:text-brand-primary"
             >
               Отмена
             </button>
@@ -467,7 +467,7 @@ function DraggableList({
 
   return (
     <div className="bg-white border border-brand-border rounded-card shadow-soft overflow-hidden">
-      <div className={`bg-canvas grid grid-cols-[28px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,140px)_minmax(0,90px)_64px] gap-3 px-4 py-2 ${T.mono} uppercase text-muted-3 font-semibold`}>
+      <div className={`bg-brand-bg grid grid-cols-[28px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,140px)_minmax(0,90px)_64px] gap-3 px-4 py-2 ${T.mono} uppercase text-brand-muted font-semibold`}>
         <span aria-hidden />
         <span>Метка</span>
         <span>Ключ</span>
@@ -533,14 +533,14 @@ function SortableRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="grid grid-cols-[28px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,140px)_minmax(0,90px)_64px] gap-3 px-4 py-3 border-t border-brand-border hover:bg-canvas/40 transition-colors text-sm items-center"
+      className="grid grid-cols-[28px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,140px)_minmax(0,90px)_64px] gap-3 px-4 py-3 border-t border-brand-border hover:bg-brand-bg/40 transition-colors text-sm items-center"
     >
       {isAdminOrHead ? (
         <button
           type="button"
           {...attributes}
           {...listeners}
-          className="text-muted-3 hover:text-muted cursor-grab active:cursor-grabbing touch-none p-1 rounded-md hover:bg-black/5 transition-colors"
+          className="text-brand-muted hover:text-brand-muted cursor-grab active:cursor-grabbing touch-none p-1 rounded-md hover:bg-black/5 transition-colors"
           aria-label="Перетащить"
           title="Перетащить для изменения порядка"
         >
@@ -549,19 +549,19 @@ function SortableRow({
       ) : (
         <span aria-hidden />
       )}
-      <span className="font-semibold text-ink truncate">
+      <span className="font-semibold text-brand-primary truncate">
         <span className="inline-flex items-center gap-1.5">
-          <Tag size={11} className="text-muted-3" />
+          <Tag size={11} className="text-brand-muted" />
           {def.label}
         </span>
       </span>
-      <span className="text-xs font-mono text-muted truncate">
+      <span className="text-xs font-mono text-brand-muted truncate">
         {def.key}
       </span>
       <span className="text-xs truncate">
         {KIND_LABELS[def.kind]}
         {def.kind === "select" && def.options_json && (
-          <span className="text-muted-3 ml-1">
+          <span className="text-brand-muted ml-1">
             · {def.options_json.length}
           </span>
         )}
@@ -570,7 +570,7 @@ function SortableRow({
         {def.is_required ? (
           <span className="text-warning font-semibold">Да</span>
         ) : (
-          <span className="text-muted-3">—</span>
+          <span className="text-brand-muted">—</span>
         )}
       </span>
       {isAdminOrHead ? (
@@ -579,7 +579,7 @@ function SortableRow({
             <button
               type="button"
               onClick={() => onEdit(def)}
-              className="text-muted hover:text-ink p-1.5 rounded-md hover:bg-black/5 transition-colors"
+              className="text-brand-muted hover:text-brand-primary p-1.5 rounded-md hover:bg-black/5 transition-colors"
               title="Редактировать"
             >
               <Pencil size={13} />
@@ -596,7 +596,7 @@ function SortableRow({
                   type="button"
                   onClick={openConfirm}
                   disabled={deletePending}
-                  className="text-muted hover:text-rose p-1.5 rounded-md hover:bg-rose/5 transition-colors disabled:opacity-40"
+                  className="text-brand-muted hover:text-rose p-1.5 rounded-md hover:bg-rose/5 transition-colors disabled:opacity-40"
                   title="Удалить"
                 >
                   <Trash2 size={13} />

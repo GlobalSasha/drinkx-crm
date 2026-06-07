@@ -55,10 +55,10 @@ export function PreviewStep({ job, onBack, onApplied }: Props) {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-base font-bold tracking-tight text-ink">
+        <h3 className="text-base font-bold tracking-tight text-brand-primary">
           Проверьте перед импортом
         </h3>
-        <p className="text-md text-muted mt-1">
+        <p className="text-md text-brand-muted mt-1">
           После запуска данные попадут в базу лидов. Это можно отменить только
           вручную — каждое сопоставление мы создадим как отдельную карточку.
         </p>
@@ -96,20 +96,20 @@ export function PreviewStep({ job, onBack, onApplied }: Props) {
             onClick={() => setShowErrors((v) => !v)}
             className="flex items-center justify-between w-full px-4 py-3 text-left"
           >
-            <span className="text-sm font-bold text-ink">
+            <span className="text-sm font-bold text-brand-primary">
               Показать ошибки
-              <span className="ml-2 text-xs font-mono text-muted-2">
+              <span className="ml-2 text-xs font-mono text-brand-muted">
                 {flatErrors.length}
               </span>
             </span>
             <ChevronDown
               size={14}
-              className={`text-muted-2 transition-transform ${showErrors ? "rotate-180" : ""}`}
+              className={`text-brand-muted transition-transform ${showErrors ? "rotate-180" : ""}`}
             />
           </button>
           {showErrors && (
             <div className="border-t border-brand-border">
-              <div className="grid grid-cols-[60px_1fr] text-2xs font-mono uppercase tracking-wider text-muted-3 px-4 py-2 bg-canvas">
+              <div className="grid grid-cols-[60px_1fr] text-2xs font-mono uppercase tracking-wider text-brand-muted px-4 py-2 bg-brand-bg">
                 <span>Строка</span>
                 <span>Ошибка</span>
               </div>
@@ -119,12 +119,12 @@ export function PreviewStep({ job, onBack, onApplied }: Props) {
                     key={`${e.row}-${i}`}
                     className="grid grid-cols-[60px_1fr] items-start gap-3 px-4 py-2 text-sm"
                   >
-                    <span className="font-mono text-muted-2">#{e.row}</span>
-                    <span className="text-ink">{e.msg}</span>
+                    <span className="font-mono text-brand-muted">#{e.row}</span>
+                    <span className="text-brand-primary">{e.msg}</span>
                   </div>
                 ))}
                 {flatErrors.length > VISIBLE_ERRORS && (
-                  <div className="px-4 py-2 text-xs font-mono text-muted-3">
+                  <div className="px-4 py-2 text-xs font-mono text-brand-muted">
                     …и ещё {flatErrors.length - VISIBLE_ERRORS}
                   </div>
                 )}
@@ -144,7 +144,7 @@ export function PreviewStep({ job, onBack, onApplied }: Props) {
         <button
           onClick={onBack}
           disabled={apply.isPending}
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted hover:text-ink disabled:opacity-40 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-muted hover:text-brand-primary disabled:opacity-40 transition-colors"
         >
           <ChevronLeft size={14} />
           Назад к маппингу
@@ -191,7 +191,7 @@ function StatCard({
   const palette = {
     success: "bg-emerald-50 text-emerald-700 border-emerald-200/60",
     warning: "bg-amber-50 text-amber-800 border-amber-200/60",
-    neutral: "bg-canvas text-ink border-brand-border",
+    neutral: "bg-brand-bg text-brand-primary border-brand-border",
   }[tone];
 
   return (

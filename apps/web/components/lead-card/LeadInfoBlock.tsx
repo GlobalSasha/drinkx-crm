@@ -288,7 +288,7 @@ function DescriptionField({
         }}
         disabled={busy}
         placeholder="Кто этот клиент, чем занимается, масштаб…"
-        className="w-full type-caption leading-relaxed bg-canvas border border-brand-accent/40 rounded-xl px-3 py-2 focus:outline-none focus:border-brand-accent resize-y"
+        className="w-full type-caption leading-relaxed bg-brand-bg border border-brand-accent/40 rounded-xl px-3 py-2 focus:outline-none focus:border-brand-accent resize-y"
       />
     );
   }
@@ -395,7 +395,7 @@ function Row({
                 if (e.key === "Enter") void commit();
               }}
               disabled={busy}
-              className="w-full type-body bg-canvas border border-brand-accent/40 rounded-lg px-2 py-1 focus:outline-none focus:border-brand-accent"
+              className="w-full type-body bg-brand-bg border border-brand-accent/40 rounded-lg px-2 py-1 focus:outline-none focus:border-brand-accent"
             >
               <option value="">— очистить —</option>
               {(options ?? []).map((opt) => (
@@ -417,7 +417,7 @@ function Row({
               }}
               disabled={busy}
               {...inputProps}
-              className="w-full type-body bg-canvas border border-brand-accent/40 rounded-lg px-2 py-1 focus:outline-none focus:border-brand-accent"
+              className="w-full type-body bg-brand-bg border border-brand-accent/40 rounded-lg px-2 py-1 focus:outline-none focus:border-brand-accent"
             />
           )
         ) : (

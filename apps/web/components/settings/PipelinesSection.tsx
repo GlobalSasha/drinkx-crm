@@ -115,7 +115,7 @@ export function PipelinesSection() {
   if (pipelinesQuery.isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <Loader2 size={20} className="animate-spin text-muted-2" />
+        <Loader2 size={20} className="animate-spin text-brand-muted" />
       </div>
     );
   }
@@ -134,7 +134,7 @@ export function PipelinesSection() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="type-card-title">Воронки</h2>
-          <p className="text-xs text-muted-2 mt-0.5">
+          <p className="text-xs text-brand-muted mt-0.5">
             Создавайте отдельные воронки для разных типов сделок: продажи,
             партнёры, апсейл и т.д.
           </p>
@@ -153,18 +153,18 @@ export function PipelinesSection() {
       {/* Table */}
       <div className="bg-white border border-brand-border rounded-card shadow-soft overflow-hidden">
         <table className="w-full text-left">
-          <thead className="bg-canvas/60">
+          <thead className="bg-brand-bg/60">
             <tr className="border-b border-brand-border">
-              <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold`}>
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold`}>
                 Название
               </th>
-              <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold w-[110px]`}>
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[110px]`}>
                 Стадий
               </th>
-              <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold w-[180px]`}>
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[180px]`}>
                 По умолчанию
               </th>
-              <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold w-[80px] text-right`}>
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[80px] text-right`}>
                 <span className="sr-only">Действия</span>
               </th>
             </tr>
@@ -173,7 +173,7 @@ export function PipelinesSection() {
             {pipelines.length === 0 && (
               <tr>
                 <td colSpan={4} className="px-4 py-12 text-center">
-                  <p className="text-sm text-muted-2">Воронок пока нет</p>
+                  <p className="text-sm text-brand-muted">Воронок пока нет</p>
                 </td>
               </tr>
             )}
@@ -182,18 +182,18 @@ export function PipelinesSection() {
               return (
                 <tr
                   key={p.id}
-                  className="border-b border-brand-border last:border-0 hover:bg-canvas/40 transition-colors"
+                  className="border-b border-brand-border last:border-0 hover:bg-brand-bg/40 transition-colors"
                 >
                   <td className="px-4 py-3 align-middle">
                     <button
                       onClick={() => openEdit(p)}
-                      className="text-sm font-semibold text-ink hover:text-brand-accent transition-colors text-left"
+                      className="text-sm font-semibold text-brand-primary hover:text-brand-accent transition-colors text-left"
                     >
                       {p.name}
                     </button>
                   </td>
                   <td className="px-4 py-3 align-middle">
-                    <span className={`${T.mono} text-muted-2 tabular-nums`}>
+                    <span className={`${T.mono} text-brand-muted tabular-nums`}>
                       {p.stages.length}
                     </span>
                   </td>
@@ -207,19 +207,19 @@ export function PipelinesSection() {
                       <button
                         onClick={() => onSetDefault(p)}
                         disabled={setDefault.isPending}
-                        className="text-xs font-semibold text-muted hover:text-ink disabled:opacity-40 transition-colors"
+                        className="text-xs font-semibold text-brand-muted hover:text-brand-primary disabled:opacity-40 transition-colors"
                       >
                         Сделать основной
                       </button>
                     ) : (
-                      <span className="text-xs text-muted-3">—</span>
+                      <span className="text-xs text-brand-muted">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3 align-middle text-right">
                     {isAdminOrHead && (
                       <button
                         onClick={() => startDelete(p)}
-                        className="p-1.5 text-muted-3 hover:text-rose hover:bg-rose/10 rounded-lg transition-colors"
+                        className="p-1.5 text-brand-muted hover:text-rose hover:bg-rose/10 rounded-lg transition-colors"
                         aria-label="Удалить воронку"
                       >
                         <Trash2 size={14} />
@@ -286,9 +286,9 @@ function DeleteModal({
   if (conflict?.code === "pipeline_has_leads") {
     title = "В воронке есть лиды";
     body = (
-      <p className="text-sm text-muted leading-relaxed">
+      <p className="text-sm text-brand-muted leading-relaxed">
         В воронке{" "}
-        <span className="font-semibold text-ink">«{pipeline.name}»</span>{" "}
+        <span className="font-semibold text-brand-primary">«{pipeline.name}»</span>{" "}
         находится <span className="font-mono">{conflict.lead_count}</span>{" "}
         лидов. Сначала переведите их в другую воронку или архивируйте.
       </p>
@@ -301,7 +301,7 @@ function DeleteModal({
   } else if (conflict?.code === "pipeline_is_default") {
     title = "Это воронка по умолчанию";
     body = (
-      <p className="text-sm text-muted leading-relaxed">
+      <p className="text-sm text-brand-muted leading-relaxed">
         Нельзя удалить воронку, назначенную основной. Сначала сделайте
         основной другую воронку, затем удалите эту.
       </p>
@@ -313,7 +313,7 @@ function DeleteModal({
     showCancel = false;
   } else {
     body = (
-      <p className="text-sm text-muted leading-relaxed">
+      <p className="text-sm text-brand-muted leading-relaxed">
         Стадии будут удалены. Лиды останутся в системе, но потеряют связь
         с воронкой. Действие нельзя отменить.
       </p>
@@ -334,7 +334,7 @@ function DeleteModal({
           aria-label={title}
           className="bg-white rounded-card border border-brand-border shadow-soft w-full max-w-md p-6"
         >
-          <h3 className="type-card-title text-ink mb-2">
+          <h3 className="type-card-title text-brand-primary mb-2">
             {title}
           </h3>
           {body}
@@ -343,7 +343,7 @@ function DeleteModal({
               <button
                 onClick={busy ? undefined : onCancel}
                 disabled={busy}
-                className="text-sm font-semibold text-muted hover:text-ink disabled:opacity-40 transition-colors"
+                className="text-sm font-semibold text-brand-muted hover:text-brand-primary disabled:opacity-40 transition-colors"
               >
                 Отмена
               </button>

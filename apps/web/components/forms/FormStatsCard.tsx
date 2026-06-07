@@ -16,7 +16,7 @@ export function FormStatsCard({ formId }: Props) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 mt-2 text-xs text-muted-3">
+      <div className="flex items-center gap-2 mt-2 text-xs text-brand-muted">
         <Loader2 size={11} className="animate-spin" />
         Загружаем статистику…
       </div>
@@ -38,7 +38,7 @@ export function FormStatsCard({ formId }: Props) {
       : Math.round(((total - firstStageCount) / total) * 100);
 
   return (
-    <div className="mt-2 flex items-center gap-3 flex-wrap text-xs font-mono text-muted-2">
+    <div className="mt-2 flex items-center gap-3 flex-wrap text-xs font-mono text-brand-muted">
       <Stat label="за 7 дней" value={data.submissions_7d} />
       <Stat label="за 30 дней" value={data.submissions_30d} />
       <Stat label="в работе" value={data.claimed_count} />
@@ -50,7 +50,7 @@ export function FormStatsCard({ formId }: Props) {
 function Stat({ label, value }: { label: string; value: number | string }) {
   return (
     <span>
-      <span className="text-ink font-semibold tabular-nums">{value}</span>{" "}
+      <span className="text-brand-primary font-semibold tabular-nums">{value}</span>{" "}
       <span className="opacity-70">{label}</span>
     </span>
   );

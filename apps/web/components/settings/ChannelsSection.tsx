@@ -34,7 +34,7 @@ export function ChannelsSection() {
   if (statusQuery.isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <Loader2 size={20} className="animate-spin text-muted-2" />
+        <Loader2 size={20} className="animate-spin text-brand-muted" />
       </div>
     );
   }
@@ -70,7 +70,7 @@ export function ChannelsSection() {
     <div className="space-y-4">
       <div>
         <h2 className="text-lg font-bold tracking-tight">Каналы</h2>
-        <p className="text-xs text-muted-2 mt-0.5">
+        <p className="text-xs text-brand-muted mt-0.5">
           Входящие письма из Gmail и исходящая почта через SMTP.
           В v1 настройки только просмотр; правки — через переменные
           окружения на сервере.
@@ -81,12 +81,12 @@ export function ChannelsSection() {
       <div className="bg-white border border-brand-border rounded-card shadow-soft p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-canvas flex items-center justify-center shrink-0">
-              <Mail size={18} className="text-muted" />
+            <div className="w-10 h-10 rounded-xl bg-brand-bg flex items-center justify-center shrink-0">
+              <Mail size={18} className="text-brand-muted" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm font-bold text-ink">Gmail</h3>
-              <p className="text-xs text-muted-2 mt-0.5">
+              <h3 className="text-sm font-bold text-brand-primary">Gmail</h3>
+              <p className="text-xs text-brand-muted mt-0.5">
                 Письма автоматически попадают в /inbox для разбора и
                 привязки к лидам (Sprint 2.0).
               </p>
@@ -98,7 +98,7 @@ export function ChannelsSection() {
                     <span className="text-xs text-warning font-semibold">
                       Не настроен
                     </span>
-                    <span className="text-xs text-muted-3">
+                    <span className="text-xs text-brand-muted">
                       · GOOGLE_CLIENT_ID не указан в env
                     </span>
                   </>
@@ -108,15 +108,15 @@ export function ChannelsSection() {
                     <span className="text-xs text-success font-semibold">
                       Подключено
                     </span>
-                    <span className="text-xs text-muted-3 font-mono">
+                    <span className="text-xs text-brand-muted font-mono">
                       · Последняя синхронизация:{" "}
                       {formatRelative(gmail.last_sync_at)}
                     </span>
                   </>
                 ) : (
                   <>
-                    <AlertCircle size={13} className="text-muted-2 shrink-0" />
-                    <span className="text-xs text-muted font-semibold">
+                    <AlertCircle size={13} className="text-brand-muted shrink-0" />
+                    <span className="text-xs text-brand-muted font-semibold">
                       Не подключено
                     </span>
                   </>
@@ -144,7 +144,7 @@ export function ChannelsSection() {
               <button
                 onClick={handleConnectGmail}
                 disabled={connect.isPending}
-                className="inline-flex items-center gap-1.5 bg-canvas text-ink border border-brand-border rounded-pill px-3 py-1.5 text-xs font-semibold hover:bg-canvas-2 hover:border-brand-border disabled:opacity-40 transition-all duration-300"
+                className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-pill px-3 py-1.5 text-xs font-semibold hover:bg-brand-panel hover:border-brand-border disabled:opacity-40 transition-all duration-300"
               >
                 Переподключить
               </button>
@@ -156,12 +156,12 @@ export function ChannelsSection() {
       {/* SMTP card */}
       <div className="bg-white border border-brand-border rounded-card shadow-soft p-5">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-canvas flex items-center justify-center shrink-0">
-            <Send size={18} className="text-muted" />
+          <div className="w-10 h-10 rounded-xl bg-brand-bg flex items-center justify-center shrink-0">
+            <Send size={18} className="text-brand-muted" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-bold text-ink">
+              <h3 className="text-sm font-bold text-brand-primary">
                 SMTP (исходящая почта)
               </h3>
               {smtp.configured ? (
@@ -176,7 +176,7 @@ export function ChannelsSection() {
                 </span>
               )}
             </div>
-            <p className="text-xs text-muted-2 mt-0.5">
+            <p className="text-xs text-brand-muted mt-0.5">
               {smtp.configured
                 ? "Используется ежедневной email-сводкой и системными уведомлениями."
                 : "SMTP_HOST пустой — письма пишутся в логи воркера, не отправляются. Настройте на сервере, затем перезапустите."}
@@ -189,7 +189,7 @@ export function ChannelsSection() {
               <Field label="Пользователь" value={smtp.user || "—"} mono />
             </div>
 
-            <p className="text-xs text-muted-3 mt-3 leading-tight">
+            <p className="text-xs text-brand-muted mt-3 leading-tight">
               Правка SMTP — через переменные окружения на сервере
               (SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASSWORD /
               SMTP_FROM). Из UI пока не настраивается — credentials-at-rest
@@ -213,13 +213,13 @@ function Field({
 }) {
   return (
     <div className="flex items-baseline gap-2">
-      <span className="text-2xs font-mono uppercase tracking-wide text-muted-3 shrink-0">
+      <span className="text-2xs font-mono uppercase tracking-wide text-brand-muted shrink-0">
         {label}:
       </span>
       <span
         className={`${
           mono ? "font-mono" : ""
-        } text-xs text-ink truncate`}
+        } text-xs text-brand-primary truncate`}
         title={value}
       >
         {value}

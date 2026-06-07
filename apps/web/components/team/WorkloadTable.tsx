@@ -15,19 +15,19 @@ export function WorkloadTable() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <Loader2 size={20} className="animate-spin text-muted-2" />
+        <Loader2 size={20} className="animate-spin text-brand-muted" />
       </div>
     );
   }
   if (isError || !data) {
-    return <div className="text-sm text-muted-2 py-10">Не удалось загрузить данные.</div>;
+    return <div className="text-sm text-brand-muted py-10">Не удалось загрузить данные.</div>;
   }
 
   return (
     <div className="overflow-x-auto rounded-card border border-brand-border bg-white">
       <table className="min-w-full text-sm">
         <thead>
-          <tr className="border-b border-brand-border text-left text-xs text-muted-2">
+          <tr className="border-b border-brand-border text-left text-xs text-brand-muted">
             <th className="px-4 py-3 font-semibold sticky left-0 z-10 bg-white">Менеджер</th>
             {data.stages.map((s) => (
               <th key={s.id} className="px-3 py-3 font-semibold whitespace-nowrap">
@@ -57,19 +57,19 @@ export function WorkloadTable() {
                     {cell ? (
                       <>
                         <span className="font-semibold">{cell.count}</span>
-                        <span className="text-xs text-muted-2 ml-1">
+                        <span className="text-xs text-brand-muted ml-1">
                           {fmtSum(cell.sum_amount)}
                         </span>
                       </>
                     ) : (
-                      <span className="text-muted-3">—</span>
+                      <span className="text-brand-muted">—</span>
                     )}
                   </td>
                 );
               })}
               <td className="px-3 py-3 whitespace-nowrap">
                 <span className="font-semibold">{m.open_count}</span>
-                <span className="text-xs text-muted-2 ml-1">{fmtSum(m.pipeline_sum)}</span>
+                <span className="text-xs text-brand-muted ml-1">{fmtSum(m.pipeline_sum)}</span>
               </td>
               <td className="px-3 py-3">
                 {m.stuck_count > 0 ? (
@@ -82,7 +82,7 @@ export function WorkloadTable() {
                     {m.stuck_count}
                   </Link>
                 ) : (
-                  <span className="text-muted-3">0</span>
+                  <span className="text-brand-muted">0</span>
                 )}
               </td>
             </tr>

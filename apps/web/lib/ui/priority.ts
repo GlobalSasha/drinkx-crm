@@ -48,15 +48,15 @@ export const priorityConfig: Record<Priority, PriorityVariant> = {
     solid: "bg-warning text-white",
   },
   D: {
-    chip: "bg-black/5 text-muted",
-    chipBordered: "bg-black/5 text-muted border-brand-border",
+    chip: "bg-black/5 text-brand-muted",
+    chipBordered: "bg-black/5 text-brand-muted border-brand-border",
     solid: "bg-muted text-white",
   },
 };
 
 /** Fallback used when a priority value comes back as null / unknown
  *  string (defensive — codepath that mostly trips during data import). */
-export const PRIORITY_FALLBACK_CHIP = "bg-black/5 text-muted";
+export const PRIORITY_FALLBACK_CHIP = "bg-black/5 text-brand-muted";
 
 /** Convenience: get the chip class for a priority, falling back to
  *  the unknown-state style. Accepts string for the (rare) cases where

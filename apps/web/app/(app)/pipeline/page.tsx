@@ -120,7 +120,7 @@ function PipelinePageInner() {
   }, [isLoading, isError, stageParam, filterParam]);
 
   return (
-    <div className="flex flex-col h-screen bg-canvas overflow-hidden">
+    <div className="flex flex-col h-screen bg-brand-bg overflow-hidden">
       {/* Header derives filter options + per-option counts from the
           unfiltered set so selecting one segment doesn't hide the rest.
           Total badge reflects the visible (post-filter) count. */}
@@ -134,14 +134,14 @@ function PipelinePageInner() {
           to from the /team workload table via ?assigned_to=<id>. */}
       {!meQuery.isLoading && isPrivileged && (
         <div className="flex items-center gap-2 px-4 sm:px-6 py-2 bg-white border-b border-brand-border">
-          <label htmlFor="owner-scope" className="text-muted-2 text-xs">
+          <label htmlFor="owner-scope" className="text-brand-muted text-xs">
             Ответственный
           </label>
           <select
             id="owner-scope"
             value={ownerScope}
             onChange={(e) => setOwnerScope(e.target.value)}
-            className="h-8 px-3 text-sm bg-canvas border border-brand-border rounded-pill outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300"
+            className="h-8 px-3 text-sm bg-brand-bg border border-brand-border rounded-pill outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300"
           >
             <option value="">Мои</option>
             <option value="all">Все</option>
@@ -156,7 +156,7 @@ function PipelinePageInner() {
 
       {isLoading && (
         <div className="flex-1 flex items-center justify-center">
-          <Loader2 size={24} className="animate-spin text-muted-2" />
+          <Loader2 size={24} className="animate-spin text-brand-muted" />
         </div>
       )}
 

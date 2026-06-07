@@ -29,7 +29,7 @@ const KIND_STYLE: Record<string, string> = {
   daily_plan_ready: "bg-brand-soft text-brand-accent",
   followup_due: "bg-warning/10 text-warning",
   mention: "bg-brand-soft text-brand-accent",
-  system: "bg-black/5 text-muted",
+  system: "bg-black/5 text-brand-muted",
 };
 
 interface Props {
@@ -152,14 +152,14 @@ export function NotificationsDrawer({ open, onClose }: Props) {
           <div className="flex items-center gap-1">
             <button
               onClick={() => refetch()}
-              className="p-2 rounded-lg text-muted-3 hover:bg-canvas hover:text-ink transition-colors"
+              className="p-2 rounded-lg text-brand-muted hover:bg-brand-bg hover:text-brand-primary transition-colors"
               aria-label="Обновить"
             >
               <RefreshCw size={14} className={isFetching ? "animate-spin" : ""} />
             </button>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg text-muted-3 hover:bg-canvas hover:text-ink transition-colors"
+              className="p-2 rounded-lg text-brand-muted hover:bg-brand-bg hover:text-brand-primary transition-colors"
               aria-label="Закрыть"
             >
               <X size={16} />
@@ -169,11 +169,11 @@ export function NotificationsDrawer({ open, onClose }: Props) {
 
         {/* Filter row */}
         <div className="px-5 py-3 border-b border-brand-border flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1 bg-canvas rounded-pill p-0.5">
+          <div className="flex items-center gap-1 bg-brand-bg rounded-pill p-0.5">
             <button
               onClick={() => setUnreadOnly(true)}
               className={`px-3 py-1 text-xs font-semibold rounded-pill transition-colors ${
-                unreadOnly ? "bg-white text-ink shadow-soft" : "text-muted-2 hover:text-ink"
+                unreadOnly ? "bg-white text-brand-primary shadow-soft" : "text-brand-muted hover:text-brand-primary"
               }`}
             >
               Непрочитанные
@@ -181,7 +181,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
             <button
               onClick={() => setUnreadOnly(false)}
               className={`px-3 py-1 text-xs font-semibold rounded-pill transition-colors ${
-                !unreadOnly ? "bg-white text-ink shadow-soft" : "text-muted-2 hover:text-ink"
+                !unreadOnly ? "bg-white text-brand-primary shadow-soft" : "text-brand-muted hover:text-brand-primary"
               }`}
             >
               Все
@@ -190,7 +190,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
           <button
             onClick={() => markAll()}
             disabled={unread === 0 || isMarkingAll}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted hover:text-brand-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-muted hover:text-brand-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Check size={12} />
             Прочитать все
@@ -204,7 +204,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
               {Array.from({ length: 5 }).map((_, i) => (
                 <div
                   key={i}
-                  className="animate-pulse h-16 bg-canvas rounded-xl border border-brand-border"
+                  className="animate-pulse h-16 bg-brand-bg rounded-xl border border-brand-border"
                 />
               ))}
             </div>
@@ -218,11 +218,11 @@ export function NotificationsDrawer({ open, onClose }: Props) {
 
           {!isLoading && !isError && items.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-              <BellOff size={28} className="text-muted-3 mb-3" />
-              <p className="text-sm font-semibold text-ink mb-1">
+              <BellOff size={28} className="text-brand-muted mb-3" />
+              <p className="text-sm font-semibold text-brand-primary mb-1">
                 {unreadOnly ? "Всё прочитано" : "Уведомлений пока нет"}
               </p>
-              <p className="text-xs text-muted-2">
+              <p className="text-xs text-brand-muted">
                 {unreadOnly
                   ? "Когда появятся новые события, они окажутся здесь."
                   : "Передачи лидов, готовые AI-бриф и напоминания появятся в этом списке."}
@@ -235,16 +235,16 @@ export function NotificationsDrawer({ open, onClose }: Props) {
               {groupByDay(items).map((group) => (
                 <Fragment key={group.key}>
                   <li
-                    className="bg-canvas/60 px-5 py-1.5 sticky top-0 z-10 border-b border-brand-border"
+                    className="bg-brand-bg/60 px-5 py-1.5 sticky top-0 z-10 border-b border-brand-border"
                     role="presentation"
                   >
-                    <span className="text-2xs font-mono uppercase tracking-[0.18em] text-muted-3 font-semibold">
+                    <span className="text-2xs font-mono uppercase tracking-[0.18em] text-brand-muted font-semibold">
                       {group.header}
                     </span>
                   </li>
                   {group.items.map((n) => {
                 const kindLabel = KIND_LABEL[n.kind] ?? n.kind;
-                const kindStyle = KIND_STYLE[n.kind] ?? "bg-black/5 text-muted";
+                const kindStyle = KIND_STYLE[n.kind] ?? "bg-black/5 text-brand-muted";
                 const isUnread = n.read_at == null;
                 const isNavigable = !!n.lead_id;
 
@@ -268,19 +268,19 @@ export function NotificationsDrawer({ open, onClose }: Props) {
                         >
                           {kindLabel}
                         </span>
-                        <span className="font-mono text-2xs text-muted-3">
+                        <span className="font-mono text-2xs text-brand-muted">
                           {relativeTime(n.created_at)}
                         </span>
                       </div>
                       <p
                         className={`text-sm leading-snug truncate ${
-                          isUnread ? "font-semibold text-ink" : "text-muted"
+                          isUnread ? "font-semibold text-brand-primary" : "text-brand-muted"
                         }`}
                       >
                         {n.title}
                       </p>
                       {n.body && (
-                        <p className="text-xs text-muted-2 truncate mt-0.5">
+                        <p className="text-xs text-brand-muted truncate mt-0.5">
                           {n.body}
                         </p>
                       )}
@@ -289,7 +289,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
                     {isNavigable && (
                       <ArrowRight
                         size={14}
-                        className="text-muted-3 shrink-0 mt-1"
+                        className="text-brand-muted shrink-0 mt-1"
                       />
                     )}
                   </div>
@@ -302,7 +302,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
                     <li key={n.id}>
                       <button
                         onClick={() => handleNavRowClick(n)}
-                        className={`w-full text-left px-5 py-3 transition-colors hover:bg-canvas ${
+                        className={`w-full text-left px-5 py-3 transition-colors hover:bg-brand-bg ${
                           isUnread ? "bg-brand-accent/[0.02]" : ""
                         }`}
                       >
@@ -320,7 +320,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
                 return (
                   <li
                     key={n.id}
-                    className={`group relative px-5 py-3 transition-colors hover:bg-canvas ${
+                    className={`group relative px-5 py-3 transition-colors hover:bg-brand-bg ${
                       isUnread ? "bg-brand-accent/[0.02]" : ""
                     }`}
                   >
@@ -333,7 +333,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
                         <button
                           type="button"
                           onClick={() => markRead(n.id)}
-                          className="p-1.5 rounded-md text-muted-3 hover:bg-success/10 hover:text-success transition-colors"
+                          className="p-1.5 rounded-md text-brand-muted hover:bg-success/10 hover:text-success transition-colors"
                           aria-label="Прочитано"
                           title="Отметить прочитанным"
                         >
@@ -343,7 +343,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
                       <button
                         type="button"
                         onClick={() => dismiss(n.id)}
-                        className="p-1.5 rounded-md text-muted-3 opacity-0 group-hover:opacity-100 hover:bg-rose/10 hover:text-rose transition-all"
+                        className="p-1.5 rounded-md text-brand-muted opacity-0 group-hover:opacity-100 hover:bg-rose/10 hover:text-rose transition-all"
                         aria-label="Скрыть"
                         title="Удалить уведомление"
                       >

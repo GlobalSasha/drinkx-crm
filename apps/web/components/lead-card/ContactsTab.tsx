@@ -144,7 +144,7 @@ function ContactRow({
   const initials = hasName ? initialsOf(contact.name) : "?";
   const avatarClass = hasName
     ? colorFor(contact.name)
-    : "bg-brand-panel text-muted-2";
+    : "bg-brand-panel text-brand-muted";
   const isUnverified = contact.verified_status === "to_verify";
   const roleLabel = contact.role_type ? ROLE_LABELS[contact.role_type] : null;
 
@@ -180,7 +180,7 @@ function ContactRow({
                 className={`shrink-0 -ml-1 p-1 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
                   isPrimary
                     ? "text-brand-accent"
-                    : "text-muted-3 hover:text-brand-accent"
+                    : "text-brand-muted hover:text-brand-accent"
                 }`}
               >
                 <Star

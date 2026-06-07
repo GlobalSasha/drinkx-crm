@@ -64,7 +64,7 @@ export function MultiSelectDropdown({
         className={`h-8 inline-flex items-center gap-1.5 px-3 rounded-pill text-xs font-semibold transition-all duration-300 ${
           isActive
             ? "bg-brand-accent text-white"
-            : "bg-canvas text-muted hover:bg-canvas-2 border border-brand-border"
+            : "bg-brand-bg text-brand-muted hover:bg-brand-panel border border-brand-border"
         }`}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -85,7 +85,7 @@ export function MultiSelectDropdown({
         >
           <ul className="flex-1 overflow-y-auto py-1">
             {options.length === 0 && (
-              <li className="px-3 py-2 text-xs text-muted-3">
+              <li className="px-3 py-2 text-xs text-brand-muted">
                 {emptyText ?? "Нет вариантов"}
               </li>
             )}
@@ -97,7 +97,7 @@ export function MultiSelectDropdown({
                   <button
                     type="button"
                     onClick={() => toggle(opt)}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-canvas transition-colors duration-150"
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-brand-bg transition-colors duration-150"
                     role="option"
                     aria-selected={checked}
                   >
@@ -110,9 +110,9 @@ export function MultiSelectDropdown({
                     >
                       {checked && <Check size={11} className="text-white" />}
                     </span>
-                    <span className="flex-1 truncate text-ink">{opt}</span>
+                    <span className="flex-1 truncate text-brand-primary">{opt}</span>
                     {count !== undefined && (
-                      <span className="text-xs font-mono text-muted-3 tabular-nums">
+                      <span className="text-xs font-mono text-brand-muted tabular-nums">
                         {count}
                       </span>
                     )}
@@ -122,11 +122,11 @@ export function MultiSelectDropdown({
             })}
           </ul>
           {selected.length > 0 && (
-            <div className="border-t border-brand-border px-3 py-2 bg-canvas/60">
+            <div className="border-t border-brand-border px-3 py-2 bg-brand-bg/60">
               <button
                 type="button"
                 onClick={() => onChange([])}
-                className="text-xs font-semibold text-muted hover:text-ink transition-colors"
+                className="text-xs font-semibold text-brand-muted hover:text-brand-primary transition-colors"
               >
                 Сбросить
               </button>

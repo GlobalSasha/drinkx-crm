@@ -69,17 +69,17 @@ export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }:
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-base font-bold tracking-tight text-ink">
+              <h2 className="text-base font-bold tracking-tight text-brand-primary">
                 Передать лид
               </h2>
-              <p className="text-xs text-muted-2 mt-0.5">
+              <p className="text-xs text-brand-muted mt-0.5">
                 Новый владелец увидит лид в своём списке и получит уведомление.
               </p>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-black/5 text-muted transition-colors shrink-0"
+              className="p-1.5 rounded-lg hover:bg-black/5 text-brand-muted transition-colors shrink-0"
               aria-label="Закрыть"
             >
               <X size={18} />
@@ -90,7 +90,7 @@ export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }:
           <div className="mb-3">
             <label
               htmlFor="transfer-to-user"
-              className="block font-mono text-2xs uppercase tracking-[0.12em] text-muted-3 mb-1.5"
+              className="block font-mono text-2xs uppercase tracking-[0.12em] text-brand-muted mb-1.5"
             >
               UUID получателя
             </label>
@@ -103,9 +103,9 @@ export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }:
               autoComplete="off"
               autoFocus
               spellCheck={false}
-              className="w-full px-3 py-2 text-sm font-mono bg-canvas border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white transition-all"
+              className="w-full px-3 py-2 text-sm font-mono bg-brand-bg border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white transition-all"
             />
-            <p className="text-xs text-muted-3 mt-1">
+            <p className="text-xs text-brand-muted mt-1">
               Спросите получателя в Settings → Profile (или у админа). Список
               пользователей появится в Phase 2.
             </p>
@@ -115,9 +115,9 @@ export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }:
           <div className="mb-4">
             <label
               htmlFor="transfer-comment"
-              className="block font-mono text-2xs uppercase tracking-[0.12em] text-muted-3 mb-1.5"
+              className="block font-mono text-2xs uppercase tracking-[0.12em] text-brand-muted mb-1.5"
             >
-              Комментарий <span className="text-muted-3">(необязательно)</span>
+              Комментарий <span className="text-brand-muted">(необязательно)</span>
             </label>
             <textarea
               id="transfer-comment"
@@ -126,7 +126,7 @@ export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }:
               placeholder="Например: «Уехал в отпуск, передаю на твою территорию»"
               rows={2}
               maxLength={500}
-              className="w-full px-3 py-2 text-sm bg-canvas border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white resize-none transition-all"
+              className="w-full px-3 py-2 text-sm bg-brand-bg border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white resize-none transition-all"
             />
           </div>
 
@@ -143,7 +143,7 @@ export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }:
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-pill text-sm font-semibold text-muted bg-canvas hover:bg-canvas-2 transition-all"
+              className="px-4 py-2 rounded-pill text-sm font-semibold text-brand-muted bg-brand-bg hover:bg-brand-panel transition-all"
             >
               Отмена
             </button>

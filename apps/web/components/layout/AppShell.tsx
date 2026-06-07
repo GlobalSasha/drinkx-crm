@@ -71,7 +71,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // overlay — see translate classes on <aside> below.
   return (
     <div
-      className="font-sans block md:grid min-h-screen bg-canvas"
+      className="font-sans block md:grid min-h-screen bg-brand-bg"
       style={{ gridTemplateColumns: "220px minmax(0, 1fr)" }}
     >
       {/* Mobile top bar — only visible on < md */}

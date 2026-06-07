@@ -41,7 +41,7 @@ const CHANNEL_LABELS: Record<TemplateChannel, string> = {
 };
 
 function ChannelIcon({ channel }: { channel: TemplateChannel }) {
-  const cls = "text-muted-2 shrink-0";
+  const cls = "text-brand-muted shrink-0";
   if (channel === "email") return <Mail size={12} className={cls} />;
   if (channel === "tg") return <MessageCircle size={12} className={cls} />;
   return <MessageSquare size={12} className={cls} />;
@@ -79,7 +79,7 @@ export function TemplatesSection() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="type-card-title">Шаблоны</h2>
-          <p className="text-xs text-muted-2 mt-0.5">
+          <p className="text-xs text-brand-muted mt-0.5">
             Готовые тексты сообщений для email / Telegram / SMS.
             Их будут использовать автоматизации Sprint 2.5 — в v1 это
             только настройка.
@@ -99,21 +99,21 @@ export function TemplatesSection() {
 
       {listQuery.isLoading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 size={20} className="animate-spin text-muted-2" />
+          <Loader2 size={20} className="animate-spin text-brand-muted" />
         </div>
       ) : items.length === 0 ? (
-        <div className="bg-canvas/60 border border-brand-border rounded-card px-6 py-12 text-center">
-          <ScrollText size={20} className="text-muted-2 mx-auto mb-2" />
-          <p className="text-sm text-muted">Шаблонов пока нет.</p>
-          <p className="text-xs text-muted-3 mt-1">
+        <div className="bg-brand-bg/60 border border-brand-border rounded-card px-6 py-12 text-center">
+          <ScrollText size={20} className="text-brand-muted mx-auto mb-2" />
+          <p className="text-sm text-brand-muted">Шаблонов пока нет.</p>
+          <p className="text-xs text-brand-muted mt-1">
             Например: «Первое касание», «Напоминание о встрече».
           </p>
         </div>
       ) : (
         <div className="bg-white border border-brand-border rounded-card shadow-soft overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-canvas">
-              <tr className={`text-left ${T.mono} uppercase text-muted-3`}>
+            <thead className="bg-brand-bg">
+              <tr className={`text-left ${T.mono} uppercase text-brand-muted`}>
                 <th className="px-4 py-2 font-semibold">Название</th>
                 <th className="px-4 py-2 font-semibold">Канал</th>
                 <th className="px-4 py-2 font-semibold">Категория</th>
@@ -129,9 +129,9 @@ export function TemplatesSection() {
               {items.map((t) => (
                 <tr
                   key={t.id}
-                  className="border-t border-brand-border hover:bg-canvas/40 transition-colors"
+                  className="border-t border-brand-border hover:bg-brand-bg/40 transition-colors"
                 >
-                  <td className="px-4 py-3 font-semibold text-ink truncate max-w-[200px]">
+                  <td className="px-4 py-3 font-semibold text-brand-primary truncate max-w-[200px]">
                     {t.name}
                   </td>
                   <td className="px-4 py-3 text-xs">
@@ -140,10 +140,10 @@ export function TemplatesSection() {
                       {CHANNEL_LABELS[t.channel]}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-xs text-muted">
-                    {t.category ?? <span className="text-muted-3">—</span>}
+                  <td className="px-4 py-3 text-xs text-brand-muted">
+                    {t.category ?? <span className="text-brand-muted">—</span>}
                   </td>
-                  <td className="px-4 py-3 text-xs text-muted-2 max-w-[280px] truncate">
+                  <td className="px-4 py-3 text-xs text-brand-muted max-w-[280px] truncate">
                     {previewText(t.text)}
                   </td>
                   {isAdmin && (
@@ -152,7 +152,7 @@ export function TemplatesSection() {
                         <button
                           type="button"
                           onClick={() => openEdit(t)}
-                          className="text-muted hover:text-ink p-1.5 rounded-md hover:bg-black/5 transition-colors"
+                          className="text-brand-muted hover:text-brand-primary p-1.5 rounded-md hover:bg-black/5 transition-colors"
                           title="Редактировать"
                         >
                           <Pencil size={13} />
@@ -169,7 +169,7 @@ export function TemplatesSection() {
                               type="button"
                               onClick={openConfirm}
                               disabled={del.isPending}
-                              className="text-muted hover:text-rose p-1.5 rounded-md hover:bg-rose/5 transition-colors disabled:opacity-40"
+                              className="text-brand-muted hover:text-rose p-1.5 rounded-md hover:bg-rose/5 transition-colors disabled:opacity-40"
                               title="Удалить"
                             >
                               <Trash2 size={13} />
@@ -281,7 +281,7 @@ function TemplateEditor({
           <button
             type="button"
             onClick={onClose}
-            className="text-muted hover:text-ink p-1"
+            className="text-brand-muted hover:text-brand-primary p-1"
           >
             <X size={16} />
           </button>
@@ -289,7 +289,7 @@ function TemplateEditor({
 
         <form onSubmit={onSubmit} className="px-5 py-4 space-y-3">
           <label className="block">
-            <span className={`${T.mono} uppercase text-muted-3`}>
+            <span className={`${T.mono} uppercase text-brand-muted`}>
               Название
             </span>
             <input
@@ -297,18 +297,18 @@ function TemplateEditor({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Первое касание"
-              className="mt-1 w-full bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+              className="mt-1 w-full bg-brand-bg border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             />
           </label>
 
           <label className="block">
-            <span className={`${T.mono} uppercase text-muted-3`}>
+            <span className={`${T.mono} uppercase text-brand-muted`}>
               Канал
             </span>
             <select
               value={channel}
               onChange={(e) => setChannel(e.target.value as TemplateChannel)}
-              className="mt-1 w-full bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+              className="mt-1 w-full bg-brand-bg border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             >
               {(Object.keys(CHANNEL_LABELS) as TemplateChannel[]).map((c) => (
                 <option key={c} value={c}>
@@ -319,20 +319,20 @@ function TemplateEditor({
           </label>
 
           <label className="block">
-            <span className={`${T.mono} uppercase text-muted-3`}>
-              Категория <span className="text-muted-3">(необязательно)</span>
+            <span className={`${T.mono} uppercase text-brand-muted`}>
+              Категория <span className="text-brand-muted">(необязательно)</span>
             </span>
             <input
               type="text"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               placeholder="Онбординг"
-              className="mt-1 w-full bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+              className="mt-1 w-full bg-brand-bg border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             />
           </label>
 
           <label className="block">
-            <span className={`${T.mono} uppercase text-muted-3`}>
+            <span className={`${T.mono} uppercase text-brand-muted`}>
               Текст
             </span>
             <textarea
@@ -340,9 +340,9 @@ function TemplateEditor({
               onChange={(e) => setText(e.target.value)}
               rows={6}
               placeholder="Здравствуйте, {{lead.contact_name}}…"
-              className="mt-1 w-full bg-canvas border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 font-mono"
+              className="mt-1 w-full bg-brand-bg border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 font-mono"
             />
-            <p className="text-xs text-muted-3 mt-1">
+            <p className="text-xs text-brand-muted mt-1">
               Подстановки появятся в Sprint 2.5 — пока обычный текст.
             </p>
           </label>
@@ -361,7 +361,7 @@ function TemplateEditor({
             <button
               type="button"
               onClick={onClose}
-              className="text-sm text-muted hover:text-ink"
+              className="text-sm text-brand-muted hover:text-brand-primary"
             >
               Отмена
             </button>

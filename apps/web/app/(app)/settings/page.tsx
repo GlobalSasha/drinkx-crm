@@ -122,11 +122,11 @@ function SettingsPageInner() {
             // typedRoutes hasn't seen /settings/profile yet at tsc time.
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             href={"/settings/profile" as any}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors text-muted hover:bg-black/5 hover:text-ink"
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors text-brand-muted hover:bg-black/5 hover:text-brand-primary"
           >
             <User size={15} />
             <span className="flex-1 text-left">Мой профиль</span>
-            <ChevronRight size={12} className="text-muted-3" />
+            <ChevronRight size={12} className="text-brand-muted" />
           </Link>
 
           {SECTIONS.filter((s) => s.ready).map((s) => {
@@ -140,7 +140,7 @@ function SettingsPageInner() {
                   "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors",
                   isActive
                     ? "bg-brand-soft text-brand-accent"
-                    : "text-muted hover:bg-black/5 hover:text-ink",
+                    : "text-brand-muted hover:bg-black/5 hover:text-brand-primary",
                 )}
               >
                 {s.icon}
@@ -156,7 +156,7 @@ function SettingsPageInner() {
           {SECTIONS.some((s) => !s.ready) && (
             <details className="group mt-1 md:mt-2 hidden md:block">
               <summary
-                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-mono uppercase tracking-[0.18em] text-muted-3 cursor-pointer list-none hover:bg-black/5 hover:text-muted [&::-webkit-details-marker]:hidden"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-mono uppercase tracking-[0.18em] text-brand-muted cursor-pointer list-none hover:bg-black/5 hover:text-brand-muted [&::-webkit-details-marker]:hidden"
               >
                 <ChevronDown
                   size={12}
@@ -170,7 +170,7 @@ function SettingsPageInner() {
               {SECTIONS.filter((s) => !s.ready).map((s) => (
                 <div
                   key={s.key}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold whitespace-nowrap text-muted-3 cursor-not-allowed"
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold whitespace-nowrap text-brand-muted cursor-not-allowed"
                   aria-disabled="true"
                 >
                   {s.icon}
@@ -188,7 +188,7 @@ function SettingsPageInner() {
                 key={`mobile-${s.key}`}
                 type="button"
                 disabled
-                className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold whitespace-nowrap text-muted-3 cursor-not-allowed"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold whitespace-nowrap text-brand-muted cursor-not-allowed"
               >
                 {s.icon}
                 <span className="flex-1 text-left">{s.label}</span>

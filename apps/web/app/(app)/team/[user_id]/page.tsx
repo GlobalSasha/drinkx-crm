@@ -72,7 +72,7 @@ export default function ManagerStatsPage() {
   if (me.isLoading || !me.data) {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
-        <Loader2 size={20} className="animate-spin text-muted-2" />
+        <Loader2 size={20} className="animate-spin text-brand-muted" />
       </div>
     );
   }
@@ -83,7 +83,7 @@ export default function ManagerStatsPage() {
       <Link
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         href={"/team" as any}
-        className="inline-flex items-center gap-1 text-xs font-mono text-muted-2 hover:text-ink mb-4 transition-colors"
+        className="inline-flex items-center gap-1 text-xs font-mono text-brand-muted hover:text-brand-primary mb-4 transition-colors"
       >
         <ChevronLeft size={12} />
         Назад к команде
@@ -95,14 +95,14 @@ export default function ManagerStatsPage() {
             {stats.data?.name ?? "…"}
           </h1>
           {stats.data && (
-            <p className="text-xs font-mono text-muted-3 mt-0.5">
+            <p className="text-xs font-mono text-brand-muted mt-0.5">
               {stats.data.email} ·{" "}
               {ROLE_LABEL[stats.data.role] ?? stats.data.role}
             </p>
           )}
         </div>
 
-        <div className="flex gap-1 bg-canvas/80 rounded-pill p-1">
+        <div className="flex gap-1 bg-brand-bg/80 rounded-pill p-1">
           {PERIODS.map((p) => (
             <button
               key={p.value}
@@ -111,8 +111,8 @@ export default function ManagerStatsPage() {
               className={
                 "px-3 py-1.5 rounded-pill text-xs font-semibold transition-colors " +
                 (period === p.value
-                  ? "bg-white shadow-sm text-ink"
-                  : "text-muted-2 hover:text-ink")
+                  ? "bg-white shadow-sm text-brand-primary"
+                  : "text-brand-muted hover:text-brand-primary")
               }
             >
               {p.label}
@@ -156,7 +156,7 @@ export default function ManagerStatsPage() {
               <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
                 <div>
                   <h2 className="type-card-title">Лиды по этапам</h2>
-                  <p className={`${T.mono} uppercase text-muted-3 mt-0.5`}>
+                  <p className={`${T.mono} uppercase text-brand-muted mt-0.5`}>
                     Текущая загрузка, не зависит от периода
                   </p>
                 </div>
@@ -172,7 +172,7 @@ export default function ManagerStatsPage() {
               </div>
 
               {myWorkload.rows.length === 0 ? (
-                <p className="text-sm text-muted-2 py-4">
+                <p className="text-sm text-brand-muted py-4">
                   Активных лидов нет.
                 </p>
               ) : (
@@ -188,27 +188,27 @@ export default function ManagerStatsPage() {
                         <Link
                           // eslint-disable-next-line @typescript-eslint/no-explicit-any
                           href={`/pipeline?assigned_to=${userId}&stage=${stage.id}` as any}
-                          className="text-sm text-ink flex-1 truncate hover:underline"
+                          className="text-sm text-brand-primary flex-1 truncate hover:underline"
                         >
                           {stage.name}
                         </Link>
-                        <span className="text-sm font-semibold tabular-nums text-ink shrink-0 w-10 text-right">
+                        <span className="text-sm font-semibold tabular-nums text-brand-primary shrink-0 w-10 text-right">
                           {cell.count}
                         </span>
-                        <span className="text-xs text-muted-2 tabular-nums shrink-0 w-28 text-right">
+                        <span className="text-xs text-brand-muted tabular-nums shrink-0 w-28 text-right">
                           {fmtSum(cell.sum_amount)}
                         </span>
                       </li>
                     ))}
                   </ul>
                   <div className="flex items-center gap-3 mt-3 pt-3 border-t border-brand-border">
-                    <span className={`${T.mono} uppercase text-muted-3 flex-1`}>
+                    <span className={`${T.mono} uppercase text-brand-muted flex-1`}>
                       Всего в работе
                     </span>
-                    <span className="text-sm font-bold tabular-nums text-ink shrink-0 w-10 text-right">
+                    <span className="text-sm font-bold tabular-nums text-brand-primary shrink-0 w-10 text-right">
                       {myWorkload.manager.open_count}
                     </span>
-                    <span className="text-xs text-muted-2 tabular-nums shrink-0 w-28 text-right">
+                    <span className="text-xs text-brand-muted tabular-nums shrink-0 w-28 text-right">
                       {fmtSum(myWorkload.manager.pipeline_sum)}
                     </span>
                   </div>
@@ -220,21 +220,21 @@ export default function ManagerStatsPage() {
           {/* Daily table */}
           <div className="bg-white border border-brand-border rounded-card shadow-soft overflow-hidden">
             <table className="w-full text-left">
-              <thead className="bg-canvas/60">
+              <thead className="bg-brand-bg/60">
                 <tr className="border-b border-brand-border">
-                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold`}>
+                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold`}>
                     Дата
                   </th>
-                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold text-right w-[80px]`}>
+                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold text-right w-[80px]`}>
                     КП
                   </th>
-                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold text-right w-[80px]`}>
+                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold text-right w-[80px]`}>
                     Из пула
                   </th>
-                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold text-right w-[100px]`}>
+                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold text-right w-[100px]`}>
                     Продвинуто
                   </th>
-                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold text-right w-[80px]`}>
+                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold text-right w-[80px]`}>
                     Задачи
                   </th>
                 </tr>
@@ -243,16 +243,16 @@ export default function ManagerStatsPage() {
                 {stats.data.daily.length === 0 && (
                   <tr>
                     <td colSpan={5} className="px-4 py-12 text-center">
-                      <p className="text-sm text-muted-2">
+                      <p className="text-sm text-brand-muted">
                         За этот период активности не было.
                       </p>
                     </td>
                   </tr>
                 )}
                 {stats.data.daily.map((d) => (
-                  <tr key={d.date} className="border-b border-brand-border last:border-0 hover:bg-canvas/40">
+                  <tr key={d.date} className="border-b border-brand-border last:border-0 hover:bg-brand-bg/40">
                     <td className="px-4 py-2.5 align-middle">
-                      <span className="text-sm text-ink">{formatDay(d.date)}</span>
+                      <span className="text-sm text-brand-primary">{formatDay(d.date)}</span>
                     </td>
                     <td className="px-4 py-2.5 align-middle text-right tabular-nums text-sm">
                       {d.kp_sent}
@@ -280,8 +280,8 @@ export default function ManagerStatsPage() {
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="text-center">
-      <p className="type-kpi-number text-ink">{value}</p>
-      <p className={`${T.mono} uppercase text-muted-3 mt-1`}>
+      <p className="type-kpi-number text-brand-primary">{value}</p>
+      <p className={`${T.mono} uppercase text-brand-muted mt-1`}>
         {label}
       </p>
     </div>

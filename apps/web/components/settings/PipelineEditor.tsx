@@ -239,17 +239,17 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
           {/* Header */}
           <div className="px-6 py-4 border-b border-brand-border flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <div className="text-2xs font-mono uppercase tracking-wider text-muted-3">
+              <div className="text-2xs font-mono uppercase tracking-wider text-brand-muted">
                 Воронка
               </div>
-              <h2 className="text-lg font-bold tracking-tight text-ink mt-0.5 truncate">
+              <h2 className="text-lg font-bold tracking-tight text-brand-primary mt-0.5 truncate">
                 {isEdit ? pipeline?.name : "Новая воронка"}
               </h2>
             </div>
             <button
               onClick={busy ? undefined : onClose}
               disabled={busy}
-              className="shrink-0 p-1.5 -mr-1.5 rounded-lg text-muted-2 hover:bg-canvas hover:text-ink transition-colors disabled:opacity-40"
+              className="shrink-0 p-1.5 -mr-1.5 rounded-lg text-brand-muted hover:bg-brand-bg hover:text-brand-primary transition-colors disabled:opacity-40"
               aria-label="Закрыть"
             >
               <X size={16} />
@@ -260,7 +260,7 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
           <div className="px-6 py-5 overflow-y-auto flex-1 space-y-5">
             {/* Name */}
             <div>
-              <label className="block text-xs font-mono uppercase tracking-wide text-muted-3 mb-1.5">
+              <label className="block text-xs font-mono uppercase tracking-wide text-brand-muted mb-1.5">
                 Название
               </label>
               <input
@@ -275,10 +275,10 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
             {/* Stages */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-mono uppercase tracking-wide text-muted-3">
+                <label className="block text-xs font-mono uppercase tracking-wide text-brand-muted">
                   Стадии
                 </label>
-                <span className="text-2xs font-mono text-muted-3">
+                <span className="text-2xs font-mono text-brand-muted">
                   {stages.length} {stages.length === 1 ? "стадия" : "стадий"}
                 </span>
               </div>
@@ -309,7 +309,7 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
               <button
                 type="button"
                 onClick={addStage}
-                className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-sm font-semibold text-muted hover:text-ink bg-canvas hover:bg-canvas-2 transition-colors"
+                className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-sm font-semibold text-brand-muted hover:text-brand-primary bg-brand-bg hover:bg-brand-panel transition-colors"
               >
                 <Plus size={13} />
                 Добавить стадию
@@ -331,7 +331,7 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
               <button
                 onClick={busy ? undefined : onClose}
                 disabled={busy}
-                className="text-sm font-semibold text-muted hover:text-ink disabled:opacity-40 transition-colors"
+                className="text-sm font-semibold text-brand-muted hover:text-brand-primary disabled:opacity-40 transition-colors"
               >
                 Отмена
               </button>
@@ -385,13 +385,13 @@ function StageRowItem({
     <div
       ref={setNodeRef}
       style={style}
-      className="grid grid-cols-[20px_1fr_64px_84px_28px] items-center gap-2 bg-canvas/60 border border-brand-border rounded-xl px-2 py-1.5"
+      className="grid grid-cols-[20px_1fr_64px_84px_28px] items-center gap-2 bg-brand-bg/60 border border-brand-border rounded-xl px-2 py-1.5"
     >
       <button
         type="button"
         {...attributes}
         {...listeners}
-        className="text-muted-3 hover:text-ink cursor-grab active:cursor-grabbing touch-none"
+        className="text-brand-muted hover:text-brand-primary cursor-grab active:cursor-grabbing touch-none"
         aria-label="Перетащить"
       >
         <GripVertical size={14} />
@@ -430,14 +430,14 @@ function StageRowItem({
           className="w-14 px-1.5 py-1 text-sm font-mono bg-white border border-brand-border rounded-lg outline-none focus:border-brand-accent/40 transition-colors text-right tabular-nums"
           title="Срок до пометки «протухает»"
         />
-        <span className="text-2xs font-mono text-muted-3">дн.</span>
+        <span className="text-2xs font-mono text-brand-muted">дн.</span>
       </div>
 
       <button
         type="button"
         onClick={onRemove}
         disabled={!canRemove}
-        className="text-muted-3 hover:text-rose disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        className="text-brand-muted hover:text-rose disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         aria-label="Удалить стадию"
         title={canRemove ? "Удалить" : "Нужна хотя бы одна стадия"}
       >

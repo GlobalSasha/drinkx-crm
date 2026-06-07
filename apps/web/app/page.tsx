@@ -4,13 +4,13 @@ export default function HomePage() {
   return (
     <main className="min-h-screen flex items-center justify-center p-8">
       <div className="max-w-2xl w-full bg-white border border-brand-border rounded-card p-12 shadow-soft">
-        <div className="font-mono text-xs uppercase tracking-[0.2em] text-muted mb-3">
+        <div className="font-mono text-xs uppercase tracking-[0.2em] text-brand-muted mb-3">
           Phase 1 · Foundation
         </div>
         <h1 className="text-5xl font-bold tracking-tight leading-none mb-6">
           drinkx<span className="text-brand-accent">.</span>crm
         </h1>
-        <p className="text-muted mb-8 leading-relaxed">
+        <p className="text-brand-muted mb-8 leading-relaxed">
           Production build. Skeleton only — see <code className="font-mono text-sm">AUTOPILOT.md</code> for the
           roadmap. Prototype with all real screens lives at{" "}
           <a className="text-brand-accent underline" href="https://globalsasha.github.io/drinkx-crm-prototype/">
@@ -27,13 +27,13 @@ export default function HomePage() {
           </Link>
           <Link
             href="/today"
-            className="inline-flex items-center gap-2 bg-black/5 text-ink rounded-pill px-5 py-3 font-semibold transition-transform duration-700 ease-soft active:scale-[0.98]"
+            className="inline-flex items-center gap-2 bg-black/5 text-brand-primary rounded-pill px-5 py-3 font-semibold transition-transform duration-700 ease-soft active:scale-[0.98]"
           >
             Today (preview)
           </Link>
           <Link
             href="/pipeline"
-            className="inline-flex items-center gap-2 bg-black/5 text-ink rounded-pill px-5 py-3 font-semibold transition-transform duration-700 ease-soft active:scale-[0.98]"
+            className="inline-flex items-center gap-2 bg-black/5 text-brand-primary rounded-pill px-5 py-3 font-semibold transition-transform duration-700 ease-soft active:scale-[0.98]"
           >
             Pipeline (preview)
           </Link>

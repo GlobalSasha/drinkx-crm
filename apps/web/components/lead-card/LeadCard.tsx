@@ -139,7 +139,7 @@ export function LeadCard({ leadId }: Props) {
 
   if (isLoading) {
     return (
-      <div className="font-sans min-h-screen bg-canvas flex items-center justify-center">
+      <div className="font-sans min-h-screen bg-brand-bg flex items-center justify-center">
         <Loader2 size={24} className="animate-spin text-brand-muted" />
       </div>
     );
@@ -147,7 +147,7 @@ export function LeadCard({ leadId }: Props) {
 
   if (isError || !lead) {
     return (
-      <div className="font-sans min-h-screen bg-canvas flex flex-col items-center justify-center gap-4">
+      <div className="font-sans min-h-screen bg-brand-bg flex flex-col items-center justify-center gap-4">
         <AlertTriangle size={24} className="text-rose" />
         <p className="type-caption text-rose">Лид не найден или ошибка загрузки</p>
         <Link href="/pipeline" className={`type-caption ${C.color.accent}`}>
@@ -180,7 +180,7 @@ export function LeadCard({ leadId }: Props) {
   }
 
   return (
-    <div className="font-sans min-h-screen bg-canvas flex flex-col">
+    <div className="font-sans min-h-screen bg-brand-bg flex flex-col">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
       {/* Sticky header — 2 rows per spec */}
       <header className="sticky top-0 z-20 bg-white border-b border-brand-border">

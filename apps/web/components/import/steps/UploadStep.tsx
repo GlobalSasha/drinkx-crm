@@ -85,10 +85,10 @@ export function UploadStep({ onUploaded }: Props) {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-base font-bold tracking-tight text-ink">
+        <h3 className="text-base font-bold tracking-tight text-brand-primary">
           Загрузите файл
         </h3>
-        <p className="text-md text-muted mt-1">
+        <p className="text-md text-brand-muted mt-1">
           Поддерживаются Excel, CSV, JSON, YAML — до {MAX_MB} МБ.
         </p>
       </div>
@@ -106,7 +106,7 @@ export function UploadStep({ onUploaded }: Props) {
             ? "border-brand-accent bg-brand-soft"
             : picked
               ? "border-emerald-400/40 bg-emerald-50/40"
-              : "border-brand-border hover:border-brand-accent/60 hover:bg-canvas/60",
+              : "border-brand-border hover:border-brand-accent/60 hover:bg-brand-bg/60",
           busy && "opacity-60 cursor-wait",
         )}
       >
@@ -116,12 +116,12 @@ export function UploadStep({ onUploaded }: Props) {
               <FileText size={22} />
             </div>
             <div>
-              <div className="text-sm font-bold text-ink">{picked.name}</div>
-              <div className="text-xs font-mono text-muted-3 mt-0.5">
+              <div className="text-sm font-bold text-brand-primary">{picked.name}</div>
+              <div className="text-xs font-mono text-brand-muted mt-0.5">
                 {fmtSize(picked.size)}
               </div>
             </div>
-            <div className="text-xs text-muted-2">
+            <div className="text-xs text-brand-muted">
               Нажмите чтобы выбрать другой файл
             </div>
           </>
@@ -132,16 +132,16 @@ export function UploadStep({ onUploaded }: Props) {
                 "w-12 h-12 rounded-card flex items-center justify-center transition-colors",
                 dragOver
                   ? "bg-brand-accent text-white"
-                  : "bg-canvas text-muted",
+                  : "bg-brand-bg text-brand-muted",
               )}
             >
               <Upload size={22} />
             </div>
             <div>
-              <div className="text-sm font-bold text-ink">
+              <div className="text-sm font-bold text-brand-primary">
                 Перетащите файл сюда
               </div>
-              <div className="text-sm text-muted mt-0.5">
+              <div className="text-sm text-brand-muted mt-0.5">
                 или нажмите чтобы выбрать
               </div>
             </div>
@@ -149,7 +149,7 @@ export function UploadStep({ onUploaded }: Props) {
               {ACCEPTED_EXT.filter((e) => e !== ".yml").map((ext) => (
                 <span
                   key={ext}
-                  className="text-2xs font-mono uppercase tracking-wider px-2 py-0.5 rounded-pill bg-black/5 text-muted-2"
+                  className="text-2xs font-mono uppercase tracking-wider px-2 py-0.5 rounded-pill bg-black/5 text-brand-muted"
                 >
                   {ext}
                 </span>

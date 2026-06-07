@@ -76,7 +76,7 @@ export function GateModal({ leadId, targetStage, onClose, onSuccess }: Props) {
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-base font-bold tracking-tight text-ink">
+              <h2 className="text-base font-bold tracking-tight text-brand-primary">
                 Переход в стадию
               </h2>
               <p
@@ -88,7 +88,7 @@ export function GateModal({ leadId, targetStage, onClose, onSuccess }: Props) {
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-black/5 text-muted transition-colors"
+              className="p-1.5 rounded-lg hover:bg-black/5 text-brand-muted transition-colors"
             >
               <X size={18} />
             </button>
@@ -97,7 +97,7 @@ export function GateModal({ leadId, targetStage, onClose, onSuccess }: Props) {
           {/* Gate criteria checklist */}
           {criteria.length > 0 && (
             <div className="mb-4">
-              <p className="font-mono text-2xs uppercase tracking-[0.12em] text-muted-3 mb-2">
+              <p className="font-mono text-2xs uppercase tracking-[0.12em] text-brand-muted mb-2">
                 Критерии перехода
               </p>
               <div className="space-y-2">
@@ -114,7 +114,7 @@ export function GateModal({ leadId, targetStage, onClose, onSuccess }: Props) {
                           ? "bg-rose/5 border border-rose/20"
                           : checked[i]
                           ? "bg-success/5"
-                          : "hover:bg-canvas"
+                          : "hover:bg-brand-bg"
                       }`}
                     >
                       {checked[i] ? (
@@ -122,7 +122,7 @@ export function GateModal({ leadId, targetStage, onClose, onSuccess }: Props) {
                       ) : violated ? (
                         <AlertTriangle size={16} className="text-rose shrink-0 mt-0.5" />
                       ) : (
-                        <Square size={16} className="text-muted-3 shrink-0 mt-0.5" />
+                        <Square size={16} className="text-brand-muted shrink-0 mt-0.5" />
                       )}
                       <span
                         className={`text-sm ${
@@ -130,7 +130,7 @@ export function GateModal({ leadId, targetStage, onClose, onSuccess }: Props) {
                             ? "text-rose"
                             : checked[i]
                             ? "text-success"
-                            : "text-ink"
+                            : "text-brand-primary"
                         }`}
                       >
                         {criterion}
@@ -172,7 +172,7 @@ export function GateModal({ leadId, targetStage, onClose, onSuccess }: Props) {
                 onChange={(e) => setSkipReason(e.target.value)}
                 placeholder="Укажите причину..."
                 rows={2}
-                className="mt-2 w-full px-3 py-2 text-sm bg-canvas border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white resize-none transition-all"
+                className="mt-2 w-full px-3 py-2 text-sm bg-brand-bg border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white resize-none transition-all"
               />
             )}
           </div>
@@ -185,7 +185,7 @@ export function GateModal({ leadId, targetStage, onClose, onSuccess }: Props) {
           <div className="flex gap-2 justify-end">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-pill text-sm font-semibold text-muted bg-canvas hover:bg-canvas-2 transition-all"
+              className="px-4 py-2 rounded-pill text-sm font-semibold text-brand-muted bg-brand-bg hover:bg-brand-panel transition-all"
             >
               Отмена
             </button>

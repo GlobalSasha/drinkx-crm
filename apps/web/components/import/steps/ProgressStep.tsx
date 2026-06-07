@@ -34,12 +34,12 @@ export function ProgressStep({ jobId, initialJob, onClose }: Props) {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-base font-bold tracking-tight text-ink">
+        <h3 className="text-base font-bold tracking-tight text-brand-primary">
           {isRunning && "Импорт выполняется"}
           {isSucceeded && "Импорт завершён"}
           {isFailed && "Импорт завершён с ошибками"}
         </h3>
-        <p className="text-md text-muted mt-1">
+        <p className="text-md text-brand-muted mt-1">
           {isRunning &&
             "Не закрывайте окно — мы создаём карточки одну за другой и обновляем счётчики каждые две секунды."}
           {(isSucceeded || isFailed) && "Можно перейти к базе лидов."}
@@ -48,15 +48,15 @@ export function ProgressStep({ jobId, initialJob, onClose }: Props) {
 
       {/* Progress bar */}
       <div className="space-y-2">
-        <div className="flex items-baseline justify-between text-sm font-mono text-muted-2">
+        <div className="flex items-baseline justify-between text-sm font-mono text-brand-muted">
           <span>
-            <span className="font-bold text-ink tabular-nums">{processed}</span>
-            <span className="text-muted-3"> / </span>
+            <span className="font-bold text-brand-primary tabular-nums">{processed}</span>
+            <span className="text-brand-muted"> / </span>
             <span className="tabular-nums">{job.total_rows}</span>
           </span>
-          <span className="text-muted-3 tabular-nums">{percent}%</span>
+          <span className="text-brand-muted tabular-nums">{percent}%</span>
         </div>
-        <div className="relative h-2 rounded-pill bg-canvas overflow-hidden">
+        <div className="relative h-2 rounded-pill bg-brand-bg overflow-hidden">
           <div
             className={clsx(
               "absolute inset-y-0 left-0 transition-[width] duration-500 ease-out",
@@ -112,7 +112,7 @@ export function ProgressStep({ jobId, initialJob, onClose }: Props) {
 
       <div className="flex items-center justify-end pt-1">
         {isRunning && (
-          <span className="inline-flex items-center gap-2 text-sm font-mono text-muted-2">
+          <span className="inline-flex items-center gap-2 text-sm font-mono text-brand-muted">
             <Loader2 size={14} className="animate-spin" />
             Опрашиваем сервер каждые 2 сек.
           </span>
@@ -129,7 +129,7 @@ export function ProgressStep({ jobId, initialJob, onClose }: Props) {
           <div className="flex items-center gap-2">
             <button
               onClick={goToPool}
-              className="text-sm font-semibold text-muted hover:text-ink transition-colors"
+              className="text-sm font-semibold text-brand-muted hover:text-brand-primary transition-colors"
             >
               К базе лидов
             </button>
@@ -166,12 +166,12 @@ function Counter({
 }) {
   const valueColor = {
     success: "text-emerald-700",
-    warning: value > 0 ? "text-amber-700" : "text-muted-3",
-    neutral: "text-ink",
+    warning: value > 0 ? "text-amber-700" : "text-brand-muted",
+    neutral: "text-brand-primary",
   }[tone];
   return (
-    <div className="rounded-xl bg-canvas px-3 py-2.5 flex flex-col gap-0.5">
-      <span className="text-2xs font-mono uppercase tracking-wider text-muted-3">
+    <div className="rounded-xl bg-brand-bg px-3 py-2.5 flex flex-col gap-0.5">
+      <span className="text-2xs font-mono uppercase tracking-wider text-brand-muted">
         {label}
       </span>
       <span className={`text-xl font-bold tabular-nums ${valueColor}`}>

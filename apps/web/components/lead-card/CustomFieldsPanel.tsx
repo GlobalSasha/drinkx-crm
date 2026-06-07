@@ -165,7 +165,7 @@ function CustomFieldRow({
 
   return (
     <div className="flex items-start gap-3 py-2.5">
-      <div className="text-xs text-muted-2 w-[130px] shrink-0 pt-1">
+      <div className="text-xs text-brand-muted w-[130px] shrink-0 pt-1">
         {attr.label}
         {attr.is_required && (
           <span className="text-warning ml-1" title="Обязательное">
@@ -179,10 +179,10 @@ function CustomFieldRow({
           <button
             type="button"
             onClick={startEdit}
-            className="group flex items-center gap-2 text-left w-full hover:bg-canvas/60 rounded-lg px-1.5 py-1 transition-colors min-h-[28px]"
+            className="group flex items-center gap-2 text-left w-full hover:bg-brand-bg/60 rounded-lg px-1.5 py-1 transition-colors min-h-[28px]"
           >
             {display ? (
-              <span className="text-sm text-ink truncate">{display}</span>
+              <span className="text-sm text-brand-primary truncate">{display}</span>
             ) : (
               <span className="type-hint text-brand-muted">
                 не заполнено
@@ -190,7 +190,7 @@ function CustomFieldRow({
             )}
             <Pencil
               size={11}
-              className="text-muted-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+              className="text-brand-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
             />
           </button>
         ) : (
@@ -248,7 +248,7 @@ function CustomFieldEditor({
           onBlur={onCancel}
           onKeyDown={onKey}
           disabled={pending}
-          className="bg-canvas border border-brand-accent/30 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 w-full max-w-[280px] disabled:opacity-50"
+          className="bg-brand-bg border border-brand-accent/30 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 w-full max-w-[280px] disabled:opacity-50"
         >
           <option value="">— очистить —</option>
           {options.map((o) => (
@@ -257,7 +257,7 @@ function CustomFieldEditor({
             </option>
           ))}
         </select>
-        {pending && <Loader2 size={12} className="animate-spin text-muted-2" />}
+        {pending && <Loader2 size={12} className="animate-spin text-brand-muted" />}
       </div>
     );
   }
@@ -282,9 +282,9 @@ function CustomFieldEditor({
         onKeyDown={onKey}
         disabled={pending}
         step={attr.kind === "number" ? "any" : undefined}
-        className="bg-canvas border border-brand-accent/30 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 w-full max-w-[280px] disabled:opacity-50"
+        className="bg-brand-bg border border-brand-accent/30 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 w-full max-w-[280px] disabled:opacity-50"
       />
-      {pending && <Loader2 size={12} className="animate-spin text-muted-2" />}
+      {pending && <Loader2 size={12} className="animate-spin text-brand-muted" />}
     </div>
   );
 }
