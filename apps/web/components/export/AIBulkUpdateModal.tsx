@@ -159,7 +159,7 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
                     "inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300",
                     snapshotPhase === "done"
                       ? "bg-emerald-600 text-white"
-                      : "bg-ink text-white hover:bg-ink/90",
+                      : "bg-brand-accent text-white hover:bg-brand-accent/90",
                     "disabled:opacity-60 disabled:cursor-not-allowed",
                   )}
                 >
@@ -256,7 +256,7 @@ function Step({
   return (
     <div className="rounded-card border border-brand-border bg-brand-bg/40 p-4">
       <div className="flex items-start gap-3">
-        <span className="shrink-0 w-6 h-6 rounded-full bg-ink text-white text-xs font-bold flex items-center justify-center tabular-nums">
+        <span className="shrink-0 w-6 h-6 rounded-full bg-brand-accent text-white text-xs font-bold flex items-center justify-center tabular-nums">
           {n}
         </span>
         <div className="min-w-0 flex-1">

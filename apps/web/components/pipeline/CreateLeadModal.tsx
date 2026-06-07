@@ -249,7 +249,7 @@ export function CreateLeadModal() {
               <button
                 type="submit"
                 disabled={pending || query.trim().length === 0}
-                className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-semibold bg-ink text-white transition-all hover:bg-ink/90 disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-semibold bg-brand-accent text-white transition-all hover:bg-brand-accent/90 disabled:opacity-50"
               >
                 {pending && <Loader2 size={14} className="animate-spin" />}
                 {picked ? "Создать лид" : "Создать"}

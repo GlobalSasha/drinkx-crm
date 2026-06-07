@@ -130,7 +130,7 @@ export function ChannelsSection() {
               <button
                 onClick={handleConnectGmail}
                 disabled={connect.isPending}
-                className="inline-flex items-center gap-1.5 bg-ink text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-ink/90 disabled:opacity-40 active:scale-[0.98] transition-all duration-300"
+                className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-brand-accent/90 disabled:opacity-40 active:scale-[0.98] transition-all duration-300"
               >
                 {connect.isPending ? (
                   <Loader2 size={13} className="animate-spin" />

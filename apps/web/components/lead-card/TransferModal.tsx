@@ -150,7 +150,7 @@ export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }:
             <button
               type="submit"
               disabled={!canSubmit}
-              className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-semibold bg-ink text-white transition-all hover:bg-ink/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-semibold bg-brand-accent text-white transition-all hover:bg-brand-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {transfer.isPending ? "..." : (
                 <>

@@ -388,7 +388,7 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
                 <button
                   onClick={handleSave}
                   disabled={busy}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-ink text-white text-sm font-semibold hover:bg-ink/90 disabled:opacity-40 transition-all duration-300"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-brand-accent text-white text-sm font-semibold hover:bg-brand-accent/90 disabled:opacity-40 transition-all duration-300"
                 >
                   {busy && <Loader2 size={14} className="animate-spin" />}
                   {busy ? "Сохраняем…" : "Сохранить"}

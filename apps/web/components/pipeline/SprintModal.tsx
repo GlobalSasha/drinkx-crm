@@ -245,7 +245,7 @@ function SegmentChip({
       onClick={onClick}
       className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 ${
         active
-          ? "bg-ink text-white"
+          ? "bg-brand-accent text-white"
           : "bg-brand-bg text-brand-muted hover:bg-brand-panel"
       }`}
     >

@@ -596,7 +596,7 @@ function AIBriefSection({
       )}
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-ink text-white type-caption font-semibold px-5 py-2 rounded-full z-50">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-brand-accent text-white type-caption font-semibold px-5 py-2 rounded-full z-50">
           {toast}
         </div>
       )}

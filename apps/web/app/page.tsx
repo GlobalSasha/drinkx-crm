@@ -21,7 +21,7 @@ export default function HomePage() {
         <div className="flex gap-3 flex-wrap">
           <Link
             href="/sign-in"
-            className="inline-flex items-center gap-2 bg-ink text-white rounded-full px-5 py-3 font-semibold transition-transform duration-700 ease-soft active:scale-[0.98]"
+            className="inline-flex items-center gap-2 bg-brand-accent text-white rounded-full px-5 py-3 font-semibold transition-transform duration-700 ease-soft active:scale-[0.98]"
           >
             Войти →
           </Link>

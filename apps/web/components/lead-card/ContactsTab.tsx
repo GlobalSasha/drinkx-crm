@@ -29,7 +29,7 @@ const AVATAR_COLORS = [
   "bg-success text-white",
   "bg-warning text-white",
   "bg-rose text-white",
-  "bg-ink text-white",
+  "bg-brand-accent text-white",
   "bg-brand-primary text-white",
 ];
 

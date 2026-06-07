@@ -142,7 +142,7 @@ export function PipelinesSection() {
         {isAdminOrHead && (
           <button
             onClick={openCreate}
-            className="inline-flex items-center gap-1.5 bg-ink text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-ink/90 active:scale-[0.98] transition-all duration-300"
+            className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-brand-accent/90 active:scale-[0.98] transition-all duration-300"
           >
             <Plus size={14} />
             Новая воронка
@@ -296,7 +296,7 @@ function DeleteModal({
     primaryLabel = "Понятно";
     primaryAction = onCancel;
     primaryStyle =
-      "bg-ink text-white hover:bg-ink/90 active:scale-[0.98]";
+      "bg-brand-accent text-white hover:bg-brand-accent/90 active:scale-[0.98]";
     showCancel = false;
   } else if (conflict?.code === "pipeline_is_default") {
     title = "Это воронка по умолчанию";
@@ -309,7 +309,7 @@ function DeleteModal({
     primaryLabel = "Понятно";
     primaryAction = onCancel;
     primaryStyle =
-      "bg-ink text-white hover:bg-ink/90 active:scale-[0.98]";
+      "bg-brand-accent text-white hover:bg-brand-accent/90 active:scale-[0.98]";
     showCancel = false;
   } else {
     body = (
