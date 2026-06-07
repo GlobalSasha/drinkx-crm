@@ -234,7 +234,7 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
           role="dialog"
           aria-modal="true"
           aria-label={isEdit ? "Редактирование воронки" : "Новая воронка"}
-          className="bg-white rounded-card border border-brand-border shadow-soft w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden"
+          className="bg-white rounded-card border border-brand-border shadow-overlay w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden"
         >
           {/* Header */}
           <div className="px-6 py-4 border-b border-brand-border flex items-start justify-between gap-4">
@@ -309,7 +309,7 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
               <button
                 type="button"
                 onClick={addStage}
-                className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-sm font-semibold text-brand-muted hover:text-brand-primary bg-brand-bg hover:bg-brand-panel transition-colors"
+                className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold text-brand-muted hover:text-brand-primary bg-brand-bg hover:bg-brand-panel transition-colors"
               >
                 <Plus size={13} />
                 Добавить стадию
@@ -338,7 +338,7 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
               <button
                 onClick={handleSave}
                 disabled={busy}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-pill bg-ink text-white text-sm font-semibold hover:bg-ink/90 disabled:opacity-40 transition-all duration-300"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-ink text-white text-sm font-semibold hover:bg-ink/90 disabled:opacity-40 transition-all duration-300"
               >
                 {busy && <Loader2 size={14} className="animate-spin" />}
                 {busy ? "Сохраняем…" : "Сохранить"}

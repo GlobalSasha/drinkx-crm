@@ -127,7 +127,7 @@ function PoolRow({
         ) : (
           <button
             onClick={handleClaim}
-            className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-pill px-3 py-1.5 text-xs font-semibold transition-all duration-200 hover:bg-brand-accent/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+            className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200 hover:bg-brand-accent/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
           >
             Взять в работу
           </button>
@@ -436,7 +436,7 @@ function LeadsPoolPageInner() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setAiUpdateOpen(true)}
-              className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-brand-panel hover:border-brand-border active:scale-[0.98]"
+              className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-brand-panel hover:border-brand-border active:scale-[0.98]"
               aria-label="Обновление через AI"
             >
               <Sparkles size={14} />
@@ -456,7 +456,7 @@ function LeadsPoolPageInner() {
             {/* "Только мой пул" placeholder toggle */}
             <label className="flex items-center gap-2 cursor-pointer opacity-50" title="Скоро">
               <span className="text-xs font-semibold text-brand-muted">Только мой пул</span>
-              <div className="w-8 h-4 rounded-pill bg-black/10" />
+              <div className="w-8 h-4 rounded-full bg-black/10" />
             </label>
           </div>
         </div>
@@ -482,7 +482,7 @@ function LeadsPoolPageInner() {
               placeholder="Поиск: имя, email, телефон, ИНН"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 pr-3 py-1.5 text-sm bg-brand-bg border border-brand-border rounded-pill outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300 w-64"
+              className="pl-8 pr-3 py-1.5 text-sm bg-brand-bg border border-brand-border rounded-full outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300 w-64"
             />
           </div>
 
@@ -586,7 +586,7 @@ function LeadsPoolPageInner() {
             type="button"
             onClick={() => setHasEmailOnly((v) => !v)}
             aria-pressed={hasEmailOnly}
-            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-pill text-xs font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
               hasEmailOnly
                 ? "bg-brand-soft text-brand-accent-text border-brand-accent/30"
                 : "bg-brand-bg text-brand-muted border-brand-border hover:border-brand-border"
@@ -598,7 +598,7 @@ function LeadsPoolPageInner() {
             type="button"
             onClick={() => setHasPhoneOnly((v) => !v)}
             aria-pressed={hasPhoneOnly}
-            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-pill text-xs font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
               hasPhoneOnly
                 ? "bg-brand-soft text-brand-accent-text border-brand-accent/30"
                 : "bg-brand-bg text-brand-muted border-brand-border hover:border-brand-border"
@@ -613,7 +613,7 @@ function LeadsPoolPageInner() {
               <button
                 type="button"
                 onClick={resetAllFilters}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-pill text-xs font-semibold text-rose hover:bg-rose/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose focus-visible:ring-offset-1"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold text-rose hover:bg-rose/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose focus-visible:ring-offset-1"
               >
                 <X size={12} />
                 Сбросить ({activeFilterCount})
@@ -639,7 +639,7 @@ function LeadsPoolPageInner() {
 
         {!isLoading && !isError && filtered.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="bg-white border border-brand-border rounded-card p-10 shadow-soft max-w-sm w-full">
+            <div className="bg-white border border-brand-border rounded-card p-10 shadow-overlay max-w-sm w-full">
               <p className="type-card-title mb-2">В пуле пока пусто</p>
               <p className="text-sm text-brand-muted">
                 Импортируйте лиды или добавьте вручную.

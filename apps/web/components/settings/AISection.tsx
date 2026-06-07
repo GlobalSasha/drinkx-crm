@@ -128,7 +128,7 @@ export function AISection() {
       </div>
 
       {/* Spend gauge card */}
-      <div className="bg-white border border-brand-border rounded-card shadow-soft p-5">
+      <div className="bg-white border border-brand-border rounded-card p-5">
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-bg flex items-center justify-center shrink-0">
             <Bot size={18} className="text-brand-muted" />
@@ -172,7 +172,7 @@ export function AISection() {
       </div>
 
       {/* Editor card */}
-      <div className="bg-white border border-brand-border rounded-card shadow-soft p-5 space-y-4">
+      <div className="bg-white border border-brand-border rounded-card p-5 space-y-4">
         <div>
           <label
             htmlFor="ai-budget"
@@ -223,7 +223,7 @@ export function AISection() {
             type="button"
             onClick={onSave}
             disabled={!dirty || !budgetValid || update.isPending}
-            className="inline-flex items-center gap-1.5 bg-ink text-white rounded-pill px-4 py-2 text-sm font-semibold hover:bg-ink/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300"
+            className="inline-flex items-center gap-1.5 bg-ink text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-ink/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300"
           >
             {update.isPending ? (
               <Loader2 size={13} className="animate-spin" />

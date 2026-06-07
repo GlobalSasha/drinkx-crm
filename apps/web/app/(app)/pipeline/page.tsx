@@ -141,7 +141,7 @@ function PipelinePageInner() {
             id="owner-scope"
             value={ownerScope}
             onChange={(e) => setOwnerScope(e.target.value)}
-            className="h-8 px-3 text-sm bg-brand-bg border border-brand-border rounded-pill outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300"
+            className="h-8 px-3 text-sm bg-brand-bg border border-brand-border rounded-full outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300"
           >
             <option value="">Мои</option>
             <option value="all">Все</option>

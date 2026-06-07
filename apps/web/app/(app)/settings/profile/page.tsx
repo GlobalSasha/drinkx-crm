@@ -207,7 +207,7 @@ export default function ProfilePage() {
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="px-5 py-2 bg-brand-accent text-white rounded-pill text-sm font-semibold disabled:opacity-50 hover:opacity-90 transition-opacity"
+          className="px-5 py-2 bg-brand-accent text-white rounded-full text-sm font-semibold disabled:opacity-50 hover:opacity-90 transition-opacity"
         >
           {saved ? "Сохранено ✓" : saving ? "Сохранение…" : "Сохранить"}
         </button>

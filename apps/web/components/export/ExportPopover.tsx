@@ -175,7 +175,7 @@ export function ExportPopover({
         aria-expanded={open}
         className={clsx(
           triggerClassName ??
-            "inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-brand-panel hover:border-brand-border active:scale-[0.98]",
+            "inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-brand-panel hover:border-brand-border active:scale-[0.98]",
         )}
       >
         <Download size={14} />
@@ -186,7 +186,7 @@ export function ExportPopover({
         <div
           role="dialog"
           aria-label="Экспорт лидов"
-          className="absolute right-0 top-full mt-2 w-[20rem] sm:w-[22rem] bg-white rounded-card border border-brand-border shadow-soft p-4 z-30 max-w-[calc(100vw-2rem)]"
+          className="absolute right-0 top-full mt-2 w-[20rem] sm:w-[22rem] bg-white rounded-card border border-brand-border shadow-overlay p-4 z-30 max-w-[calc(100vw-2rem)]"
           onMouseDown={(e) => e.stopPropagation()}
         >
           <div className="mb-3">
@@ -274,7 +274,7 @@ export function ExportPopover({
             </div>
             <span
               className={clsx(
-                "shrink-0 ml-2 w-9 h-5 rounded-pill relative transition-colors",
+                "shrink-0 ml-2 w-9 h-5 rounded-full relative transition-colors",
                 includeAiBrief || format === "md_zip"
                   ? "bg-brand-accent"
                   : "bg-black/15",
@@ -329,7 +329,7 @@ export function ExportPopover({
               onClick={handleSubmit}
               disabled={busy || phase === "done"}
               className={clsx(
-                "inline-flex items-center gap-2 px-4 py-2 rounded-pill text-sm font-semibold transition-all duration-300",
+                "inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300",
                 phase === "done"
                   ? "bg-emerald-600 text-white"
                   : "bg-brand-accent text-white hover:bg-brand-accent/90",

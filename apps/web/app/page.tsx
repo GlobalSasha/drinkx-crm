@@ -3,7 +3,7 @@ import Link from "next/link";
 export default function HomePage() {
   return (
     <main className="min-h-screen flex items-center justify-center p-8">
-      <div className="max-w-2xl w-full bg-white border border-brand-border rounded-card p-12 shadow-soft">
+      <div className="max-w-2xl w-full bg-white border border-brand-border rounded-card p-12">
         <div className="font-mono text-xs uppercase tracking-[0.2em] text-brand-muted mb-3">
           Phase 1 · Foundation
         </div>
@@ -21,19 +21,19 @@ export default function HomePage() {
         <div className="flex gap-3 flex-wrap">
           <Link
             href="/sign-in"
-            className="inline-flex items-center gap-2 bg-ink text-white rounded-pill px-5 py-3 font-semibold transition-transform duration-700 ease-soft active:scale-[0.98]"
+            className="inline-flex items-center gap-2 bg-ink text-white rounded-full px-5 py-3 font-semibold transition-transform duration-700 ease-soft active:scale-[0.98]"
           >
             Войти →
           </Link>
           <Link
             href="/today"
-            className="inline-flex items-center gap-2 bg-black/5 text-brand-primary rounded-pill px-5 py-3 font-semibold transition-transform duration-700 ease-soft active:scale-[0.98]"
+            className="inline-flex items-center gap-2 bg-black/5 text-brand-primary rounded-full px-5 py-3 font-semibold transition-transform duration-700 ease-soft active:scale-[0.98]"
           >
             Today (preview)
           </Link>
           <Link
             href="/pipeline"
-            className="inline-flex items-center gap-2 bg-black/5 text-brand-primary rounded-pill px-5 py-3 font-semibold transition-transform duration-700 ease-soft active:scale-[0.98]"
+            className="inline-flex items-center gap-2 bg-black/5 text-brand-primary rounded-full px-5 py-3 font-semibold transition-transform duration-700 ease-soft active:scale-[0.98]"
           >
             Pipeline (preview)
           </Link>

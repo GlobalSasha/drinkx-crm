@@ -78,7 +78,7 @@ export function ChannelsSection() {
       </div>
 
       {/* Gmail card */}
-      <div className="bg-white border border-brand-border rounded-card shadow-soft p-5">
+      <div className="bg-white border border-brand-border rounded-card p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-brand-bg flex items-center justify-center shrink-0">
@@ -130,7 +130,7 @@ export function ChannelsSection() {
               <button
                 onClick={handleConnectGmail}
                 disabled={connect.isPending}
-                className="inline-flex items-center gap-1.5 bg-ink text-white rounded-pill px-4 py-2 text-sm font-semibold hover:bg-ink/90 disabled:opacity-40 active:scale-[0.98] transition-all duration-300"
+                className="inline-flex items-center gap-1.5 bg-ink text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-ink/90 disabled:opacity-40 active:scale-[0.98] transition-all duration-300"
               >
                 {connect.isPending ? (
                   <Loader2 size={13} className="animate-spin" />
@@ -144,7 +144,7 @@ export function ChannelsSection() {
               <button
                 onClick={handleConnectGmail}
                 disabled={connect.isPending}
-                className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-pill px-3 py-1.5 text-xs font-semibold hover:bg-brand-panel hover:border-brand-border disabled:opacity-40 transition-all duration-300"
+                className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-3 py-1.5 text-xs font-semibold hover:bg-brand-panel hover:border-brand-border disabled:opacity-40 transition-all duration-300"
               >
                 Переподключить
               </button>
@@ -154,7 +154,7 @@ export function ChannelsSection() {
       </div>
 
       {/* SMTP card */}
-      <div className="bg-white border border-brand-border rounded-card shadow-soft p-5">
+      <div className="bg-white border border-brand-border rounded-card p-5">
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-bg flex items-center justify-center shrink-0">
             <Send size={18} className="text-brand-muted" />
@@ -165,12 +165,12 @@ export function ChannelsSection() {
                 SMTP (исходящая почта)
               </h3>
               {smtp.configured ? (
-                <span className="inline-flex items-center gap-1 text-2xs font-mono uppercase tracking-wide bg-success/10 text-success rounded-pill px-2 py-0.5">
+                <span className="inline-flex items-center gap-1 text-2xs font-mono uppercase tracking-wide bg-success/10 text-success rounded-full px-2 py-0.5">
                   <CheckCircle2 size={10} />
                   активен
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-2xs font-mono uppercase tracking-wide bg-warning/10 text-warning rounded-pill px-2 py-0.5">
+                <span className="inline-flex items-center gap-1 text-2xs font-mono uppercase tracking-wide bg-warning/10 text-warning rounded-full px-2 py-0.5">
                   <AlertCircle size={10} />
                   stub-режим
                 </span>

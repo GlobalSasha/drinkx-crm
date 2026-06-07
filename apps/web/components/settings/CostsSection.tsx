@@ -69,7 +69,7 @@ export function CostsSection() {
             onClick={() => setPeriod(p.key)}
             className={
               "px-3 py-1.5 text-sm font-semibold rounded-lg transition-colors " +
-              (period === p.key ? "bg-white text-brand-primary shadow-soft" : "text-brand-muted")
+              (period === p.key ? "bg-white text-brand-primary" : "text-brand-muted")
             }
           >
             {p.label}

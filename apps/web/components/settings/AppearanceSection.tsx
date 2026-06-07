@@ -111,7 +111,7 @@ export function AppearanceSection() {
           Компактный режим уменьшает внутренние отступы — больше
           информации помещается на экране.
         </p>
-        <div className="inline-flex rounded-pill bg-black/5 p-1">
+        <div className="inline-flex rounded-full bg-black/5 p-1">
           {(["comfortable", "compact"] as Density[]).map((key) => {
             const active = prefs.density === key;
             return (
@@ -120,9 +120,9 @@ export function AppearanceSection() {
                 type="button"
                 disabled={update.isPending}
                 onClick={() => update.mutate({ density: key })}
-                className={`px-4 py-1.5 rounded-pill text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
+                className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
                   active
-                    ? "bg-white text-brand-primary shadow-soft"
+                    ? "bg-white text-brand-primary"
                     : "text-brand-muted hover:text-brand-primary"
                 }`}
                 aria-pressed={active}
@@ -140,7 +140,7 @@ export function AppearanceSection() {
         <p className="text-xs text-brand-muted mb-2">
           Применяется ко всем экранам приложения.
         </p>
-        <div className="inline-flex rounded-pill bg-black/5 p-1">
+        <div className="inline-flex rounded-full bg-black/5 p-1">
           {(["sm", "md", "lg"] as FontSize[]).map((key) => {
             const active = prefs.font_size === key;
             return (
@@ -149,9 +149,9 @@ export function AppearanceSection() {
                 type="button"
                 disabled={update.isPending}
                 onClick={() => update.mutate({ font_size: key })}
-                className={`px-4 py-1.5 rounded-pill font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
+                className={`px-4 py-1.5 rounded-full font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
                   active
-                    ? "bg-white text-brand-primary shadow-soft"
+                    ? "bg-white text-brand-primary"
                     : "text-brand-muted hover:text-brand-primary"
                 }`}
                 style={{ fontSize: FONT_SIZE_PX[key] }}

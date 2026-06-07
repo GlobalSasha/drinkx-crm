@@ -75,7 +75,7 @@ export function PipelineSwitcher() {
   // switch when there's nothing to switch to.
   if (pipelines.length === 1) {
     return (
-      <span className="inline-flex items-center gap-1.5 bg-brand-bg border border-brand-border rounded-pill px-3 py-1.5 text-sm font-semibold text-brand-primary">
+      <span className="inline-flex items-center gap-1.5 bg-brand-bg border border-brand-border rounded-full px-3 py-1.5 text-sm font-semibold text-brand-primary">
         {selectedPipeline.name}
       </span>
     );
@@ -86,7 +86,7 @@ export function PipelineSwitcher() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-pill px-3 py-1.5 text-sm font-semibold transition-all duration-300 hover:bg-brand-panel hover:border-brand-border active:scale-[0.98]"
+        className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-3 py-1.5 text-sm font-semibold transition-all duration-300 hover:bg-brand-panel hover:border-brand-border active:scale-[0.98]"
         aria-haspopup="listbox"
         aria-expanded={open}
       >
@@ -100,7 +100,7 @@ export function PipelineSwitcher() {
       {open && (
         <div
           role="listbox"
-          className="absolute left-0 top-full mt-1 z-30 min-w-[260px] bg-white border border-brand-border rounded-xl shadow-soft py-1 overflow-hidden"
+          className="absolute left-0 top-full mt-1 z-30 min-w-[260px] bg-white border border-brand-border rounded-xl shadow-overlay py-1 overflow-hidden"
         >
           {pipelines.map((p) => {
             const isSelected = p.id === selectedPipeline.id;

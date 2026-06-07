@@ -163,7 +163,7 @@ function SettingsPageInner() {
                   className="transition-transform duration-200 group-open:rotate-180"
                 />
                 <span className="flex-1 text-left">Скоро</span>
-                <span className="text-[9px] font-mono normal-case tracking-normal bg-black/5 rounded-pill px-1.5 py-0.5">
+                <span className="text-[9px] font-mono normal-case tracking-normal bg-black/5 rounded-full px-1.5 py-0.5">
                   {SECTIONS.filter((s) => !s.ready).length}
                 </span>
               </summary>

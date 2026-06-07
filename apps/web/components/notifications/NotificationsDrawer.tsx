@@ -133,7 +133,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
 
       {/* Panel */}
       <aside
-        className={`fixed top-0 right-0 z-40 h-screen w-[420px] max-w-[92vw] bg-white border-l border-brand-border shadow-soft flex flex-col transition-transform duration-300 ease-soft ${
+        className={`fixed top-0 right-0 z-40 h-screen w-[420px] max-w-[92vw] bg-white border-l border-brand-border shadow-overlay flex flex-col transition-transform duration-300 ease-soft ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
         role="dialog"
@@ -144,7 +144,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
           <div className="flex items-center gap-2">
             <h2 className="text-base font-bold tracking-tight">Уведомления</h2>
             {unread > 0 && (
-              <span className="bg-brand-accent text-white text-2xs font-mono font-bold px-2 py-0.5 rounded-pill tabular-nums">
+              <span className="bg-brand-accent text-white text-2xs font-mono font-bold px-2 py-0.5 rounded-full tabular-nums">
                 {unread}
               </span>
             )}
@@ -169,19 +169,19 @@ export function NotificationsDrawer({ open, onClose }: Props) {
 
         {/* Filter row */}
         <div className="px-5 py-3 border-b border-brand-border flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1 bg-brand-bg rounded-pill p-0.5">
+          <div className="flex items-center gap-1 bg-brand-bg rounded-full p-0.5">
             <button
               onClick={() => setUnreadOnly(true)}
-              className={`px-3 py-1 text-xs font-semibold rounded-pill transition-colors ${
-                unreadOnly ? "bg-white text-brand-primary shadow-soft" : "text-brand-muted hover:text-brand-primary"
+              className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
+                unreadOnly ? "bg-white text-brand-primary" : "text-brand-muted hover:text-brand-primary"
               }`}
             >
               Непрочитанные
             </button>
             <button
               onClick={() => setUnreadOnly(false)}
-              className={`px-3 py-1 text-xs font-semibold rounded-pill transition-colors ${
-                !unreadOnly ? "bg-white text-brand-primary shadow-soft" : "text-brand-muted hover:text-brand-primary"
+              className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
+                !unreadOnly ? "bg-white text-brand-primary" : "text-brand-muted hover:text-brand-primary"
               }`}
             >
               Все

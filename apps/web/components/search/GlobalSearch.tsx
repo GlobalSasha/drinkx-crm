@@ -86,7 +86,7 @@ export function GlobalSearch({ open, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-3xl max-w-xl w-full shadow-soft overflow-hidden"
+        className="bg-white rounded-3xl max-w-xl w-full shadow-overlay overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 px-5 py-4 border-b border-brand-border">

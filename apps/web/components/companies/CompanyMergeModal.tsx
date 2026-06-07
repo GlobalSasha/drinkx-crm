@@ -55,7 +55,7 @@ export function CompanyMergeModal({ sourceId, sourceName, onClose, onSuccess }: 
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-soft">
+      <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-overlay">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 rounded-full bg-brand-panel">
             <GitMerge size={18} className="text-brand-accent-text" />

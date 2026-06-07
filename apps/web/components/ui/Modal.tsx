@@ -83,7 +83,7 @@ export function Modal({
         aria-labelledby={headingId}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className={`bg-white rounded-3xl ${size} w-full p-6 shadow-soft outline-none`}
+        className={`bg-white rounded-3xl ${size} w-full p-6 shadow-overlay outline-none`}
       >
         <h2 id={headingId} className="sr-only">
           {title}

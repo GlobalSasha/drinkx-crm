@@ -76,7 +76,7 @@ export function PipelineHeader({ leads, totalCount }: Props) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 shrink-0">
           <h1 className="type-page-title">Воронка</h1>
-          <span className="bg-black/5 text-brand-muted text-xs font-mono px-2 py-0.5 rounded-pill">
+          <span className="bg-black/5 text-brand-muted text-xs font-mono px-2 py-0.5 rounded-full">
             {totalCount}
           </span>
         </div>
@@ -93,7 +93,7 @@ export function PipelineHeader({ leads, totalCount }: Props) {
           </Button>
           <button
             onClick={openImportWizard}
-            className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-brand-panel hover:border-brand-border active:scale-[0.98]"
+            className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-brand-panel hover:border-brand-border active:scale-[0.98]"
             aria-label="Импорт лидов из файла"
           >
             <Upload size={14} />
@@ -132,7 +132,7 @@ export function PipelineHeader({ leads, totalCount }: Props) {
             placeholder="Поиск..."
             value={filters.q}
             onChange={(e) => setQ(e.target.value)}
-            className="h-8 pl-8 pr-3 text-sm bg-brand-bg border border-brand-border rounded-pill outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300 w-44"
+            className="h-8 pl-8 pr-3 text-sm bg-brand-bg border border-brand-border rounded-full outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300 w-44"
           />
         </div>
 

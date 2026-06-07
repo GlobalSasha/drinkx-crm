@@ -110,7 +110,7 @@ export function CreateLeadModal() {
         onClick={closeCreateLeadModal}
       />
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-card border border-brand-border shadow-soft w-full max-w-md p-6">
+        <div className="bg-white rounded-card border border-brand-border shadow-overlay w-full max-w-md p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold tracking-tight">Новый лид</h2>
             <button
@@ -242,14 +242,14 @@ export function CreateLeadModal() {
               <button
                 type="button"
                 onClick={closeCreateLeadModal}
-                className="px-4 py-2 rounded-pill text-sm font-semibold text-brand-muted bg-brand-bg hover:bg-brand-panel transition-all"
+                className="px-4 py-2 rounded-full text-sm font-semibold text-brand-muted bg-brand-bg hover:bg-brand-panel transition-all"
               >
                 Отмена
               </button>
               <button
                 type="submit"
                 disabled={pending || query.trim().length === 0}
-                className="inline-flex items-center gap-2 px-5 py-2 rounded-pill text-sm font-semibold bg-ink text-white transition-all hover:bg-ink/90 disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-semibold bg-ink text-white transition-all hover:bg-ink/90 disabled:opacity-50"
               >
                 {pending && <Loader2 size={14} className="animate-spin" />}
                 {picked ? "Создать лид" : "Создать"}

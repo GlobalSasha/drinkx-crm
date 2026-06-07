@@ -142,7 +142,7 @@ export function PipelinesSection() {
         {isAdminOrHead && (
           <button
             onClick={openCreate}
-            className="inline-flex items-center gap-1.5 bg-ink text-white rounded-pill px-4 py-2 text-sm font-semibold hover:bg-ink/90 active:scale-[0.98] transition-all duration-300"
+            className="inline-flex items-center gap-1.5 bg-ink text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-ink/90 active:scale-[0.98] transition-all duration-300"
           >
             <Plus size={14} />
             Новая воронка
@@ -151,7 +151,7 @@ export function PipelinesSection() {
       </div>
 
       {/* Table */}
-      <div className="bg-white border border-brand-border rounded-card shadow-soft overflow-hidden">
+      <div className="bg-white border border-brand-border rounded-card overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-brand-bg/60">
             <tr className="border-b border-brand-border">
@@ -332,7 +332,7 @@ function DeleteModal({
           role="alertdialog"
           aria-modal="true"
           aria-label={title}
-          className="bg-white rounded-card border border-brand-border shadow-soft w-full max-w-md p-6"
+          className="bg-white rounded-card border border-brand-border shadow-overlay w-full max-w-md p-6"
         >
           <h3 className="type-card-title text-brand-primary mb-2">
             {title}
@@ -351,7 +351,7 @@ function DeleteModal({
             <button
               onClick={busy ? undefined : primaryAction}
               disabled={busy}
-              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-pill text-sm font-semibold disabled:opacity-40 transition-all duration-300 ${primaryStyle}`}
+              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-40 transition-all duration-300 ${primaryStyle}`}
             >
               {busy && <Loader2 size={14} className="animate-spin" />}
               {primaryLabel}

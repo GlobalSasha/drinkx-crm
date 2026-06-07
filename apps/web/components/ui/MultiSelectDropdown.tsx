@@ -61,7 +61,7 @@ export function MultiSelectDropdown({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`h-8 inline-flex items-center gap-1.5 px-3 rounded-pill text-xs font-semibold transition-all duration-300 ${
+        className={`h-8 inline-flex items-center gap-1.5 px-3 rounded-full text-xs font-semibold transition-all duration-300 ${
           isActive
             ? "bg-brand-accent text-white"
             : "bg-brand-bg text-brand-muted hover:bg-brand-panel border border-brand-border"

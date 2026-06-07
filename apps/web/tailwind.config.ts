@@ -81,6 +81,9 @@ const config: Config = {
       boxShadow: {
         soft: "0 20px 40px -22px rgba(10,10,10,0.08)",
         pill: "0 8px 24px -16px rgba(10,10,10,0.06)",
+        // Single elevation for true overlays (modals, dropdowns, popovers,
+        // drawers, tooltips, toasts). Cards stay shadowless.
+        overlay: "0 16px 48px -16px rgba(17,17,17,0.18)",
       },
     },
   },

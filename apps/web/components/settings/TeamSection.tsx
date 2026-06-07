@@ -128,7 +128,7 @@ export function TeamSection() {
           {isAdmin && (
             <button
               onClick={() => setInviteOpen(true)}
-              className="inline-flex items-center gap-1.5 bg-ink text-white rounded-pill px-4 py-2 text-sm font-semibold hover:bg-ink/90 active:scale-[0.98] transition-all duration-300"
+              className="inline-flex items-center gap-1.5 bg-ink text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-ink/90 active:scale-[0.98] transition-all duration-300"
             >
               <Plus size={14} />
               Пригласить
@@ -138,7 +138,7 @@ export function TeamSection() {
       </div>
 
       {/* Users table */}
-      <div className="bg-white border border-brand-border rounded-card shadow-soft overflow-hidden">
+      <div className="bg-white border border-brand-border rounded-card overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-brand-bg/60">
             <tr className="border-b border-brand-border">
@@ -191,7 +191,7 @@ export function TeamSection() {
           <h3 className={`${T.mono} uppercase text-brand-muted mb-2`}>
             Ожидают принятия приглашения
           </h3>
-          <div className="bg-white border border-brand-border rounded-card shadow-soft overflow-hidden">
+          <div className="bg-white border border-brand-border rounded-card overflow-hidden">
             <table className="w-full text-left">
               <thead className="bg-brand-bg/60">
                 <tr className="border-b border-brand-border">
@@ -399,7 +399,7 @@ function DeleteUserModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="bg-white rounded-card shadow-soft max-w-md w-full p-6">
+      <div className="bg-white rounded-card shadow-overlay max-w-md w-full p-6">
         <h3 className="type-card-title text-brand-primary mb-2">
           Удалить {name}?
         </h3>
@@ -417,7 +417,7 @@ function DeleteUserModal({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="px-3 py-2 text-sm text-brand-muted hover:bg-brand-bg/80 rounded-pill transition-colors disabled:opacity-40"
+            className="px-3 py-2 text-sm text-brand-muted hover:bg-brand-bg/80 rounded-full transition-colors disabled:opacity-40"
           >
             Отмена
           </button>
@@ -425,7 +425,7 @@ function DeleteUserModal({
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className="px-4 py-2 text-sm font-semibold text-white bg-rose hover:bg-rose/90 rounded-pill transition-colors disabled:opacity-40 inline-flex items-center gap-1.5"
+            className="px-4 py-2 text-sm font-semibold text-white bg-rose hover:bg-rose/90 rounded-full transition-colors disabled:opacity-40 inline-flex items-center gap-1.5"
           >
             {busy && <Loader2 size={13} className="animate-spin" />}
             Удалить
@@ -518,7 +518,7 @@ function InviteModal({
           role="dialog"
           aria-modal="true"
           aria-label="Пригласить пользователя"
-          className="bg-white rounded-card border border-brand-border shadow-soft w-full max-w-md overflow-hidden"
+          className="bg-white rounded-card border border-brand-border shadow-overlay w-full max-w-md overflow-hidden"
         >
           <div className="px-6 py-4 border-b border-brand-border flex items-start justify-between gap-4">
             <div>
@@ -600,7 +600,7 @@ function InviteModal({
             {sent ? (
               <button
                 onClick={handleClose}
-                className="px-5 py-2.5 rounded-pill bg-ink text-white text-sm font-semibold hover:bg-ink/90 transition-all duration-300"
+                className="px-5 py-2.5 rounded-full bg-ink text-white text-sm font-semibold hover:bg-ink/90 transition-all duration-300"
               >
                 Готово
               </button>
@@ -616,7 +616,7 @@ function InviteModal({
                 <button
                   onClick={handleSend}
                   disabled={busy || !email.trim()}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-pill bg-ink text-white text-sm font-semibold hover:bg-ink/90 disabled:opacity-40 transition-all duration-300"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-ink text-white text-sm font-semibold hover:bg-ink/90 disabled:opacity-40 transition-all duration-300"
                 >
                   {busy && <Loader2 size={14} className="animate-spin" />}
                   {busy ? "Отправляем…" : "Отправить приглашение"}

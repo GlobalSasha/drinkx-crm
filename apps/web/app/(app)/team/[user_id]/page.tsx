@@ -102,16 +102,16 @@ export default function ManagerStatsPage() {
           )}
         </div>
 
-        <div className="flex gap-1 bg-brand-bg/80 rounded-pill p-1">
+        <div className="flex gap-1 bg-brand-bg/80 rounded-full p-1">
           {PERIODS.map((p) => (
             <button
               key={p.value}
               type="button"
               onClick={() => setPeriod(p.value)}
               className={
-                "px-3 py-1.5 rounded-pill text-xs font-semibold transition-colors " +
+                "px-3 py-1.5 rounded-full text-xs font-semibold transition-colors " +
                 (period === p.value
-                  ? "bg-white shadow-sm text-brand-primary"
+                  ? "bg-white text-brand-primary"
                   : "text-brand-muted hover:text-brand-primary")
               }
             >
@@ -129,7 +129,7 @@ export default function ManagerStatsPage() {
       </section>
 
       {stats.isLoading && (
-        <div className="bg-white border border-brand-border rounded-card shadow-soft p-6 animate-pulse h-[260px]" />
+        <div className="bg-white border border-brand-border rounded-card p-6 animate-pulse h-[260px]" />
       )}
 
       {stats.isError && (
@@ -141,7 +141,7 @@ export default function ManagerStatsPage() {
       {stats.data && (
         <>
           {/* Total stats */}
-          <div className="bg-white border border-brand-border rounded-card shadow-soft p-5 mb-6">
+          <div className="bg-white border border-brand-border rounded-card p-5 mb-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Stat label="КП" value={stats.data.stats.kp_sent} />
               <Stat label="Из пула" value={stats.data.stats.leads_taken_from_pool} />
@@ -152,7 +152,7 @@ export default function ManagerStatsPage() {
 
           {/* Current lead distribution by stage — independent of period */}
           {myWorkload && (
-            <div className="bg-white border border-brand-border rounded-card shadow-soft p-5 mb-6">
+            <div className="bg-white border border-brand-border rounded-card p-5 mb-6">
               <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
                 <div>
                   <h2 className="type-card-title">Лиды по этапам</h2>
@@ -218,7 +218,7 @@ export default function ManagerStatsPage() {
           )}
 
           {/* Daily table */}
-          <div className="bg-white border border-brand-border rounded-card shadow-soft overflow-hidden">
+          <div className="bg-white border border-brand-border rounded-card overflow-hidden">
             <table className="w-full text-left">
               <thead className="bg-brand-bg/60">
                 <tr className="border-b border-brand-border">

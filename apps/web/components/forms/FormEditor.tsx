@@ -274,7 +274,7 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
           role="dialog"
           aria-modal="true"
           aria-label={isEdit ? "Редактирование формы" : "Новая форма"}
-          className="bg-white rounded-card border border-brand-border shadow-soft w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden"
+          className="bg-white rounded-card border border-brand-border shadow-overlay w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden"
         >
           {/* Header */}
           <div className="px-6 py-4 border-b border-brand-border flex items-start justify-between gap-4">
@@ -388,7 +388,7 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
                 <button
                   onClick={handleSave}
                   disabled={busy}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-pill bg-ink text-white text-sm font-semibold hover:bg-ink/90 disabled:opacity-40 transition-all duration-300"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-ink text-white text-sm font-semibold hover:bg-ink/90 disabled:opacity-40 transition-all duration-300"
                 >
                   {busy && <Loader2 size={14} className="animate-spin" />}
                   {busy ? "Сохраняем…" : "Сохранить"}
@@ -771,7 +771,7 @@ function FieldRowEditor({
       <button
         onClick={() => onPatch({ required: !field.required })}
         className={clsx(
-          "h-7 rounded-pill text-xs font-semibold transition-colors",
+          "h-7 rounded-full text-xs font-semibold transition-colors",
           field.required
             ? "bg-brand-accent text-white"
             : "bg-brand-bg text-brand-muted hover:bg-brand-panel",
@@ -862,7 +862,7 @@ function EmbedTab({
           <button
             onClick={onCopy}
             className={clsx(
-              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-xs font-semibold transition-all",
+              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all",
               copied
                 ? "bg-emerald-600 text-white"
                 : "bg-brand-bg text-brand-primary border border-brand-border hover:bg-brand-panel",
@@ -917,7 +917,7 @@ function EmbedTab({
             <button
               onClick={onRotateKey}
               disabled={rotatingKey}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-xs font-semibold bg-brand-bg text-brand-primary border border-brand-border hover:bg-brand-panel disabled:opacity-40 transition-all"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-brand-bg text-brand-primary border border-brand-border hover:bg-brand-panel disabled:opacity-40 transition-all"
             >
               {rotatingKey ? (
                 <Loader2 size={12} className="animate-spin" />

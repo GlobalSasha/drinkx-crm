@@ -56,7 +56,7 @@ export function ProgressStep({ jobId, initialJob, onClose }: Props) {
           </span>
           <span className="text-brand-muted tabular-nums">{percent}%</span>
         </div>
-        <div className="relative h-2 rounded-pill bg-brand-bg overflow-hidden">
+        <div className="relative h-2 rounded-full bg-brand-bg overflow-hidden">
           <div
             className={clsx(
               "absolute inset-y-0 left-0 transition-[width] duration-500 ease-out",
@@ -120,7 +120,7 @@ export function ProgressStep({ jobId, initialJob, onClose }: Props) {
         {isSucceeded && (
           <button
             onClick={goToPool}
-            className="px-5 py-2.5 rounded-pill bg-ink text-white text-sm font-semibold hover:bg-ink/90 transition-all duration-300"
+            className="px-5 py-2.5 rounded-full bg-ink text-white text-sm font-semibold hover:bg-ink/90 transition-all duration-300"
           >
             Перейти к базе лидов
           </button>
@@ -135,7 +135,7 @@ export function ProgressStep({ jobId, initialJob, onClose }: Props) {
             </button>
             <button
               onClick={onClose}
-              className="px-5 py-2.5 rounded-pill bg-ink text-white text-sm font-semibold hover:bg-ink/90 transition-all duration-300"
+              className="px-5 py-2.5 rounded-full bg-ink text-white text-sm font-semibold hover:bg-ink/90 transition-all duration-300"
             >
               Закрыть
             </button>

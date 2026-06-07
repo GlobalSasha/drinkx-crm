@@ -145,7 +145,7 @@ export default function AutomationsPage() {
             <button
               type="button"
               onClick={openCreate}
-              className="inline-flex items-center gap-1.5 bg-ink text-white rounded-pill px-3.5 py-1.5 text-xs font-semibold hover:bg-ink/90 active:scale-[0.98] transition-all duration-300"
+              className="inline-flex items-center gap-1.5 bg-ink text-white rounded-full px-3.5 py-1.5 text-xs font-semibold hover:bg-ink/90 active:scale-[0.98] transition-all duration-300"
             >
               <Plus size={13} />
               Новая автоматизация
@@ -168,7 +168,7 @@ export default function AutomationsPage() {
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-brand-border rounded-card shadow-soft overflow-hidden">
+        <div className="bg-white border border-brand-border rounded-card overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-brand-bg">
               <tr className={`text-left ${T.mono} uppercase text-brand-muted`}>
@@ -906,28 +906,28 @@ function AutomationEditor({
               <button
                 type="button"
                 onClick={() => addExtraStep("delay_hours")}
-                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-brand-bg border border-brand-border hover:border-brand-accent"
+                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-full bg-brand-bg border border-brand-border hover:border-brand-accent"
               >
                 <Plus size={10} /> Пауза
               </button>
               <button
                 type="button"
                 onClick={() => addExtraStep("send_template")}
-                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-brand-bg border border-brand-border hover:border-brand-accent"
+                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-full bg-brand-bg border border-brand-border hover:border-brand-accent"
               >
                 <Plus size={10} /> Шаблон
               </button>
               <button
                 type="button"
                 onClick={() => addExtraStep("create_task")}
-                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-brand-bg border border-brand-border hover:border-brand-accent"
+                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-full bg-brand-bg border border-brand-border hover:border-brand-accent"
               >
                 <Plus size={10} /> Задача
               </button>
               <button
                 type="button"
                 onClick={() => addExtraStep("move_stage")}
-                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-brand-bg border border-brand-border hover:border-brand-accent"
+                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-full bg-brand-bg border border-brand-border hover:border-brand-accent"
               >
                 <Plus size={10} /> Стадия
               </button>
@@ -950,7 +950,7 @@ function AutomationEditor({
             <button
               type="submit"
               disabled={pending}
-              className="inline-flex items-center gap-1.5 bg-ink text-white rounded-pill px-4 py-2 text-sm font-semibold hover:bg-ink/90 disabled:opacity-40 transition-all duration-300"
+              className="inline-flex items-center gap-1.5 bg-ink text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-ink/90 disabled:opacity-40 transition-all duration-300"
             >
               {pending && <Loader2 size={13} className="animate-spin" />}
               {isEdit ? "Сохранить" : "Создать"}

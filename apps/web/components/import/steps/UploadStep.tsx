@@ -149,7 +149,7 @@ export function UploadStep({ onUploaded }: Props) {
               {ACCEPTED_EXT.filter((e) => e !== ".yml").map((ext) => (
                 <span
                   key={ext}
-                  className="text-2xs font-mono uppercase tracking-wider px-2 py-0.5 rounded-pill bg-black/5 text-brand-muted"
+                  className="text-2xs font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/5 text-brand-muted"
                 >
                   {ext}
                 </span>
@@ -178,7 +178,7 @@ export function UploadStep({ onUploaded }: Props) {
         <button
           onClick={startUpload}
           disabled={!picked || busy}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-pill bg-ink text-white text-sm font-semibold hover:bg-ink/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-ink text-white text-sm font-semibold hover:bg-ink/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300"
         >
           {busy && <Loader2 size={14} className="animate-spin" />}
           {busy ? "Загружаем и анализируем…" : "Продолжить"}
