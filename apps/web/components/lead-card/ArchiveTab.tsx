@@ -81,7 +81,7 @@ export function ArchiveTab({ leadId }: Props) {
             return (
               <li
                 key={a.id}
-                className="rounded-2xl bg-brand-bg overflow-hidden"
+                className="rounded-card bg-brand-bg overflow-hidden"
               >
                 <div className="flex items-start gap-3 px-3 py-2.5">
                   <span className="shrink-0 mt-0.5 text-brand-muted">

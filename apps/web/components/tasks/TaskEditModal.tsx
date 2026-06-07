@@ -58,12 +58,12 @@ export function TaskEditModal({
   return (
     <Modal open onClose={onClose} title="Редактирование задачи" dismissOnBackdrop={false}>
       <div className="-m-6">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-black/5">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-brand-border">
           <h3 className="text-base font-bold">Редактирование задачи</h3>
           <button
             type="button"
             onClick={onClose}
-            className="text-muted hover:text-ink p-1"
+            className="text-brand-muted hover:text-brand-primary p-1"
             aria-label="Закрыть"
           >
             <X size={16} />
@@ -72,7 +72,7 @@ export function TaskEditModal({
 
         <div className="px-5 py-4 space-y-3">
           <div>
-            <label className="text-xs font-mono uppercase tracking-wide text-muted-3">
+            <label className="text-xs font-mono uppercase tracking-wide text-brand-muted">
               Название
             </label>
             <input
@@ -88,7 +88,7 @@ export function TaskEditModal({
           </div>
 
           <div>
-            <label className="text-xs font-mono uppercase tracking-wide text-muted-3">
+            <label className="text-xs font-mono uppercase tracking-wide text-brand-muted">
               Срок и время
             </label>
             <input
@@ -102,7 +102,7 @@ export function TaskEditModal({
               <button
                 type="button"
                 onClick={() => setDue("")}
-                className="mt-1 text-xs text-muted hover:text-ink"
+                className="mt-1 text-xs text-brand-muted hover:text-brand-primary"
               >
                 Очистить срок
               </button>
@@ -127,7 +127,7 @@ export function TaskEditModal({
               type="button"
               onClick={onClose}
               disabled={update.isPending}
-              className="text-sm text-muted hover:text-ink disabled:opacity-40"
+              className="text-sm text-brand-muted hover:text-brand-primary disabled:opacity-40"
             >
               Отмена
             </button>

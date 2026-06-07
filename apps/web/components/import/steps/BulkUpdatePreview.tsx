@@ -68,10 +68,10 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
           <Sparkles size={16} />
         </div>
         <div>
-          <h3 className="text-base font-bold tracking-tight text-ink">
+          <h3 className="text-base font-bold tracking-tight text-brand-primary">
             Изменения от AI
           </h3>
-          <p className="text-md text-muted mt-1">
+          <p className="text-md text-brand-muted mt-1">
             Проверьте предложенные обновления. Применяются в фоне; неизменные
             лиды AI исключил из ответа.
           </p>
@@ -105,16 +105,16 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
 
       {/* Actionable items list */}
       {actionable.length > 0 && (
-        <div className="rounded-2xl border border-black/5 bg-white">
-          <div className="px-4 py-2.5 bg-canvas border-b border-black/5 text-2xs font-mono uppercase tracking-wider text-muted-2">
+        <div className="rounded-card border border-brand-border bg-white">
+          <div className="px-4 py-2.5 bg-brand-bg border-b border-brand-border text-2xs font-mono uppercase tracking-wider text-brand-muted">
             Изменения{" "}
-            <span className="text-muted-3 ml-1">
+            <span className="text-brand-muted ml-1">
               {actionable.length > VISIBLE_ITEMS
                 ? `первые ${VISIBLE_ITEMS} из ${actionable.length}`
                 : actionable.length}
             </span>
           </div>
-          <div className="divide-y divide-black/5 max-h-[44vh] overflow-y-auto">
+          <div className="divide-y divide-brand-border max-h-[44vh] overflow-y-auto">
             {actionable.slice(0, VISIBLE_ITEMS).map((item, i) => (
               <DiffRow key={`${item.lead_id ?? "new"}-${i}`} item={item} />
             ))}
@@ -124,7 +124,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
 
       {/* Errors panel */}
       {failed.length > 0 && (
-        <div className="rounded-2xl border border-amber-200/60 bg-amber-50">
+        <div className="rounded-card border border-amber-200/60 bg-amber-50">
           <div className="px-4 py-2.5 border-b border-amber-200/60 flex items-center gap-1.5 text-xs font-bold text-amber-800">
             <AlertTriangle size={13} />
             Не удалось распознать
@@ -136,7 +136,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
                 key={`err-${i}`}
                 className="px-4 py-2.5 text-sm flex items-baseline gap-2"
               >
-                <span className="font-semibold text-ink">
+                <span className="font-semibold text-brand-primary">
                   {item.company_name || "—"}
                 </span>
                 <span className="text-amber-800 truncate">{item.error}</span>
@@ -161,7 +161,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
         <button
           onClick={onClose}
           disabled={apply.isPending}
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted hover:text-ink disabled:opacity-40 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-muted hover:text-brand-primary disabled:opacity-40 transition-colors"
         >
           <ChevronLeft size={14} />
           Отмена
@@ -169,7 +169,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
         <button
           onClick={startApply}
           disabled={totalActionable === 0 || apply.isPending}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-pill bg-brand-accent text-white text-sm font-semibold hover:bg-brand-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-brand-accent text-white text-sm font-semibold hover:bg-brand-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300"
         >
           {apply.isPending && <Loader2 size={14} className="animate-spin" />}
           {apply.isPending
@@ -196,29 +196,29 @@ function DiffRow({ item }: { item: BulkUpdateDiffItem }) {
     <div>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full px-4 py-3 flex items-start gap-3 text-left hover:bg-canvas/50 transition-colors"
+        className="w-full px-4 py-3 flex items-start gap-3 text-left hover:bg-brand-bg/50 transition-colors"
       >
         <ChevronRight
           size={14}
           className={clsx(
-            "mt-0.5 shrink-0 text-muted-3 transition-transform",
+            "mt-0.5 shrink-0 text-brand-muted transition-transform",
             open && "rotate-90",
           )}
         />
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2 flex-wrap">
-            <span className="text-sm font-bold text-ink truncate">
+            <span className="text-sm font-bold text-brand-primary truncate">
               {item.company_name || "—"}
             </span>
             <ActionBadge isCreate={isCreate} />
             {item.inn && (
-              <span className="font-mono text-2xs text-muted-3">
+              <span className="font-mono text-2xs text-brand-muted">
                 ИНН {item.inn}
               </span>
             )}
           </div>
           {summary && (
-            <div className="text-sm text-muted-2 mt-0.5 truncate">
+            <div className="text-sm text-brand-muted mt-0.5 truncate">
               {summary}
             </div>
           )}
@@ -227,9 +227,9 @@ function DiffRow({ item }: { item: BulkUpdateDiffItem }) {
 
       {open && (
         <div className="px-4 pb-3 -mt-1">
-          <div className="rounded-xl bg-canvas/60 px-3 py-2 space-y-1">
+          <div className="rounded-xl bg-brand-bg/60 px-3 py-2 space-y-1">
             {item.changes.length === 0 && (
-              <div className="text-sm text-muted-3">
+              <div className="text-sm text-brand-muted">
                 Полей для изменения нет.
               </div>
             )}
@@ -260,16 +260,16 @@ function ActionBadge({ isCreate }: { isCreate: boolean }) {
 
 function ChangeLine({ change }: { change: BulkUpdateChange }) {
   const sign = OP_SIGN[change.op] ?? "·";
-  const tone = OP_TONE[change.op] ?? "text-muted-2";
+  const tone = OP_TONE[change.op] ?? "text-brand-muted";
   return (
     <div className="flex items-baseline gap-2 text-sm">
       <span className={clsx("font-mono shrink-0 w-3 text-center", tone)}>
         {sign}
       </span>
-      <span className="font-mono text-2xs text-muted-3 shrink-0">
+      <span className="font-mono text-2xs text-brand-muted shrink-0">
         {change.field}
       </span>
-      <span className="text-ink truncate">{formatValue(change)}</span>
+      <span className="text-brand-primary truncate">{formatValue(change)}</span>
     </div>
   );
 }
@@ -283,9 +283,9 @@ const OP_SIGN: Record<BulkUpdateChange["op"], string> = {
 
 const OP_TONE: Record<BulkUpdateChange["op"], string> = {
   add: "text-emerald-600",
-  remove: "text-rose-600",
+  remove: "text-rose",
   replace: "text-amber-600",
-  set: "text-muted",
+  set: "text-brand-muted",
 };
 
 function formatValue(c: BulkUpdateChange): string {
@@ -353,11 +353,11 @@ function StatCard({
     info: "bg-info/10 text-info border-info/20",
     success: "bg-emerald-50 text-emerald-700 border-emerald-200/60",
     warning: "bg-amber-50 text-amber-800 border-amber-200/60",
-    neutral: "bg-canvas text-ink border-black/5",
+    neutral: "bg-brand-bg text-brand-primary border-brand-border",
   }[tone];
   return (
     <div
-      className={`rounded-2xl border ${palette} px-4 py-3.5 flex flex-col gap-1.5`}
+      className={`rounded-card border ${palette} px-4 py-3.5 flex flex-col gap-1.5`}
     >
       <div className="flex items-center gap-1.5 text-2xs font-mono uppercase tracking-wider opacity-80">
         {icon}

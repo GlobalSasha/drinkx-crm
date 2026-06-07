@@ -168,13 +168,13 @@ export function LeadCardHeader({
                 if (e.key === "Enter") commitName();
                 if (e.key === "Escape") setEditingName(false);
               }}
-              className="text-4xl font-bold tracking-tight text-ink bg-transparent border-b-2 border-brand-accent outline-none w-full"
+              className="text-4xl font-bold tracking-tight text-brand-primary bg-transparent border-b-2 border-brand-accent outline-none w-full"
               style={{ lineHeight: "1.2" }}
             />
           ) : (
             <h1
               onClick={startEditName}
-              className="text-4xl font-bold tracking-tight text-ink cursor-text hover:text-brand-accent-text transition-colors truncate"
+              className="text-4xl font-bold tracking-tight text-brand-primary cursor-text hover:text-brand-accent-text transition-colors truncate"
               style={{ lineHeight: "1.2" }}
               title="Нажмите для редактирования"
             >
@@ -394,7 +394,7 @@ export function LeadCardHeader({
 
       {(isWon || isLost) && (
         <div
-          className={`mt-3 ml-9 flex items-center gap-2 px-3 py-2 rounded-2xl type-caption font-semibold ${
+          className={`mt-3 ml-9 flex items-center gap-2 px-3 py-2 rounded-card type-caption font-semibold ${
             isWon ? "bg-success/10 text-success" : "bg-rose/10 text-rose"
           }`}
         >

@@ -50,7 +50,7 @@ export function TaskFileDropzone({ leadId, taskId }: Props) {
 
   if (picked) {
     return (
-      <div className="bg-brand-bg rounded-2xl p-3 space-y-2">
+      <div className="bg-brand-bg rounded-card p-3 space-y-2">
         <div className="flex items-center justify-between gap-2">
           <span className="type-caption text-brand-primary truncate">
             {picked.name} · {fmtSize(picked.size)}
@@ -106,7 +106,7 @@ export function TaskFileDropzone({ leadId, taskId }: Props) {
         if (f) handlePick(f);
       }}
       onClick={() => inputRef.current?.click()}
-      className={`cursor-pointer rounded-2xl border-2 border-dashed p-3 text-center transition-colors ${
+      className={`cursor-pointer rounded-card border-2 border-dashed p-3 text-center transition-colors ${
         dragOver
           ? "border-brand-accent bg-brand-soft"
           : "border-brand-border bg-white hover:border-brand-accent"

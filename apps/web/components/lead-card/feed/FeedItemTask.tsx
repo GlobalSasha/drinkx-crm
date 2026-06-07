@@ -37,7 +37,7 @@ export function FeedItemTask({ item, leadId }: Props) {
           )}
         </div>
 
-        <div className="mt-1 rounded-2xl border border-brand-border bg-white p-3">
+        <div className="mt-1 rounded-card border border-brand-border bg-white p-3">
           <div className="flex items-start gap-2">
             <button
               type="button"

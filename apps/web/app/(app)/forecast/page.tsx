@@ -129,7 +129,7 @@ export default function ForecastPage() {
     }, [pipelines, leadsData]);
 
   return (
-    <main className={pageContainerVariants({ width: "default" })}>
+    <div className={pageContainerVariants({ surface: "data" })}>
       <PageHeader
         title="Прогноз"
         subtitle="Активная воронка, взвешенный прогноз по вероятностям этапов, риски и закрытые сделки."
@@ -362,7 +362,7 @@ export default function ForecastPage() {
               <li key={d.id}>
                 <Link
                   href={`/leads/${d.id}`}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-brand-bg hover:bg-brand-bg/70 transition-colors group"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-card bg-brand-bg hover:bg-brand-bg/70 transition-colors group"
                 >
                   <div className="flex-1 min-w-0">
                     <p className="type-body text-brand-primary truncate">{d.company}</p>
@@ -383,7 +383,7 @@ export default function ForecastPage() {
           </ul>
         )}
       </Card>
-    </main>
+    </div>
   );
 }
 
@@ -405,7 +405,7 @@ function Kpi({
     : "bg-white border border-brand-border";
   const valueColor = accent ? "text-brand-accent-text" : danger ? "text-rose" : C.color.text;
   return (
-    <div className={`${wrapBg} rounded-[2rem] p-4 flex flex-col gap-1`}>
+    <div className={`${wrapBg} rounded-card p-4 flex flex-col gap-1`}>
       <div className="flex items-center gap-2">
         <span className="text-brand-muted">{icon}</span>
         <span className="type-caption text-brand-muted uppercase tracking-wider font-semibold">

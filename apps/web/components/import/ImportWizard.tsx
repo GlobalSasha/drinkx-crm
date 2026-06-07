@@ -87,21 +87,21 @@ export function ImportWizard({ open, onClose }: Props) {
           role="dialog"
           aria-modal="true"
           aria-label="Импорт лидов"
-          className="bg-white rounded-2xl border border-black/5 shadow-soft w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden"
+          className="bg-white rounded-card border border-brand-border shadow-overlay w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden"
         >
           {/* Header */}
-          <div className="px-6 py-4 border-b border-black/5 flex items-start justify-between gap-4">
+          <div className="px-6 py-4 border-b border-brand-border flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <div className="text-2xs font-mono uppercase tracking-wider text-muted-3">
+              <div className="text-2xs font-mono uppercase tracking-wider text-brand-muted">
                 Импорт лидов
               </div>
-              <h2 className="text-lg font-bold tracking-tight text-ink mt-0.5">
+              <h2 className="text-lg font-bold tracking-tight text-brand-primary mt-0.5">
                 {STEP_LABELS[step]}
               </h2>
             </div>
             <button
               onClick={attemptClose}
-              className="shrink-0 p-1.5 -mr-1.5 rounded-lg text-muted-2 hover:bg-canvas hover:text-ink transition-colors"
+              className="shrink-0 p-1.5 -mr-1.5 rounded-lg text-brand-muted hover:bg-brand-bg hover:text-brand-primary transition-colors"
               aria-label="Закрыть"
             >
               <X size={16} />
@@ -177,7 +177,7 @@ function Stepper({
 }) {
   const items: Step[] = isBulkUpdate ? [1, 3, 4] : [1, 2, 3, 4];
   return (
-    <div className="px-6 py-3 border-b border-black/5 bg-canvas/40">
+    <div className="px-6 py-3 border-b border-brand-border bg-brand-bg/40">
       <ol className="flex items-center gap-2">
         {items.map((n, i) => {
           const state =
@@ -193,7 +193,7 @@ function Stepper({
                   "shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold tabular-nums transition-colors",
                   state === "done" && "bg-emerald-500 text-white",
                   state === "current" && "bg-brand-accent text-white",
-                  state === "upcoming" && "bg-canvas text-muted-3 border border-black/10",
+                  state === "upcoming" && "bg-brand-bg text-brand-muted border border-brand-border",
                 )}
                 aria-current={state === "current" ? "step" : undefined}
               >
@@ -202,7 +202,7 @@ function Stepper({
               <span
                 className={clsx(
                   "text-xs font-semibold truncate hidden sm:inline",
-                  state === "current" ? "text-ink" : "text-muted-3",
+                  state === "current" ? "text-brand-primary" : "text-brand-muted",
                 )}
               >
                 {STEP_LABELS[n]}

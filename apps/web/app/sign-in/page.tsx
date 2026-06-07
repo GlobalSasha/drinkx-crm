@@ -87,14 +87,14 @@ function SignInForm() {
   }
 
   return (
-    <div className="relative max-w-md w-full bg-white border border-black/10 rounded-2xl p-12 shadow-soft">
-      <div className={`${T.mono} text-muted mb-3`}>
+    <div className="relative max-w-md w-full bg-white border border-brand-border rounded-card p-12">
+      <div className={`${T.mono} text-brand-muted mb-3`}>
         ВХОД В CRM
       </div>
       <h1 className="type-page-title tracking-[-0.035em] leading-none mb-2">
         drinkx<span className="text-brand-accent">.</span>crm
       </h1>
-      <p className="text-muted text-sm mb-8 leading-relaxed">
+      <p className="text-brand-muted text-sm mb-8 leading-relaxed">
         Войди через Google — за 2 минуты настроим всё что нужно: профиль,
         рабочие часы, каналы. AI начнёт помогать с первой карточки.
       </p>
@@ -109,7 +109,7 @@ function SignInForm() {
       <button
         onClick={handleGoogle}
         disabled={loading}
-        className="w-full py-3.5 px-4 rounded-pill border border-black/10 bg-white flex items-center justify-center gap-3 text-sm font-medium hover:border-brand-accent/30 transition-all duration-700 ease-soft active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+        className="w-full py-3.5 px-4 rounded-full border border-brand-border bg-white flex items-center justify-center gap-3 text-sm font-medium hover:border-brand-accent/30 transition-all duration-700 ease-soft active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
       >
         <span
           className="w-[18px] h-[18px] rounded-full shrink-0"
@@ -121,7 +121,7 @@ function SignInForm() {
         Войти через Google
       </button>
 
-      <div className={`my-6 flex items-center gap-3 ${T.mono} text-muted`}>
+      <div className={`my-6 flex items-center gap-3 ${T.mono} text-brand-muted`}>
         <div className="flex-1 h-px bg-black/10" />
         ИЛИ
         <div className="flex-1 h-px bg-black/10" />
@@ -129,8 +129,8 @@ function SignInForm() {
 
       {otpSent ? (
         <div className="text-center py-4">
-          <p className="text-sm font-semibold text-ink mb-1">Проверь почту</p>
-          <p className="text-xs text-muted">
+          <p className="text-sm font-semibold text-brand-primary mb-1">Проверь почту</p>
+          <p className="text-xs text-brand-muted">
             Мы отправили magic link на{" "}
             <span className="font-mono text-brand-accent">{email}</span>.
             Перейди по ссылке в письме чтобы войти.
@@ -140,14 +140,14 @@ function SignInForm() {
               setOtpSent(false);
               setEmail("");
             }}
-            className="mt-4 text-xs text-muted hover:text-brand-accent underline"
+            className="mt-4 text-xs text-brand-muted hover:text-brand-accent underline"
           >
             Отправить снова
           </button>
         </div>
       ) : (
         <form onSubmit={handleMagicLink} className="space-y-3">
-          <div className="type-caption text-muted">
+          <div className="type-caption text-brand-muted">
             Magic link на email
           </div>
           <input
@@ -156,19 +156,19 @@ function SignInForm() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@drinkx.tech"
             required
-            className="w-full bg-black/[0.03] border border-black/10 rounded-lg px-4 py-2.5 text-sm text-ink placeholder:text-muted-2 focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1/40"
+            className="w-full bg-black/[0.03] border border-brand-border rounded-lg px-4 py-2.5 text-sm text-brand-primary placeholder:text-brand-muted focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1/40"
           />
           <button
             type="submit"
             disabled={loading || !email}
-            className="w-full py-3 px-4 rounded-pill bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/90 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full py-3 px-4 rounded-full bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/90 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {loading ? "Отправляем…" : "Получить ссылку"}
           </button>
         </form>
       )}
 
-      <div className={`my-6 flex items-center gap-3 ${T.mono} text-muted`}>
+      <div className={`my-6 flex items-center gap-3 ${T.mono} text-brand-muted`}>
         <div className="flex-1 h-px bg-black/10" />
         ИЛИ
         <div className="flex-1 h-px bg-black/10" />
@@ -177,20 +177,20 @@ function SignInForm() {
       <button
         onClick={handleTestUser}
         disabled={loading}
-        className="w-full py-2.5 px-4 rounded-pill border border-black/15 bg-transparent text-sm text-muted hover:text-ink hover:border-black/30 transition-all duration-300 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+        className="w-full py-2.5 px-4 rounded-full border border-brand-border bg-transparent text-sm text-brand-muted hover:text-brand-primary hover:border-brand-border transition-all duration-300 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
       >
         🧪 Войти как тестовый пользователь
       </button>
 
-      <p className="text-xs text-muted-3 mt-8 leading-relaxed text-center">
+      <p className="text-xs text-brand-muted mt-8 leading-relaxed text-center">
         При входе создаётся профиль менеджера в workspace DrinkX.
         <br />
         Используем только email и имя из Google · никакой почтовой переписки
         без явного согласия.
       </p>
 
-      <div className="mt-6 pt-6 border-t border-black/10 text-center">
-        <Link href="/" className="text-xs text-muted hover:text-brand-accent">
+      <div className="mt-6 pt-6 border-t border-brand-border text-center">
+        <Link href="/" className="text-xs text-brand-muted hover:text-brand-accent">
           ← на главную
         </Link>
       </div>

@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 
 export default function TriagePage() {
   return (
-    <div className={pageContainerVariants({ width: "content" })}>
+    <div className={pageContainerVariants({ surface: "reading" })}>
       <PageHeader
         title="Мессенджеры и звонки"
         subtitle="Сообщения без привязки к лиду — Telegram, MAX, телефон"

@@ -11,7 +11,9 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 
-import { T } from "@/lib/design-system";
+import { T, C } from "@/lib/design-system";
+import { pageContainerVariants } from "@/components/ui/PageContainer";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { useMe } from "@/lib/hooks/use-me";
 import {
   useDeleteForm,
@@ -74,7 +76,7 @@ export default function FormsPage() {
   if (meLoading || (!me && !formsQuery.isError)) {
     return (
       <div className="flex-1 flex items-center justify-center min-h-[60vh]">
-        <Loader2 size={20} className="animate-spin text-muted-2" />
+        <Loader2 size={20} className="animate-spin text-brand-muted" />
       </div>
     );
   }
@@ -87,29 +89,29 @@ export default function FormsPage() {
 
   return (
     <>
-      {/* Sticky header */}
-      <div className="sticky top-0 z-10 bg-white border-b border-black/5 px-6 py-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-baseline gap-2">
-            <h1 className="type-card-title">Формы</h1>
-            <span className="text-muted-3 text-xs font-mono tabular-nums">
-              {items.length}
-            </span>
-          </div>
-          <button
-            onClick={openCreator}
-            className="inline-flex items-center gap-1.5 bg-ink text-white rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-ink/90 active:scale-[0.98]"
-          >
-            <Plus size={15} />
-            Новая форма
-          </button>
-        </div>
-      </div>
+      <div className={pageContainerVariants({ surface: "data" })}>
+        <PageHeader
+          icon={<ClipboardList size={20} />}
+          title="Формы"
+          actions={
+            <>
+              <span className="text-brand-muted text-xs font-mono tabular-nums">
+                {items.length}
+              </span>
+              <button
+                onClick={openCreator}
+                className={`${C.button.primary} inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold`}
+              >
+                <Plus size={15} />
+                Новая форма
+              </button>
+            </>
+          }
+        />
 
-      <div className="px-6 py-5">
         {formsQuery.isLoading && (
           <div className="flex justify-center py-12">
-            <Loader2 size={20} className="animate-spin text-muted-2" />
+            <Loader2 size={20} className="animate-spin text-brand-muted" />
           </div>
         )}
 
@@ -125,8 +127,8 @@ export default function FormsPage() {
         )}
 
         {items.length > 0 && (
-          <div className="rounded-2xl border border-black/5 bg-white overflow-hidden">
-            <div className={`grid grid-cols-[1fr_180px_90px_110px_140px_100px] items-center gap-3 px-4 py-2.5 bg-canvas border-b border-black/5 ${T.mono} uppercase text-muted-2`}>
+          <div className="rounded-card border border-brand-border bg-white overflow-hidden">
+            <div className={`grid grid-cols-[1fr_180px_90px_110px_140px_100px] items-center gap-3 px-4 py-2.5 bg-brand-bg border-b border-brand-border ${T.mono} uppercase text-brand-muted`}>
               <span>Название</span>
               <span>Slug</span>
               <span className="text-right">Подач</span>
@@ -134,7 +136,7 @@ export default function FormsPage() {
               <span>Создана</span>
               <span />
             </div>
-            <div className="divide-y divide-black/5">
+            <div className="divide-y divide-brand-border">
               {items.map((form) => (
                 <FormRow
                   key={form.id}
@@ -199,21 +201,21 @@ function FormRow({
   return (
     <div
       onClick={onClick}
-      className="grid grid-cols-[1fr_180px_90px_110px_140px_100px] items-center gap-3 px-4 py-3 cursor-pointer hover:bg-canvas/50 transition-colors"
+      className="grid grid-cols-[1fr_180px_90px_110px_140px_100px] items-center gap-3 px-4 py-3 cursor-pointer hover:bg-brand-bg/50 transition-colors"
     >
       <div className="min-w-0">
-        <div className="text-sm font-bold text-ink truncate">{form.name}</div>
+        <div className="text-sm font-bold text-brand-primary truncate">{form.name}</div>
         {form.redirect_url && (
-          <div className={`${T.mono} text-muted-3 truncate`}>
+          <div className={`${T.mono} text-brand-muted truncate`}>
             → {form.redirect_url}
           </div>
         )}
         <FormStatsCard formId={form.id} />
       </div>
-      <span className={`${T.mono} text-muted-2 truncate`}>
+      <span className={`${T.mono} text-brand-muted truncate`}>
         /{form.slug}
       </span>
-      <span className="text-right text-sm font-mono text-ink tabular-nums">
+      <span className="text-right text-sm font-mono text-brand-primary tabular-nums">
         {form.submissions_count}
       </span>
       <button
@@ -222,8 +224,8 @@ function FormRow({
           onToggleActive(!form.is_active);
         }}
         className={clsx(
-          "relative inline-flex w-9 h-5 rounded-pill transition-colors",
-          form.is_active ? "bg-brand-accent" : "bg-black/15",
+          "relative inline-flex w-9 h-5 rounded-full transition-colors",
+          form.is_active ? "bg-brand-accent" : "bg-brand-border",
         )}
         aria-pressed={form.is_active}
         aria-label={form.is_active ? "Деактивировать форму" : "Активировать форму"}
@@ -235,7 +237,7 @@ function FormRow({
           )}
         />
       </button>
-      <span className={`${T.mono} text-muted-3`}>
+      <span className={`${T.mono} text-brand-muted`}>
         {relativeTime(form.created_at)}
       </span>
       <div className="flex items-center justify-end">
@@ -244,7 +246,7 @@ function FormRow({
             e.stopPropagation();
             onDelete();
           }}
-          className="p-1.5 rounded-lg text-muted-3 hover:bg-canvas hover:text-rose-600 transition-colors"
+          className="p-1.5 rounded-lg text-brand-muted hover:bg-brand-bg hover:text-rose transition-colors"
           aria-label="Удалить форму"
         >
           <Trash2 size={14} />
@@ -261,17 +263,17 @@ function FormRow({
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="w-12 h-12 rounded-full bg-canvas flex items-center justify-center mb-3">
-        <ClipboardList size={22} className="text-muted-3" />
+      <div className="w-12 h-12 rounded-full bg-brand-bg flex items-center justify-center mb-3">
+        <ClipboardList size={22} className="text-brand-muted" />
       </div>
-      <div className="text-sm font-bold text-ink">Пока нет ни одной формы</div>
-      <p className="text-sm text-muted-2 mt-1 mb-4 max-w-[24rem]">
+      <div className="text-sm font-bold text-brand-primary">Пока нет ни одной формы</div>
+      <p className="text-sm text-brand-muted mt-1 mb-4 max-w-[24rem]">
         Создайте форму, чтобы лиды с лендинга приходили в CRM автоматически —
         без ручного копирования из почты.
       </p>
       <button
         onClick={onCreate}
-        className="inline-flex items-center gap-1.5 bg-ink text-white rounded-pill px-4 py-2 text-sm font-semibold hover:bg-ink/90"
+        className={`${C.button.primary} inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold`}
       >
         <Plus size={15} />
         Новая форма
@@ -302,7 +304,7 @@ function ChannelAnalyticsSection({
 
       {isLoading && (
         <div className="flex justify-center py-8">
-          <Loader2 size={18} className="animate-spin text-muted-2" />
+          <Loader2 size={18} className="animate-spin text-brand-muted" />
         </div>
       )}
 
@@ -314,14 +316,14 @@ function ChannelAnalyticsSection({
       )}
 
       {!isLoading && !isError && rows.length === 0 && (
-        <p className="text-sm text-muted-2 py-4">Данных пока нет.</p>
+        <p className="text-sm text-brand-muted py-4">Данных пока нет.</p>
       )}
 
       {!isLoading && !isError && rows.length > 0 && (
-        <div className="overflow-x-auto rounded-2xl border border-black/5 bg-white">
+        <div className="overflow-x-auto rounded-card border border-brand-border bg-white">
           <table className="w-full text-sm min-w-[480px]">
             <thead>
-              <tr className={`bg-canvas border-b border-black/5 ${T.mono} uppercase text-muted-2 text-left`}>
+              <tr className={`bg-brand-bg border-b border-brand-border ${T.mono} uppercase text-brand-muted text-left`}>
                 <th className="px-4 py-2.5 font-medium">Канал</th>
                 <th className="px-4 py-2.5 font-medium text-right">Заявки</th>
                 <th className="px-4 py-2.5 font-medium text-right">Лиды</th>
@@ -329,21 +331,21 @@ function ChannelAnalyticsSection({
                 <th className="px-4 py-2.5 font-medium text-right">Конверсия</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-black/5">
+            <tbody className="divide-y divide-brand-border">
               {rows.map((row) => (
-                <tr key={`${row.form_id}-${row.channel}`} className="hover:bg-canvas/50 transition-colors">
-                  <td className="px-4 py-3 font-medium text-ink">{row.channel}</td>
-                  <td className="px-4 py-3 text-right font-mono tabular-nums text-ink">{row.submissions}</td>
-                  <td className="px-4 py-3 text-right font-mono tabular-nums text-ink">{row.leads}</td>
-                  <td className="px-4 py-3 text-right font-mono tabular-nums text-ink">{row.won}</td>
-                  <td className="px-4 py-3 text-right font-mono tabular-nums text-ink">
+                <tr key={`${row.form_id}-${row.channel}`} className="hover:bg-brand-bg/50 transition-colors">
+                  <td className="px-4 py-3 font-medium text-brand-primary">{row.channel}</td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums text-brand-primary">{row.submissions}</td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums text-brand-primary">{row.leads}</td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums text-brand-primary">{row.won}</td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums text-brand-primary">
                     {`${(row.conversion * 100).toFixed(0)}%`}
                   </td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
-              <tr className={`bg-canvas border-t border-black/5 ${T.mono} font-semibold text-ink`}>
+              <tr className={`bg-brand-bg border-t border-brand-border ${T.mono} font-semibold text-brand-primary`}>
                 <td className="px-4 py-2.5">Итого</td>
                 <td className="px-4 py-2.5 text-right tabular-nums">{totalSubmissions}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums">{totalLeads}</td>
@@ -386,12 +388,12 @@ function ConfirmDeleteModal({
         <div
           role="dialog"
           aria-modal="true"
-          className="bg-white rounded-2xl border border-black/5 shadow-soft w-full max-w-md p-5"
+          className="bg-white rounded-card border border-brand-border w-full max-w-md p-5"
         >
-          <h2 className="type-card-title text-ink">
+          <h2 className="type-card-title text-brand-primary">
             Удалить форму?
           </h2>
-          <p className="text-sm text-muted mt-2">
+          <p className="text-sm text-brand-muted mt-2">
             Форма «{form.name}» будет деактивирована — embed-код вернёт{" "}
             <span className="font-mono">410 Gone</span>, лиды перестанут
             приходить. История подач (
@@ -402,14 +404,14 @@ function ConfirmDeleteModal({
             <button
               onClick={onCancel}
               disabled={isPending}
-              className="text-sm font-semibold text-muted hover:text-ink disabled:opacity-40 transition-colors"
+              className="text-sm font-semibold text-brand-muted hover:text-brand-primary disabled:opacity-40 transition-colors"
             >
               Отмена
             </button>
             <button
               onClick={onConfirm}
               disabled={isPending}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-pill bg-rose-600 text-white text-sm font-semibold hover:bg-rose-600/90 disabled:opacity-40 transition-all duration-300"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-rose text-white text-sm font-semibold hover:bg-rose/90 disabled:opacity-40 transition-all duration-300"
             >
               {isPending && <Loader2 size={13} className="animate-spin" />}
               Деактивировать

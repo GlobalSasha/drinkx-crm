@@ -93,10 +93,10 @@ function StatusIcon({ status }: { status: AutomationRunStatus }) {
   if (status === "success")
     return <CheckCircle2 size={11} className="text-success" />;
   if (status === "skipped")
-    return <MinusCircle size={11} className="text-muted-3" />;
+    return <MinusCircle size={11} className="text-brand-muted" />;
   if (status === "failed")
     return <AlertCircle size={11} className="text-rose" />;
-  return <Clock size={11} className="text-muted-2" />;
+  return <Clock size={11} className="text-brand-muted" />;
 }
 
 
@@ -135,7 +135,7 @@ export default function AutomationsPage() {
   }
 
   return (
-    <div className={pageContainerVariants({ width: "default" })}>
+    <div className={pageContainerVariants({ surface: "data" })}>
       <PageHeader
         icon={<Workflow size={20} />}
         title="Автоматизации"
@@ -145,7 +145,7 @@ export default function AutomationsPage() {
             <button
               type="button"
               onClick={openCreate}
-              className="inline-flex items-center gap-1.5 bg-ink text-white rounded-pill px-3.5 py-1.5 text-xs font-semibold hover:bg-ink/90 active:scale-[0.98] transition-all duration-300"
+              className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-full px-3.5 py-1.5 text-xs font-semibold hover:bg-brand-accent/90 active:scale-[0.98] transition-all duration-300"
             >
               <Plus size={13} />
               Новая автоматизация
@@ -156,22 +156,22 @@ export default function AutomationsPage() {
 
       {listQuery.isLoading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 size={20} className="animate-spin text-muted-2" />
+          <Loader2 size={20} className="animate-spin text-brand-muted" />
         </div>
       ) : items.length === 0 ? (
-        <div className="bg-canvas/60 border border-black/5 rounded-2xl px-6 py-12 text-center">
-          <Workflow size={20} className="text-muted-2 mx-auto mb-2" />
-          <p className="text-sm text-muted">Автоматизаций пока нет.</p>
-          <p className="text-xs text-muted-3 mt-1">
+        <div className="bg-brand-bg/60 border border-brand-border rounded-card px-6 py-12 text-center">
+          <Workflow size={20} className="text-brand-muted mx-auto mb-2" />
+          <p className="text-sm text-brand-muted">Автоматизаций пока нет.</p>
+          <p className="text-xs text-brand-muted mt-1">
             Например: «когда лид перешёл в Pilot → создать задачу
             ‘связаться с ЛПР’».
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-black/5 rounded-2xl shadow-soft overflow-hidden">
+        <div className="bg-white border border-brand-border rounded-card overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-canvas">
-              <tr className={`text-left ${T.mono} uppercase text-muted-3`}>
+            <thead className="bg-brand-bg">
+              <tr className={`text-left ${T.mono} uppercase text-brand-muted`}>
                 <th className="px-4 py-2 font-semibold">Название</th>
                 <th className="px-4 py-2 font-semibold">Триггер</th>
                 <th className="px-4 py-2 font-semibold">Действие</th>
@@ -187,9 +187,9 @@ export default function AutomationsPage() {
               {items.map((a) => (
                 <tr
                   key={a.id}
-                  className="border-t border-black/5 hover:bg-canvas/40 transition-colors"
+                  className="border-t border-brand-border hover:bg-brand-bg/40 transition-colors"
                 >
-                  <td className="px-4 py-3 font-semibold text-ink">
+                  <td className="px-4 py-3 font-semibold text-brand-primary">
                     <button
                       type="button"
                       onClick={() => setRunsFor(a)}
@@ -199,10 +199,10 @@ export default function AutomationsPage() {
                       {a.name}
                     </button>
                   </td>
-                  <td className="px-4 py-3 text-xs text-muted">
+                  <td className="px-4 py-3 text-xs text-brand-muted">
                     {TRIGGER_LABELS[a.trigger]}
                   </td>
-                  <td className="px-4 py-3 text-xs text-muted">
+                  <td className="px-4 py-3 text-xs text-brand-muted">
                     {ACTION_LABELS[a.action_type]}
                   </td>
                   <td className="px-4 py-3 text-xs">
@@ -212,7 +212,7 @@ export default function AutomationsPage() {
                         Активна
                       </span>
                     ) : (
-                      <span className="text-muted-3">Выключена</span>
+                      <span className="text-brand-muted">Выключена</span>
                     )}
                   </td>
                   {isAdminOrHead && (
@@ -221,7 +221,7 @@ export default function AutomationsPage() {
                         <button
                           type="button"
                           onClick={() => openEdit(a)}
-                          className="text-muted hover:text-ink p-1.5 rounded-md hover:bg-black/5 transition-colors"
+                          className="text-brand-muted hover:text-brand-primary p-1.5 rounded-md hover:bg-black/5 transition-colors"
                           title="Редактировать"
                         >
                           <Pencil size={13} />
@@ -230,7 +230,7 @@ export default function AutomationsPage() {
                           type="button"
                           onClick={() => onDelete(a)}
                           disabled={del.isPending}
-                          className="text-muted hover:text-rose p-1.5 rounded-md hover:bg-rose/5 transition-colors disabled:opacity-40"
+                          className="text-brand-muted hover:text-rose p-1.5 rounded-md hover:bg-rose/5 transition-colors disabled:opacity-40"
                           title="Удалить"
                         >
                           <Trash2 size={13} />
@@ -268,16 +268,16 @@ export default function AutomationsPage() {
         >
           <>
             <h3 className="text-base font-bold mb-2">Удалить автоматизацию?</h3>
-            <p className="text-sm text-muted mb-5">
+            <p className="text-sm text-brand-muted mb-5">
               Автоматизация{" "}
-              <span className="font-semibold text-ink">«{deleteTarget.name}»</span>{" "}
+              <span className="font-semibold text-brand-primary">«{deleteTarget.name}»</span>{" "}
               будет удалена. Запущенные шаги текущих исполнений сохранятся в истории.
             </p>
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
-                className="px-4 py-1.5 text-sm font-semibold text-muted hover:text-ink"
+                className="px-4 py-1.5 text-sm font-semibold text-brand-muted hover:text-brand-primary"
               >
                 Отмена
               </button>
@@ -550,15 +550,15 @@ function AutomationEditor({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-black/5">
+      <div className="bg-white rounded-card shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-brand-border">
           <h3 className="type-card-title">
             {isEdit ? "Редактировать автоматизацию" : "Новая автоматизация"}
           </h3>
           <button
             type="button"
             onClick={onClose}
-            className="text-muted hover:text-ink p-1"
+            className="text-brand-muted hover:text-brand-primary p-1"
           >
             <X size={16} />
           </button>
@@ -566,7 +566,7 @@ function AutomationEditor({
 
         <form onSubmit={onSubmit} className="px-5 py-4 space-y-3">
           <div>
-            <label className={`${T.mono} uppercase text-muted-3`}>
+            <label className={`${T.mono} uppercase text-brand-muted`}>
               Название
             </label>
             <input
@@ -574,12 +574,12 @@ function AutomationEditor({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="При попадании в Pilot — отправить welcome"
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+              className="mt-1 w-full bg-brand-bg border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             />
           </div>
 
           <div>
-            <label className={`${T.mono} uppercase text-muted-3`}>
+            <label className={`${T.mono} uppercase text-brand-muted`}>
               Триггер
             </label>
             <select
@@ -587,7 +587,7 @@ function AutomationEditor({
               onChange={(e) =>
                 setTrigger(e.target.value as AutomationTrigger)
               }
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+              className="mt-1 w-full bg-brand-bg border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             >
               {(Object.keys(TRIGGER_LABELS) as AutomationTrigger[]).map((t) => (
                 <option key={t} value={t}>
@@ -597,15 +597,15 @@ function AutomationEditor({
             </select>
           </div>
 
-          <fieldset className="border border-black/5 rounded-xl p-3 space-y-2">
-            <legend className={`px-1 ${T.mono} uppercase text-muted-3`}>
+          <fieldset className="border border-brand-border rounded-xl p-3 space-y-2">
+            <legend className={`px-1 ${T.mono} uppercase text-brand-muted`}>
               Условие (необязательно)
             </legend>
             <div className="grid grid-cols-3 gap-2">
               <select
                 value={conditionField}
                 onChange={(e) => setConditionField(e.target.value)}
-                className="bg-canvas border border-black/10 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                className="bg-brand-bg border border-brand-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
               >
                 <option value="">— без условия —</option>
                 <option value="priority">priority</option>
@@ -618,7 +618,7 @@ function AutomationEditor({
                 value={conditionOp}
                 onChange={(e) => setConditionOp(e.target.value)}
                 disabled={!conditionField}
-                className="bg-canvas border border-black/10 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 disabled:opacity-50"
+                className="bg-brand-bg border border-brand-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 disabled:opacity-50"
               >
                 <option value="eq">=</option>
                 <option value="neq">≠</option>
@@ -639,13 +639,13 @@ function AutomationEditor({
                   conditionOp === "is_not_null"
                 }
                 placeholder="value"
-                className="bg-canvas border border-black/10 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 disabled:opacity-50"
+                className="bg-brand-bg border border-brand-border rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 disabled:opacity-50"
               />
             </div>
           </fieldset>
 
           <div>
-            <label className={`${T.mono} uppercase text-muted-3`}>
+            <label className={`${T.mono} uppercase text-brand-muted`}>
               Действие
             </label>
             <select
@@ -653,7 +653,7 @@ function AutomationEditor({
               onChange={(e) =>
                 setActionType(e.target.value as AutomationAction)
               }
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+              className="mt-1 w-full bg-brand-bg border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             >
               {(Object.keys(ACTION_LABELS) as AutomationAction[]).map((a) => (
                 <option key={a} value={a}>
@@ -665,13 +665,13 @@ function AutomationEditor({
 
           {actionType === "send_template" && (
             <div>
-              <label className={`${T.mono} uppercase text-muted-3`}>
+              <label className={`${T.mono} uppercase text-brand-muted`}>
                 Шаблон
               </label>
               <select
                 value={templateId}
                 onChange={(e) => setTemplateId(e.target.value)}
-                className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                className="mt-1 w-full bg-brand-bg border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
               >
                 <option value="">— выберите шаблон —</option>
                 {templates.map((t) => (
@@ -686,7 +686,7 @@ function AutomationEditor({
           {actionType === "create_task" && (
             <>
               <div>
-                <label className={`${T.mono} uppercase text-muted-3`}>
+                <label className={`${T.mono} uppercase text-brand-muted`}>
                   Заголовок задачи
                 </label>
                 <input
@@ -694,14 +694,14 @@ function AutomationEditor({
                   value={taskTitle}
                   onChange={(e) => setTaskTitle(e.target.value)}
                   placeholder="Связаться с ЛПР"
-                  className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                  className="mt-1 w-full bg-brand-bg border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                 />
-                <p className="text-xs text-muted-3 mt-1">
+                <p className="text-xs text-brand-muted mt-1">
                   Поддерживает подстановки <code>{"{{lead.field}}"}</code>.
                 </p>
               </div>
               <div>
-                <label className={`${T.mono} uppercase text-muted-3`}>
+                <label className={`${T.mono} uppercase text-brand-muted`}>
                   Срок (часов)
                 </label>
                 <input
@@ -709,7 +709,7 @@ function AutomationEditor({
                   min="1"
                   value={dueInHours}
                   onChange={(e) => setDueInHours(e.target.value)}
-                  className="mt-1 w-32 bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                  className="mt-1 w-32 bg-brand-bg border border-brand-border rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                 />
               </div>
             </>
@@ -717,7 +717,7 @@ function AutomationEditor({
 
           {actionType === "move_stage" && (
             <div>
-              <label className={`${T.mono} uppercase text-muted-3`}>
+              <label className={`${T.mono} uppercase text-brand-muted`}>
                 Целевая стадия (UUID)
               </label>
               <input
@@ -725,9 +725,9 @@ function AutomationEditor({
                 value={targetStageId}
                 onChange={(e) => setTargetStageId(e.target.value)}
                 placeholder="00000000-0000-0000-0000-000000000000"
-                className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                className="mt-1 w-full bg-brand-bg border border-brand-border rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
               />
-              <p className="text-xs text-muted-3 mt-1">
+              <p className="text-xs text-brand-muted mt-1">
                 ID можно скопировать из URL карточки стадии в /settings →
                 Воронки.
               </p>
@@ -738,12 +738,12 @@ function AutomationEditor({
               Step 0 is the primary action above; these are scheduled
               after step 0 fires. Delay steps gate the next step's
               schedule (no side-effect of their own). */}
-          <fieldset className="border border-black/5 rounded-xl p-3 space-y-2">
-            <legend className={`px-1 ${T.mono} uppercase text-muted-3`}>
+          <fieldset className="border border-brand-border rounded-xl p-3 space-y-2">
+            <legend className={`px-1 ${T.mono} uppercase text-brand-muted`}>
               Цепочка после первого шага (необязательно)
             </legend>
             {extraSteps.length === 0 ? (
-              <p className="text-xs text-muted-3">
+              <p className="text-xs text-brand-muted">
                 Без шагов — автоматизация однократная (запускается один раз
                 при срабатывании триггера).
               </p>
@@ -752,9 +752,9 @@ function AutomationEditor({
                 {extraSteps.map((step, idx) => (
                   <li
                     key={idx}
-                    className="bg-canvas/60 border border-black/10 rounded-xl p-2 space-y-2"
+                    className="bg-brand-bg/60 border border-brand-border rounded-xl p-2 space-y-2"
                   >
-                    <div className={`flex items-center gap-1.5 ${T.mono} text-muted-3`}>
+                    <div className={`flex items-center gap-1.5 ${T.mono} text-brand-muted`}>
                       <span>Шаг {idx + 2}</span>
                       <select
                         value={step.type}
@@ -771,7 +771,7 @@ function AutomationEditor({
                                     : { target_stage_id: "" },
                           })
                         }
-                        className="ml-1 bg-white border border-black/10 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                        className="ml-1 bg-white border border-brand-border rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                       >
                         {(Object.keys(STEP_TYPE_LABELS) as AutomationStepType[]).map(
                           (t) => (
@@ -786,7 +786,7 @@ function AutomationEditor({
                         type="button"
                         onClick={() => moveExtraStep(idx, -1)}
                         disabled={idx === 0}
-                        className="p-1 text-muted-2 hover:text-ink disabled:opacity-30"
+                        className="p-1 text-brand-muted hover:text-brand-primary disabled:opacity-30"
                         aria-label="Вверх"
                       >
                         <ArrowUp size={12} />
@@ -795,7 +795,7 @@ function AutomationEditor({
                         type="button"
                         onClick={() => moveExtraStep(idx, 1)}
                         disabled={idx === extraSteps.length - 1}
-                        className="p-1 text-muted-2 hover:text-ink disabled:opacity-30"
+                        className="p-1 text-brand-muted hover:text-brand-primary disabled:opacity-30"
                         aria-label="Вниз"
                       >
                         <ArrowDown size={12} />
@@ -803,7 +803,7 @@ function AutomationEditor({
                       <button
                         type="button"
                         onClick={() => removeExtraStep(idx)}
-                        className="p-1 text-muted-2 hover:text-rose"
+                        className="p-1 text-brand-muted hover:text-rose"
                         aria-label="Удалить шаг"
                       >
                         <Trash2 size={12} />
@@ -812,7 +812,7 @@ function AutomationEditor({
 
                     {step.type === "delay_hours" && (
                       <div>
-                        <label className="text-xs text-muted-3">
+                        <label className="text-xs text-brand-muted">
                           Часов:
                         </label>
                         <input
@@ -827,9 +827,9 @@ function AutomationEditor({
                               },
                             })
                           }
-                          className="ml-2 w-24 bg-white border border-black/10 rounded-lg px-2 py-1 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                          className="ml-2 w-24 bg-white border border-brand-border rounded-lg px-2 py-1 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                         />
-                        <span className="ml-2 text-xs text-muted-3">
+                        <span className="ml-2 text-xs text-brand-muted">
                           (1—720)
                         </span>
                       </div>
@@ -843,7 +843,7 @@ function AutomationEditor({
                             config: { template_id: e.target.value },
                           })
                         }
-                        className="w-full bg-white border border-black/10 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                        className="w-full bg-white border border-brand-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                       >
                         <option value="">— шаблон —</option>
                         {templates.map((t) => (
@@ -865,7 +865,7 @@ function AutomationEditor({
                               config: { title: e.target.value },
                             })
                           }
-                          className="bg-white border border-black/10 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                          className="bg-white border border-brand-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                         />
                         <input
                           type="number"
@@ -880,7 +880,7 @@ function AutomationEditor({
                               },
                             })
                           }
-                          className="w-20 bg-white border border-black/10 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                          className="w-20 bg-white border border-brand-border rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                         />
                       </div>
                     )}
@@ -895,7 +895,7 @@ function AutomationEditor({
                             config: { target_stage_id: e.target.value },
                           })
                         }
-                        className="w-full bg-white border border-black/10 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                        className="w-full bg-white border border-brand-border rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                       />
                     )}
                   </li>
@@ -906,28 +906,28 @@ function AutomationEditor({
               <button
                 type="button"
                 onClick={() => addExtraStep("delay_hours")}
-                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-black/10 hover:border-brand-accent"
+                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-full bg-brand-bg border border-brand-border hover:border-brand-accent"
               >
                 <Plus size={10} /> Пауза
               </button>
               <button
                 type="button"
                 onClick={() => addExtraStep("send_template")}
-                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-black/10 hover:border-brand-accent"
+                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-full bg-brand-bg border border-brand-border hover:border-brand-accent"
               >
                 <Plus size={10} /> Шаблон
               </button>
               <button
                 type="button"
                 onClick={() => addExtraStep("create_task")}
-                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-black/10 hover:border-brand-accent"
+                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-full bg-brand-bg border border-brand-border hover:border-brand-accent"
               >
                 <Plus size={10} /> Задача
               </button>
               <button
                 type="button"
                 onClick={() => addExtraStep("move_stage")}
-                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-canvas border border-black/10 hover:border-brand-accent"
+                className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-full bg-brand-bg border border-brand-border hover:border-brand-accent"
               >
                 <Plus size={10} /> Стадия
               </button>
@@ -950,7 +950,7 @@ function AutomationEditor({
             <button
               type="submit"
               disabled={pending}
-              className="inline-flex items-center gap-1.5 bg-ink text-white rounded-pill px-4 py-2 text-sm font-semibold hover:bg-ink/90 disabled:opacity-40 transition-all duration-300"
+              className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-brand-accent/90 disabled:opacity-40 transition-all duration-300"
             >
               {pending && <Loader2 size={13} className="animate-spin" />}
               {isEdit ? "Сохранить" : "Создать"}
@@ -958,7 +958,7 @@ function AutomationEditor({
             <button
               type="button"
               onClick={onClose}
-              className="text-sm text-muted hover:text-ink"
+              className="text-sm text-brand-muted hover:text-brand-primary"
             >
               Отмена
             </button>
@@ -989,19 +989,19 @@ function RunsDrawer({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/30">
       <aside className="bg-white h-full w-full max-w-md shadow-xl flex flex-col">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-black/5">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-brand-border">
           <div className="min-w-0">
             <h3 className="type-card-title truncate">
               История запусков
             </h3>
-            <p className="text-xs text-muted-2 truncate">
+            <p className="text-xs text-brand-muted truncate">
               {automation.name}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-muted hover:text-ink p-1"
+            className="text-brand-muted hover:text-brand-primary p-1"
           >
             <X size={16} />
           </button>
@@ -1010,10 +1010,10 @@ function RunsDrawer({
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {runsQuery.isLoading ? (
             <div className="flex items-center justify-center py-16">
-              <Loader2 size={20} className="animate-spin text-muted-2" />
+              <Loader2 size={20} className="animate-spin text-brand-muted" />
             </div>
           ) : runs.length === 0 ? (
-            <p className="text-sm text-muted-2 text-center py-12">
+            <p className="text-sm text-brand-muted text-center py-12">
               Запусков пока не было.
             </p>
           ) : (
@@ -1045,31 +1045,31 @@ function RunRow({
   const stepsQuery = useAutomationStepRuns(expanded ? run.id : null);
 
   return (
-    <li className="rounded-xl bg-canvas/60 border border-black/5 overflow-hidden">
+    <li className="rounded-xl bg-brand-bg/60 border border-brand-border overflow-hidden">
       <button
         type="button"
         onClick={() => expandable && setExpanded((v) => !v)}
         disabled={!expandable}
-        className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-canvas/80 disabled:cursor-default"
+        className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-brand-bg/80 disabled:cursor-default"
       >
         <div className="pt-0.5">
           <StatusIcon status={run.status} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-xs font-semibold text-ink">
+          <div className="text-xs font-semibold text-brand-primary">
             {RUN_STATUS_LABELS[run.status]}
           </div>
-          <div className={`${T.mono} text-muted-3`}>
+          <div className={`${T.mono} text-brand-muted`}>
             {new Date(run.executed_at).toLocaleString("ru-RU")}
           </div>
           {run.error && (
-            <p className="text-xs text-muted-2 mt-1 break-words">
+            <p className="text-xs text-brand-muted mt-1 break-words">
               {run.error}
             </p>
           )}
         </div>
         {expandable && (
-          <div className="pt-0.5 text-muted-3">
+          <div className="pt-0.5 text-brand-muted">
             {expanded ? (
               <ChevronDown size={12} />
             ) : (
@@ -1080,13 +1080,13 @@ function RunRow({
       </button>
 
       {expanded && (
-        <div className="border-t border-black/5 px-3 py-2 bg-white">
+        <div className="border-t border-brand-border px-3 py-2 bg-white">
           {stepsQuery.isLoading ? (
-            <div className="flex items-center gap-1.5 text-xs text-muted-2 py-1">
+            <div className="flex items-center gap-1.5 text-xs text-brand-muted py-1">
               <Loader2 size={10} className="animate-spin" /> Загрузка шагов...
             </div>
           ) : !stepsQuery.data || stepsQuery.data.length === 0 ? (
-            <p className="text-xs text-muted-3">Нет шагов для этого запуска.</p>
+            <p className="text-xs text-brand-muted">Нет шагов для этого запуска.</p>
           ) : (
             <ul className="space-y-1">
               {stepsQuery.data.map((sr) => {
@@ -1097,7 +1097,7 @@ function RunRow({
                     key={sr.id}
                     className="flex items-start gap-1.5 text-xs"
                   >
-                    <div className="pt-0.5 w-3 text-muted-3 font-mono">
+                    <div className="pt-0.5 w-3 text-brand-muted font-mono">
                       {sr.step_index + 1}
                     </div>
                     <div className="pt-0.5">
@@ -1106,17 +1106,17 @@ function RunRow({
                     <div className="flex-1 min-w-0">
                       <div className="font-medium">
                         {STEP_TYPE_LABELS[stepType]}
-                        <span className="ml-1.5 text-muted-3">
+                        <span className="ml-1.5 text-brand-muted">
                           · {STEP_RUN_STATUS_LABELS[sr.status]}
                         </span>
                       </div>
-                      <div className={`${T.mono} text-muted-3`}>
+                      <div className={`${T.mono} text-brand-muted`}>
                         {sr.executed_at
                           ? `выполнен ${new Date(sr.executed_at).toLocaleString("ru-RU")}`
                           : `запланирован на ${new Date(sr.scheduled_at).toLocaleString("ru-RU")}`}
                       </div>
                       {sr.error && (
-                        <p className="text-xs text-muted-2 mt-0.5 break-words">
+                        <p className="text-xs text-brand-muted mt-0.5 break-words">
                           {sr.error}
                         </p>
                       )}
@@ -1137,8 +1137,8 @@ function StepStatusIcon({ status }: { status: AutomationStepRunStatus }) {
   if (status === "success")
     return <CheckCircle2 size={10} className="text-success" />;
   if (status === "skipped")
-    return <MinusCircle size={10} className="text-muted-3" />;
+    return <MinusCircle size={10} className="text-brand-muted" />;
   if (status === "failed")
     return <AlertCircle size={10} className="text-rose" />;
-  return <Clock size={10} className="text-muted-2" />;
+  return <Clock size={10} className="text-brand-muted" />;
 }

@@ -29,7 +29,7 @@ const AVATAR_COLORS = [
   "bg-success text-white",
   "bg-warning text-white",
   "bg-rose text-white",
-  "bg-ink text-white",
+  "bg-brand-accent text-white",
   "bg-brand-primary text-white",
 ];
 
@@ -144,13 +144,13 @@ function ContactRow({
   const initials = hasName ? initialsOf(contact.name) : "?";
   const avatarClass = hasName
     ? colorFor(contact.name)
-    : "bg-brand-panel text-muted-2";
+    : "bg-brand-panel text-brand-muted";
   const isUnverified = contact.verified_status === "to_verify";
   const roleLabel = contact.role_type ? ROLE_LABELS[contact.role_type] : null;
 
   return (
     <li
-      className={`rounded-2xl border bg-white p-3.5 cursor-pointer transition-colors ${
+      className={`rounded-card border bg-white p-3.5 cursor-pointer transition-colors ${
         isPrimary
           ? "border-brand-accent ring-1 ring-brand-accent/30"
           : "border-brand-border hover:border-brand-accent"
@@ -180,7 +180,7 @@ function ContactRow({
                 className={`shrink-0 -ml-1 p-1 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
                   isPrimary
                     ? "text-brand-accent"
-                    : "text-muted-3 hover:text-brand-accent"
+                    : "text-brand-muted hover:text-brand-accent"
                 }`}
               >
                 <Star

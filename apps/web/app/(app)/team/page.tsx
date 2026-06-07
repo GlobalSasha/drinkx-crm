@@ -13,6 +13,7 @@ import { useMe } from "@/lib/hooks/use-me";
 import { useTeamStats } from "@/lib/hooks/use-team-stats";
 import { WorkloadTable } from "@/components/team/WorkloadTable";
 import { pageContainerVariants } from "@/components/ui/PageContainer";
+import { PageHeader } from "@/components/ui/PageHeader";
 import {
   Empty,
   EmptyHeader,
@@ -61,13 +62,13 @@ export default function TeamPage() {
   if (me.isLoading || !me.data) {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
-        <Loader2 size={20} className="animate-spin text-muted-2" />
+        <Loader2 size={20} className="animate-spin text-brand-muted" />
       </div>
     );
   }
   if (me.data.role !== "admin" && me.data.role !== "head") {
     return (
-      <div className={pageContainerVariants({ width: "narrow" })}>
+      <div className={pageContainerVariants({ surface: "reading" })}>
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon"><ShieldAlert /></EmptyMedia>
@@ -92,59 +93,58 @@ export default function TeamPage() {
   }
 
   return (
-    <div className={pageContainerVariants({ width: "default" })}>
-      <header className="flex flex-wrap items-end justify-between gap-4 mb-6">
-        <div className="flex items-center gap-2">
-          <Users size={20} className="text-muted" />
-          <h1 className="text-xl font-bold tracking-tight">Команда</h1>
-          {view === "activity" && stats.data && (
-            <span className="text-xs font-mono text-muted-3 ml-2">
-              {formatRange(stats.data.from, stats.data.to)}
-            </span>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex gap-1 bg-canvas/80 rounded-pill p-1">
-            {VIEWS.map((v) => (
-              <button
-                key={v.value}
-                type="button"
-                aria-pressed={view === v.value}
-                onClick={() => setView(v.value)}
-                className={
-                  "px-3 py-1.5 rounded-pill text-xs font-semibold transition-colors " +
-                  (view === v.value
-                    ? "bg-white shadow-sm text-ink"
-                    : "text-muted-2 hover:text-ink")
-                }
-              >
-                {v.label}
-              </button>
-            ))}
-          </div>
-
-          {view === "activity" && (
-            <div className="flex gap-1 bg-canvas/80 rounded-pill p-1">
-              {PERIODS.map((p) => (
+    <div className={pageContainerVariants({ surface: "data" })}>
+      <PageHeader
+        icon={<Users size={20} />}
+        title="Команда"
+        actions={
+          <>
+            {view === "activity" && stats.data && (
+              <span className="text-xs font-mono text-brand-muted">
+                {formatRange(stats.data.from, stats.data.to)}
+              </span>
+            )}
+            <div className="flex gap-1 bg-brand-panel rounded-full p-1">
+              {VIEWS.map((v) => (
                 <button
-                  key={p.value}
+                  key={v.value}
                   type="button"
-                  onClick={() => setPeriod(p.value)}
+                  aria-pressed={view === v.value}
+                  onClick={() => setView(v.value)}
                   className={
-                    "px-3 py-1.5 rounded-pill text-xs font-semibold transition-colors " +
-                    (period === p.value
-                      ? "bg-white shadow-sm text-ink"
-                      : "text-muted-2 hover:text-ink")
+                    "px-3 py-1.5 rounded-full text-xs font-semibold transition-colors " +
+                    (view === v.value
+                      ? "bg-white text-brand-primary"
+                      : "text-brand-muted hover:text-brand-primary")
                   }
                 >
-                  {p.label}
+                  {v.label}
                 </button>
               ))}
             </div>
-          )}
-        </div>
-      </header>
+
+            {view === "activity" && (
+              <div className="flex gap-1 bg-brand-panel rounded-full p-1">
+                {PERIODS.map((p) => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => setPeriod(p.value)}
+                    className={
+                      "px-3 py-1.5 rounded-full text-xs font-semibold transition-colors " +
+                      (period === p.value
+                        ? "bg-white text-brand-primary"
+                        : "text-brand-muted hover:text-brand-primary")
+                    }
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        }
+      />
 
       {view === "workload" && <WorkloadTable />}
 
@@ -155,7 +155,7 @@ export default function TeamPage() {
               {[0, 1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className="bg-white border border-black/5 rounded-2xl shadow-soft p-5 animate-pulse h-[148px]"
+                  className="bg-white border border-brand-border rounded-card p-5 animate-pulse h-[148px]"
                 />
               ))}
             </div>
@@ -198,7 +198,7 @@ function ManagerCard({ m }: { m: TeamManagerStats }) {
     <Link
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       href={`/team/${m.user_id}` as any}
-      className="block bg-white border border-black/5 rounded-2xl shadow-soft p-5 hover:shadow-md transition-shadow"
+      className="block bg-white border border-brand-border rounded-card p-5 hover:border-brand-muted transition-colors"
     >
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="flex items-center gap-3 min-w-0">
@@ -206,23 +206,23 @@ function ManagerCard({ m }: { m: TeamManagerStats }) {
             <span className="text-sm font-bold text-brand-accent">{initial}</span>
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-ink truncate">
+            <p className="text-sm font-semibold text-brand-primary truncate">
               {m.name || m.email}
             </p>
-            <p className="text-xs font-mono text-muted-3 truncate">
+            <p className="text-xs font-mono text-brand-muted truncate">
               {m.email}
             </p>
-            <p className="text-2xs font-mono text-muted-3 mt-0.5">
+            <p className="text-2xs font-mono text-brand-muted mt-0.5">
               последняя активность:{" "}
               {m.last_active_at ? relativeTime(m.last_active_at) : "никогда"}
             </p>
           </div>
         </div>
-        <span className="shrink-0 text-2xs font-mono uppercase tracking-[0.15em] text-muted-3 bg-canvas/80 rounded-pill px-2 py-1">
+        <span className="shrink-0 text-2xs font-mono uppercase tracking-[0.15em] text-brand-muted bg-brand-panel rounded-full px-2 py-1">
           {ROLE_LABEL[m.role] ?? m.role}
         </span>
       </div>
-      <div className="grid grid-cols-4 gap-2 border-t border-black/5 pt-4">
+      <div className="grid grid-cols-4 gap-2 border-t border-brand-border pt-4">
         <Stat label="КП" value={m.stats.kp_sent} />
         <Stat label="Из пула" value={m.stats.leads_taken_from_pool} />
         <Stat label="Продвинуто" value={m.stats.leads_moved} />
@@ -235,8 +235,8 @@ function ManagerCard({ m }: { m: TeamManagerStats }) {
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="text-center">
-      <p className="text-xl font-bold tabular-nums text-ink">{value}</p>
-      <p className="text-2xs font-mono uppercase tracking-[0.15em] text-muted-3 mt-0.5">
+      <p className="text-xl font-bold tabular-nums text-brand-primary">{value}</p>
+      <p className="text-2xs font-mono uppercase tracking-[0.15em] text-brand-muted mt-0.5">
         {label}
       </p>
     </div>

@@ -50,9 +50,9 @@ export function AISection() {
 
   if (!isAdmin) {
     return (
-      <div className="bg-canvas/60 border border-black/5 rounded-2xl px-6 py-12 text-center">
-        <ShieldAlert size={20} className="text-muted mx-auto mb-2" />
-        <p className="text-sm text-muted">
+      <div className="bg-brand-bg/60 border border-brand-border rounded-card px-6 py-12 text-center">
+        <ShieldAlert size={20} className="text-brand-muted mx-auto mb-2" />
+        <p className="text-sm text-brand-muted">
           Доступ к настройкам AI — только у администратора.
         </p>
       </div>
@@ -62,7 +62,7 @@ export function AISection() {
   if (settingsQuery.isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <Loader2 size={20} className="animate-spin text-muted-2" />
+        <Loader2 size={20} className="animate-spin text-brand-muted" />
       </div>
     );
   }
@@ -120,7 +120,7 @@ export function AISection() {
     <div className="space-y-4">
       <div>
         <h2 className="text-lg font-bold tracking-tight">AI</h2>
-        <p className="text-xs text-muted-2 mt-0.5">
+        <p className="text-xs text-brand-muted mt-0.5">
           Лимит расходов на исследования лидов и выбор основного провайдера.
           Настройки записываются, но fallback-цепочка в v1 ещё читает env —
           реальное переключение модели приедет в Sprint 2.4+.
@@ -128,26 +128,26 @@ export function AISection() {
       </div>
 
       {/* Spend gauge card */}
-      <div className="bg-white border border-black/5 rounded-2xl shadow-soft p-5">
+      <div className="bg-white border border-brand-border rounded-card p-5">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-canvas flex items-center justify-center shrink-0">
-            <Bot size={18} className="text-muted" />
+          <div className="w-10 h-10 rounded-xl bg-brand-bg flex items-center justify-center shrink-0">
+            <Bot size={18} className="text-brand-muted" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-bold text-ink">
+              <h3 className="text-sm font-bold text-brand-primary">
                 Дневной бюджет
               </h3>
               <span
                 className={`text-xs font-mono ${
-                  overBudget ? "text-rose" : "text-muted-2"
+                  overBudget ? "text-rose" : "text-brand-muted"
                 }`}
               >
                 {spend.toFixed(2)} / {cap.toFixed(2)} USD
               </span>
             </div>
 
-            <div className="mt-3 h-2 bg-canvas rounded-full overflow-hidden">
+            <div className="mt-3 h-2 bg-brand-bg rounded-full overflow-hidden">
               <div
                 className={`h-full transition-all duration-500 ${
                   overBudget
@@ -172,11 +172,11 @@ export function AISection() {
       </div>
 
       {/* Editor card */}
-      <div className="bg-white border border-black/5 rounded-2xl shadow-soft p-5 space-y-4">
+      <div className="bg-white border border-brand-border rounded-card p-5 space-y-4">
         <div>
           <label
             htmlFor="ai-budget"
-            className="text-xs font-mono uppercase tracking-wide text-muted-3"
+            className="text-xs font-mono uppercase tracking-wide text-brand-muted"
           >
             Лимит USD/день
           </label>
@@ -187,9 +187,9 @@ export function AISection() {
             step="0.5"
             value={budget}
             onChange={(e) => setBudget(e.target.value)}
-            className="mt-1 w-full max-w-[200px] bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+            className="mt-1 w-full max-w-[200px] bg-brand-bg border border-brand-border rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
           />
-          <p className="text-xs text-muted-3 mt-1">
+          <p className="text-xs text-brand-muted mt-1">
             При достижении лимита фоновые исследования останавливаются.
             Дневной счётчик сбрасывается в полночь UTC.
           </p>
@@ -198,7 +198,7 @@ export function AISection() {
         <div>
           <label
             htmlFor="ai-model"
-            className="text-xs font-mono uppercase tracking-wide text-muted-3"
+            className="text-xs font-mono uppercase tracking-wide text-brand-muted"
           >
             Основная модель
           </label>
@@ -206,7 +206,7 @@ export function AISection() {
             id="ai-model"
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            className="mt-1 w-full max-w-[280px] bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+            className="mt-1 w-full max-w-[280px] bg-brand-bg border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
           >
             {data.available_models.map((m) => (
               <option key={m} value={m}>
@@ -223,7 +223,7 @@ export function AISection() {
             type="button"
             onClick={onSave}
             disabled={!dirty || !budgetValid || update.isPending}
-            className="inline-flex items-center gap-1.5 bg-ink text-white rounded-pill px-4 py-2 text-sm font-semibold hover:bg-ink/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300"
+            className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-brand-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300"
           >
             {update.isPending ? (
               <Loader2 size={13} className="animate-spin" />

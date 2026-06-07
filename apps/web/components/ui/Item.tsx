@@ -28,9 +28,9 @@ const itemVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-brand-bg rounded-2xl px-3 py-2.5",
-        outline: "bg-white border border-brand-border rounded-2xl px-3 py-2.5",
-        muted: "bg-brand-panel rounded-2xl px-3 py-2.5",
+        default: "bg-brand-bg rounded-card px-3 py-2.5",
+        outline: "bg-white border border-brand-border rounded-card px-3 py-2.5",
+        muted: "bg-brand-panel rounded-card px-3 py-2.5",
         inline: "py-2", // for groups with their own dividers
       },
       size: {

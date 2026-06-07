@@ -20,7 +20,7 @@ export function SourceSection({ lead }: Props) {
   if (!isFormSourced) return null;
 
   return (
-    <section className="bg-white rounded-2xl border border-brand-border p-5">
+    <section className="bg-white rounded-card border border-brand-border p-5">
       <header className="flex items-center gap-2 mb-4">
         <Globe size={16} className="text-brand-accent" />
         <h2 className={`type-card-title font-bold ${C.color.text}`}>Источник</h2>

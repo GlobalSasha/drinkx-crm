@@ -71,12 +71,12 @@ export function PipelineHeader({ leads, totalCount }: Props) {
     filters.cities.length === 1 ? filters.cities[0] : undefined;
 
   return (
-    <div className="flex flex-col gap-4 px-4 sm:px-6 py-4 bg-white border-b border-black/5">
+    <div className="flex flex-col gap-4 px-4 sm:px-6 py-4 bg-white border-b border-brand-border">
       {/* Top row */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 shrink-0">
           <h1 className="type-page-title">Воронка</h1>
-          <span className="bg-black/5 text-muted-2 text-xs font-mono px-2 py-0.5 rounded-pill">
+          <span className="bg-black/5 text-brand-muted text-xs font-mono px-2 py-0.5 rounded-full">
             {totalCount}
           </span>
         </div>
@@ -93,7 +93,7 @@ export function PipelineHeader({ leads, totalCount }: Props) {
           </Button>
           <button
             onClick={openImportWizard}
-            className="inline-flex items-center gap-1.5 bg-canvas text-ink border border-black/10 rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-canvas-2 hover:border-black/20 active:scale-[0.98]"
+            className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-brand-panel hover:border-brand-border active:scale-[0.98]"
             aria-label="Импорт лидов из файла"
           >
             <Upload size={14} />
@@ -125,18 +125,18 @@ export function PipelineHeader({ leads, totalCount }: Props) {
         <div className="relative">
           <Search
             size={14}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-3 pointer-events-none"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted pointer-events-none"
           />
           <input
             type="text"
             placeholder="Поиск..."
             value={filters.q}
             onChange={(e) => setQ(e.target.value)}
-            className="h-8 pl-8 pr-3 text-sm bg-canvas border border-black/10 rounded-pill outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300 w-44"
+            className="h-8 pl-8 pr-3 text-sm bg-brand-bg border border-brand-border rounded-full outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300 w-44"
           />
         </div>
 
-        <span className="text-muted-3 text-xs">|</span>
+        <span className="text-brand-muted text-xs">|</span>
 
         <MultiSelectDropdown
           label="Сегмент"

@@ -27,7 +27,7 @@ interface ToastState {
 function FitSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
     <div className="flex items-center gap-2">
-      <span className={`${T.mono} uppercase text-muted-2 whitespace-nowrap`}>
+      <span className={`${T.mono} uppercase text-brand-muted whitespace-nowrap`}>
         Fit ≥ {value}
       </span>
       <input
@@ -60,7 +60,7 @@ function PoolRow({
     A: "bg-brand-soft text-brand-accent",
     B: "bg-success/10 text-success",
     C: "bg-warning/10 text-warning",
-    D: "bg-black/5 text-muted",
+    D: "bg-black/5 text-brand-muted",
   };
 
   function openLead() {
@@ -87,10 +87,10 @@ function PoolRow({
       aria-label={`Открыть лид ${lead.company_name}`}
       onClick={openLead}
       onKeyDown={handleKey}
-      className={`border-b border-black/5 transition-opacity duration-300 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-inset ${claiming ? "opacity-40" : "hover:bg-canvas"}`}
+      className={`border-b border-brand-border transition-opacity duration-300 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-inset ${claiming ? "opacity-40" : "hover:bg-brand-bg"}`}
     >
       <td className="px-4 py-3">
-        <p className="font-semibold text-sm text-ink">{lead.company_name}</p>
+        <p className="font-semibold text-sm text-brand-primary">{lead.company_name}</p>
         {lead.source_form_name && (
           <span
             className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-2xs font-mono text-brand-accent-text bg-brand-soft"
@@ -104,30 +104,30 @@ function PoolRow({
           <NeedsReviewRow lead={lead} />
         )}
       </td>
-      <td className="px-4 py-3 text-sm text-muted-2">{lead.city ?? "—"}</td>
-      <td className="px-4 py-3 text-sm text-muted-2">{lead.segment ? segmentLabel(lead.segment) : "—"}</td>
+      <td className="px-4 py-3 text-sm text-brand-muted">{lead.city ?? "—"}</td>
+      <td className="px-4 py-3 text-sm text-brand-muted">{lead.segment ? segmentLabel(lead.segment) : "—"}</td>
       <td className="px-4 py-3">
         <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${TIER_STYLE[tier]}`}>
           {tier}
         </span>
       </td>
-      <td className="px-4 py-3 type-amount text-muted-2">
+      <td className="px-4 py-3 type-amount text-brand-muted">
         {lead.fit_score != null ? lead.fit_score : "—"}
       </td>
       <td className="px-4 py-3">
-        <span className={`${T.mono} bg-black/5 text-muted px-1.5 py-0.5 rounded-md`}>
+        <span className={`${T.mono} bg-black/5 text-brand-muted px-1.5 py-0.5 rounded-md`}>
           {lead.assignment_status}
         </span>
       </td>
       <td className="px-4 py-3 text-right">
         {claiming ? (
-          <span className="inline-flex items-center gap-1 text-xs text-muted-2 font-semibold">
+          <span className="inline-flex items-center gap-1 text-xs text-brand-muted font-semibold">
             <Loader2 size={12} className="animate-spin" /> Взято
           </span>
         ) : (
           <button
             onClick={handleClaim}
-            className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-pill px-3 py-1.5 text-xs font-semibold transition-all duration-200 hover:bg-brand-accent/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+            className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200 hover:bg-brand-accent/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
           >
             Взять в работу
           </button>
@@ -420,23 +420,23 @@ function LeadsPoolPageInner() {
   return (
     <>
       {/* Sticky header */}
-      <div className="sticky top-0 z-10 bg-white border-b border-black/5 px-6 py-4">
+      <div className="sticky top-0 z-10 bg-white border-b border-brand-border px-6 py-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-baseline gap-2">
             <h1 className="type-page-title">База лидов</h1>
             {/* Compact total — shown small next to title, the loud counts
                 live inside each chip below. */}
-            <span className="text-muted-3 text-xs font-mono tabular-nums">
+            <span className="text-brand-muted text-xs font-mono tabular-nums">
               {filtered.length}
               {filtered.length !== allItems.length && (
-                <span className="text-muted-3"> / {allItems.length}</span>
+                <span className="text-brand-muted"> / {allItems.length}</span>
               )}
             </span>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setAiUpdateOpen(true)}
-              className="inline-flex items-center gap-1.5 bg-canvas text-ink border border-black/10 rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-canvas-2 hover:border-black/20 active:scale-[0.98]"
+              className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-brand-panel hover:border-brand-border active:scale-[0.98]"
               aria-label="Обновление через AI"
             >
               <Sparkles size={14} />
@@ -455,8 +455,8 @@ function LeadsPoolPageInner() {
             />
             {/* "Только мой пул" placeholder toggle */}
             <label className="flex items-center gap-2 cursor-pointer opacity-50" title="Скоро">
-              <span className="text-xs font-semibold text-muted">Только мой пул</span>
-              <div className="w-8 h-4 rounded-pill bg-black/10" />
+              <span className="text-xs font-semibold text-brand-muted">Только мой пул</span>
+              <div className="w-8 h-4 rounded-full bg-black/10" />
             </label>
           </div>
         </div>
@@ -475,14 +475,14 @@ function LeadsPoolPageInner() {
           <div className="relative">
             <Search
               size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-3 pointer-events-none"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted pointer-events-none"
             />
             <input
               type="text"
               placeholder="Поиск: имя, email, телефон, ИНН"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 pr-3 py-1.5 text-sm bg-canvas border border-black/10 rounded-pill outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300 w-64"
+              className="pl-8 pr-3 py-1.5 text-sm bg-brand-bg border border-brand-border rounded-full outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300 w-64"
             />
           </div>
 
@@ -541,7 +541,7 @@ function LeadsPoolPageInner() {
           <select
             value={formId ?? ""}
             onChange={(e) => setFormId(e.target.value || undefined)}
-            className="text-sm px-2 py-1.5 rounded-lg bg-canvas border border-black/5 outline-none focus:border-brand-accent"
+            className="text-sm px-2 py-1.5 rounded-lg bg-brand-bg border border-brand-border outline-none focus:border-brand-accent"
           >
             <option value="">Все источники</option>
             {forms
@@ -559,7 +559,7 @@ function LeadsPoolPageInner() {
             className={`text-xs px-2 py-1 rounded ${
               needsReview === true
                 ? "bg-amber-600 text-white"
-                : "bg-canvas border border-black/5 text-muted-2 hover:border-amber-400"
+                : "bg-brand-bg border border-brand-border text-brand-muted hover:border-amber-400"
             }`}
           >
             Только AI-созданные
@@ -575,21 +575,21 @@ function LeadsPoolPageInner() {
             />
           )}
 
-          <span className="text-muted-3 text-xs">|</span>
+          <span className="text-brand-muted text-xs">|</span>
 
           <FitSlider value={fitMin} onChange={setFitMin} />
 
-          <span className="text-muted-3 text-xs">|</span>
+          <span className="text-brand-muted text-xs">|</span>
 
           {/* Boolean toggles — render as pill buttons with checked state. */}
           <button
             type="button"
             onClick={() => setHasEmailOnly((v) => !v)}
             aria-pressed={hasEmailOnly}
-            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-pill text-xs font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
               hasEmailOnly
                 ? "bg-brand-soft text-brand-accent-text border-brand-accent/30"
-                : "bg-canvas text-muted border-black/10 hover:border-black/20"
+                : "bg-brand-bg text-brand-muted border-brand-border hover:border-brand-border"
             }`}
           >
             С email
@@ -598,10 +598,10 @@ function LeadsPoolPageInner() {
             type="button"
             onClick={() => setHasPhoneOnly((v) => !v)}
             aria-pressed={hasPhoneOnly}
-            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-pill text-xs font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
               hasPhoneOnly
                 ? "bg-brand-soft text-brand-accent-text border-brand-accent/30"
-                : "bg-canvas text-muted border-black/10 hover:border-black/20"
+                : "bg-brand-bg text-brand-muted border-brand-border hover:border-brand-border"
             }`}
           >
             С телефоном
@@ -609,11 +609,11 @@ function LeadsPoolPageInner() {
 
           {activeFilterCount > 0 && (
             <>
-              <span className="text-muted-3 text-xs">|</span>
+              <span className="text-brand-muted text-xs">|</span>
               <button
                 type="button"
                 onClick={resetAllFilters}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-pill text-xs font-semibold text-rose hover:bg-rose/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose focus-visible:ring-offset-1"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold text-rose hover:bg-rose/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose focus-visible:ring-offset-1"
               >
                 <X size={12} />
                 Сбросить ({activeFilterCount})
@@ -626,7 +626,7 @@ function LeadsPoolPageInner() {
       {/* Body */}
       <div className="px-6 py-6">
         {isLoading && (
-          <div className="flex items-center justify-center py-20 gap-2 text-muted-2 text-sm">
+          <div className="flex items-center justify-center py-20 gap-2 text-brand-muted text-sm">
             <Loader2 size={18} className="animate-spin" /> Загрузка...
           </div>
         )}
@@ -639,9 +639,9 @@ function LeadsPoolPageInner() {
 
         {!isLoading && !isError && filtered.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="bg-white border border-black/5 rounded-2xl p-10 shadow-soft max-w-sm w-full">
+            <div className="bg-white border border-brand-border rounded-card p-10 shadow-overlay max-w-sm w-full">
               <p className="type-card-title mb-2">В пуле пока пусто</p>
-              <p className="text-sm text-muted">
+              <p className="text-sm text-brand-muted">
                 Импортируйте лиды или добавьте вручную.
               </p>
             </div>
@@ -649,14 +649,14 @@ function LeadsPoolPageInner() {
         )}
 
         {!isLoading && !isError && filtered.length > 0 && (
-          <div className="overflow-x-auto rounded-xl border border-black/5 bg-white">
+          <div className="overflow-x-auto rounded-xl border border-brand-border bg-white">
             <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-black/5">
+                <tr className="border-b border-brand-border">
                   {["Компания", "Город", "Сегмент", "Tier", "Fit Score", "Статус", ""].map((h) => (
                     <th
                       key={h}
-                      className="px-4 py-2.5 type-table-header text-muted-2 whitespace-nowrap"
+                      className="px-4 py-2.5 type-table-header text-brand-muted whitespace-nowrap"
                     >
                       {h}
                     </th>

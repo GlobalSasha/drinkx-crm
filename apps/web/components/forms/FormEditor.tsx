@@ -274,19 +274,19 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
           role="dialog"
           aria-modal="true"
           aria-label={isEdit ? "Редактирование формы" : "Новая форма"}
-          className="bg-white rounded-2xl border border-black/5 shadow-soft w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden"
+          className="bg-white rounded-card border border-brand-border shadow-overlay w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden"
         >
           {/* Header */}
-          <div className="px-6 py-4 border-b border-black/5 flex items-start justify-between gap-4">
+          <div className="px-6 py-4 border-b border-brand-border flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <div className="text-2xs font-mono uppercase tracking-wider text-muted-3">
+              <div className="text-2xs font-mono uppercase tracking-wider text-brand-muted">
                 Форма
               </div>
-              <h2 className="text-lg font-bold tracking-tight text-ink mt-0.5 truncate">
+              <h2 className="text-lg font-bold tracking-tight text-brand-primary mt-0.5 truncate">
                 {isEdit ? form?.name : "Новая форма"}
               </h2>
               {isEdit && form?.slug && (
-                <div className="text-xs font-mono text-muted-3 mt-0.5">
+                <div className="text-xs font-mono text-brand-muted mt-0.5">
                   /{form.slug}
                 </div>
               )}
@@ -294,7 +294,7 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
             <button
               onClick={busy ? undefined : onClose}
               disabled={busy}
-              className="shrink-0 p-1.5 -mr-1.5 rounded-lg text-muted-2 hover:bg-canvas hover:text-ink transition-colors disabled:opacity-40"
+              className="shrink-0 p-1.5 -mr-1.5 rounded-lg text-brand-muted hover:bg-brand-bg hover:text-brand-primary transition-colors disabled:opacity-40"
               aria-label="Закрыть"
             >
               <X size={16} />
@@ -302,7 +302,7 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
           </div>
 
           {/* Tabs — only show «Встроить» when editing (need slug) */}
-          <div className="px-6 pt-3 border-b border-black/5">
+          <div className="px-6 pt-3 border-b border-brand-border">
             <div className="flex gap-1">
               <TabButton
                 active={tab === "settings"}
@@ -368,7 +368,7 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
 
           {/* Footer — only on settings tab; embed tab is read-only */}
           {tab === "settings" && (
-            <div className="px-6 py-4 border-t border-black/5 flex items-center justify-between">
+            <div className="px-6 py-4 border-t border-brand-border flex items-center justify-between">
               {error ? (
                 <div className="flex items-center gap-1.5 text-sm text-rose">
                   <AlertCircle size={13} />
@@ -381,14 +381,14 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
                 <button
                   onClick={busy ? undefined : onClose}
                   disabled={busy}
-                  className="text-sm font-semibold text-muted hover:text-ink disabled:opacity-40 transition-colors"
+                  className="text-sm font-semibold text-brand-muted hover:text-brand-primary disabled:opacity-40 transition-colors"
                 >
                   Отмена
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={busy}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-pill bg-ink text-white text-sm font-semibold hover:bg-ink/90 disabled:opacity-40 transition-all duration-300"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-brand-accent text-white text-sm font-semibold hover:bg-brand-accent/90 disabled:opacity-40 transition-all duration-300"
                 >
                   {busy && <Loader2 size={14} className="animate-spin" />}
                   {busy ? "Сохраняем…" : "Сохранить"}
@@ -423,8 +423,8 @@ function TabButton({
       className={clsx(
         "inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold border-b-2 transition-colors -mb-px",
         active
-          ? "border-brand-accent text-ink"
-          : "border-transparent text-muted-2 hover:text-ink",
+          ? "border-brand-accent text-brand-primary"
+          : "border-transparent text-brand-muted hover:text-brand-primary",
       )}
     >
       {icon}
@@ -504,14 +504,14 @@ function SettingsTab({
           value={name}
           onChange={(e) => onName(e.target.value)}
           placeholder="Например: Заявка с лендинга QSR"
-          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
+          className="w-full text-sm bg-brand-bg border border-brand-border rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
         />
       </Field>
 
       {/* Fields */}
       <div>
         <div className="flex items-baseline justify-between mb-1.5">
-          <label className="text-2xs font-mono uppercase tracking-wider text-muted-2">
+          <label className="text-2xs font-mono uppercase tracking-wider text-brand-muted">
             Поля формы
           </label>
           {fields.length === 0 && (
@@ -520,19 +520,19 @@ function SettingsTab({
             </span>
           )}
         </div>
-        <div className="rounded-2xl border border-black/5 bg-white">
-          <div className="grid grid-cols-[1fr_140px_90px_24px] items-center gap-2 px-3 py-2 bg-canvas border-b border-black/5 text-2xs font-mono uppercase tracking-wider text-muted-3">
+        <div className="rounded-card border border-brand-border bg-white">
+          <div className="grid grid-cols-[1fr_140px_90px_24px] items-center gap-2 px-3 py-2 bg-brand-bg border-b border-brand-border text-2xs font-mono uppercase tracking-wider text-brand-muted">
             <span>Заголовок</span>
             <span>Тип</span>
             <span>Обязательное</span>
             <span />
           </div>
           {fields.length === 0 && (
-            <div className="px-3 py-4 text-sm text-muted-3 text-center">
+            <div className="px-3 py-4 text-sm text-brand-muted text-center">
               Поля не добавлены
             </div>
           )}
-          <div className="divide-y divide-black/5">
+          <div className="divide-y divide-brand-border">
             {fields.map((f) => (
               <FieldRowEditor
                 key={f._clientId}
@@ -545,7 +545,7 @@ function SettingsTab({
         </div>
         <button
           onClick={onAddField}
-          className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-ink transition-colors"
+          className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-brand-muted hover:text-brand-primary transition-colors"
         >
           <Plus size={13} />
           Добавить поле
@@ -560,7 +560,7 @@ function SettingsTab({
         <select
           value={targetStageId ?? ""}
           onChange={(e) => onStageChange(e.target.value)}
-          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
+          className="w-full text-sm bg-brand-bg border border-brand-border rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
         >
           <option value="">— по умолчанию (первая стадия)</option>
           {stageOptions.map((o) => (
@@ -579,7 +579,7 @@ function SettingsTab({
         <select
           value={defaultAssigneeId ?? ""}
           onChange={(e) => onDefaultAssigneeId(e.target.value || null)}
-          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
+          className="w-full text-sm bg-brand-bg border border-brand-border rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
         >
           <option value="">— в общий пул —</option>
           {users.map((u) => (
@@ -601,7 +601,7 @@ function SettingsTab({
           max={240}
           value={contactTaskSlaHours}
           onChange={(e) => onContactTaskSlaHours(Math.min(240, Math.max(1, Number(e.target.value))))}
-          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
+          className="w-full text-sm bg-brand-bg border border-brand-border rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
         />
       </Field>
 
@@ -614,7 +614,7 @@ function SettingsTab({
           value={sourceLabel}
           onChange={(e) => onSourceLabel(e.target.value)}
           placeholder="Например: landing-horeca"
-          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
+          className="w-full text-sm bg-brand-bg border border-brand-border rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
         />
       </Field>
 
@@ -628,7 +628,7 @@ function SettingsTab({
           value={notifyEmail}
           onChange={(e) => onNotifyEmail(e.target.value)}
           placeholder="manager@drinkx.ru"
-          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
+          className="w-full text-sm bg-brand-bg border border-brand-border rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
         />
       </Field>
 
@@ -639,13 +639,13 @@ function SettingsTab({
             type="checkbox"
             checked={requireKey}
             onChange={(e) => onRequireKey(e.target.checked)}
-            className="h-4 w-4 rounded border-black/20 accent-brand-accent"
+            className="h-4 w-4 rounded border-brand-border accent-brand-accent"
           />
-          <span className="text-sm font-semibold text-ink">
+          <span className="text-sm font-semibold text-brand-primary">
             Защищённый приём (S2S ключ)
           </span>
         </label>
-        <p className="text-xs text-muted-3 mt-1 leading-snug ml-7">
+        <p className="text-xs text-brand-muted mt-1 leading-snug ml-7">
           При включении все запросы к эндпоинту должны содержать заголовок{" "}
           <code className="font-mono">X-Form-Key</code>. Ключ генерируется
           автоматически и виден во вкладке «Встроить».
@@ -659,13 +659,13 @@ function SettingsTab({
             type="checkbox"
             checked={autoreplyEnabled}
             onChange={(e) => onAutoreplyEnabled(e.target.checked)}
-            className="h-4 w-4 rounded border-black/20 accent-brand-accent"
+            className="h-4 w-4 rounded border-brand-border accent-brand-accent"
           />
-          <span className="text-sm font-semibold text-ink">
+          <span className="text-sm font-semibold text-brand-primary">
             Авто-ответ на почту лида
           </span>
         </label>
-        <p className="text-xs text-muted-3 mt-1 leading-snug ml-7">
+        <p className="text-xs text-brand-muted mt-1 leading-snug ml-7">
           Если в заявке указана почта — на неё автоматически уйдёт это
           письмо (например, КП и ссылка на калькулятор). Без почты —
           просто не отправится.
@@ -679,7 +679,7 @@ function SettingsTab({
               value={autoreplySubject}
               onChange={(e) => onAutoreplySubject(e.target.value)}
               placeholder="DrinkX — коммерческое предложение"
-              className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
+              className="w-full text-sm bg-brand-bg border border-brand-border rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
             />
           </Field>
           <Field
@@ -693,7 +693,7 @@ function SettingsTab({
               placeholder={
                 "Здравствуйте!\n\nСпасибо за заявку. Наше коммерческое предложение: https://...\nКалькулятор окупаемости: https://..."
               }
-              className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors resize-none"
+              className="w-full text-sm bg-brand-bg border border-brand-border rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors resize-none"
             />
           </Field>
         </>
@@ -708,7 +708,7 @@ function SettingsTab({
           value={redirectUrl}
           onChange={(e) => onRedirectUrl(e.target.value)}
           placeholder="https://drinkx.ru/thanks"
-          className="w-full text-sm bg-canvas border border-black/10 rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
+          className="w-full text-sm bg-brand-bg border border-brand-border rounded-lg px-3 py-2 outline-none focus:border-brand-accent transition-colors"
         />
       </Field>
     </div>
@@ -728,13 +728,13 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-2xs font-mono uppercase tracking-wider text-muted-2 mb-1.5">
+      <label className="block text-2xs font-mono uppercase tracking-wider text-brand-muted mb-1.5">
         {label}
         {required && <span className="text-amber-700"> *</span>}
       </label>
       {children}
       {hint && (
-        <p className="text-xs text-muted-3 mt-1 leading-snug">{hint}</p>
+        <p className="text-xs text-brand-muted mt-1 leading-snug">{hint}</p>
       )}
     </div>
   );
@@ -755,12 +755,12 @@ function FieldRowEditor({
         value={field.label}
         onChange={(e) => onPatch({ label: e.target.value })}
         placeholder="Например: Имя"
-        className="text-sm bg-canvas border border-black/10 rounded-lg px-2.5 py-1.5 outline-none focus:border-brand-accent"
+        className="text-sm bg-brand-bg border border-brand-border rounded-lg px-2.5 py-1.5 outline-none focus:border-brand-accent"
       />
       <select
         value={field.type}
         onChange={(e) => onPatch({ type: e.target.value as FieldType })}
-        className="text-sm bg-canvas border border-black/10 rounded-lg px-2.5 py-1.5 outline-none focus:border-brand-accent"
+        className="text-sm bg-brand-bg border border-brand-border rounded-lg px-2.5 py-1.5 outline-none focus:border-brand-accent"
       >
         {FIELD_TYPES.map((t) => (
           <option key={t.value} value={t.value}>
@@ -771,10 +771,10 @@ function FieldRowEditor({
       <button
         onClick={() => onPatch({ required: !field.required })}
         className={clsx(
-          "h-7 rounded-pill text-xs font-semibold transition-colors",
+          "h-7 rounded-full text-xs font-semibold transition-colors",
           field.required
             ? "bg-brand-accent text-white"
-            : "bg-canvas text-muted-2 hover:bg-canvas-2",
+            : "bg-brand-bg text-brand-muted hover:bg-brand-panel",
         )}
         aria-pressed={field.required}
       >
@@ -782,7 +782,7 @@ function FieldRowEditor({
       </button>
       <button
         onClick={onRemove}
-        className="text-muted-3 hover:text-rose-600 transition-colors"
+        className="text-brand-muted hover:text-rose transition-colors"
         aria-label="Удалить поле"
       >
         <Trash2 size={14} />
@@ -835,16 +835,16 @@ function EmbedTab({
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-base font-bold tracking-tight text-ink">
+        <h3 className="text-base font-bold tracking-tight text-brand-primary">
           Встроить форму
         </h3>
-        <p className="text-md text-muted mt-1">
+        <p className="text-md text-brand-muted mt-1">
           Вставьте этот код в HTML страницы, где должна появиться форма.
         </p>
       </div>
 
       <div>
-        <label className="block text-2xs font-mono uppercase tracking-wider text-muted-2 mb-1.5">
+        <label className="block text-2xs font-mono uppercase tracking-wider text-brand-muted mb-1.5">
           Код для вставки
         </label>
         <textarea
@@ -853,19 +853,19 @@ function EmbedTab({
           value={fullSnippet}
           rows={3}
           onFocus={(e) => e.currentTarget.select()}
-          className="w-full text-xs font-mono leading-relaxed bg-canvas border border-black/10 rounded-xl p-3 outline-none focus:border-brand-accent/40 resize-none"
+          className="w-full text-xs font-mono leading-relaxed bg-brand-bg border border-brand-border rounded-xl p-3 outline-none focus:border-brand-accent/40 resize-none"
         />
         <div className="flex items-center justify-between mt-2">
-          <span className="text-2xs text-muted-3">
+          <span className="text-2xs text-brand-muted">
             Кликните в поле — выделится весь текст.
           </span>
           <button
             onClick={onCopy}
             className={clsx(
-              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-xs font-semibold transition-all",
+              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all",
               copied
                 ? "bg-emerald-600 text-white"
-                : "bg-canvas text-ink border border-black/10 hover:bg-canvas-2",
+                : "bg-brand-bg text-brand-primary border border-brand-border hover:bg-brand-panel",
             )}
           >
             {copied ? <Check size={12} /> : <Copy size={12} />}
@@ -875,8 +875,8 @@ function EmbedTab({
       </div>
 
       {directUrl && (
-        <div className="rounded-2xl border border-black/5 bg-canvas/40 px-4 py-3">
-          <div className="text-2xs font-mono uppercase tracking-wider text-muted-3 mb-1">
+        <div className="rounded-card border border-brand-border bg-brand-bg/40 px-4 py-3">
+          <div className="text-2xs font-mono uppercase tracking-wider text-brand-muted mb-1">
             Прямая ссылка на embed.js
           </div>
           <a
@@ -893,31 +893,31 @@ function EmbedTab({
       {curlExample && (
         <div className="space-y-3">
           <div>
-            <h3 className="text-base font-bold tracking-tight text-ink">
+            <h3 className="text-base font-bold tracking-tight text-brand-primary">
               Интеграция (S2S)
             </h3>
-            <p className="text-md text-muted mt-1">
+            <p className="text-md text-brand-muted mt-1">
               Сервер-серверная отправка. Передавайте ключ в заголовке{" "}
               <code className="font-mono text-xs">X-Form-Key</code>.
             </p>
           </div>
           <div>
-            <label className="block text-2xs font-mono uppercase tracking-wider text-muted-2 mb-1.5">
+            <label className="block text-2xs font-mono uppercase tracking-wider text-brand-muted mb-1.5">
               Пример запроса (curl)
             </label>
-            <pre className="w-full text-xs font-mono leading-relaxed bg-canvas border border-black/10 rounded-xl p-3 whitespace-pre-wrap break-all">
+            <pre className="w-full text-xs font-mono leading-relaxed bg-brand-bg border border-brand-border rounded-xl p-3 whitespace-pre-wrap break-all">
               {curlExample}
             </pre>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-3">
+            <span className="text-xs text-brand-muted">
               Ключ:{" "}
               <code className="font-mono">{form.ingest_token}</code>
             </span>
             <button
               onClick={onRotateKey}
               disabled={rotatingKey}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-xs font-semibold bg-canvas text-ink border border-black/10 hover:bg-canvas-2 disabled:opacity-40 transition-all"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-brand-bg text-brand-primary border border-brand-border hover:bg-brand-panel disabled:opacity-40 transition-all"
             >
               {rotatingKey ? (
                 <Loader2 size={12} className="animate-spin" />
@@ -930,7 +930,7 @@ function EmbedTab({
         </div>
       )}
 
-      <div className="rounded-2xl border border-amber-200/60 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      <div className="rounded-card border border-amber-200/60 bg-amber-50 px-4 py-3 text-sm text-amber-900">
         <strong>Совет:</strong> при изменении полей формы slug не меняется —
         embed-код остаётся валидным, обновлять разметку на сайте не нужно.
         Если форму нужно «архивировать», переключите тумблер «Активна» в

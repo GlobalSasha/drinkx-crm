@@ -64,14 +64,14 @@ export function LostModal({
   return (
     <Modal open onClose={onClose} title="Перевести в Проигран?" dismissOnBackdrop={false}>
       <div className="-m-6">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-black/5">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-brand-border">
           <h3 className="text-base font-bold">
             Перевести в «Проигран»?
           </h3>
           <button
             type="button"
             onClick={onClose}
-            className="text-muted hover:text-ink p-1"
+            className="text-brand-muted hover:text-brand-primary p-1"
             aria-label="Закрыть"
           >
             <X size={16} />
@@ -79,25 +79,25 @@ export function LostModal({
         </div>
 
         <div className="px-5 py-4 space-y-3">
-          <p className="text-sm text-muted">
+          <p className="text-sm text-brand-muted">
             Лид{" "}
-            <span className="font-semibold text-ink">{companyName}</span>{" "}
+            <span className="font-semibold text-brand-primary">{companyName}</span>{" "}
             будет помечен как закрытый. Это действие можно отменить
             ручным переводом обратно в активную стадию.
           </p>
 
           <div>
-            <label className="text-xs font-mono uppercase tracking-wide text-muted-3">
-              Причина <span className="text-muted-3">(необязательно)</span>
+            <label className="text-xs font-mono uppercase tracking-wide text-brand-muted">
+              Причина <span className="text-brand-muted">(необязательно)</span>
             </label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Например: бюджет не подтверждён, конкурент выиграл, клиент закрыл проект"
               rows={3}
-              className="mt-1 w-full bg-canvas border border-black/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 resize-none"
+              className="mt-1 w-full bg-brand-bg border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 resize-none"
             />
-            <p className="text-2xs text-muted-3 mt-1">
+            <p className="text-2xs text-brand-muted mt-1">
               Помогает с ретроспективой по проигранным сделкам.
             </p>
           </div>
@@ -109,7 +109,7 @@ export function LostModal({
               type="button"
               onClick={handleConfirm}
               disabled={moveStage.isPending}
-              className="inline-flex items-center gap-1.5 bg-rose text-white rounded-pill px-4 py-2 text-sm font-semibold hover:bg-rose/90 disabled:opacity-40 transition-all duration-300"
+              className="inline-flex items-center gap-1.5 bg-rose text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-rose/90 disabled:opacity-40 transition-all duration-300"
             >
               {moveStage.isPending && (
                 <Loader2 size={13} className="animate-spin" />
@@ -120,7 +120,7 @@ export function LostModal({
               type="button"
               onClick={onClose}
               disabled={moveStage.isPending}
-              className="text-sm text-muted hover:text-ink disabled:opacity-40"
+              className="text-sm text-brand-muted hover:text-brand-primary disabled:opacity-40"
             >
               Отмена
             </button>

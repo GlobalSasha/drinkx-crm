@@ -175,7 +175,7 @@ export function ExportPopover({
         aria-expanded={open}
         className={clsx(
           triggerClassName ??
-            "inline-flex items-center gap-1.5 bg-canvas text-ink border border-black/10 rounded-pill px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-canvas-2 hover:border-black/20 active:scale-[0.98]",
+            "inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-brand-panel hover:border-brand-border active:scale-[0.98]",
         )}
       >
         <Download size={14} />
@@ -186,21 +186,21 @@ export function ExportPopover({
         <div
           role="dialog"
           aria-label="Экспорт лидов"
-          className="absolute right-0 top-full mt-2 w-[20rem] sm:w-[22rem] bg-white rounded-2xl border border-black/5 shadow-soft p-4 z-30 max-w-[calc(100vw-2rem)]"
+          className="absolute right-0 top-full mt-2 w-[20rem] sm:w-[22rem] bg-white rounded-card border border-brand-border shadow-overlay p-4 z-30 max-w-[calc(100vw-2rem)]"
           onMouseDown={(e) => e.stopPropagation()}
         >
           <div className="mb-3">
-            <div className="text-2xs font-mono uppercase tracking-wider text-muted-3">
+            <div className="text-2xs font-mono uppercase tracking-wider text-brand-muted">
               Экспорт лидов
             </div>
-            <div className="text-sm font-bold text-ink mt-0.5">
+            <div className="text-sm font-bold text-brand-primary mt-0.5">
               Выгрузить в файл
             </div>
           </div>
 
           {/* Format grid */}
           <div>
-            <div className="text-2xs font-mono uppercase tracking-wider text-muted-3 mb-1.5">
+            <div className="text-2xs font-mono uppercase tracking-wider text-brand-muted mb-1.5">
               Формат
             </div>
             <div className="grid grid-cols-2 gap-1.5">
@@ -216,7 +216,7 @@ export function ExportPopover({
                       "flex items-start gap-2 rounded-xl border px-2.5 py-2 text-left transition-all duration-200 outline-none",
                       active
                         ? "border-brand-accent bg-brand-soft"
-                        : "border-black/10 hover:border-black/20 hover:bg-canvas",
+                        : "border-brand-border hover:border-brand-border hover:bg-brand-bg",
                       f.value === "md_zip" && "col-span-2",
                       busy && "opacity-50 cursor-not-allowed",
                     )}
@@ -225,7 +225,7 @@ export function ExportPopover({
                     <span
                       className={clsx(
                         "mt-0.5 shrink-0",
-                        active ? "text-brand-accent" : "text-muted-2",
+                        active ? "text-brand-accent" : "text-brand-muted",
                       )}
                     >
                       {f.icon}
@@ -234,12 +234,12 @@ export function ExportPopover({
                       <div
                         className={clsx(
                           "text-sm font-semibold leading-snug",
-                          active ? "text-ink" : "text-ink",
+                          active ? "text-brand-primary" : "text-brand-primary",
                         )}
                       >
                         {f.label}
                       </div>
-                      <div className="text-2xs font-mono text-muted-3 truncate">
+                      <div className="text-2xs font-mono text-brand-muted truncate">
                         {f.hint}
                       </div>
                     </div>
@@ -256,17 +256,17 @@ export function ExportPopover({
             onClick={() => setIncludeAiBrief((v) => !v)}
             className={clsx(
               "mt-3 flex items-center justify-between w-full rounded-xl px-3 py-2 transition-all",
-              "bg-canvas hover:bg-canvas-2",
+              "bg-brand-bg hover:bg-brand-panel",
               busy && "opacity-50 cursor-not-allowed",
               format === "md_zip" && "opacity-60 cursor-not-allowed",
             )}
             aria-pressed={includeAiBrief}
           >
             <div className="text-left">
-              <div className="text-sm font-semibold text-ink">
+              <div className="text-sm font-semibold text-brand-primary">
                 Включить AI Brief
               </div>
-              <div className="text-2xs text-muted-2 leading-snug">
+              <div className="text-2xs text-brand-muted leading-snug">
                 {format === "md_zip"
                   ? "Markdown ZIP всегда содержит AI Brief"
                   : "Добавит колонку с кратким описанием компании"}
@@ -274,7 +274,7 @@ export function ExportPopover({
             </div>
             <span
               className={clsx(
-                "shrink-0 ml-2 w-9 h-5 rounded-pill relative transition-colors",
+                "shrink-0 ml-2 w-9 h-5 rounded-full relative transition-colors",
                 includeAiBrief || format === "md_zip"
                   ? "bg-brand-accent"
                   : "bg-black/15",
@@ -292,14 +292,14 @@ export function ExportPopover({
           </button>
 
           {/* Scope */}
-          <div className="mt-3 rounded-xl border border-black/5 px-3 py-2">
-            <div className="text-2xs font-mono uppercase tracking-wider text-muted-3">
+          <div className="mt-3 rounded-xl border border-brand-border px-3 py-2">
+            <div className="text-2xs font-mono uppercase tracking-wider text-brand-muted">
               Область
             </div>
             <div className="flex items-baseline justify-between mt-0.5">
-              <div className="text-sm text-ink">Текущие фильтры</div>
+              <div className="text-sm text-brand-primary">Текущие фильтры</div>
               {typeof leadCount === "number" && (
-                <div className="text-xs font-mono text-muted-2 tabular-nums">
+                <div className="text-xs font-mono text-brand-muted tabular-nums">
                   {leadCount} {pluralLeads(leadCount)}
                 </div>
               )}
@@ -320,7 +320,7 @@ export function ExportPopover({
               type="button"
               onClick={() => setOpen(false)}
               disabled={busy}
-              className="text-sm font-semibold text-muted hover:text-ink disabled:opacity-40 transition-colors"
+              className="text-sm font-semibold text-brand-muted hover:text-brand-primary disabled:opacity-40 transition-colors"
             >
               Отмена
             </button>
@@ -329,7 +329,7 @@ export function ExportPopover({
               onClick={handleSubmit}
               disabled={busy || phase === "done"}
               className={clsx(
-                "inline-flex items-center gap-2 px-4 py-2 rounded-pill text-sm font-semibold transition-all duration-300",
+                "inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300",
                 phase === "done"
                   ? "bg-emerald-600 text-white"
                   : "bg-brand-accent text-white hover:bg-brand-accent/90",

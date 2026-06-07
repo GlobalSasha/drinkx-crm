@@ -55,7 +55,7 @@ export function CompanyMergeModal({ sourceId, sourceName, onClose, onSuccess }: 
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-soft">
+      <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-overlay">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 rounded-full bg-brand-panel">
             <GitMerge size={18} className="text-brand-accent-text" />
@@ -86,7 +86,7 @@ export function CompanyMergeModal({ sourceId, sourceName, onClose, onSuccess }: 
             autoFocus
           />
           {query && !targetId && items.length > 0 && (
-            <ul className="mt-2 border border-brand-border rounded-2xl overflow-hidden max-h-60 overflow-y-auto">
+            <ul className="mt-2 border border-brand-border rounded-card overflow-hidden max-h-60 overflow-y-auto">
               {items
                 .filter((it) => it.id !== sourceId)
                 .slice(0, 10)
@@ -112,7 +112,7 @@ export function CompanyMergeModal({ sourceId, sourceName, onClose, onSuccess }: 
         </div>
 
         {innConflict && (
-          <div className="flex items-start gap-2 bg-warning/5 border border-warning/30 rounded-2xl px-3 py-2.5 mb-4">
+          <div className="flex items-start gap-2 bg-warning/5 border border-warning/30 rounded-card px-3 py-2.5 mb-4">
             <AlertTriangle size={14} className="text-warning shrink-0 mt-0.5" />
             <div className="type-caption text-brand-muted">
               <p className="font-semibold text-warning">Разные ИНН</p>

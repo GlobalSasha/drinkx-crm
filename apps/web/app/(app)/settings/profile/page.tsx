@@ -91,7 +91,7 @@ export default function ProfilePage() {
     "?";
 
   return (
-    <div className={pageContainerVariants({ width: "narrow" })}>
+    <div className={pageContainerVariants({ surface: "reading" })}>
       <Link
         href="/settings"
         className="inline-flex items-center gap-1 text-xs font-mono text-brand-muted hover:text-brand-primary mb-4 transition-colors"
@@ -102,7 +102,7 @@ export default function ProfilePage() {
 
       <h1 className="type-card-title mb-6">Мой профиль</h1>
 
-      <div className="bg-white border border-brand-border rounded-2xl p-6 mb-4">
+      <div className="bg-white border border-brand-border rounded-card p-6 mb-4">
         <div className="flex items-center gap-4 mb-6 pb-6 border-b border-brand-border">
           <div className="w-16 h-16 rounded-full bg-brand-soft flex items-center justify-center text-xl font-semibold text-brand-accent shrink-0 overflow-hidden">
             {me.avatar_url ? (
@@ -174,7 +174,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <div className="bg-white border border-brand-border rounded-2xl p-4 mb-4">
+      <div className="bg-white border border-brand-border rounded-card p-4 mb-4">
         <p className="type-caption text-brand-muted mb-3">Информация об аккаунте</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
@@ -207,7 +207,7 @@ export default function ProfilePage() {
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="px-5 py-2 bg-brand-accent text-white rounded-pill text-sm font-semibold disabled:opacity-50 hover:opacity-90 transition-opacity"
+          className="px-5 py-2 bg-brand-accent text-white rounded-full text-sm font-semibold disabled:opacity-50 hover:opacity-90 transition-opacity"
         >
           {saved ? "Сохранено ✓" : saving ? "Сохранение…" : "Сохранить"}
         </button>

@@ -110,12 +110,12 @@ export function CreateLeadModal() {
         onClick={closeCreateLeadModal}
       />
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl border border-black/5 shadow-soft w-full max-w-md p-6">
+        <div className="bg-white rounded-card border border-brand-border shadow-overlay w-full max-w-md p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold tracking-tight">Новый лид</h2>
             <button
               onClick={closeCreateLeadModal}
-              className="text-muted hover:text-ink transition-colors p-1 rounded-lg hover:bg-black/5"
+              className="text-brand-muted hover:text-brand-primary transition-colors p-1 rounded-lg hover:bg-black/5"
             >
               <X size={18} />
             </button>
@@ -123,7 +123,7 @@ export function CreateLeadModal() {
 
           <form onSubmit={handleSubmit} className="space-y-3">
             <label className="block">
-              <span className="font-mono text-2xs uppercase tracking-[0.12em] text-muted-2 block mb-1.5">
+              <span className="font-mono text-2xs uppercase tracking-[0.12em] text-brand-muted block mb-1.5">
                 Компания *
               </span>
               <div className="relative">
@@ -138,39 +138,39 @@ export function CreateLeadModal() {
                     setError(null);
                   }}
                   placeholder="Начните печатать название…"
-                  className="w-full px-4 py-2.5 text-sm bg-canvas border border-black/10 rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-200"
+                  className="w-full px-4 py-2.5 text-sm bg-brand-bg border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-200"
                 />
                 {isFetching && (
                   <Loader2
                     size={14}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-muted"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-brand-muted"
                   />
                 )}
               </div>
 
               {!picked && query.trim().length > 0 && (
-                <ul className="mt-2 border border-black/10 rounded-2xl overflow-hidden max-h-60 overflow-y-auto bg-white">
+                <ul className="mt-2 border border-brand-border rounded-card overflow-hidden max-h-60 overflow-y-auto bg-white">
                   {companyHits.slice(0, 8).map((it) => (
                     <li key={it.id}>
                       <button
                         type="button"
                         onClick={() => pickExisting(it)}
-                        className="flex flex-col w-full px-3 py-2 text-left hover:bg-canvas transition-colors"
+                        className="flex flex-col w-full px-3 py-2 text-left hover:bg-brand-bg transition-colors"
                       >
-                        <span className="text-sm font-semibold text-ink truncate">
+                        <span className="text-sm font-semibold text-brand-primary truncate">
                           {it.title}
                         </span>
                         {it.subtitle && (
-                          <span className="text-xs text-muted truncate">{it.subtitle}</span>
+                          <span className="text-xs text-brand-muted truncate">{it.subtitle}</span>
                         )}
                       </button>
                     </li>
                   ))}
                   {showCreateNewItem && (
-                    <li className="border-t border-black/5">
+                    <li className="border-t border-brand-border">
                       <button
                         type="submit"
-                        className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-canvas transition-colors"
+                        className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-brand-bg transition-colors"
                       >
                         <Plus size={13} className="text-brand-accent" />
                         <span className="text-sm font-semibold text-brand-accent-text">
@@ -183,7 +183,7 @@ export function CreateLeadModal() {
               )}
 
               {picked && (
-                <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-2xl bg-brand-bg">
+                <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-card bg-brand-bg">
                   <Sparkles size={13} className="text-brand-accent shrink-0" />
                   <span className="text-sm font-semibold text-brand-accent-text">
                     Использовать «{picked.title}»
@@ -194,7 +194,7 @@ export function CreateLeadModal() {
                       setPicked(null);
                       setTimeout(() => inputRef.current?.focus(), 0);
                     }}
-                    className="ml-auto text-xs text-muted hover:text-ink"
+                    className="ml-auto text-xs text-brand-muted hover:text-brand-primary"
                   >
                     Сбросить
                   </button>
@@ -203,7 +203,7 @@ export function CreateLeadModal() {
             </label>
 
             {duplicateCandidates && duplicateCandidates.length > 0 && (
-              <div className="rounded-2xl bg-warning/5 border border-warning/30 p-3">
+              <div className="rounded-card bg-warning/5 border border-warning/30 p-3">
                 <p className="text-xs font-semibold text-warning mb-2">
                   Похожая компания уже существует:
                 </p>
@@ -215,10 +215,10 @@ export function CreateLeadModal() {
                         onClick={() => createWithExisting(c.id)}
                         className="flex items-baseline justify-between w-full px-2 py-1.5 rounded-xl hover:bg-white transition-colors text-left"
                       >
-                        <span className="text-sm font-semibold text-ink truncate">
+                        <span className="text-sm font-semibold text-brand-primary truncate">
                           {c.name}
                         </span>
-                        <span className="text-xs text-muted shrink-0 ml-2 font-mono">
+                        <span className="text-xs text-brand-muted shrink-0 ml-2 font-mono">
                           {c.leads_count} сделок
                           {c.inn && ` · ИНН ${c.inn}`}
                         </span>
@@ -242,14 +242,14 @@ export function CreateLeadModal() {
               <button
                 type="button"
                 onClick={closeCreateLeadModal}
-                className="px-4 py-2 rounded-pill text-sm font-semibold text-muted bg-canvas hover:bg-canvas-2 transition-all"
+                className="px-4 py-2 rounded-full text-sm font-semibold text-brand-muted bg-brand-bg hover:bg-brand-panel transition-all"
               >
                 Отмена
               </button>
               <button
                 type="submit"
                 disabled={pending || query.trim().length === 0}
-                className="inline-flex items-center gap-2 px-5 py-2 rounded-pill text-sm font-semibold bg-ink text-white transition-all hover:bg-ink/90 disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-semibold bg-brand-accent text-white transition-all hover:bg-brand-accent/90 disabled:opacity-50"
               >
                 {pending && <Loader2 size={14} className="animate-spin" />}
                 {picked ? "Создать лид" : "Создать"}

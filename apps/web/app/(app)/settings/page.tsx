@@ -106,7 +106,7 @@ function SettingsPageInner() {
   }, [params]);
 
   return (
-    <div className={pageContainerVariants({ width: "default" })}>
+    <div className={pageContainerVariants({ surface: "reading" })}>
       <PageHeader icon={<SettingsIcon size={20} />} title="Настройки" />
 
       <div className="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-6">
@@ -122,11 +122,11 @@ function SettingsPageInner() {
             // typedRoutes hasn't seen /settings/profile yet at tsc time.
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             href={"/settings/profile" as any}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors text-muted hover:bg-black/5 hover:text-ink"
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors text-brand-muted hover:bg-black/5 hover:text-brand-primary"
           >
             <User size={15} />
             <span className="flex-1 text-left">Мой профиль</span>
-            <ChevronRight size={12} className="text-muted-3" />
+            <ChevronRight size={12} className="text-brand-muted" />
           </Link>
 
           {SECTIONS.filter((s) => s.ready).map((s) => {
@@ -140,7 +140,7 @@ function SettingsPageInner() {
                   "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors",
                   isActive
                     ? "bg-brand-soft text-brand-accent"
-                    : "text-muted hover:bg-black/5 hover:text-ink",
+                    : "text-brand-muted hover:bg-black/5 hover:text-brand-primary",
                 )}
               >
                 {s.icon}
@@ -156,21 +156,21 @@ function SettingsPageInner() {
           {SECTIONS.some((s) => !s.ready) && (
             <details className="group mt-1 md:mt-2 hidden md:block">
               <summary
-                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-mono uppercase tracking-[0.18em] text-muted-3 cursor-pointer list-none hover:bg-black/5 hover:text-muted [&::-webkit-details-marker]:hidden"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-mono uppercase tracking-[0.18em] text-brand-muted cursor-pointer list-none hover:bg-black/5 hover:text-brand-muted [&::-webkit-details-marker]:hidden"
               >
                 <ChevronDown
                   size={12}
                   className="transition-transform duration-200 group-open:rotate-180"
                 />
                 <span className="flex-1 text-left">Скоро</span>
-                <span className="text-[9px] font-mono normal-case tracking-normal bg-black/5 rounded-pill px-1.5 py-0.5">
+                <span className="text-[9px] font-mono normal-case tracking-normal bg-black/5 rounded-full px-1.5 py-0.5">
                   {SECTIONS.filter((s) => !s.ready).length}
                 </span>
               </summary>
               {SECTIONS.filter((s) => !s.ready).map((s) => (
                 <div
                   key={s.key}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold whitespace-nowrap text-muted-3 cursor-not-allowed"
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold whitespace-nowrap text-brand-muted cursor-not-allowed"
                   aria-disabled="true"
                 >
                   {s.icon}
@@ -188,7 +188,7 @@ function SettingsPageInner() {
                 key={`mobile-${s.key}`}
                 type="button"
                 disabled
-                className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold whitespace-nowrap text-muted-3 cursor-not-allowed"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold whitespace-nowrap text-brand-muted cursor-not-allowed"
               >
                 {s.icon}
                 <span className="flex-1 text-left">{s.label}</span>
@@ -217,8 +217,8 @@ function SettingsPageInner() {
             active !== "templates" &&
             active !== "appearance" &&
             active !== "base_update" && (
-              <div className="bg-canvas/60 border border-black/5 rounded-2xl px-6 py-12 text-center">
-                <p className="text-sm text-muted">Эта секция появится позже.</p>
+              <div className="bg-brand-bg/60 border border-brand-border rounded-card px-6 py-12 text-center">
+                <p className="text-sm text-brand-muted">Эта секция появится позже.</p>
               </div>
             )}
         </div>

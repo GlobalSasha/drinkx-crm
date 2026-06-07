@@ -37,16 +37,16 @@ export function CostsSection() {
   if (me.isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <Loader2 size={20} className="animate-spin text-muted-2" />
+        <Loader2 size={20} className="animate-spin text-brand-muted" />
       </div>
     );
   }
 
   if (!isAdmin) {
     return (
-      <div className="bg-canvas/60 border border-black/5 rounded-2xl px-6 py-12 text-center">
-        <ShieldAlert size={20} className="text-muted mx-auto mb-2" />
-        <p className="text-sm text-muted">
+      <div className="bg-brand-bg/60 border border-brand-border rounded-card px-6 py-12 text-center">
+        <ShieldAlert size={20} className="text-brand-muted mx-auto mb-2" />
+        <p className="text-sm text-brand-muted">
           Раздел доступен только администратору.
         </p>
       </div>
@@ -69,7 +69,7 @@ export function CostsSection() {
             onClick={() => setPeriod(p.key)}
             className={
               "px-3 py-1.5 text-sm font-semibold rounded-lg transition-colors " +
-              (period === p.key ? "bg-white text-ink shadow-soft" : "text-muted")
+              (period === p.key ? "bg-white text-brand-primary" : "text-brand-muted")
             }
           >
             {p.label}
@@ -78,35 +78,35 @@ export function CostsSection() {
       </div>
 
       {isLoading || !data ? (
-        <div className="flex items-center gap-2 text-muted">
+        <div className="flex items-center gap-2 text-brand-muted">
           <Loader2 size={16} className="animate-spin" /> Загрузка…
         </div>
       ) : (
         <>
           <div>
-            <div className="text-sm text-muted">Всего на AI</div>
+            <div className="text-sm text-brand-muted">Всего на AI</div>
             <div className="text-3xl font-bold tracking-tight">
               {fmt(data.total_usd)}
             </div>
           </div>
 
           {data.by_provider.length === 0 ? (
-            <p className="text-sm text-muted">Нет данных за период</p>
+            <p className="text-sm text-brand-muted">Нет данных за период</p>
           ) : (
-            <ul className="divide-y divide-black/5 rounded-2xl border border-black/5 bg-white">
+            <ul className="divide-y divide-brand-border rounded-card border border-brand-border bg-white">
               {data.by_provider.map((p) => (
                 <li
                   key={p.provider}
                   className={
                     "flex items-center justify-between px-4 py-3 " +
-                    (p.cost_usd === 0 ? "text-muted-3" : "")
+                    (p.cost_usd === 0 ? "text-brand-muted" : "")
                   }
                 >
                   <span className="font-semibold">
                     {PROVIDER_LABELS[p.provider] ?? p.provider}
                   </span>
                   <span className="flex items-center gap-3">
-                    <span className="text-sm text-muted">{p.calls} выз.</span>
+                    <span className="text-sm text-brand-muted">{p.calls} выз.</span>
                     <span className="font-mono">{fmt(p.cost_usd)}</span>
                   </span>
                 </li>

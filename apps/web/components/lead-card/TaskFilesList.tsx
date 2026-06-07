@@ -67,7 +67,7 @@ export function TaskFilesList({ leadId, taskId, q }: Props) {
       {files.map((f) => (
         <li
           key={f.id}
-          className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-brand-bg"
+          className="flex items-center gap-2 px-3 py-2 rounded-card bg-brand-bg"
         >
           <span className="text-brand-muted shrink-0">{kindIcon(f.file_kind)}</span>
           <div className="flex-1 min-w-0">

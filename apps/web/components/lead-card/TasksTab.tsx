@@ -204,7 +204,7 @@ export function TasksTab({ leadId }: Props) {
                 return n;
               });
             return (
-              <li key={a.id} className="rounded-2xl bg-brand-bg overflow-hidden">
+              <li key={a.id} className="rounded-card bg-brand-bg overflow-hidden">
                 <Item variant="inline" className="px-3 py-2.5">
                   <button
                     type="button"

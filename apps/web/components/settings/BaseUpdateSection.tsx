@@ -64,7 +64,7 @@ export function BaseUpdateSection() {
             handleFiles(e.dataTransfer.files);
           }}
           onClick={() => inputRef.current?.click()}
-          className="cursor-pointer bg-white border-2 border-dashed border-brand-border rounded-2xl p-8 text-center hover:border-brand-accent transition-colors"
+          className="cursor-pointer bg-white border-2 border-dashed border-brand-border rounded-card p-8 text-center hover:border-brand-accent transition-colors"
         >
           <UploadCloud size={28} className="text-brand-muted mx-auto mb-2" />
           <p className="type-body text-brand-primary">
@@ -84,7 +84,7 @@ export function BaseUpdateSection() {
         </div>
 
         {picked.length > 0 && (
-          <div className="bg-brand-bg rounded-2xl p-4 space-y-2">
+          <div className="bg-brand-bg rounded-card p-4 space-y-2">
             <p className="type-caption text-brand-muted">Выбрано {picked.length} файл(а):</p>
             <ul className="space-y-1">
               {picked.map((f) => (
@@ -189,7 +189,7 @@ export function BaseUpdateSection() {
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="bg-white border border-brand-border rounded-2xl p-3">
+    <div className="bg-white border border-brand-border rounded-card p-3">
       <div className="type-caption text-brand-muted">{label}</div>
       <div className="type-card-title text-brand-primary tabular-nums">{value}</div>
     </div>

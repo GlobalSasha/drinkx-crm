@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { AlertCircle, ArrowRight, CheckCheck, Inbox, Loader2 } from "lucide-react";
 import { clsx } from "clsx";
 
-import { T } from "@/lib/design-system";
+import { T, C } from "@/lib/design-system";
+import { pageContainerVariants } from "@/components/ui/PageContainer";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { useForms } from "@/lib/hooks/use-forms";
 import { useIncoming, useMarkIncomingSeen } from "@/lib/hooks/use-incoming";
 import { relativeTime } from "@/lib/relative-time";
@@ -54,51 +56,53 @@ export default function IncomingPage() {
   }
 
   return (
-    <>
-      {/* Sticky header */}
-      <div className="sticky top-0 z-10 bg-white border-b border-black/5 px-6 py-4">
-        <div className="flex items-baseline gap-2.5">
-          <h1 className="type-card-title">Входящие заявки</h1>
-          {newCount > 0 && (
-            <span className="bg-brand-accent/10 text-brand-accent font-semibold text-xs px-2 py-0.5 rounded-md">
-              {newCount} новых
+    <div className={pageContainerVariants({ surface: "data" })}>
+      <PageHeader
+        icon={<Inbox size={20} />}
+        title="Входящие заявки"
+        actions={
+          <>
+            {newCount > 0 && (
+              <span className="bg-brand-accent/10 text-brand-accent font-semibold text-xs px-2 py-0.5 rounded-md">
+                {newCount} новых
+              </span>
+            )}
+            <span className="text-brand-muted text-xs font-mono tabular-nums">
+              всего {total}
             </span>
-          )}
-          <span className="text-muted-3 text-xs font-mono tabular-nums">
-            всего {total}
-          </span>
-        </div>
+            <button
+              onClick={() => markSeen.mutate()}
+              disabled={markSeen.isPending}
+              className={`${C.button.ghost} inline-flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-semibold disabled:opacity-40`}
+            >
+              <CheckCheck size={14} />
+              Отметить все прочитанными
+            </button>
+          </>
+        }
+      />
 
-        {/* Filters + actions */}
-        <div className="flex items-center gap-2 mt-3 flex-wrap">
-          <Chip active={channel === null} onClick={() => setChannel(null)}>
-            Все
+      {/* Filter row */}
+      <div className="bg-white border border-brand-border rounded-card p-4 sm:p-5 mb-4 flex flex-wrap items-center gap-2">
+        <Chip active={channel === null} onClick={() => setChannel(null)}>
+          Все
+        </Chip>
+        {forms.map((f) => (
+          <Chip key={f.id} active={channel === f.id} onClick={() => setChannel(f.id)}>
+            {f.source_label || f.name}
           </Chip>
-          {forms.map((f) => (
-            <Chip key={f.id} active={channel === f.id} onClick={() => setChannel(f.id)}>
-              {f.source_label || f.name}
-            </Chip>
-          ))}
-          <span className="flex-1" />
-          <Chip active={unseenOnly} onClick={() => setUnseenOnly((v) => !v)}>
-            Только новые
-          </Chip>
-          <button
-            onClick={() => markSeen.mutate()}
-            disabled={markSeen.isPending}
-            className="inline-flex items-center gap-1.5 border border-black/10 bg-white text-muted rounded-pill px-3.5 py-1.5 text-sm font-semibold hover:text-ink hover:border-black/20 disabled:opacity-40 transition-colors"
-          >
-            <CheckCheck size={14} />
-            Отметить все прочитанными
-          </button>
-        </div>
+        ))}
+        <span className="flex-1" />
+        <Chip active={unseenOnly} onClick={() => setUnseenOnly((v) => !v)}>
+          Только новые
+        </Chip>
       </div>
 
       {/* List */}
-      <div className="px-6 py-4 overflow-y-auto">
+      <div>
         {inboxQuery.isLoading && (
           <div className="flex justify-center py-12">
-            <Loader2 size={20} className="animate-spin text-muted-2" />
+            <Loader2 size={20} className="animate-spin text-brand-muted" />
           </div>
         )}
 
@@ -113,13 +117,13 @@ export default function IncomingPage() {
           <EmptyState />
         )}
 
-        <div className="flex flex-col gap-2.5 max-w-3xl">
+        <div className="flex flex-col gap-2.5">
           {items.map((it) => (
             <Row key={it.submission_id} item={it} onOpenLead={() => openLead(it)} />
           ))}
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -138,10 +142,10 @@ function Chip({
     <button
       onClick={onClick}
       className={clsx(
-        "text-sm font-semibold px-3.5 py-1.5 rounded-pill border transition-colors",
+        "px-3 py-1.5 rounded-full type-caption font-semibold transition-colors",
         active
-          ? "bg-ink text-white border-ink"
-          : "bg-white text-muted border-black/10 hover:text-ink hover:border-black/20",
+          ? "bg-brand-accent text-white"
+          : "bg-brand-panel text-brand-muted-strong hover:bg-brand-border",
       )}
     >
       {children}
@@ -160,31 +164,31 @@ function Row({ item, onOpenLead }: { item: InboxItemOut; onOpenLead: () => void 
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onOpenLead();
       }}
-      className="relative rounded-2xl border border-black/5 bg-white px-4 py-3.5 pl-5 cursor-pointer transition-all hover:border-black/15"
+      className="relative rounded-card border border-brand-border bg-white px-4 py-3.5 pl-5 cursor-pointer transition-colors hover:border-brand-muted"
     >
       {item.is_new && (
         <span className="absolute left-2 top-5 w-2 h-2 rounded-full bg-brand-accent" />
       )}
       <div className="flex items-center gap-2">
-        <span className="text-[15px] font-bold text-ink truncate">{title}</span>
-        <span className="ml-auto text-xs text-muted-3 whitespace-nowrap">
+        <span className="text-[15px] font-bold text-brand-primary truncate">{title}</span>
+        <span className="ml-auto text-xs text-brand-muted whitespace-nowrap">
           {relativeTime(item.created_at)}
         </span>
       </div>
 
-      <div className="flex gap-3.5 mt-1 text-sm text-muted flex-wrap">
-        {item.phone && <span className="text-ink/70 font-medium">{item.phone}</span>}
+      <div className="flex gap-3.5 mt-1 text-sm text-brand-muted flex-wrap">
+        {item.phone && <span className="text-brand-muted-strong font-medium">{item.phone}</span>}
         {item.email && <span>{item.email}</span>}
       </div>
 
       {item.snippet && (
-        <p className="text-sm text-ink/70 mt-2 leading-snug line-clamp-2">
+        <p className="text-sm text-brand-muted-strong mt-2 leading-snug line-clamp-2">
           {item.snippet}
         </p>
       )}
 
       <div className="flex items-center gap-2 mt-2.5 flex-wrap">
-        <span className={`${T.mono} text-[10px] uppercase tracking-wider px-2 py-1 rounded-md bg-canvas text-muted-2`}>
+        <span className={`${T.mono} text-[10px] uppercase tracking-wider px-2 py-1 rounded-md bg-brand-bg text-brand-muted`}>
           {item.channel}
         </span>
         <StatusPill st={st} />
@@ -201,8 +205,8 @@ function StatusPill({ st }: { st: ReturnType<typeof statusLabel> }) {
     st.tone === "new"
       ? "bg-brand-accent/10 text-brand-accent"
       : st.tone === "assigned"
-        ? "bg-canvas-2 text-muted"
-        : "bg-canvas text-muted-2";
+        ? "bg-brand-panel text-brand-muted-strong"
+        : "bg-brand-bg text-brand-muted";
   return (
     <span className={clsx("text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-md", cls)}>
       {st.text}
@@ -213,11 +217,11 @@ function StatusPill({ st }: { st: ReturnType<typeof statusLabel> }) {
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="w-12 h-12 rounded-full bg-canvas flex items-center justify-center mb-3">
-        <Inbox size={22} className="text-muted-3" />
+      <div className="w-12 h-12 rounded-full bg-brand-bg flex items-center justify-center mb-3">
+        <Inbox size={22} className="text-brand-muted" />
       </div>
-      <div className="text-sm font-bold text-ink">Заявок пока нет</div>
-      <p className="text-sm text-muted-2 mt-1 max-w-[24rem]">
+      <div className="text-sm font-bold text-brand-primary">Заявок пока нет</div>
+      <p className="text-sm text-brand-muted mt-1 max-w-[24rem]">
         Здесь будут появляться заявки, отправленные через формы на сайтах.
       </p>
     </div>

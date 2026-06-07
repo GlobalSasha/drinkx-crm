@@ -79,7 +79,7 @@ function formatDelta(
 
 function SkeletonRow() {
   return (
-    <tr className="animate-pulse border-b border-black/5">
+    <tr className="animate-pulse border-b border-brand-border">
       <td className="px-4 py-3"><div className="h-3 w-16 bg-black/5 rounded" /></td>
       <td className="px-4 py-3"><div className="h-3 w-28 bg-black/5 rounded" /></td>
       <td className="px-4 py-3"><div className="h-3 w-24 bg-black/5 rounded" /></td>
@@ -91,42 +91,42 @@ function SkeletonRow() {
 
 function AuditRow({ row }: { row: AuditLogOut }) {
   return (
-    <tr className="border-b border-black/5 hover:bg-canvas/50 transition-colors">
+    <tr className="border-b border-brand-border hover:bg-brand-bg/50 transition-colors">
       <td className="px-4 py-3 align-top">
-        <span className={`${T.mono} text-muted-2 whitespace-nowrap`}>
+        <span className={`${T.mono} text-brand-muted whitespace-nowrap`}>
           {relativeTime(row.created_at)}
         </span>
       </td>
       <td className="px-4 py-3 align-top">
-        <span className={`${T.mono} font-semibold text-ink bg-black/5 px-2 py-0.5 rounded-md whitespace-nowrap`}>
+        <span className={`${T.mono} font-semibold text-brand-primary bg-black/5 px-2 py-0.5 rounded-md whitespace-nowrap`}>
           {row.action}
         </span>
       </td>
       <td className="px-4 py-3 align-top">
-        <span className={`${T.mono} text-muted`}>
+        <span className={`${T.mono} text-brand-muted`}>
           {row.entity_type || "—"}
           {row.entity_id && (
             <>
               {" · "}
-              <span className="text-muted-3">{shortId(row.entity_id)}</span>
+              <span className="text-brand-muted">{shortId(row.entity_id)}</span>
             </>
           )}
         </span>
       </td>
       <td className="px-4 py-3 align-top max-w-[200px]">
         {row.user_full_name && row.user_email ? (
-          <span className="text-xs text-ink truncate block">
+          <span className="text-xs text-brand-primary truncate block">
             <span
               className="font-semibold"
               title={row.user_email}
             >
               {row.user_full_name}
             </span>
-            <span className={`text-muted-3 ${T.mono}`}> · {row.user_email}</span>
+            <span className={`text-brand-muted ${T.mono}`}> · {row.user_email}</span>
           </span>
         ) : (
           <span
-            className={`${T.mono} text-muted-3`}
+            className={`${T.mono} text-brand-muted`}
             title={row.user_id ?? "system"}
           >
             {shortId(row.user_id)}
@@ -135,7 +135,7 @@ function AuditRow({ row }: { row: AuditLogOut }) {
       </td>
       <td className="px-4 py-3 align-top max-w-[480px]">
         <span
-          className={`${T.mono} text-muted-2 break-all`}
+          className={`${T.mono} text-brand-muted break-all`}
           title={row.delta_json ? JSON.stringify(row.delta_json) : ""}
         >
           {formatDelta(row.action, row.delta_json)}
@@ -200,13 +200,13 @@ export default function AuditPage() {
   }
 
   return (
-    <div className={pageContainerVariants({ width: "default" })}>
+    <div className={pageContainerVariants({ surface: "data" })}>
       <PageHeader
         icon={<History size={20} />}
         title="Журнал изменений"
         subtitle="Только для администраторов · все записи в этом workspace"
         actions={
-          <div className={`${T.mono} text-muted-3 tabular-nums`}>
+          <div className={`${T.mono} text-brand-muted tabular-nums`}>
             {total > 0 ? `${total} записей` : ""}
           </div>
         }
@@ -220,10 +220,10 @@ export default function AuditPage() {
             <button
               key={f.label}
               onClick={() => setActionFilter(f.value)}
-              className={`${T.mono} px-3 py-1.5 rounded-pill transition-colors ${
+              className={`${T.mono} px-3 py-1.5 rounded-full transition-colors ${
                 isActive
                   ? "bg-brand-accent text-white font-semibold"
-                  : "bg-canvas text-muted-2 hover:bg-black/5 hover:text-ink"
+                  : "bg-brand-panel text-brand-muted hover:bg-brand-border hover:text-brand-primary"
               }`}
             >
               {f.label}
@@ -233,23 +233,23 @@ export default function AuditPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white border border-black/5 rounded-2xl shadow-soft overflow-hidden">
+      <div className="bg-white border border-brand-border rounded-card overflow-hidden">
         <table className="w-full text-left">
-          <thead className="bg-canvas/60">
-            <tr className="border-b border-black/5">
-              <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold w-[110px]`}>
+          <thead className="bg-brand-bg/60">
+            <tr className="border-b border-brand-border">
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[110px]`}>
                 Время
               </th>
-              <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold w-[180px]`}>
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[180px]`}>
                 Действие
               </th>
-              <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold w-[160px]`}>
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[160px]`}>
                 Сущность
               </th>
-              <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold w-[120px]`}>
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[120px]`}>
                 Пользователь
               </th>
-              <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold`}>
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold`}>
                 Изменения
               </th>
             </tr>
@@ -280,7 +280,7 @@ export default function AuditPage() {
             {!isLoading && !isError && filteredItems.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-16 text-center">
-                  <p className="text-sm text-muted-2">Событий пока нет</p>
+                  <p className="text-sm text-brand-muted">Событий пока нет</p>
                 </td>
               </tr>
             )}
@@ -297,18 +297,18 @@ export default function AuditPage() {
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-muted hover:text-ink disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-brand-muted hover:text-brand-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
             <ChevronLeft size={14} />
             Назад
           </button>
-          <span className={`${T.mono} text-muted-2 tabular-nums`}>
+          <span className={`${T.mono} text-brand-muted tabular-nums`}>
             Страница {page} из {totalPages}
           </span>
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-muted hover:text-ink disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-brand-muted hover:text-brand-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
             Вперёд
             <ChevronRight size={14} />

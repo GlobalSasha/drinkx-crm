@@ -74,13 +74,18 @@ const WIDGET_LABELS: Record<WidgetId, string> = {
 // columns on sm (2-col grid). Counters share row 1, big widgets pair off,
 // notif sits in a 2-col slot too. Uniform sizing means any reorder still
 // packs without gaps, and @dnd-kit's rectSortingStrategy stays stable.
+//
+// The four content widgets also carry a shared `xl:min-h` floor so they
+// render at the same height once they sit side-by-side at xl — combined
+// with the grid's row-stretch (no `items-start`) every block lines up.
+const BIG_WIDGET_MIN_H = "xl:min-h-[26rem]";
 const WIDGET_SPAN: Record<WidgetId, string> = {
   "w-rotting":   "sm:col-span-1 xl:col-span-2",
   "w-pipeline":  "sm:col-span-1 xl:col-span-2",
-  "w-tasklist":  "sm:col-span-2 xl:col-span-2",
-  "w-reminders": "sm:col-span-2 xl:col-span-2",
-  "w-funnel":    "sm:col-span-2 xl:col-span-2",
-  "w-notif":     "sm:col-span-2 xl:col-span-2",
+  "w-tasklist":  `sm:col-span-2 xl:col-span-2 ${BIG_WIDGET_MIN_H}`,
+  "w-reminders": `sm:col-span-2 xl:col-span-2 ${BIG_WIDGET_MIN_H}`,
+  "w-funnel":    `sm:col-span-2 xl:col-span-2 ${BIG_WIDGET_MIN_H}`,
+  "w-notif":     `sm:col-span-2 xl:col-span-2 ${BIG_WIDGET_MIN_H}`,
 };
 
 // Single shared filter object for `useLeads`. TanStack Query dedupes
@@ -133,7 +138,7 @@ function CounterWidget({ label, icon, value, note, accent, loading }: CounterPro
   // (mobile) or a wide 2-col cell (xl).
   return (
     <div
-      className={`${wrapBg} rounded-[2rem] p-5 h-full flex items-center justify-between gap-4`}
+      className={`${wrapBg} rounded-card p-5 h-full flex items-center justify-between gap-4`}
     >
       <div className="min-w-0 flex flex-col gap-1.5">
         <div className="flex items-center gap-2">
@@ -293,7 +298,7 @@ function TaskListWidget() {
   }
 
   return (
-    <div className="bg-white border border-brand-border rounded-[2rem] p-5 h-full flex flex-col">
+    <div className="bg-white border border-brand-border rounded-card p-5 h-full flex flex-col">
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -417,7 +422,7 @@ function FunnelWidget() {
   const visibleStages = stages.slice(0, 6);
 
   return (
-    <div className="bg-white border border-brand-border rounded-[2rem] p-5 h-full flex flex-col">
+    <div className="bg-white border border-brand-border rounded-card p-5 h-full flex flex-col">
       <WidgetHeader
         title="Стадии воронки"
         subtitle="Распределение активных лидов"
@@ -484,7 +489,7 @@ function NotifWidget() {
   const markRead = useMarkRead();
   const items = useMemo(() => (data?.items ?? []).slice(0, 4), [data]);
   return (
-    <div className="bg-white border border-brand-border rounded-[2rem] p-5 h-full flex flex-col">
+    <div className="bg-white border border-brand-border rounded-card p-5 h-full flex flex-col">
       <WidgetHeader
         title="Уведомления"
         subtitle="Что произошло сегодня"
@@ -517,7 +522,7 @@ function NotifWidget() {
               onClick={() => {
                 if (isUnread) markRead.mutate(n.id);
               }}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-brand-bg cursor-pointer"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-card bg-brand-bg cursor-pointer"
             >
               <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />
               <p className={`type-caption ${C.color.text} truncate flex-1`}>
@@ -773,10 +778,9 @@ function TodayPageInner() {
   }
 
   return (
-    <div className="font-sans bg-canvas min-h-screen">
-      <div className={pageContainerVariants({ width: "wide" })}>
-        {/* Header */}
-        <div className="bg-white border border-brand-border border-l-[3px] border-l-brand-accent rounded-xl p-6 mb-4">
+    <div className={pageContainerVariants({ surface: "data" })}>
+      {/* Header */}
+      <div className="bg-white border border-brand-border border-l-[3px] border-l-brand-accent rounded-card p-6 mb-6">
           <div className="type-caption text-brand-muted">{dateTimeCaption}</div>
           <h1 className={`type-page-title ${C.color.text} mt-1`}>
             {greetingText}, <span className="text-brand-accent">{firstName}</span>
@@ -814,7 +818,7 @@ function TodayPageInner() {
           onDragEnd={handleDragEnd}
         >
           <SortableContext items={visible} strategy={rectSortingStrategy}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 items-start">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 items-stretch">
               {visible.map((id) => (
                 <SortableWidget
                   key={id}
@@ -832,7 +836,7 @@ function TodayPageInner() {
 
         {/* Hidden-widgets restore panel */}
         {editing && hidden.size > 0 && (
-          <div className="border border-dashed border-brand-border rounded-[2rem] p-4 mt-4">
+          <div className="border border-dashed border-brand-border rounded-card p-4 mt-4">
             <p className={`type-caption ${C.color.mutedLight} mb-3`}>
               Скрытые виджеты — нажми, чтобы вернуть
             </p>
@@ -851,6 +855,5 @@ function TodayPageInner() {
           </div>
         )}
       </div>
-    </div>
   );
 }

@@ -129,7 +129,7 @@ export function ManagerPortfolio({ userId }: { userId: string | null }) {
             <li key={d.lead_id}>
               <Link
                 href={`/leads/${d.lead_id}`}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-brand-bg hover:bg-brand-bg/70 transition-colors group"
+                className="flex items-center gap-3 px-3 py-2.5 rounded-card bg-brand-bg hover:bg-brand-bg/70 transition-colors group"
               >
                 <div className="flex-1 min-w-0">
                   <p className="type-body text-brand-primary truncate">{d.company_name}</p>
@@ -182,7 +182,7 @@ function Kpi({
     : "bg-white border border-brand-border";
   const valueColor = accent ? "text-brand-accent-text" : danger ? "text-rose" : "text-brand-primary";
   return (
-    <div className={`${wrapBg} rounded-[2rem] p-4 flex flex-col gap-1`}>
+    <div className={`${wrapBg} rounded-card p-4 flex flex-col gap-1`}>
       <div className="flex items-center gap-2">
         <span className="text-brand-muted">{icon}</span>
         <span className="type-caption text-brand-muted uppercase tracking-wider font-semibold">{label}</span>

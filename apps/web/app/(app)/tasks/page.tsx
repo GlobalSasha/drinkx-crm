@@ -229,12 +229,12 @@ export default function TasksPage() {
   );
 
   return (
-    <div className="font-sans bg-canvas min-h-screen">
-      <div className={pageContainerVariants({ width: "default" })}>
+    <>
+      <div className={pageContainerVariants({ surface: "data" })}>
         <PageHeader icon={<ListChecks size={20} />} title="Задачи" />
 
         {/* Filter bar */}
-        <div className="bg-white border border-brand-border rounded-[2rem] p-4 sm:p-5 mb-4 flex flex-col gap-3">
+        <div className="bg-white border border-brand-border rounded-card p-4 sm:p-5 mb-4 flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="type-caption text-brand-muted w-16 shrink-0">Статус</span>
             <Chip active={status === "open"} onClick={() => setStatus("open")}>
@@ -268,7 +268,7 @@ export default function TasksPage() {
         </div>
 
         {/* Table */}
-        <div className="bg-white border border-brand-border rounded-[2rem] p-4 sm:p-6">
+        <div className="bg-white border border-brand-border rounded-card p-4 sm:p-6">
           {isLoading && (
             <p className={`type-body ${C.color.mutedLight} py-6 text-center`}>
               Загрузка…
@@ -315,6 +315,6 @@ export default function TasksPage() {
           onClose={() => setEditingRow(null)}
         />
       )}
-    </div>
+    </>
   );
 }
