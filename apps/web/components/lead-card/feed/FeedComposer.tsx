@@ -296,7 +296,7 @@ export function FeedComposer({
                 type="button"
                 onClick={() => setPicked(null)}
                 aria-label="Отменить выбор"
-                className="text-brand-muted hover:text-rose-500"
+                className="text-brand-muted hover:text-rose"
               >
                 <X size={12} />
               </button>

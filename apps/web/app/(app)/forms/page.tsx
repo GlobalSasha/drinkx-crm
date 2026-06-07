@@ -246,7 +246,7 @@ function FormRow({
             e.stopPropagation();
             onDelete();
           }}
-          className="p-1.5 rounded-lg text-brand-muted hover:bg-brand-bg hover:text-rose-600 transition-colors"
+          className="p-1.5 rounded-lg text-brand-muted hover:bg-brand-bg hover:text-rose transition-colors"
           aria-label="Удалить форму"
         >
           <Trash2 size={14} />
@@ -411,7 +411,7 @@ function ConfirmDeleteModal({
             <button
               onClick={onConfirm}
               disabled={isPending}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-rose-600 text-white text-sm font-semibold hover:bg-rose-600/90 disabled:opacity-40 transition-all duration-300"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-rose text-white text-sm font-semibold hover:bg-rose/90 disabled:opacity-40 transition-all duration-300"
             >
               {isPending && <Loader2 size={13} className="animate-spin" />}
               Деактивировать

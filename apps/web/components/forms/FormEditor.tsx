@@ -782,7 +782,7 @@ function FieldRowEditor({
       </button>
       <button
         onClick={onRemove}
-        className="text-muted-3 hover:text-rose-600 transition-colors"
+        className="text-muted-3 hover:text-rose transition-colors"
         aria-label="Удалить поле"
       >
         <Trash2 size={14} />

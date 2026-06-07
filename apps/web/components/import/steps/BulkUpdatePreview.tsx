@@ -283,7 +283,7 @@ const OP_SIGN: Record<BulkUpdateChange["op"], string> = {
 
 const OP_TONE: Record<BulkUpdateChange["op"], string> = {
   add: "text-emerald-600",
-  remove: "text-rose-600",
+  remove: "text-rose",
   replace: "text-amber-600",
   set: "text-muted",
 };
