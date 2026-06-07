@@ -6,28 +6,24 @@
 
 import { BookOpen, Sparkles } from "lucide-react";
 import { pageContainerVariants } from "@/components/ui/PageContainer";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export default function KnowledgePage() {
   return (
-    <div className={pageContainerVariants({ width: "narrow" })}>
-      <div className="bg-white border border-black/5 rounded-2xl shadow-soft p-10">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 rounded-full bg-brand-soft flex items-center justify-center">
-            <BookOpen size={20} className="text-brand-accent" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold tracking-tight">База знаний</h1>
-            <p className="text-xs text-muted-2">Раздел в разработке</p>
-          </div>
-        </div>
-
-        <p className="text-sm text-muted-2 leading-relaxed mb-5">
+    <div className={pageContainerVariants({ width: "wide" })}>
+      <PageHeader
+        icon={<BookOpen size={20} />}
+        title="База знаний"
+        subtitle="Раздел в разработке"
+      />
+      <div className="bg-white border border-brand-border rounded-[2rem] p-10">
+        <p className="text-sm text-brand-muted leading-relaxed mb-5">
           Здесь будут жить сегментные плейбуки, скрипты возражений и шаблоны коммерческих
           предложений. Блейк будет ссылаться на материалы прямо из ленты лида, а менеджеры
           смогут открывать плейбук по нажатию на сегмент сделки.
         </p>
 
-        <ul className="text-sm text-muted-2 space-y-2 mb-6">
+        <ul className="text-sm text-brand-muted space-y-2 mb-6">
           <li className="flex items-start gap-2">
             <Sparkles size={14} className="text-brand-accent shrink-0 mt-0.5" />
             <span>Плейбуки по сегментам — HoReCa, QSR, ритейл, АЗС.</span>
@@ -42,7 +38,7 @@ export default function KnowledgePage() {
           </li>
         </ul>
 
-        <div className="text-xs text-muted-2 border-t border-black/5 pt-4">
+        <div className="text-xs text-brand-muted border-t border-brand-border pt-4">
           Пока материалы готовятся, Блейк уже умеет отвечать на вопросы по продукту и
           возражениям прямо в ленте лида — задайте @Блейк вопрос в любой карточке.
         </div>

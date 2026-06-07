@@ -129,7 +129,7 @@ export default function ForecastPage() {
     }, [pipelines, leadsData]);
 
   return (
-    <main className={pageContainerVariants({ width: "default" })}>
+    <div className={pageContainerVariants({ width: "wide" })}>
       <PageHeader
         title="Прогноз"
         subtitle="Активная воронка, взвешенный прогноз по вероятностям этапов, риски и закрытые сделки."
@@ -383,7 +383,7 @@ export default function ForecastPage() {
           </ul>
         )}
       </Card>
-    </main>
+    </div>
   );
 }
 

@@ -229,8 +229,8 @@ export default function TasksPage() {
   );
 
   return (
-    <div className="font-sans bg-canvas min-h-screen">
-      <div className={pageContainerVariants({ width: "default" })}>
+    <>
+      <div className={pageContainerVariants({ width: "wide" })}>
         <PageHeader icon={<ListChecks size={20} />} title="Задачи" />
 
         {/* Filter bar */}
@@ -315,6 +315,6 @@ export default function TasksPage() {
           onClose={() => setEditingRow(null)}
         />
       )}
-    </div>
+    </>
   );
 }

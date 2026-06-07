@@ -106,7 +106,7 @@ function SettingsPageInner() {
   }, [params]);
 
   return (
-    <div className={pageContainerVariants({ width: "default" })}>
+    <div className={pageContainerVariants({ width: "wide" })}>
       <PageHeader icon={<SettingsIcon size={20} />} title="Настройки" />
 
       <div className="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-6">
@@ -217,8 +217,8 @@ function SettingsPageInner() {
             active !== "templates" &&
             active !== "appearance" &&
             active !== "base_update" && (
-              <div className="bg-canvas/60 border border-black/5 rounded-2xl px-6 py-12 text-center">
-                <p className="text-sm text-muted">Эта секция появится позже.</p>
+              <div className="bg-brand-bg/60 border border-brand-border rounded-[2rem] px-6 py-12 text-center">
+                <p className="text-sm text-brand-muted">Эта секция появится позже.</p>
               </div>
             )}
         </div>

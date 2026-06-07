@@ -79,7 +79,7 @@ function formatDelta(
 
 function SkeletonRow() {
   return (
-    <tr className="animate-pulse border-b border-black/5">
+    <tr className="animate-pulse border-b border-brand-border">
       <td className="px-4 py-3"><div className="h-3 w-16 bg-black/5 rounded" /></td>
       <td className="px-4 py-3"><div className="h-3 w-28 bg-black/5 rounded" /></td>
       <td className="px-4 py-3"><div className="h-3 w-24 bg-black/5 rounded" /></td>
@@ -91,7 +91,7 @@ function SkeletonRow() {
 
 function AuditRow({ row }: { row: AuditLogOut }) {
   return (
-    <tr className="border-b border-black/5 hover:bg-canvas/50 transition-colors">
+    <tr className="border-b border-brand-border hover:bg-canvas/50 transition-colors">
       <td className="px-4 py-3 align-top">
         <span className={`${T.mono} text-muted-2 whitespace-nowrap`}>
           {relativeTime(row.created_at)}
@@ -200,13 +200,13 @@ export default function AuditPage() {
   }
 
   return (
-    <div className={pageContainerVariants({ width: "default" })}>
+    <div className={pageContainerVariants({ width: "wide" })}>
       <PageHeader
         icon={<History size={20} />}
         title="Журнал изменений"
         subtitle="Только для администраторов · все записи в этом workspace"
         actions={
-          <div className={`${T.mono} text-muted-3 tabular-nums`}>
+          <div className={`${T.mono} text-brand-muted tabular-nums`}>
             {total > 0 ? `${total} записей` : ""}
           </div>
         }
@@ -220,10 +220,10 @@ export default function AuditPage() {
             <button
               key={f.label}
               onClick={() => setActionFilter(f.value)}
-              className={`${T.mono} px-3 py-1.5 rounded-pill transition-colors ${
+              className={`${T.mono} px-3 py-1.5 rounded-full transition-colors ${
                 isActive
                   ? "bg-brand-accent text-white font-semibold"
-                  : "bg-canvas text-muted-2 hover:bg-black/5 hover:text-ink"
+                  : "bg-brand-panel text-brand-muted hover:bg-brand-border hover:text-brand-primary"
               }`}
             >
               {f.label}
@@ -233,10 +233,10 @@ export default function AuditPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white border border-black/5 rounded-2xl shadow-soft overflow-hidden">
+      <div className="bg-white border border-brand-border rounded-[2rem] overflow-hidden">
         <table className="w-full text-left">
-          <thead className="bg-canvas/60">
-            <tr className="border-b border-black/5">
+          <thead className="bg-brand-bg/60">
+            <tr className="border-b border-brand-border">
               <th className={`px-4 py-2.5 ${T.mono} uppercase text-muted-3 font-semibold w-[110px]`}>
                 Время
               </th>

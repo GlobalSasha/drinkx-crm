@@ -74,13 +74,18 @@ const WIDGET_LABELS: Record<WidgetId, string> = {
 // columns on sm (2-col grid). Counters share row 1, big widgets pair off,
 // notif sits in a 2-col slot too. Uniform sizing means any reorder still
 // packs without gaps, and @dnd-kit's rectSortingStrategy stays stable.
+//
+// The four content widgets also carry a shared `xl:min-h` floor so they
+// render at the same height once they sit side-by-side at xl — combined
+// with the grid's row-stretch (no `items-start`) every block lines up.
+const BIG_WIDGET_MIN_H = "xl:min-h-[26rem]";
 const WIDGET_SPAN: Record<WidgetId, string> = {
   "w-rotting":   "sm:col-span-1 xl:col-span-2",
   "w-pipeline":  "sm:col-span-1 xl:col-span-2",
-  "w-tasklist":  "sm:col-span-2 xl:col-span-2",
-  "w-reminders": "sm:col-span-2 xl:col-span-2",
-  "w-funnel":    "sm:col-span-2 xl:col-span-2",
-  "w-notif":     "sm:col-span-2 xl:col-span-2",
+  "w-tasklist":  `sm:col-span-2 xl:col-span-2 ${BIG_WIDGET_MIN_H}`,
+  "w-reminders": `sm:col-span-2 xl:col-span-2 ${BIG_WIDGET_MIN_H}`,
+  "w-funnel":    `sm:col-span-2 xl:col-span-2 ${BIG_WIDGET_MIN_H}`,
+  "w-notif":     `sm:col-span-2 xl:col-span-2 ${BIG_WIDGET_MIN_H}`,
 };
 
 // Single shared filter object for `useLeads`. TanStack Query dedupes
@@ -773,10 +778,9 @@ function TodayPageInner() {
   }
 
   return (
-    <div className="font-sans bg-canvas min-h-screen">
-      <div className={pageContainerVariants({ width: "wide" })}>
-        {/* Header */}
-        <div className="bg-white border border-brand-border border-l-[3px] border-l-brand-accent rounded-xl p-6 mb-4">
+    <div className={pageContainerVariants({ width: "wide" })}>
+      {/* Header */}
+      <div className="bg-white border border-brand-border border-l-[3px] border-l-brand-accent rounded-[2rem] p-6 mb-6">
           <div className="type-caption text-brand-muted">{dateTimeCaption}</div>
           <h1 className={`type-page-title ${C.color.text} mt-1`}>
             {greetingText}, <span className="text-brand-accent">{firstName}</span>
@@ -814,7 +818,7 @@ function TodayPageInner() {
           onDragEnd={handleDragEnd}
         >
           <SortableContext items={visible} strategy={rectSortingStrategy}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 items-start">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 items-stretch">
               {visible.map((id) => (
                 <SortableWidget
                   key={id}
@@ -851,6 +855,5 @@ function TodayPageInner() {
           </div>
         )}
       </div>
-    </div>
   );
 }
