@@ -3,10 +3,7 @@
 @tailwind utilities;
 
 :root {
-  --canvas: #f5f4f0;
   --ink: #111111;
-  --accent: #1f4d3f;
-  --accent-glow: #5a8c7a;
 
   /* DrinkX design-system brand tokens (sync with tailwind.config.ts → colors.brand) */
   --brand-accent:  #ff4e00;

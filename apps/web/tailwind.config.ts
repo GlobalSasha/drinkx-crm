@@ -6,19 +6,6 @@ const config: Config = {
     extend: {
       // taste-soft tokens — see prototype/index-soft-full.html
       colors: {
-        canvas: {
-          DEFAULT: "#F2F2F0",
-          2: "#E8E8E5",
-        },
-        ink: {
-          DEFAULT: "#0A0A0A",
-          2: "#18181B",
-        },
-        muted: {
-          DEFAULT: "#57575A",
-          2: "#71717A",
-          3: "#aeaeb2",
-        },
         success: "#2D7A5A",
         warning: "#B7672D",
         rose: "#B23A48",
@@ -70,17 +57,13 @@ const config: Config = {
       borderRadius: {
         lg: "1.5rem",
         xl: "1.75rem",
-        "2xl": "2.25rem",
         card: "2rem",
-        pill: "999px",
       },
       transitionTimingFunction: {
         "soft": "cubic-bezier(0.32, 0.72, 0, 1)",
         "spring": "cubic-bezier(0.16, 1.16, 0.3, 1)",
       },
       boxShadow: {
-        soft: "0 20px 40px -22px rgba(10,10,10,0.08)",
-        pill: "0 8px 24px -16px rgba(10,10,10,0.06)",
         // Single elevation for true overlays (modals, dropdowns, popovers,
         // drawers, tooltips, toasts). Cards stay shadowless.
         overlay: "0 16px 48px -16px rgba(17,17,17,0.18)",
