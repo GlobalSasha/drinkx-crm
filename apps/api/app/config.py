@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     # Core
     app_env: str = Field(default="development", description="development|staging|production")
     log_level: str = "INFO"
+    # Directory for the rotating JSON log file (read back by GET /admin/logs).
+    # Empty = stdout only (dev). Production sets LOG_DIR=/app/logs (a bind mount
+    # to /opt/drinkx-crm/logs on the host).
+    log_dir: str = ""
     cors_origins: list[str] = ["http://localhost:3000"]
 
     # Single-workspace model (hotfix/single-workspace, 2026-05-08).

@@ -48,6 +48,9 @@ htmlcov/
 # Logs
 logs/
 *.log
+# ...but the backend log-reader domain is source code, not a log dir.
+!apps/api/app/logs/
+!apps/api/app/logs/**
 
 # Git worktrees
 .worktrees/

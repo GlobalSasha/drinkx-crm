@@ -35,6 +35,12 @@ from app.quotas import models as _quotas_models  # noqa: F401, E402
 
 _s = get_settings()
 
+# Same JSON-to-file logging as the API, so worker/beat logs land in the
+# shared /app/logs/app.log that GET /admin/logs reads.
+from app.observability import configure_logging  # noqa: E402
+
+configure_logging(_s)
+
 celery_app = Celery(
     "drinkx",
     broker=_s.redis_url,
