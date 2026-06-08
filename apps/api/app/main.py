@@ -60,6 +60,8 @@ async def lifespan(_app: FastAPI):
 
 def create_app() -> FastAPI:
     s = get_settings()
+    from app.observability import configure_logging
+    configure_logging(s)
     app = FastAPI(
         title="DrinkX CRM API",
         version="0.1.0",
@@ -133,6 +135,9 @@ def create_app() -> FastAPI:
 
     from app.audit.routers import router as audit_router
     app.include_router(audit_router)
+
+    from app.logs.routers import router as logs_router
+    app.include_router(logs_router)
 
     from app.llm_usage.routers import router as llm_costs_router
     app.include_router(llm_costs_router)
