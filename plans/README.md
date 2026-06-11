@@ -14,6 +14,8 @@ Both are small and independent — either can go first.
 |------|-------|----------|--------|------------|--------|
 | 001  | Block self-service role escalation in `PATCH /auth/me` | P1 | S | — | DONE (code verified; regression test pending CI/DB — see note) |
 | 002  | Wire the SSRF guard into `WebFetch` (enrichment website fetch) | P1 | S | — | DONE |
+| 003  | Make inbox phone-match use an indexed query (PERF-1 part B) | P2 | M | 0048 (done) | TODO — needs Postgres DB |
+| 004  | Dedup contacts, then enforce UNIQUE (lead_id, email) (CORR-2) | P2 | M | — | TODO — needs Postgres DB, data-mutating |
 
 ### Execution notes (2026-06-11, reviewer: Opus 4.8)
 
