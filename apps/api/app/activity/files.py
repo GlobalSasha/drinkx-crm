@@ -39,6 +39,37 @@ _EXT_WHITELIST: dict[str, tuple[str, str]] = {
 }
 
 
+def _content_matches_ext(ext: str, head: bytes) -> bool:
+    """True if the leading bytes are consistent with `ext`. Text-like
+    extensions (csv/txt/md/rtf) have no binary signature to verify and
+    always pass — they carry no executable risk. Binary types must match."""
+    h = head
+    if ext == "pdf":
+        return h[:5] == b"%PDF-"
+    if ext == "png":
+        return h[:8] == b"\x89PNG\r\n\x1a\n"
+    if ext in ("jpg", "jpeg"):
+        return h[:3] == b"\xff\xd8\xff"
+    if ext == "gif":
+        return h[:6] in (b"GIF87a", b"GIF89a")
+    if ext == "webp":
+        return h[:4] == b"RIFF" and h[8:12] == b"WEBP"
+    if ext == "wav":
+        return h[:4] == b"RIFF" and h[8:12] == b"WAVE"
+    if ext == "ogg":
+        return h[:4] == b"OggS"
+    if ext in ("heic", "m4a"):
+        return h[4:8] == b"ftyp"  # ISO base-media box; brand follows
+    if ext in ("docx", "xlsx"):
+        return h[:4] == b"PK\x03\x04"  # OOXML = ZIP container
+    if ext in ("doc", "xls"):
+        return h[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"  # OLE2 (legacy Office)
+    if ext == "mp3":
+        return h[:3] == b"ID3" or h[:2] in (b"\xff\xfb", b"\xff\xf3", b"\xff\xf2")
+    # csv, txt, md, rtf, and any other allowed text type: nothing to verify
+    return True
+
+
 class UnsupportedFileType(ValueError):
     pass
 
@@ -59,10 +90,11 @@ def classify_upload(*, filename: str, size: int, content_head: bytes) -> tuple[s
     if ext not in _EXT_WHITELIST:
         raise UnsupportedFileType(f"unsupported extension .{ext}")
     kind, default_ct = _EXT_WHITELIST[ext]
+    if not _content_matches_ext(ext, content_head):
+        raise UnsupportedFileType(f"content does not match .{ext} signature")
     # Optional cross-check via mimetypes (tiebreaker)
     guessed, _ = mimetypes.guess_type(name)
     content_type = guessed if guessed else default_ct
-    _ = content_head  # reserved for future magic-byte sniffing
     return kind, content_type
 
 

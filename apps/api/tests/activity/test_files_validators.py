@@ -49,3 +49,38 @@ def test_classify_strips_double_extension_attack():
     """`invoice.pdf.exe` must be rejected — outer extension wins."""
     with pytest.raises(UnsupportedFileType):
         classify_upload(filename="invoice.pdf.exe", size=10, content_head=b"")
+
+
+def test_classify_rejects_pdf_with_exe_content():
+    """A renamed executable (`evil.exe` → `evil.pdf`) must be rejected:
+    the PE/exe `MZ` header does not match the PDF signature."""
+    with pytest.raises(UnsupportedFileType):
+        classify_upload(filename="evil.pdf", size=10, content_head=b"MZ\x90\x00")
+
+
+def test_classify_pdf_with_valid_signature():
+    """A `.pdf` carrying real PDF magic bytes passes."""
+    kind, ct = classify_upload(
+        filename="invoice.pdf", size=10, content_head=b"%PDF-1.7\x0a%\xe2\xe3\xcf\xd3"
+    )
+    assert kind == "pdf"
+    assert ct == "application/pdf"
+
+
+def test_classify_txt_skips_signature_check():
+    """Text types have no signature; arbitrary bytes pass."""
+    kind, _ = classify_upload(filename="notes.txt", size=10, content_head=b"\x00\x01\x02\x03")
+    assert kind == "text"
+
+
+def test_classify_png_with_valid_signature():
+    kind, _ = classify_upload(
+        filename="logo.png", size=10, content_head=b"\x89PNG\r\n\x1a\n\x00\x00"
+    )
+    assert kind == "image"
+
+
+def test_classify_rejects_png_with_gif_content():
+    """A `.png` whose bytes are actually a GIF must be rejected."""
+    with pytest.raises(UnsupportedFileType):
+        classify_upload(filename="fake.png", size=10, content_head=b"GIF89a\x00\x00")
