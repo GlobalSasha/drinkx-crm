@@ -17,6 +17,8 @@ import httpx
 import structlog
 import yaml
 
+from app.common.ssrf import is_safe_fetch_url
+
 log = structlog.get_logger()
 
 CUTOFF_DAYS = 365
@@ -133,8 +135,24 @@ class RssFeedSource:
         return out
 
     async def _http_get(self, url: str) -> str:
-        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT, follow_redirects=True) as client:
-            resp = await client.get(url)
+        if not is_safe_fetch_url(url):
+            log.warning("rss.blocked_ssrf", url=url)
+            raise ValueError("blocked: non-public host")
+        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT, follow_redirects=False) as client:
+            current_url = url
+            resp = await client.get(current_url)
+            redirects = 0
+            while resp.is_redirect and redirects < 3:
+                location = resp.headers.get("location")
+                if not location:
+                    break
+                next_url = str(resp.next_request.url) if resp.next_request else location
+                if not is_safe_fetch_url(next_url):
+                    log.warning("rss.blocked_ssrf_redirect", url=next_url)
+                    raise ValueError("blocked: redirect to non-public host")
+                current_url = next_url
+                resp = await client.get(current_url)
+                redirects += 1
             resp.raise_for_status()
             return resp.text
 

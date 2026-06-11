@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 import httpx
 import structlog
 
+from app.common.ssrf import is_safe_fetch_url
 from app.enrichment.sources.base import SourceResult
 from app.enrichment.sources.cache import cache_get, cache_set
 
@@ -45,6 +46,13 @@ class WebFetch:
         if not parsed.netloc:
             return SourceResult(source=self.name, query=url, error="no host")
 
+        # SSRF guard: refuse URLs whose host resolves to a private/internal IP
+        # (loopback, link-local incl. 169.254.169.254 metadata, RFC1918, etc.).
+        # lead.website is user-controlled, so this MUST run on every fetch.
+        if not is_safe_fetch_url(url):
+            log.warning("source.web_fetch.blocked_ssrf", url=url)
+            return SourceResult(source=self.name, query=url, error="blocked: non-public host")
+
         if use_cache:
             cached = await cache_get(self.name, url)
             if cached is not None:
@@ -63,8 +71,22 @@ class WebFetch:
         }
 
         try:
-            async with httpx.AsyncClient(timeout=timeout_seconds, follow_redirects=True, max_redirects=3) as client:
-                resp = await client.get(url, headers=headers)
+            async with httpx.AsyncClient(timeout=timeout_seconds, follow_redirects=False) as client:
+                current_url = url
+                resp = await client.get(current_url, headers=headers)
+                redirects = 0
+                while resp.is_redirect and redirects < 3:
+                    location = resp.headers.get("location")
+                    if not location:
+                        break
+                    next_url = str(resp.next_request.url) if resp.next_request else location
+                    # Re-validate every redirect target — defeats DNS/redirect rebinding.
+                    if not is_safe_fetch_url(next_url):
+                        log.warning("source.web_fetch.blocked_ssrf_redirect", url=next_url)
+                        return SourceResult(source=self.name, query=url, error="blocked: redirect to non-public host")
+                    current_url = next_url
+                    resp = await client.get(current_url, headers=headers)
+                    redirects += 1
         except httpx.TimeoutException as e:
             return SourceResult(source=self.name, query=url, error=f"timeout: {e}")
         except httpx.HTTPError as e:

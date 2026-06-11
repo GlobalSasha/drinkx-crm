@@ -12,8 +12,32 @@ Both are small and independent — either can go first.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
-| 001  | Block self-service role escalation in `PATCH /auth/me` | P1 | S | — | TODO |
-| 002  | Wire the SSRF guard into `WebFetch` (enrichment website fetch) | P1 | S | — | TODO |
+| 001  | Block self-service role escalation in `PATCH /auth/me` | P1 | S | — | DONE (code verified; regression test pending CI/DB — see note) |
+| 002  | Wire the SSRF guard into `WebFetch` (enrichment website fetch) | P1 | S | — | DONE |
+
+### Execution notes (2026-06-11, reviewer: Opus 4.8)
+
+Executed in the main working tree (not a worktree) because this machine has no
+`uv`/Docker/Postgres, so a fresh worktree could not build a Python env to verify.
+Changes left **uncommitted** pending the user's go-ahead.
+
+- **002 — APPROVED.** `web_fetch.py` now calls `is_safe_fetch_url` before fetching
+  and follows redirects manually, re-validating each hop. 3 new tests in
+  `tests/test_web_fetch_ssrf.py` pass (incl. the key one: a blocked URL is never
+  requested — `route.called is False`). The full source-test gate is green
+  (`pytest -k "enrichment or web_fetch or source"` → 79 passed, 2 skipped).
+  **Scope expanded by 1 line**: `tests/test_sources.py::test_web_fetch_handles_timeout`
+  used an unresolvable host (`slow.example.com`) that the guard now legitimately
+  blocks before the timeout mock fires; fixed by patching the guard to `True` in
+  that one test (mirrors the new test's pattern). Follow-up still open:
+  `enrichment/sources/rss_feed.py` shares the same SSRF exposure — separate change.
+- **001 — code APPROVED, test unverified locally.** `routers.py` no longer honors
+  `payload.role`; `role` removed from `UserUpdateIn`. grep done-criteria pass,
+  `py_compile` OK, and `test_auth_bootstrap.py` still passes (server-side role
+  assignment intact). The new `tests/test_auth_role_guard.py` is correct against
+  the live `update_me` signature but **errors with `fixture 'db' not found` here**
+  because conftest gates the DB fixtures behind `POSTGRES_AVAILABLE`. It must run
+  green in CI (Postgres) before this is fully closed.
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (one-line reason) | REJECTED (one-line rationale)
 

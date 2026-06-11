@@ -393,6 +393,7 @@ async def test_web_fetch_handles_timeout(monkeypatch):
     handler = _MockHandler(200, "", raise_timeout=True)
     _patch_httpx(monkeypatch, handler, wf_mod)
     _no_cache(monkeypatch, wf_mod)
+    monkeypatch.setattr("app.enrichment.sources.web_fetch.is_safe_fetch_url", lambda url: True)
 
     result = await WebFetch().fetch("https://slow.example.com")
 

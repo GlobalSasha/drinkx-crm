@@ -30,9 +30,6 @@ async def update_me(
     """Update profile fields (used by Onboarding step 2)."""
     if payload.name is not None:
         user.name = payload.name
-    if payload.role is not None and payload.role in ("manager", "head", "admin"):
-        # Only admin can promote/demote — for now any user can self-set during onboarding
-        user.role = payload.role
     if payload.timezone is not None:
         user.timezone = payload.timezone
     if payload.max_active_deals is not None:
