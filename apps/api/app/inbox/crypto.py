@@ -80,6 +80,12 @@ def encrypt_credentials(plaintext_json: str) -> str:
         raise TypeError("plaintext_json must be str")
     f = _get_fernet()
     if f is None:
+        if get_settings().app_env == "production":
+            log.error("crypto.stub_mode_refused_in_prod")
+            raise CredentialsCryptoError(
+                "FERNET_KEY is not configured in production — refusing to "
+                "store channel credentials as plaintext"
+            )
         _maybe_warn_stub_mode()
         return plaintext_json
     token = f.encrypt(plaintext_json.encode("utf-8")).decode("ascii")

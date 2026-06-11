@@ -49,7 +49,6 @@ class UserUpdateIn(BaseModel):
     """Body for PATCH /auth/me — used by Onboarding step 2 and /settings/profile."""
 
     name: str | None = None
-    role: str | None = None
     timezone: str | None = None
     max_active_deals: int | None = Field(default=None, ge=1, le=100)
     specialization: list[str] | None = None

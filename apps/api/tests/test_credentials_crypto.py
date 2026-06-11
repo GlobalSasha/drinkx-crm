@@ -122,3 +122,44 @@ def test_invalid_fernet_key_falls_to_stub_mode(monkeypatch):
     # encrypt_credentials returns plaintext (stub mode) instead of crashing.
     plaintext = '{"x": 1}'
     assert crypto.encrypt_credentials(plaintext) == plaintext
+
+
+# ---------------------------------------------------------------------------
+# Production stub-mode guard
+# ---------------------------------------------------------------------------
+
+import types  # noqa: E402
+
+
+def _settings(app_env, fernet_key=""):
+    """Minimal stand-in exposing the two fields crypto reads."""
+    return types.SimpleNamespace(app_env=app_env, fernet_key=fernet_key)
+
+
+def test_prod_no_key_refuses(monkeypatch):
+    """Production + no FERNET_KEY → refuse to store plaintext credentials."""
+    import app.inbox.crypto as crypto
+
+    monkeypatch.setattr(crypto, "get_settings", lambda: _settings("production", ""))
+    with pytest.raises(crypto.CredentialsCryptoError):
+        crypto.encrypt_credentials("{}")
+
+
+def test_dev_no_key_still_stub_mode(monkeypatch):
+    """Development + no FERNET_KEY → stub mode passthrough is preserved."""
+    import app.inbox.crypto as crypto
+
+    monkeypatch.setattr(crypto, "get_settings", lambda: _settings("development", ""))
+    plaintext = '{"refresh_token": "dev"}'
+    assert crypto.encrypt_credentials(plaintext) == plaintext
+
+
+def test_prod_with_valid_key_encrypts(monkeypatch):
+    """The guard only triggers on the no-key path: a valid key in prod still
+    produces a `fernet:`-prefixed token."""
+    import app.inbox.crypto as crypto
+
+    key = Fernet.generate_key().decode("ascii")
+    monkeypatch.setattr(crypto, "get_settings", lambda: _settings("production", key))
+    stored = crypto.encrypt_credentials("{}")
+    assert stored.startswith(crypto.ENCRYPTED_PREFIX)

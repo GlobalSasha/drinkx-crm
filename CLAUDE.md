@@ -157,3 +157,22 @@ For backend changes: `python -m py_compile` on touched modules + `pytest`
 - Use vercel-labs/agent-skills rules for React and Next.js components
 - Spacing scale: 4-8-12-16-24-32px only, no arbitrary values
 - No Inter, Roboto, or Arial fonts
+
+## Installing skills
+
+Repo-local skills live in `.agents/skills/<name>/` (the real files) and are
+exposed to Claude via a symlink in `.claude/skills/<name>` →
+`../../.agents/skills/<name>`. `skills-lock.json` (repo root) tracks each
+skill's GitHub source and a sha256 of its `SKILL.md`.
+
+To add a skill from a GitHub repo (e.g. `owner/repo` with `skills/<name>/SKILL.md`):
+
+1. Download the skill dir into `.agents/skills/<name>/` — include `SKILL.md`
+   and any `references/` the skill reads at runtime.
+2. Symlink it: `ln -sf ../../.agents/skills/<name> .claude/skills/<name>`
+3. Add an alphabetically-sorted entry to `skills-lock.json`:
+   `{ "source": "owner/repo", "sourceType": "github",
+      "skillPath": "skills/<name>/SKILL.md",
+      "computedHash": "<sha256 of SKILL.md>" }`
+
+The skill then appears in the Skill tool list and is invocable as `/<name>`.
