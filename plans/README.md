@@ -87,9 +87,13 @@ Still open — these need a database (correctness/data risk; can't be verified b
 - **CORR-2 (contact dedup UNIQUE)** — adding a UNIQUE constraint will FAIL the
   migration if duplicate contacts already exist in prod. Requires a dedup/backfill
   step first (or a partial/conditional index) and verification against real data.
-- **DEBT-1 (frontend test baseline)** — multi-day; the keystone for god-file
-  refactors. Its own focused effort (vitest + Testing Library + characterization
-  tests for claim / stage DnD / forms).
+- **DEBT-1 (frontend test baseline)** — 🟡 STARTED. Harness landed: vitest + jsdom
+  + Testing Library, `vitest.config.ts`/`vitest.setup.ts`, first 14 tests
+  (`lib/safe-url`, `lib/relative-time`, `components/ui/Badge`), and a Test step in
+  `web.yml` CI. Remaining (multi-day, incremental): characterization tests for the
+  critical flows (lead claim, stage DnD, forms editor) — these need query/router
+  mocking infra (a QueryClient wrapper + fetch/MSW mocks), build it as flows are
+  covered.
 
 ## Findings audited but NOT turned into plans (this round)
 
