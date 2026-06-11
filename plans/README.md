@@ -46,6 +46,32 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (one-line reason) | REJECTED 
 - 001 and 002 are independent; no ordering constraint. Both touch the backend
   (`apps/api`) only.
 
+## Progress on deferred findings (2026-06-11, continued)
+
+After the user reviewed the deferred list, work proceeded on them directly
+(no separate plan files — fixes were small enough to execute + review inline):
+
+- **DEBT-09 (web CI)** — ✅ DONE. `.github/workflows/web.yml` runs
+  `pnpm typecheck/lint/build` on `apps/web/**`. All three verified green at HEAD.
+- **DIR-03 (crypto stub mode)** — ✅ DONE. `encrypt_credentials` now RAISES in
+  production when `FERNET_KEY` is unset instead of silently storing plaintext
+  (`apps/api/app/inbox/crypto.py` + tests). Operational follow-up still stands:
+  confirm `FERNET_KEY` is actually set on the prod server.
+- **DEBT-3 (silent excepts)** — ❌ NO ACTION NEEDED (over-reported). Of 114
+  `except Exception` sites, the vast majority already log (`log.warning` /
+  `log.exception`); the remaining bare ones are transaction-rollbacks inside an
+  already-logged handler or format-detection helpers. Not real swallowing.
+- **CORR-1 (enqueue before commit)** — ❌ REJECTED (false positive). In
+  `inbox/processor.py` the `session.commit()` (line ~530) precedes the
+  `apply_async` enqueue (line ~556); the task is enqueued AFTER commit, which is
+  correct. The audit subagent misread the ordering.
+
+Still open (larger / DB-bound — best done with a migration + CI):
+- **PERF-1** — inbox phone-match query + missing indexes (needs Alembic migration).
+- **CORR-2** — contact/activity dedup unique constraint (needs Alembic migration).
+- **SEC-04** — file-upload MIME/type allowlist.
+- **DEBT-1** — frontend test baseline (multi-day; the keystone for god-file refactors).
+
 ## Findings audited but NOT turned into plans (this round)
 
 The 2026-06-11 audit surfaced more than these two. The user scoped this round to
