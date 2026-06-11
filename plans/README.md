@@ -66,11 +66,28 @@ After the user reviewed the deferred list, work proceeded on them directly
   `apply_async` enqueue (line ~556); the task is enqueued AFTER commit, which is
   correct. The audit subagent misread the ordering.
 
-Still open (larger / DB-bound — best done with a migration + CI):
-- **PERF-1** — inbox phone-match query + missing indexes (needs Alembic migration).
-- **CORR-2** — contact/activity dedup unique constraint (needs Alembic migration).
-- **SEC-04** — file-upload MIME/type allowlist.
-- **DEBT-1** — frontend test baseline (multi-day; the keystone for god-file refactors).
+- **SEC-04 (file-upload type check)** — ✅ DONE. `classify_upload` now verifies
+  magic bytes (not just extension) for binary types, using the `content_head` it
+  already received; a renamed executable is rejected. import_export upload was
+  already format-constrained, left as-is.
+- **PERF-1 part A (indexes)** — ✅ DONE. Added 4 workspace-scoped composite indexes
+  (`tg_chat_id`, `max_user_id`, `assigned_to`, `needs_review`) on `leads` +
+  migration `0048_lead_lookup_indexes`. Pure speed, no behavior change. Migration
+  validated by py_compile + model-metadata build; **runs at deploy** (no local DB).
+
+Still open — these need a database (correctness/data risk; can't be verified blind):
+- **PERF-1 part B (phone-match query refactor)** — the inbox phone fallback scans
+  all workspace leads and normalizes in Python via `normalize_phone` (bare digits,
+  RU 7/8→10). The indexed `phone_e164` column uses a DIFFERENT normalization
+  (`to_e164`, true E.164 via `phonenumbers`). Swapping the query to the index
+  CHANGES matching semantics (messy/unparseable numbers). Needs DB-backed tests
+  before changing — do NOT ship blind.
+- **CORR-2 (contact dedup UNIQUE)** — adding a UNIQUE constraint will FAIL the
+  migration if duplicate contacts already exist in prod. Requires a dedup/backfill
+  step first (or a partial/conditional index) and verification against real data.
+- **DEBT-1 (frontend test baseline)** — multi-day; the keystone for god-file
+  refactors. Its own focused effort (vitest + Testing Library + characterization
+  tests for claim / stage DnD / forms).
 
 ## Findings audited but NOT turned into plans (this round)
 

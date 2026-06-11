@@ -228,6 +228,10 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
         sa.Index("ix_leads_workspace_stage", "workspace_id", "stage_id"),
         sa.Index("ix_leads_workspace_assignment", "workspace_id", "assignment_status"),
         sa.Index("ix_leads_rotting", "is_rotting_stage", "is_rotting_next_step"),
+        sa.Index("ix_leads_workspace_tg_chat_id", "workspace_id", "tg_chat_id"),
+        sa.Index("ix_leads_workspace_max_user_id", "workspace_id", "max_user_id"),
+        sa.Index("ix_leads_workspace_assigned_to", "workspace_id", "assigned_to"),
+        sa.Index("ix_leads_workspace_needs_review", "workspace_id", "needs_review"),
     )
 
 
