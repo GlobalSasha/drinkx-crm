@@ -4,8 +4,8 @@
 // Replaces the prior `window.confirm` + `window.prompt` pair on the
 // «Перевести в Проигран» action with a styled modal matching the rest
 // of the LeadCard's modal surface (GateModal / TransferModal). Reason
-// is OPTIONAL — the backend accepts NULL — but the UI nudges the
-// manager to fill it in for retrospectives.
+// is REQUIRED — the backend rejects a close-as-lost with no reason
+// (plan 007); the confirm button stays disabled until one is typed.
 //
 // Same shape contract as GateModal: parent owns `onClose` / `onSuccess`
 // callbacks. The mutation lives at the parent (LeadCard) so error
@@ -43,10 +43,9 @@ export function LostModal({
         leadId,
         body: {
           stage_id: lostStage.id,
-          // Empty string → NULL on the backend (lost_reason is
-          // nullable). Trim defensive in case the manager typed
-          // whitespace in the form.
-          lost_reason: reason.trim() || null,
+          // Required: confirm is disabled until a non-empty reason is
+          // typed, so this is always a real reason.
+          lost_reason: reason.trim(),
         },
       },
       {
@@ -88,7 +87,7 @@ export function LostModal({
 
           <div>
             <label className="text-xs font-mono uppercase tracking-wide text-brand-muted">
-              Причина <span className="text-brand-muted">(необязательно)</span>
+              Причина <span className="text-rose">*</span>
             </label>
             <textarea
               value={reason}
@@ -108,7 +107,7 @@ export function LostModal({
             <button
               type="button"
               onClick={handleConfirm}
-              disabled={moveStage.isPending}
+              disabled={moveStage.isPending || !reason.trim()}
               className="inline-flex items-center gap-1.5 bg-rose text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-rose/90 disabled:opacity-40 transition-all duration-300"
             >
               {moveStage.isPending && (

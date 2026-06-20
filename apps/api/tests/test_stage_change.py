@@ -298,6 +298,21 @@ async def test_move_to_lost_stage_sets_lost_at_and_reason(db, workspace, user, p
 
 
 @skip_no_pg
+async def test_move_to_lost_without_reason_is_rejected(db, workspace, user, pipeline):
+    """Closing a deal as lost requires a non-empty reason (plan 007)."""
+    from app.leads import services
+
+    p, _ = pipeline
+    lost_stage = await _make_stage(db, p.id, position=12, name="Закрыто (lost) 2", is_lost=True)
+    lead = await _make_lead(db, workspace.id, pipeline_id=p.id)
+
+    with pytest.raises(ValueError, match="lost_reason"):
+        await services.move_lead_stage(
+            db, workspace.id, user.id, lead.id, lost_stage.id, lost_reason=None,
+        )
+
+
+@skip_no_pg
 async def test_archived_lead_cannot_move(db, workspace, user, pipeline):
     """lead.archived_at set → StageTransitionInvalid raised."""
     from app.automation.stage_change import move_stage, StageTransitionInvalid

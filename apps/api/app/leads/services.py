@@ -435,6 +435,11 @@ async def move_lead_stage(
     if to_stage is None:
         raise StageNotFound(to_stage_id)
 
+    # A close-as-lost must carry a reason (mirrors the skip_reason guard in
+    # stage_change). Internal callers (automation) go through the engine
+    # directly and bypass this wrapper, so they are unaffected.
+    if to_stage.is_lost and not (lost_reason and lost_reason.strip()):
+        raise ValueError("lost_reason is required when closing a deal as lost")
     if lost_reason is not None:
         lead.lost_reason = lost_reason
 
