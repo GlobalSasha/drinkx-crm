@@ -620,18 +620,74 @@ async def test_autoreply_subject_falls_back_to_form_name():
 
 
 # ===========================================================================
-# 11. Inbox snippet extraction (migration 0047 / forms.inbox)
+# 11. Submission field extraction (lead_factory helpers)
 # ===========================================================================
 
-def test_inbox_extract_snippet_prefers_message_keys():
-    from app.forms.inbox import extract_snippet
-    assert extract_snippet({"comment": "Нужен S300"}) == "Нужен S300"
-    # whitespace/newlines collapsed to single spaces
-    assert extract_snippet({"сообщение": "Привет\n\n  мир"}) == "Привет мир"
-    # no recognised message key → empty
-    assert extract_snippet({"phone": "+7 900 000-00-00"}) == ""
-    # non-dict payloads are safe
-    assert extract_snippet(None) == ""
-    assert extract_snippet("oops") == ""
-    # truncated to the 160-char limit
-    assert len(extract_snippet({"message": "x" * 500})) == 160
+def test_extract_question_clean_field():
+    from app.forms.lead_factory import extract_question
+    assert extract_question({"comment": "Нужен S300"}) == "Нужен S300"
+
+
+def test_extract_question_capitalized_key_regression():
+    # The old extract_snippet matched only lowercase keys; normalized
+    # lookup must now match a capitalized "Сообщение".
+    from app.forms.lead_factory import extract_question
+    assert extract_question({"Сообщение": "Привет"}) == "Привет"
+
+
+def test_extract_question_from_blob():
+    from app.forms.lead_factory import extract_question
+    blob = (
+        "Имя: Константин Осипов\nСегмент: Другое\n"
+        "Сообщение: какую проблему решает дринкс?\nИсточник: website"
+    )
+    assert extract_question({"message": blob}) == "какую проблему решает дринкс?"
+
+
+def test_extract_question_structured_only_blob_is_none():
+    from app.forms.lead_factory import extract_question
+    blob = "Способ связи: test\nФормат заведения: Клуб\nИсточник: лендинг"
+    assert extract_question({"message": blob}) is None
+
+
+def test_extract_question_absent_is_none():
+    from app.forms.lead_factory import extract_question
+    assert extract_question({"phone": "+7 900 000-00-00"}) is None
+    assert extract_question(None) is None
+
+
+def test_extract_person_name_clean_field():
+    from app.forms.lead_factory import extract_person_name
+    assert extract_person_name({"имя": "Константин Осипов"}) == "Константин Осипов"
+
+
+def test_extract_person_name_from_blob():
+    from app.forms.lead_factory import extract_person_name
+    blob = "Имя: Константин Осипов\nСегмент: Другое\nСообщение: вопрос"
+    assert extract_person_name({"message": blob}) == "Константин Осипов"
+
+
+def test_extract_person_name_absent_is_none():
+    from app.forms.lead_factory import extract_person_name
+    assert extract_person_name({"email": "x@y.io"}) is None
+
+
+def test_extract_summary_structured_fields():
+    from app.forms.lead_factory import extract_summary
+    blob = "Способ связи: test\nФормат заведения: Клуб\nИсточник: лендинг"
+    assert extract_summary({"message": blob}) == "Способ связи: test · Формат заведения: Клуб"
+
+
+def test_extract_summary_excludes_message_name_and_source():
+    from app.forms.lead_factory import extract_summary
+    blob = (
+        "Имя: К\nСегмент: Другое\nИнтересует модель: S300\n"
+        "Сообщение: вопрос\nИсточник: website"
+    )
+    assert extract_summary({"message": blob}) == "Сегмент: Другое · Интересует модель: S300"
+
+
+def test_extract_summary_no_blob_is_empty():
+    from app.forms.lead_factory import extract_summary
+    assert extract_summary({"comment": "просто текст"}) == ""
+    assert extract_summary({"phone": "+7"}) == ""

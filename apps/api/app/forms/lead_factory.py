@@ -70,6 +70,103 @@ def _normalize_key(k: str) -> str:
     return (k or "").strip().lower().replace("_", " ").replace("-", " ").strip()
 
 
+# Person-name keys (clean fields). Bare "name" stays mapped to company_name,
+# so it is intentionally excluded here.
+PERSON_NAME_KEYS: tuple[str, ...] = (
+    "имя", "фио", "ф.и.о.", "контактное лицо", "ваше имя",
+    "как вас зовут", "contact name", "contact_name", "контакт",
+)
+# Free-text message keys, priority order.
+QUESTION_KEYS: tuple[str, ...] = (
+    "вопрос", "question", "сообщение", "message",
+    "комментарий", "comment", "comments",
+)
+# Normalized blob labels that count as the free-text message.
+_MESSAGE_LABELS = {"сообщение", "вопрос", "message", "comment", "comments", "комментарий"}
+# Normalized blob labels excluded from the structured-fields summary.
+_SUMMARY_EXCLUDE = _MESSAGE_LABELS | {
+    "имя", "фио", "ф.и.о.", "контактное лицо", "ваше имя", "name", "контакт",
+    "источник", "source", "email", "e-mail", "почта",
+    "телефон", "phone", "тел", "mobile",
+}
+
+
+def _clean(text: str) -> str:
+    """Collapse all runs of whitespace (incl. newlines) to single spaces."""
+    return " ".join(str(text).split())
+
+
+def _lookup(payload: Any, keys: tuple[str, ...]) -> str | None:
+    """First non-empty value whose normalized key matches one of `keys`.
+    Preserves the value's internal whitespace (callers collapse if needed)."""
+    if not isinstance(payload, dict):
+        return None
+    norm_map = {_normalize_key(str(k)): v for k, v in payload.items()}
+    for key in keys:
+        v = norm_map.get(_normalize_key(key))
+        if v not in (None, ""):
+            return str(v).strip()
+    return None
+
+
+def _parse_labeled_block(text: str | None) -> list[tuple[str, str]]:
+    """Split a newline-separated `Label: value` blob into ordered
+    (label, value) pairs. Accepts ASCII ':' and full-width '：'. Returns
+    [] when the text is not such a block."""
+    pairs: list[tuple[str, str]] = []
+    for raw_line in str(text or "").splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        positions = [line.find(c) for c in (":", "：") if line.find(c) > 0]
+        if not positions:
+            continue
+        idx = min(positions)
+        label = line[:idx].strip()
+        value = line[idx + 1:].strip()
+        if label and value:
+            pairs.append((label, value))
+    return pairs
+
+
+def extract_person_name(payload: Any, *, limit: int = 120) -> str | None:
+    """Contact person's name: a clean person-name field, else the `Имя:`/
+    `ФИО:` line inside the message blob, else None."""
+    v = _lookup(payload, PERSON_NAME_KEYS)
+    if v:
+        return _clean(v)[:limit]
+    pairs = _parse_labeled_block(_lookup(payload, QUESTION_KEYS))
+    name = next(
+        (val for lbl, val in pairs if _normalize_key(lbl) in PERSON_NAME_KEYS),
+        None,
+    )
+    return _clean(name)[:limit] if name else None
+
+
+def extract_question(payload: Any, *, limit: int = 200) -> str | None:
+    """The visitor's free-text message, or None when there is none
+    (e.g. landing forms carrying only structured fields)."""
+    raw = _lookup(payload, QUESTION_KEYS)
+    if not raw:
+        return None
+    pairs = _parse_labeled_block(raw)
+    if len(pairs) >= 2:  # a real Label:value blob, not a one-line message
+        msg = next((val for lbl, val in pairs if _normalize_key(lbl) in _MESSAGE_LABELS), None)
+        return _clean(msg)[:limit] if msg else None
+    return _clean(raw)[:limit]
+
+
+def extract_summary(payload: Any, *, limit: int = 200) -> str:
+    """One-line recap of a structured blob (used when there is no
+    free-text question): `Label: value · Label: value`, contact fields
+    and noise excluded. Empty when the payload is not a blob."""
+    pairs = _parse_labeled_block(_lookup(payload, QUESTION_KEYS))
+    if len(pairs) < 2:
+        return ""
+    kept = [f"{lbl}: {val}" for lbl, val in pairs if _normalize_key(lbl) not in _SUMMARY_EXCLUDE]
+    return _clean(" · ".join(kept))[:limit]
+
+
 def _project_payload(payload: dict[str, Any]) -> dict[str, str]:
     """Walk the raw payload, return {canonical_field: stringified_value}.
     Only collects values for known canonical fields; everything else
