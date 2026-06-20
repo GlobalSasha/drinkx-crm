@@ -1645,7 +1645,9 @@ export interface InboxItemOut {
   lead_id: string | null;
   created_at: string;
   is_new: boolean;
-  snippet: string;
+  contact_name: string | null;
+  question: string | null;
+  summary: string;
   source_domain: string | null;
   utm_json: Record<string, string> | null;
   form_id: string;
