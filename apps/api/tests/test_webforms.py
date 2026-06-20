@@ -153,6 +153,9 @@ def _make_lead_factory_env():
         patch.object(lf_mod, "Lead", _LeadSpy),
         patch.object(lf_mod, "Activity", _ActivitySpy),
         patch.object(lf_mod, "Contact", lambda **kw: MagicMock(**kw)),
+        # B3: default to "no duplicate found" so existing tests keep the
+        # new-lead path; dedup-hit tests override this patch.
+        patch.object(lf_mod, "_find_existing_lead", new=AsyncMock(return_value=None)),
         patch(
             "app.pipelines.repositories.get_default_first_stage",
             new=fake_get_default_first_stage,
@@ -333,7 +336,7 @@ async def test_form_submission_activity_created():
     async def _no_utm(*_a, **_k):
         return {"utm_source_id": None, "utm_medium_id": None, "utm_campaign_id": None}
 
-    with patches[0], patches[1], patches[2], patch("app.utm.services.resolve_utm", new=_no_utm):
+    with patches[0], patches[1], patches[2], patches[3], patch("app.utm.services.resolve_utm", new=_no_utm):
         lead = await lf_mod.create_lead_from_submission(
             session,
             form=form,
@@ -368,7 +371,7 @@ async def test_notes_activity_created_when_comment_in_payload():
     form = _make_form()
     session = _make_session()
 
-    with patches[0], patches[1], patches[2]:
+    with patches[0], patches[1], patches[2], patches[3]:
         await lf_mod.create_lead_from_submission(
             session,
             form=form,
@@ -404,7 +407,7 @@ async def test_no_comment_activity_when_no_notes():
     form = _make_form()
     session = _make_session()
 
-    with patches[0], patches[1], patches[2]:
+    with patches[0], patches[1], patches[2], patches[3]:
         await lf_mod.create_lead_from_submission(
             session,
             form=form,
@@ -725,3 +728,153 @@ async def test_update_form_disables_key():
             patch={"require_key": False},
         )
     assert "ingest_token" in captured and captured["ingest_token"] is None
+
+
+# ---------------------------------------------------------------------------
+# Intake dedup (audit B3)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_dedup_attaches_to_existing_lead_on_email_match():
+    """B3: a repeat email match reuses the existing LIVE lead — no new Lead,
+    needs_review flipped, activities attach to the existing lead."""
+    from contextlib import ExitStack
+    from app.forms import lead_factory as lf_mod
+
+    leads, activities, patches = _make_lead_factory_env()
+    form = _make_form()
+    session = _make_session()
+
+    existing = type("ExistingLead", (), {})()
+    existing.id = uuid.uuid4()
+    existing.workspace_id = WS
+    existing.company_name = "Existing Co"
+    existing.email = "dup@acme.ru"
+    existing.phone = None
+    existing.primary_contact_id = uuid.uuid4()
+    existing.needs_review = False
+    existing.assignment_status = "assigned"
+
+    with ExitStack() as stack:
+        for p in patches:
+            stack.enter_context(p)
+        stack.enter_context(patch.object(
+            lf_mod, "_find_existing_lead", new=AsyncMock(return_value=existing),
+        ))
+        stack.enter_context(patch(
+            "app.automation_builder.services.safe_evaluate_trigger", new=AsyncMock(),
+        ))
+        lead = await lf_mod.create_lead_from_submission(
+            session, form=form,
+            payload={"company": "ACME", "email": "dup@acme.ru"},
+            source_domain="acme.ru", utm=None,
+        )
+
+    assert lead is existing
+    assert existing.needs_review is True
+    assert leads == [], "no new Lead should be constructed on a dedup hit"
+    fs = [a for a in activities if a.get("type") == "form_submission"]
+    assert len(fs) == 1
+    assert fs[0]["lead_id"] == existing.id
+
+
+@pytest.mark.asyncio
+async def test_no_dedup_match_creates_new_lead():
+    """B3: no email/phone match → a brand-new Lead is created as before."""
+    from contextlib import ExitStack
+    from app.forms import lead_factory as lf_mod
+
+    leads, activities, patches = _make_lead_factory_env()
+    form = _make_form()
+    session = _make_session()
+
+    with ExitStack() as stack:
+        for p in patches:
+            stack.enter_context(p)
+        stack.enter_context(patch.object(
+            lf_mod, "_find_existing_lead", new=AsyncMock(return_value=None),
+        ))
+        stack.enter_context(patch(
+            "app.automation_builder.services.safe_evaluate_trigger", new=AsyncMock(),
+        ))
+        lead = await lf_mod.create_lead_from_submission(
+            session, form=form,
+            payload={"company": "New Co", "email": "fresh@new.ru"},
+            source_domain="new.ru", utm=None,
+        )
+
+    assert len(leads) == 1, "exactly one new Lead"
+    assert lead is not None
+    fs = [a for a in activities if a.get("type") == "form_submission"]
+    assert len(fs) == 1
+
+
+@pytest.mark.asyncio
+async def test_no_email_or_phone_skips_dedup_lookup():
+    """B3: structured-only payload (no email/phone) → new Lead, no crash."""
+    from contextlib import ExitStack
+    from app.forms import lead_factory as lf_mod
+
+    leads, activities, patches = _make_lead_factory_env()
+    form = _make_form()
+    session = _make_session()
+
+    with ExitStack() as stack:
+        for p in patches:
+            stack.enter_context(p)
+        stack.enter_context(patch.object(
+            lf_mod, "_find_existing_lead", new=AsyncMock(return_value=None),
+        ))
+        stack.enter_context(patch(
+            "app.automation_builder.services.safe_evaluate_trigger", new=AsyncMock(),
+        ))
+        lead = await lf_mod.create_lead_from_submission(
+            session, form=form,
+            payload={"company": "Bar", "message": "Способ связи: test\nФормат: Клуб"},
+            source_domain=None, utm=None,
+        )
+
+    assert len(leads) == 1
+    assert lead is not None
+
+
+@pytest.mark.asyncio
+async def test_dedup_hit_does_not_reroute_existing_lead():
+    """B3: a dedup hit must NOT re-assign or re-task an existing lead even
+    when the form has a default owner."""
+    from contextlib import ExitStack
+    from app.forms import lead_factory as lf_mod
+
+    leads, activities, patches = _make_lead_factory_env()
+    owner = uuid.uuid4()
+    form = _make_form(default_assignee_id=owner, contact_task_sla_hours=2)
+    session = _make_session()
+
+    existing = type("ExistingLead", (), {})()
+    existing.id = uuid.uuid4()
+    existing.workspace_id = WS
+    existing.company_name = "Existing Co"
+    existing.email = "dup@acme.ru"
+    existing.phone = None
+    existing.primary_contact_id = uuid.uuid4()
+    existing.needs_review = False
+    existing.assignment_status = "assigned"
+    existing.assigned_to = uuid.uuid4()
+
+    with ExitStack() as stack:
+        for p in patches:
+            stack.enter_context(p)
+        stack.enter_context(patch.object(
+            lf_mod, "_find_existing_lead", new=AsyncMock(return_value=existing),
+        ))
+        stack.enter_context(patch(
+            "app.automation_builder.services.safe_evaluate_trigger", new=AsyncMock(),
+        ))
+        await lf_mod.create_lead_from_submission(
+            session, form=form,
+            payload={"company": "ACME", "email": "dup@acme.ru"},
+            source_domain="acme.ru", utm=None,
+        )
+
+    assert existing.assignment_status == "assigned"
+    assert [a for a in activities if a.get("type") == "task"] == []

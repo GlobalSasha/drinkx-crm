@@ -459,6 +459,7 @@ async def test_company_name_fallback_to_form_name():
     with patch("app.forms.lead_factory.Lead", _LeadSpy), \
          patch("app.forms.lead_factory.Activity", _ActivitySpy), \
          patch("app.forms.lead_factory.Contact", lambda **kw: MagicMock(**kw)), \
+         patch("app.forms.lead_factory._find_existing_lead", new=AsyncMock(return_value=None)), \
          patch.object(_automation_services, "safe_evaluate_trigger", new=AsyncMock()), \
          patch.dict(sys.modules, {
              "app.pipelines": pipelines_module,
@@ -753,6 +754,7 @@ async def _run_factory(payload):
     with patch("app.forms.lead_factory.Lead", LeadSpy), \
          patch("app.forms.lead_factory.Activity", ActivitySpy), \
          patch("app.forms.lead_factory.Contact", ContactSpy), \
+         patch("app.forms.lead_factory._find_existing_lead", new=AsyncMock(return_value=None)), \
          patch.object(_automation_services, "safe_evaluate_trigger", new=AsyncMock()), \
          patch.dict(sys.modules, {
              "app.pipelines": pipelines_module,
