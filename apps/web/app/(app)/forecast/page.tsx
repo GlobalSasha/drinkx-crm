@@ -33,7 +33,9 @@ export default function ForecastPage() {
 
   const { pipelineTotal, weightedTotal, atRiskTotal, atRiskDeals, wonRecent, stageBars } =
     useMemo(() => {
-      const stages = pipelines?.[0]?.stages ?? [];
+      // All pipelines, not just the first — stage ids are globally unique
+      // UUIDs, so a flat map can't collide (plan 008).
+      const stages = (pipelines ?? []).flatMap((p) => p.stages ?? []);
       const stageById = new Map(stages.map((s) => [s.id, s]));
       const leads = leadsData?.items ?? [];
 
@@ -134,6 +136,14 @@ export default function ForecastPage() {
         title="Прогноз"
         subtitle="Активная воронка, взвешенный прогноз по вероятностям этапов, риски и закрытые сделки."
       />
+
+      {/* Truncation notice — the page sums only the fetched leads (capped),
+          so a workspace with more leads gets a partial total (plan 008). */}
+      {(leadsData?.total ?? 0) > (leadsData?.items?.length ?? 0) && (
+        <p className="text-xs text-brand-muted mb-4 -mt-2">
+          Показаны первые {leadsData?.items?.length ?? 0} из {leadsData?.total ?? 0} лидов — суммы частичные.
+        </p>
+      )}
 
       {/* KPI row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
