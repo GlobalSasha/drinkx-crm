@@ -148,7 +148,9 @@ class InboxItemOut(BaseModel):
     lead_id: UUID | None = None
     created_at: datetime
     is_new: bool = False
-    snippet: str = ""
+    contact_name: str | None = None
+    question: str | None = None
+    summary: str = ""
     source_domain: str | None = None
     utm_json: dict | None = None
     form_id: UUID

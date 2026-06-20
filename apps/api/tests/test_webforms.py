@@ -129,6 +129,12 @@ def _make_lead_factory_env():
             for k, v in kw.items():
                 setattr(self, k, v)
             self.id = uuid.uuid4()
+            # Contact-creation path (Task 2) reads these on every lead.
+            self.primary_contact_id = None
+            if not hasattr(self, "email"):
+                self.email = None
+            if not hasattr(self, "phone"):
+                self.phone = None
 
     class _ActivitySpy:
         def __init__(self, **kw):
@@ -146,6 +152,7 @@ def _make_lead_factory_env():
     patches = [
         patch.object(lf_mod, "Lead", _LeadSpy),
         patch.object(lf_mod, "Activity", _ActivitySpy),
+        patch.object(lf_mod, "Contact", lambda **kw: MagicMock(**kw)),
         patch(
             "app.pipelines.repositories.get_default_first_stage",
             new=fake_get_default_first_stage,
