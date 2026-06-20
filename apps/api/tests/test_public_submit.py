@@ -122,6 +122,10 @@ _stub_redis()
 import app.forms.embed as embed_mod  # noqa: E402
 import app.forms.public_routers as public_mod  # noqa: E402
 import app.forms.rate_limit as rl_mod  # noqa: E402
+# Keep automation_builder resident: create_lead_from_submission lazily imports
+# it, and patch.dict(sys.modules, …) below would otherwise evict it on exit,
+# forcing a re-import that re-defines the `automations` table.
+import app.automation_builder.services as _automation_services  # noqa: E402
 
 
 WS = uuid.uuid4()
@@ -430,6 +434,12 @@ async def test_company_name_fallback_to_form_name():
             for k, v in kw.items():
                 setattr(self, k, v)
             self.id = uuid.uuid4()
+            # Contact-creation path (Task 2) reads these on every lead.
+            self.primary_contact_id = None
+            if not hasattr(self, "email"):
+                self.email = None
+            if not hasattr(self, "phone"):
+                self.phone = None
 
     # Sprint 2.2 G4: lead_factory now always emits a form_submission
     # Activity, so we have to spy that constructor too — the stubbed
@@ -448,6 +458,8 @@ async def test_company_name_fallback_to_form_name():
 
     with patch("app.forms.lead_factory.Lead", _LeadSpy), \
          patch("app.forms.lead_factory.Activity", _ActivitySpy), \
+         patch("app.forms.lead_factory.Contact", lambda **kw: MagicMock(**kw)), \
+         patch.object(_automation_services, "safe_evaluate_trigger", new=AsyncMock()), \
          patch.dict(sys.modules, {
              "app.pipelines": pipelines_module,
              "app.pipelines.repositories": repos_module,
@@ -691,3 +703,95 @@ def test_extract_summary_no_blob_is_empty():
     from app.forms.lead_factory import extract_summary
     assert extract_summary({"comment": "просто текст"}) == ""
     assert extract_summary({"phone": "+7"}) == ""
+
+
+# ===========================================================================
+# 12. Contact auto-creation from submission
+# ===========================================================================
+
+def _contact_spies():
+    """Returns (LeadSpy, ActivitySpy, ContactSpy, captured) where captured
+    collects the kwargs each Contact was built with."""
+    captured: list[dict] = []
+
+    class _LeadSpy:
+        def __init__(self, **kw):
+            for k, v in kw.items():
+                setattr(self, k, v)
+            self.id = uuid.uuid4()
+            self.primary_contact_id = None
+            if not hasattr(self, "email"):
+                self.email = None
+            if not hasattr(self, "phone"):
+                self.phone = None
+
+    class _ActivitySpy:
+        def __init__(self, **kw):
+            for k, v in kw.items():
+                setattr(self, k, v)
+
+    class _ContactSpy:
+        def __init__(self, **kw):
+            captured.append(kw)
+            for k, v in kw.items():
+                setattr(self, k, v)
+            self.id = uuid.uuid4()
+
+    return _LeadSpy, _ActivitySpy, _ContactSpy, captured
+
+
+async def _run_factory(payload):
+    LeadSpy, ActivitySpy, ContactSpy, captured = _contact_spies()
+    db = _make_db()
+    pipelines_module = ModuleType("app.pipelines")
+    repos_module = ModuleType("app.pipelines.repositories")
+    repos_module.get_default_first_stage = AsyncMock(return_value=None)
+    pipelines_module.repositories = repos_module
+
+    from app.forms.lead_factory import create_lead_from_submission
+
+    with patch("app.forms.lead_factory.Lead", LeadSpy), \
+         patch("app.forms.lead_factory.Activity", ActivitySpy), \
+         patch("app.forms.lead_factory.Contact", ContactSpy), \
+         patch.object(_automation_services, "safe_evaluate_trigger", new=AsyncMock()), \
+         patch.dict(sys.modules, {
+             "app.pipelines": pipelines_module,
+             "app.pipelines.repositories": repos_module,
+         }):
+        lead = await create_lead_from_submission(
+            db, form=_make_form(), payload=payload, source_domain=None,
+        )
+    return lead, captured
+
+
+@pytest.mark.asyncio
+async def test_contact_created_with_email_phone_and_primary_set():
+    lead, captured = await _run_factory({
+        "company_name": "Stars", "email": "x@y.io",
+        "phone": "+79990001122", "имя": "Иван Петров",
+    })
+    assert len(captured) == 1
+    assert captured[0]["email"] == "x@y.io"
+    assert captured[0]["phone"] == "+79990001122"
+    assert captured[0]["name"] == "Иван Петров"
+    assert captured[0]["source"] == "webform"
+    assert captured[0]["verified_status"] == "verified"
+    assert captured[0]["confidence"] == "high"
+    assert lead.primary_contact_id is not None
+
+
+@pytest.mark.asyncio
+async def test_contact_name_falls_back_to_email_when_no_name():
+    _, captured = await _run_factory({"company_name": "Stars", "email": "x@y.io"})
+    assert len(captured) == 1
+    assert captured[0]["name"] == "x@y.io"
+
+
+@pytest.mark.asyncio
+async def test_no_contact_when_no_email_or_phone():
+    lead, captured = await _run_factory({
+        "company_name": "Bar",
+        "message": "Способ связи: test\nФормат заведения: Клуб",
+    })
+    assert captured == []
+    assert lead.primary_contact_id is None

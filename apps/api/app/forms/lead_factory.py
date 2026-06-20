@@ -19,6 +19,7 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activity.models import Activity
+from app.contacts.models import Contact
 from app.forms.models import WebForm
 from app.leads.models import Lead
 
@@ -257,6 +258,25 @@ async def create_lead_from_submission(
     lead = Lead(**lead_kwargs)
     session.add(lead)
     await session.flush()
+
+    # Web-form contact (ADR-012): a submission carrying an email or phone
+    # becomes a first-class Contact + primary ЛПР, so the lead card's
+    # «Контакты» tab and one-click call/email work without manual entry.
+    if lead.email or lead.phone:
+        contact = Contact(
+            workspace_id=lead.workspace_id,
+            lead_id=lead.id,
+            name=(extract_person_name(payload) or lead.email or lead.phone or "Контакт с формы")[:120],
+            email=lead.email,
+            phone=lead.phone,
+            source="webform",
+            confidence="high",
+            verified_status="verified",
+        )
+        session.add(contact)
+        await session.flush()
+        if lead.primary_contact_id is None:
+            lead.primary_contact_id = contact.id
 
     # UTM attribution (Odoo utm pattern): resolve source/medium/campaign names
     # into per-workspace dictionary rows and stamp their ids onto the lead, so
