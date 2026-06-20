@@ -66,8 +66,10 @@ def _resolve_assignee_scope(
       - admin/head + all_assignees → whole workspace (None) — the «Все» option.
       - admin/head + explicit id → that manager.
       - admin/head + nothing → self.
-      - regular user → ALWAYS self (explicit/all_assignees ignored). This
-        closes the prior leak where any user could pass ?assigned_to=<colleague>.
+      - regular user → whole workspace by default (B2: all managers may
+        see/edit ALL workspace leads). An explicit ?assigned_to=<id> still
+        narrows to that user ('just mine' / a colleague's book);
+        all_assignees is irrelevant since the default is already workspace-wide.
     """
     # Privileged role set mirrors app/auth/models.py USER_ROLES ("admin","head","manager").
     privileged = role in ("admin", "head")
@@ -83,7 +85,12 @@ def _resolve_assignee_scope(
         if explicit is not None:
             return explicit
         return user_id
-    return user_id
+    # B2 — open lead-list access (product decision): regular managers may
+    # see/edit ALL workspace leads. Default (explicit=None) → None → no
+    # assignee filter → whole workspace. An explicit ?assigned_to=<id> is
+    # honored so a manager can still narrow to 'just mine' (or a colleague).
+    # workspace_id scoping in repositories.list_leads is the only boundary.
+    return explicit
 
 
 @router.get("", response_model=LeadListOut)
