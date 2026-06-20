@@ -8,6 +8,47 @@ import pytest
 
 from tests.conftest import POSTGRES_AVAILABLE
 
+
+# --- Pure unit tests for set_won_lost_timestamps (no DB) — plan 006 ---
+def test_reopen_clears_terminal_timestamps():
+    import asyncio
+    import types
+    from app.automation.stage_change import set_won_lost_timestamps
+
+    lead = types.SimpleNamespace(won_at="WAS", lost_at=None, lost_reason="x")
+    ctx = types.SimpleNamespace(
+        lead=lead, to_stage=types.SimpleNamespace(is_won=False, is_lost=False)
+    )
+    asyncio.run(set_won_lost_timestamps(ctx, None))
+    assert lead.won_at is None and lead.lost_at is None and lead.lost_reason is None
+
+
+def test_won_clears_lost():
+    import asyncio
+    import types
+    from app.automation.stage_change import set_won_lost_timestamps
+
+    lead = types.SimpleNamespace(won_at=None, lost_at="WAS", lost_reason="gone")
+    ctx = types.SimpleNamespace(
+        lead=lead, to_stage=types.SimpleNamespace(is_won=True, is_lost=False)
+    )
+    asyncio.run(set_won_lost_timestamps(ctx, None))
+    assert lead.won_at is not None and lead.lost_at is None and lead.lost_reason is None
+
+
+def test_lost_clears_won():
+    import asyncio
+    import types
+    from app.automation.stage_change import set_won_lost_timestamps
+
+    lead = types.SimpleNamespace(won_at="WAS", lost_at=None, lost_reason="x")
+    ctx = types.SimpleNamespace(
+        lead=lead, to_stage=types.SimpleNamespace(is_won=False, is_lost=True)
+    )
+    asyncio.run(set_won_lost_timestamps(ctx, None))
+    assert lead.lost_at is not None and lead.won_at is None
+
+
 skip_no_pg = pytest.mark.skipif(
     not POSTGRES_AVAILABLE,
     reason="Requires a running Postgres at postgresql+asyncpg://drinkx:dev@localhost:5432/drinkx_test",

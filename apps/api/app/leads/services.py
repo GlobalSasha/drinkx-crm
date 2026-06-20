@@ -413,8 +413,9 @@ async def move_lead_stage(
     """Move a lead to a new stage.
 
     Note: re-moving a won/lost lead is intentionally allowed — managers
-    sometimes need to undo a mistakenly closed deal. The won_at/lost_at
-    timestamps are preserved on re-entry (see `set_won_lost_timestamps`).
+    sometimes need to undo a mistakenly closed deal. won_at/lost_at/lost_reason
+    are kept in sync with the current terminal state — reopening (or switching
+    terminal kind) clears the stale ones (see `set_won_lost_timestamps`).
     """
     lead = await repo.get_by_id(db, lead_id, workspace_id)
     if lead is None:
