@@ -19,6 +19,7 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activity.models import Activity
+from app.contacts.models import Contact
 from app.forms.models import WebForm
 from app.leads.models import Lead
 
@@ -68,6 +69,103 @@ FORM_FIELD_TO_LEAD: dict[str, str] = {
 
 def _normalize_key(k: str) -> str:
     return (k or "").strip().lower().replace("_", " ").replace("-", " ").strip()
+
+
+# Person-name keys (clean fields). Bare "name" stays mapped to company_name,
+# so it is intentionally excluded here.
+PERSON_NAME_KEYS: tuple[str, ...] = (
+    "имя", "фио", "ф.и.о.", "контактное лицо", "ваше имя",
+    "как вас зовут", "contact name", "contact_name", "контакт",
+)
+# Free-text message keys, priority order.
+QUESTION_KEYS: tuple[str, ...] = (
+    "вопрос", "question", "сообщение", "message",
+    "комментарий", "comment", "comments",
+)
+# Normalized blob labels that count as the free-text message.
+_MESSAGE_LABELS = {"сообщение", "вопрос", "message", "comment", "comments", "комментарий"}
+# Normalized blob labels excluded from the structured-fields summary.
+_SUMMARY_EXCLUDE = _MESSAGE_LABELS | {
+    "имя", "фио", "ф.и.о.", "контактное лицо", "ваше имя", "name", "контакт",
+    "источник", "source", "email", "e-mail", "почта",
+    "телефон", "phone", "тел", "mobile",
+}
+
+
+def _clean(text: str) -> str:
+    """Collapse all runs of whitespace (incl. newlines) to single spaces."""
+    return " ".join(str(text).split())
+
+
+def _lookup(payload: Any, keys: tuple[str, ...]) -> str | None:
+    """First non-empty value whose normalized key matches one of `keys`.
+    Preserves the value's internal whitespace (callers collapse if needed)."""
+    if not isinstance(payload, dict):
+        return None
+    norm_map = {_normalize_key(str(k)): v for k, v in payload.items()}
+    for key in keys:
+        v = norm_map.get(_normalize_key(key))
+        if v not in (None, ""):
+            return str(v).strip()
+    return None
+
+
+def _parse_labeled_block(text: str | None) -> list[tuple[str, str]]:
+    """Split a newline-separated `Label: value` blob into ordered
+    (label, value) pairs. Accepts ASCII ':' and full-width '：'. Returns
+    [] when the text is not such a block."""
+    pairs: list[tuple[str, str]] = []
+    for raw_line in str(text or "").splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        positions = [line.find(c) for c in (":", "：") if line.find(c) > 0]
+        if not positions:
+            continue
+        idx = min(positions)
+        label = line[:idx].strip()
+        value = line[idx + 1:].strip()
+        if label and value:
+            pairs.append((label, value))
+    return pairs
+
+
+def extract_person_name(payload: Any, *, limit: int = 120) -> str | None:
+    """Contact person's name: a clean person-name field, else the `Имя:`/
+    `ФИО:` line inside the message blob, else None."""
+    v = _lookup(payload, PERSON_NAME_KEYS)
+    if v:
+        return _clean(v)[:limit]
+    pairs = _parse_labeled_block(_lookup(payload, QUESTION_KEYS))
+    name = next(
+        (val for lbl, val in pairs if _normalize_key(lbl) in PERSON_NAME_KEYS),
+        None,
+    )
+    return _clean(name)[:limit] if name else None
+
+
+def extract_question(payload: Any, *, limit: int = 200) -> str | None:
+    """The visitor's free-text message, or None when there is none
+    (e.g. landing forms carrying only structured fields)."""
+    raw = _lookup(payload, QUESTION_KEYS)
+    if not raw:
+        return None
+    pairs = _parse_labeled_block(raw)
+    if len(pairs) >= 2:  # a real Label:value blob, not a one-line message
+        msg = next((val for lbl, val in pairs if _normalize_key(lbl) in _MESSAGE_LABELS), None)
+        return _clean(msg)[:limit] if msg else None
+    return _clean(raw)[:limit]
+
+
+def extract_summary(payload: Any, *, limit: int = 200) -> str:
+    """One-line recap of a structured blob (used when there is no
+    free-text question): `Label: value · Label: value`, contact fields
+    and noise excluded. Empty when the payload is not a blob."""
+    pairs = _parse_labeled_block(_lookup(payload, QUESTION_KEYS))
+    if len(pairs) < 2:
+        return ""
+    kept = [f"{lbl}: {val}" for lbl, val in pairs if _normalize_key(lbl) not in _SUMMARY_EXCLUDE]
+    return _clean(" · ".join(kept))[:limit]
 
 
 def _project_payload(payload: dict[str, Any]) -> dict[str, str]:
@@ -160,6 +258,25 @@ async def create_lead_from_submission(
     lead = Lead(**lead_kwargs)
     session.add(lead)
     await session.flush()
+
+    # Web-form contact (ADR-012): a submission carrying an email or phone
+    # becomes a first-class Contact + primary ЛПР, so the lead card's
+    # «Контакты» tab and one-click call/email work without manual entry.
+    if lead.email or lead.phone:
+        contact = Contact(
+            workspace_id=lead.workspace_id,
+            lead_id=lead.id,
+            name=(extract_person_name(payload) or lead.email or lead.phone or "Контакт с формы")[:120],
+            email=lead.email,
+            phone=lead.phone,
+            source="webform",
+            confidence="high",
+            verified_status="verified",
+        )
+        session.add(contact)
+        await session.flush()
+        if lead.primary_contact_id is None:
+            lead.primary_contact_id = contact.id
 
     # UTM attribution (Odoo utm pattern): resolve source/medium/campaign names
     # into per-workspace dictionary rows and stamp their ids onto the lead, so

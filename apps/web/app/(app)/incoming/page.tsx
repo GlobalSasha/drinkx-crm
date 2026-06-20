@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, ArrowRight, CheckCheck, Inbox, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowRight, CheckCheck, Check, Copy, Inbox, Loader2, Mail, Phone } from "lucide-react";
 import { clsx } from "clsx";
 
 import { T, C } from "@/lib/design-system";
@@ -153,9 +153,48 @@ function Chip({
   );
 }
 
+function ContactChip({
+  href,
+  icon,
+  label,
+  copyText,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+  copyText: string;
+}) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <span className="inline-flex items-center rounded-full bg-brand-bg border border-brand-border overflow-hidden">
+      <a
+        href={href}
+        onClick={(e) => e.stopPropagation()}
+        className="inline-flex items-center gap-1.5 px-3 py-1 type-caption font-medium text-brand-muted-strong hover:text-brand-accent transition-colors"
+      >
+        {icon}
+        {label}
+      </a>
+      <button
+        type="button"
+        aria-label="Копировать"
+        onClick={(e) => {
+          e.stopPropagation();
+          void navigator.clipboard?.writeText(copyText);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        }}
+        className="px-2 py-1 text-brand-muted hover:text-brand-accent border-l border-brand-border transition-colors"
+      >
+        {copied ? <Check size={11} /> : <Copy size={11} />}
+      </button>
+    </span>
+  );
+}
+
 function Row({ item, onOpenLead }: { item: InboxItemOut; onOpenLead: () => void }) {
   const st = statusLabel(item);
-  const title = item.company_name || "Без названия";
+  const company = item.company_name || "Без названия";
   return (
     <div
       onClick={onOpenLead}
@@ -169,28 +208,61 @@ function Row({ item, onOpenLead }: { item: InboxItemOut; onOpenLead: () => void 
       {item.is_new && (
         <span className="absolute left-2 top-5 w-2 h-2 rounded-full bg-brand-accent" />
       )}
+
+      {/* Who */}
       <div className="flex items-center gap-2">
-        <span className="text-[15px] font-bold text-brand-primary truncate">{title}</span>
+        <span className="text-[15px] font-bold text-brand-primary truncate">
+          {item.contact_name || company}
+        </span>
+        {item.contact_name && (
+          <span className="text-sm text-brand-muted truncate">{company}</span>
+        )}
         <span className="ml-auto text-xs text-brand-muted whitespace-nowrap">
           {relativeTime(item.created_at)}
         </span>
       </div>
 
-      <div className="flex gap-3.5 mt-1 text-sm text-brand-muted flex-wrap">
-        {item.phone && <span className="text-brand-muted-strong font-medium">{item.phone}</span>}
-        {item.email && <span>{item.email}</span>}
-      </div>
-
-      {item.snippet && (
-        <p className="text-sm text-brand-muted-strong mt-2 leading-snug line-clamp-2">
-          {item.snippet}
-        </p>
+      {/* Clickable contacts */}
+      {(item.phone || item.email) && (
+        <div className="flex gap-2 mt-2 flex-wrap">
+          {item.phone && (
+            <ContactChip
+              href={`tel:${item.phone}`}
+              icon={<Phone size={12} />}
+              label={item.phone}
+              copyText={item.phone}
+            />
+          )}
+          {item.email && (
+            <ContactChip
+              href={`mailto:${item.email}`}
+              icon={<Mail size={12} />}
+              label={item.email}
+              copyText={item.email}
+            />
+          )}
+        </div>
       )}
 
+      {/* Question / structured summary */}
+      {item.question ? (
+        <p className="text-sm text-brand-muted-strong mt-2 leading-snug line-clamp-2">
+          <span className="font-semibold">Вопрос клиента:</span> {item.question}
+        </p>
+      ) : item.summary ? (
+        <p className="text-sm text-brand-muted mt-2 leading-snug line-clamp-2">
+          <span className="font-semibold">Из заявки:</span> {item.summary}
+        </p>
+      ) : null}
+
+      {/* Source + status */}
       <div className="flex items-center gap-2 mt-2.5 flex-wrap">
         <span className={`${T.mono} text-[10px] uppercase tracking-wider px-2 py-1 rounded-md bg-brand-bg text-brand-muted`}>
           {item.channel}
         </span>
+        {item.source_domain && (
+          <span className="text-xs text-brand-muted">{item.source_domain}</span>
+        )}
         <StatusPill st={st} />
         <span className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-brand-accent">
           Открыть лида <ArrowRight size={12} />

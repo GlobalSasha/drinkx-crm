@@ -19,26 +19,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
+from app.forms.lead_factory import (
+    extract_person_name,
+    extract_question,
+    extract_summary,
+)
 from app.forms.models import FormSubmission, WebForm
 from app.leads.models import Lead
-
-# Raw-payload keys (RU + EN) that carry the visitor's free-text message.
-# Mirrors the lead_factory mapping; first non-empty wins.
-_SNIPPET_KEYS = (
-    "comment", "comments", "message", "сообщение", "комментарий", "вопрос",
-)
-
-
-def extract_snippet(raw_payload: Any, *, limit: int = 160) -> str:
-    """Best-effort one-line preview of the submission for the inbox row."""
-    if not isinstance(raw_payload, dict):
-        return ""
-    for k in _SNIPPET_KEYS:
-        v = raw_payload.get(k)
-        if v:
-            text = " ".join(str(v).split())
-            return text[:limit]
-    return ""
 
 
 async def count_new(
@@ -111,7 +98,9 @@ async def list_inbox(
                 "lead_id": sub.lead_id,
                 "created_at": sub.created_at,
                 "is_new": is_new,
-                "snippet": extract_snippet(sub.raw_payload),
+                "contact_name": extract_person_name(sub.raw_payload),
+                "question": extract_question(sub.raw_payload),
+                "summary": extract_summary(sub.raw_payload),
                 "source_domain": sub.source_domain,
                 "utm_json": sub.utm_json,
                 # form context
@@ -130,4 +119,4 @@ async def list_inbox(
     return items, total
 
 
-__all__ = ["extract_snippet", "count_new", "list_inbox"]
+__all__ = ["count_new", "list_inbox"]
