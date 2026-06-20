@@ -5,6 +5,10 @@ Execute in the order below unless dependencies say otherwise. Each executor: rea
 the plan fully before starting, honor its STOP conditions, run every verification
 command, and update your row when done.
 
+> **Two audit rounds in this file.** Round 1 (2026-06-11, plans 001–004) =
+> security/perf/debt. **Round 2 (2026-06-20, plans 005–008 + backlog B1–B12)** =
+> sales-CRM mechanics — see the section **"Audit round 2"** near the bottom.
+
 These two plans address the **two HIGH-severity security findings** from the audit.
 Both are small and independent — either can go first.
 
@@ -131,3 +135,70 @@ the two critical security items only. The following were identified and deferred
 - **SEC-06 (cross-workspace team-stats IDOR)**: NOT confirmed — needs a read of
   `team/services.py` to check the query is workspace-scoped. Flagged for
   investigation, not planned.
+
+---
+
+# Audit round 2 — 2026-06-20: sales-CRM mechanics (advisor: Opus 4.8, read-only)
+
+Lens: **"what works differently from how a full-fledged sales CRM should work — logic
+errors & inconsistencies"**, validated against `docs/PRD-v2.0.md`. 6 parallel
+read-only subagents by mechanic cluster (capture/assignment · pipeline/scoring ·
+contacts/comms · activities/tasks · AI/automation · tooling/reporting/RBAC); every
+HIGH finding re-verified in-code by the advisor. Plans **005–008** are the
+high-leverage, clean-verification fixes; **B1–B12** are prioritized backlog (several
+need a product decision before a full plan is worth writing).
+
+## Execution order & status (round 2)
+
+| Plan | Title | Priority | Effort | Depends on | Status |
+|------|-------|----------|--------|------------|--------|
+| 005  | Gate `utm-stats`/`stage-dwell` analytics to admin+head | P1 | S | — | TODO |
+| 006  | Clear `won_at`/`lost_at`/`lost_reason` on reopen | P1 | S | — | TODO |
+| 007  | Require `lost_reason` when closing as Lost | P2 | S | — | TODO |
+| 008  | Forecast across all pipelines + surface 500-lead cap | P1 | S | — | TODO |
+
+All four are S-effort, HIGH-confidence, independent. Do **005** (security leak) and
+**006** (poisons Today ordering + UTM revenue) first.
+
+## Prioritized backlog (round 2) — not yet full plans
+
+Leverage order. ⚠ = needs a **product decision** (the open question) before a full
+executor plan is worth writing. Ask the advisor to expand any into a `009+` plan.
+
+| # | Finding | Cat | Effort | Conf | Evidence (file:line) | Open question / approach |
+|---|---|---|---|---|---|---|
+| B1 | **Stage gate criteria never enforced server-side** — a manager can jump any stage → Won in one API call | bug | M | HIGH | `automation/stage_change.py:116` (PRE_CHECKS); `pipelines/models.py:63` (def only, never read); `GateModal.tsx` sends only `stage_id` | ⚠ which criteria are machine-checkable (КП sent, ЛПР set) vs attestation? keep the existing `gate_skipped` force-path as escape hatch |
+| B2 | **Inconsistent lead access (IDOR-ish)** — list is per-manager scoped, but detail/PATCH/move-stage/deal/score scope by workspace only → any manager edits/closes a colleague's deal by URL | security | M | HIGH | `leads/routers.py:218,282,390,602` vs `_resolve_assignee_scope` `:47` | ⚠ is all-leads-visible intended? if yes the list scoping is the bug. Else mirror `transfer_lead`'s owner-OR-admin/head guard |
+| B3 | **No dedup at intake** — form/import/email always insert a new Lead; `find_duplicates` runs only on-demand → duplicate pool leads two reps work | bug | M | HIGH | `forms/lead_factory.py`; `scheduled/jobs.py`; only callers `leads/routers.py:244,269` | attach-vs-merge-vs-flag; key on `email_normalized`/`phone_e164` (not free-mail domain). Best built inside B8 |
+| B4 | **Automation cascade has no cycle/depth guard** — two `move_stage` automations (A→B, B→A) recurse unboundedly (stack/savepoint blow-up, email storm) | bug | M | HIGH | `automation/stage_change.py:264` → `automation_builder/services.py:815` → back; no depth/visited guard | thread a depth/visited set via ContextVar (pattern in `dispatch.py`); refuse beyond depth N |
+| B5 | **"Today" ignores the generated plan, tasks & follow-up due-dates** — `/today` never calls `/me/today`; the scorer reads only Lead rows | bug | L | HIGH | `daily_plan/services.py:194`; `today/page.tsx` (no `/me/today`) | ⚠ render `DailyPlan` vs fold task/followup due-dates into the scorer — product call |
+| B6 | **Auto-send email on trigger, no approval** (PRD §9 violation) — `send_template` sends with no human-in-the-loop, reachable from a `move_stage` automation | security/anti-pattern | M | HIGH/MED | `automation_builder/dispatch.py:152`; PRD §9 | ⚠ draft-and-approve queue vs blanket allow; at minimum block auto-send reached from an automation-initiated stage change |
+| B7 | **Two disconnected scoring systems** — AI `fit_score` (0-10) and manual A/B/C/D `priority` never reconcile (~3 "fit" numbers) | tech-debt | M | HIGH | `leads/services.py:603` (manual only) vs `enrichment/orchestrator.py:789` (fit_score only) | ⚠ canonical model: seed a score criterion from AI fit, or merge the displays |
+| B8 | **Lead creation duplicated across 4 intake paths** (root cause of B3 + B9) | tech-debt | M | HIGH | `forms/lead_factory.py`, `scheduled/jobs.py` (email+import), `leads/repositories.py` | extract one `create_lead_core(...)` owning placement+dedup+UTM+contact-seed |
+| B9 | **UTM attribution only on the form path** — import & email leads never set UTM dims → channel-ROI undercounts non-form | bug | S | HIGH | `utm/services.resolve_utm` called only at `lead_factory.py:284` | fold into B8 |
+| B10 | **Mango webhook accepts unsigned requests when salt unset; webhooks resolve "first workspace"** | security | S/M | HIGH | `inbox/webhooks.py:161-175`, `:43-67` | fail-closed like the Telegram handler; per-connection workspace routing before any 2nd tenant |
+| B11 | **Follow-up cadence is a silent no-op** — `auto_email`/`ai_hint` kinds declared, dispatcher ignores kind & never sends; `overdue` status + `reminder_trigger_at` are dead | tech-debt | M | HIGH | `followups/dispatcher.py`; `followups/models.py:19,22` | implement kind-dispatch + an overdue sweep, OR remove the non-functional kinds so they can't be selected |
+| B12 | **Dedup "bomb" hides ALL duplicates at ≥21 candidates** — returns `[]` for big chains (exactly DrinkX's ICP) | bug | S | HIGH/MED | `leads/dedup.py:54` | return the capped top-N with a "showing 21" flag instead of empty |
+
+## Structural gaps (whole capabilities a full sales CRM has, this one lacks)
+
+Features/spikes, not quick fixes:
+
+- **Quoting / КП** — `quote/` is an empty stub: no line items, totals, PDF, send, or link to `deal_amount`. Largest single gap.
+- **Real outbound from the lead card** — Telegram send + Mango click-to-call exist in the backend (`inbox/routers.py`, `adapters/`) but the UI never calls them (`useLeadInboxSend/Call` defined, unused); the composer's "call" only logs a note.
+- **2-way email** — `gmail_client.py` has no send method; `EmailModal` is read-only. No reply-from-CRM.
+- **Automatic lead routing + pool SLA** — `assignment/` is an empty placeholder; manual-claim only; no escalation on unclaimed pool leads.
+- **Follow-up cadences/sequences** — see B11.
+- **Global contact identity** — `Contact.lead_id` is mandatory; same person = N rows; no cross-lead identity/dedup (round-1 plan 004 only adds a per-lead UNIQUE).
+- **Server-side weighted forecast + win-rate/conversion** — forecast is client-only (008 patches correctness); no win-rate in `/team`; `quotas` table modeled but unused.
+- **In-CRM Knowledge Base editing** — `knowledge/` is a stub; KB edits = git PR + redeploy.
+
+## Cross-references to round 1
+
+- Round-1 **003** (phone-match indexed query) and **004** (contact dedup UNIQUE) partially cover the round-2 contact findings (normalized-key matching; contact dedup). The B-list does **not** re-plan them. The **global contact identity** gap above is broader than 004's per-lead UNIQUE.
+
+## Findings considered and rejected (round 2)
+
+- **AI anti-pattern sweep**: mostly PASS — enrichment is POST→202→Celery (not sync REST); Pydantic AI schemas use Optional+defaults & never raise; Lead Agent is suggest-only (human-in-loop intact); no LLM↔raw-SQL (field allowlist). Only **B4** (cycle) and **B6** (auto-send) are real violations.
+- **Workspace isolation in team/search/audit/users**: confirmed sound (every query scoped by `user.workspace_id`; last-admin guards present). No IDOR there — **B2** (lead detail) is the exception.
+- **Custom attributes as a "metadata DSL" (PRD anti-pattern #5)**: NOT present — bounded to 4 kinds, regex-validated. Not a finding.

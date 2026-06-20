@@ -126,12 +126,24 @@ PRE_CHECKS: list[PreCheck] = [
 async def set_won_lost_timestamps(
     ctx: TransitionContext, db: AsyncSession
 ) -> None:
-    """Stamp won_at / lost_at when entering a terminal stage."""
+    """Keep won_at / lost_at / lost_reason in sync with the CURRENT terminal
+    state. Entering a terminal stage stamps its timestamp; leaving terminal
+    (reopen) or switching terminal kind clears the stale ones. Historical
+    'ever won/lost' lives in lead_stage_history + the stage_change Activity."""
     now = datetime.now(timezone.utc)
-    if ctx.to_stage.is_won and ctx.lead.won_at is None:
-        ctx.lead.won_at = now
-    if ctx.to_stage.is_lost and ctx.lead.lost_at is None:
-        ctx.lead.lost_at = now
+    if ctx.to_stage.is_won:
+        if ctx.lead.won_at is None:
+            ctx.lead.won_at = now
+        ctx.lead.lost_at = None
+        ctx.lead.lost_reason = None
+    elif ctx.to_stage.is_lost:
+        if ctx.lead.lost_at is None:
+            ctx.lead.lost_at = now
+        ctx.lead.won_at = None
+    else:
+        ctx.lead.won_at = None
+        ctx.lead.lost_at = None
+        ctx.lead.lost_reason = None
 
 
 async def log_stage_change_activity(

@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import current_user
+from app.auth.dependencies import current_user, require_admin_or_head
 from app.auth.models import User
 from app.automation.stage_change import StageTransitionBlocked, StageTransitionInvalid
 from app.db import get_db
@@ -188,7 +188,7 @@ async def create_sprint(
 @router.get("/stage-dwell", response_model=list[StageDwellOut])
 async def lead_stage_dwell(
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
-    user: Annotated[User, Depends(current_user)] = ...,
+    user: Annotated[User, Depends(require_admin_or_head)] = ...,
 ) -> list[StageDwellOut]:
     """«Где застревают сделки» — per active stage dwell stats (median/p90 days
     + how many leads are stuck past rot_days), bottlenecks first. Declared
@@ -203,7 +203,7 @@ async def lead_stage_dwell(
 @router.get("/utm-stats", response_model=list[UtmSourceStatOut])
 async def lead_utm_stats(
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
-    user: Annotated[User, Depends(current_user)] = ...,
+    user: Annotated[User, Depends(require_admin_or_head)] = ...,
 ) -> list[UtmSourceStatOut]:
     """«Какой канал приносит сделки» — leads grouped by UTM source with
     won-deal count + revenue. Declared before `/{lead_id}` so the literal

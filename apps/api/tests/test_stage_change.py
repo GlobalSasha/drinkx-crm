@@ -8,6 +8,47 @@ import pytest
 
 from tests.conftest import POSTGRES_AVAILABLE
 
+
+# --- Pure unit tests for set_won_lost_timestamps (no DB) — plan 006 ---
+def test_reopen_clears_terminal_timestamps():
+    import asyncio
+    import types
+    from app.automation.stage_change import set_won_lost_timestamps
+
+    lead = types.SimpleNamespace(won_at="WAS", lost_at=None, lost_reason="x")
+    ctx = types.SimpleNamespace(
+        lead=lead, to_stage=types.SimpleNamespace(is_won=False, is_lost=False)
+    )
+    asyncio.run(set_won_lost_timestamps(ctx, None))
+    assert lead.won_at is None and lead.lost_at is None and lead.lost_reason is None
+
+
+def test_won_clears_lost():
+    import asyncio
+    import types
+    from app.automation.stage_change import set_won_lost_timestamps
+
+    lead = types.SimpleNamespace(won_at=None, lost_at="WAS", lost_reason="gone")
+    ctx = types.SimpleNamespace(
+        lead=lead, to_stage=types.SimpleNamespace(is_won=True, is_lost=False)
+    )
+    asyncio.run(set_won_lost_timestamps(ctx, None))
+    assert lead.won_at is not None and lead.lost_at is None and lead.lost_reason is None
+
+
+def test_lost_clears_won():
+    import asyncio
+    import types
+    from app.automation.stage_change import set_won_lost_timestamps
+
+    lead = types.SimpleNamespace(won_at="WAS", lost_at=None, lost_reason="x")
+    ctx = types.SimpleNamespace(
+        lead=lead, to_stage=types.SimpleNamespace(is_won=False, is_lost=True)
+    )
+    asyncio.run(set_won_lost_timestamps(ctx, None))
+    assert lead.lost_at is not None and lead.won_at is None
+
+
 skip_no_pg = pytest.mark.skipif(
     not POSTGRES_AVAILABLE,
     reason="Requires a running Postgres at postgresql+asyncpg://drinkx:dev@localhost:5432/drinkx_test",
@@ -254,6 +295,21 @@ async def test_move_to_lost_stage_sets_lost_at_and_reason(db, workspace, user, p
     assert result.lost_at >= before
     assert result.lost_reason == "Ушли к конкурентам"
     assert result.won_at is None
+
+
+@skip_no_pg
+async def test_move_to_lost_without_reason_is_rejected(db, workspace, user, pipeline):
+    """Closing a deal as lost requires a non-empty reason (plan 007)."""
+    from app.leads import services
+
+    p, _ = pipeline
+    lost_stage = await _make_stage(db, p.id, position=12, name="Закрыто (lost) 2", is_lost=True)
+    lead = await _make_lead(db, workspace.id, pipeline_id=p.id)
+
+    with pytest.raises(ValueError, match="lost_reason"):
+        await services.move_lead_stage(
+            db, workspace.id, user.id, lead.id, lost_stage.id, lost_reason=None,
+        )
 
 
 @skip_no_pg
