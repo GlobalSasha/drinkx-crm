@@ -539,3 +539,50 @@ async def test_update_validates_partial_action_change():
                 # falls back to {"title": "old"}, which is missing
                 # template_id, validation kicks in.
             )
+
+
+# ---------------------------------------------------------------------------
+# Cascade-cycle guard (audit B4)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_evaluate_trigger_depth_guard_short_circuits(monkeypatch):
+    """At the cascade-depth cap, evaluate_trigger returns [] immediately, logs
+    the guard, and never reaches the fan-out body — so a re-entrant move_stage
+    cycle is bounded instead of looping forever."""
+    import app.automation_builder.services as svc
+
+    warnings: list = []
+    monkeypatch.setattr(
+        svc.log, "warning", lambda event, *a, **kw: warnings.append(event)
+    )
+
+    token = svc._cascade_depth.set(svc._MAX_CASCADE_DEPTH)
+    try:
+        db = AsyncMock()
+        result = await svc.evaluate_trigger(
+            db, workspace_id=WS, trigger="stage_change", lead=_make_lead(), payload={},
+        )
+        assert result == []
+        assert "automation.evaluate_trigger.cascade_depth_exceeded" in warnings
+        db.execute.assert_not_called()
+    finally:
+        svc._cascade_depth.reset(token)
+
+
+@pytest.mark.asyncio
+async def test_evaluate_trigger_resets_cascade_depth_on_exit(monkeypatch):
+    """The cascade-depth ContextVar is restored after a normal call so depth
+    cannot leak across cascades (audit B4)."""
+    import app.automation_builder.services as svc
+
+    async def _empty_inner(*_a, **_kw):
+        return []
+
+    monkeypatch.setattr(svc, "_evaluate_trigger_inner", _empty_inner)
+    assert svc._cascade_depth.get() == 0
+    out = await svc.evaluate_trigger(
+        AsyncMock(), workspace_id=WS, trigger="stage_change", lead=_make_lead(), payload={},
+    )
+    assert out == []
+    assert svc._cascade_depth.get() == 0
