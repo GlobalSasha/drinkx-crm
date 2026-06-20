@@ -56,7 +56,7 @@ def test_resolve_conflict_in_accepts_optional_resolved_value():
 
 def test_routes_registered_in_app():
     from app.main import app
-    paths = {r.path for r in app.routes if hasattr(r, "path")}
+    paths = {r.path for r in app.routes}
     expected = {
         "/api/base-update/jobs",
         "/api/base-update/jobs/{job_id}",

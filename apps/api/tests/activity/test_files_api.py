@@ -8,7 +8,7 @@ from app.activity.files_router import TaskFileOut
 
 def test_routes_registered():
     from app.main import app
-    paths = {r.path for r in app.routes if hasattr(r, "path")}
+    paths = {r.path for r in app.routes}
     expected = {
         "/leads/{lead_id}/tasks/{task_id}/files",
         "/activities/{activity_id}/download",
@@ -67,11 +67,7 @@ def test_task_file_out_handles_invalid_parent_uuid():
 
 def test_routes_include_task_edit_delete_archive_restore():
     from app.main import app
-    paths = {
-        (r.path, tuple(sorted(getattr(r, "methods", set()) or set())))
-        for r in app.routes
-        if hasattr(r, "path")
-    }
+    paths = {(r.path, tuple(sorted(getattr(r, "methods", set()) or set()))) for r in app.routes}
     activity_id_routes = {(p, m) for (p, m) in paths if "/activities/{activity_id}" in p}
     methods_seen = {m for _path, methods in activity_id_routes for m in methods}
     assert "PATCH" in methods_seen, f"PATCH missing in {activity_id_routes}"
