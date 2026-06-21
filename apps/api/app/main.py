@@ -130,6 +130,9 @@ def create_app() -> FastAPI:
     from app.reminders.routers import router as reminders_router
     app.include_router(reminders_router)
 
+    from app.quote.routers import router as products_router
+    app.include_router(products_router)
+
     from app.notes.routers import router as notes_router
     app.include_router(notes_router)
 

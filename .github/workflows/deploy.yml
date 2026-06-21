@@ -12,7 +12,9 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 25m headroom: the web build alone runs ~10-15m and crept to 14m41s on the
+    # Wave 2 deploy; the КП feature adds more frontend. 15m was cutting it close.
+    timeout-minutes: 25
 
     steps:
       - name: Set up SSH
