@@ -12,6 +12,7 @@ import { useMe } from "@/lib/hooks/use-me";
 import type { Stage } from "@/lib/types";
 import { DealAndAITab } from "./DealAndAITab";
 import { ContactsTab } from "./ContactsTab";
+import { QuoteTab } from "./QuoteTab";
 import { TasksTab } from "./TasksTab";
 import { NotesTab } from "./NotesTab";
 import { ArchiveTab } from "./ArchiveTab";
@@ -31,12 +32,13 @@ import { C } from "@/lib/design-system";
 // appear inside «Активность» as collapsed cards alongside comments /
 // tasks / AI messages. Telegram + phone messages stay in `inbox_messages`
 // for now — separate sprint will surface them again.
-type TabKey = "activity" | "deal-ai" | "contacts" | "tasks" | "notes" | "archive";
+type TabKey = "activity" | "deal-ai" | "contacts" | "quote" | "tasks" | "notes" | "archive";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "activity", label: "Активность" },
   { key: "deal-ai", label: "Информация" },
   { key: "contacts", label: "Контакты" },
+  { key: "quote", label: "КП" },
   { key: "tasks", label: "Задачи" },
   { key: "notes", label: "Заметки" },
   { key: "archive", label: "Архив" },
@@ -253,6 +255,7 @@ export function LeadCard({ leadId }: Props) {
             <TabsContent value="activity"><UnifiedFeed leadId={lead.id} /></TabsContent>
             <TabsContent value="deal-ai"><DealAndAITab lead={lead} /></TabsContent>
             <TabsContent value="contacts"><ContactsTab lead={lead} /></TabsContent>
+            <TabsContent value="quote"><QuoteTab lead={lead} /></TabsContent>
             <TabsContent value="tasks"><TasksTab leadId={lead.id} /></TabsContent>
             <TabsContent value="notes"><NotesTab leadId={lead.id} /></TabsContent>
             <TabsContent value="archive"><ArchiveTab leadId={lead.id} /></TabsContent>
