@@ -18,6 +18,7 @@ import {
   ChevronRight,
   KeyRound,
   Paintbrush,
+  Package,
   Plug,
   ScrollText,
   Settings as SettingsIcon,
@@ -32,6 +33,7 @@ import clsx from "clsx";
 import { AISection } from "@/components/settings/AISection";
 import { AppearanceSection } from "@/components/settings/AppearanceSection";
 import { BaseUpdateSection } from "@/components/settings/BaseUpdateSection";
+import { CatalogSection } from "@/components/settings/CatalogSection";
 import { ChannelsSection } from "@/components/settings/ChannelsSection";
 import { CostsSection } from "@/components/settings/CostsSection";
 import { CustomFieldsSection } from "@/components/settings/CustomFieldsSection";
@@ -47,6 +49,7 @@ type SectionKey =
   | "costs"
   | "custom_fields"
   | "templates"
+  | "catalog"
   | "appearance"
   | "base_update"
   | "notifications"
@@ -68,6 +71,7 @@ const SECTIONS: SectionDef[] = [
   { key: "costs",         label: "Расходы",      icon: <Coins size={15} />,    ready: true  },
   { key: "custom_fields", label: "Кастомные поля", icon: <Sparkles size={15} />, ready: true },
   { key: "templates",     label: "Шаблоны",      icon: <ScrollText size={15} />, ready: true },
+  { key: "catalog",       label: "Каталог КП",   icon: <Package size={15} />,  ready: true  },
   { key: "appearance",    label: "Внешний вид",  icon: <Paintbrush size={15} />, ready: true },
   { key: "base_update",   label: "Обновление базы", icon: <UploadCloud size={15} />, ready: true },
   { key: "notifications", label: "Уведомления",  icon: <BellRing size={15} />, ready: false },
@@ -206,6 +210,7 @@ function SettingsPageInner() {
           {active === "costs" && <CostsSection />}
           {active === "custom_fields" && <CustomFieldsSection />}
           {active === "templates" && <TemplatesSection />}
+          {active === "catalog" && <CatalogSection />}
           {active === "appearance" && <AppearanceSection />}
           {active === "base_update" && <BaseUpdateSection />}
           {active !== "pipelines" &&

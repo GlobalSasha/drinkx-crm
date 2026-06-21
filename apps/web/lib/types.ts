@@ -450,6 +450,23 @@ export const DEFAULT_SCORING_CRITERIA: ScoringCriterion[] = [
   { key: "budget_confirmed",      label: "Бюджет подтверждён",       weight: 5,  max_value: 5 },
 ];
 
+// Quote catalog (Phase 1). Keep in sync with app/quote/models.py PRODUCT_CATEGORIES.
+export const PRODUCT_CATEGORIES = [
+  "station",
+  "service",
+  "install",
+  "option",
+  "other",
+] as const;
+
+export interface ProductOut {
+  id: string;
+  name: string;
+  category: string;
+  unit_price: number;
+  is_active: boolean;
+}
+
 export const DEFAULT_GATE_CRITERIA: Record<number, string[]> = {
   1: ["ICP соответствие подтверждено", "ЛПР идентифицирован", "Сегмент и тип сделки определены", "Приоритет A/B/C/D присвоен"],
   2: ["Проведён discovery-звонок (≥30 мин)", "Боль/потребность зафиксирована", "Бюджет предварительно обсуждён"],
