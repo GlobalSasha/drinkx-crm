@@ -28,3 +28,12 @@ def test_starter_catalog_is_deterministic_and_valid():
     assert all(item["category"] in PRODUCT_CATEGORIES for item in STARTER_CATALOG)
     names = [i["name"] for i in STARTER_CATALOG]
     assert len(names) == len(set(names)), "no duplicate seed names"
+
+
+def test_catalog_routes_registered():
+    from app.main import app
+
+    paths = {r.path for r in app.routes if hasattr(r, "path")}
+    expected = {"/api/products", "/api/products/seed-starter", "/api/products/{product_id}"}
+    missing = expected - paths
+    assert not missing, f"missing routes: {missing}"
