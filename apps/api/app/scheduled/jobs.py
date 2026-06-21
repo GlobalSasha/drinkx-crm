@@ -677,6 +677,16 @@ async def _create_lead_from_email_payload(
             await session.flush()
             lead_id = lead.id
 
+            # UTM attribution (B9): email-auto-created leads land in channel
+            # analytics under a canonical "email" source instead of the NULL
+            # bucket. utm_source_stats GROUPs BY UtmSource.name via
+            # Lead.utm_source_id; medium/campaign aren't derivable here.
+            from app.utm.services import resolve_utm
+            _utm_ids = await resolve_utm(
+                session, workspace_id, {"utm_source": "email"}
+            )
+            lead.utm_source_id = _utm_ids["utm_source_id"]
+
             # 5. Activity row — received_at stored in payload_json per codebase
             # convention (Activity model has no direct received_at column).
             session.add(
@@ -1088,6 +1098,18 @@ async def _run_bulk_import(job_id: UUID) -> dict:
                     lead = Lead(**lead_kwargs)
                     session.add(lead)
                     await session.flush()  # need lead.id
+
+                    # UTM attribution (B9): stamp a utm_source so imported
+                    # leads show up in channel analytics (which GROUP BY
+                    # UtmSource.name via Lead.utm_source_id) instead of the
+                    # NULL bucket. Source name mirrors the lead's canonical
+                    # `source` ("import" fallback). medium/campaign stay None.
+                    from app.utm.services import resolve_utm
+                    _utm_src = (row.get("source") or "import").strip() or "import"
+                    _utm_ids = await resolve_utm(
+                        session, workspace_id, {"utm_source": _utm_src}
+                    )
+                    lead.utm_source_id = _utm_ids["utm_source_id"]
 
                     # Stash extras into a comment so we don't lose data.
                     extras = {k: row.get(k) for k in EXTRAS_FOR_COMMENT if row.get(k)}

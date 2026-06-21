@@ -40,20 +40,25 @@ def test_scope_admin_default_returns_self():
     ) == me
 
 
-def test_scope_regular_foreign_id_forced_to_self():
+def test_scope_regular_explicit_id_is_honored():
+    # B2: ?assigned_to=<id> from a regular manager is now honored so they
+    # can view a single user's book ('just mine' or a colleague's), instead
+    # of being forced back to self.
     from app.leads.routers import _resolve_assignee_scope
     me, other = uuid.uuid4(), uuid.uuid4()
     assert _resolve_assignee_scope(
         explicit=other, all_assignees=True, q=None, user_id=me, role="manager"
-    ) == me
+    ) == other
 
 
-def test_scope_regular_default_returns_self():
+def test_scope_regular_default_is_whole_workspace():
+    # B2: a regular manager with no ?assigned_to now sees ALL workspace
+    # leads (None = no assignee filter), not just their own.
     from app.leads.routers import _resolve_assignee_scope
     me = uuid.uuid4()
     assert _resolve_assignee_scope(
         explicit=None, all_assignees=False, q=None, user_id=me, role="manager"
-    ) == me
+    ) is None
 
 
 def test_scope_picker_optin_is_whole_workspace():
@@ -66,14 +71,16 @@ def test_scope_picker_optin_is_whole_workspace():
     ) is None
 
 
-def test_scope_regular_q_without_optin_stays_self():
+def test_scope_regular_q_without_optin_is_whole_workspace():
     from app.leads.routers import _resolve_assignee_scope
     me = uuid.uuid4()
-    # regular user typing in the KANBAN search (no workspace_search) → self, not workspace
+    # B2: with the open default, a manager's kanban search (no
+    # workspace_search opt-in, no explicit ?assigned_to) is whole-workspace
+    # too — the q carve-out no longer matters because the default is None.
     assert _resolve_assignee_scope(
         explicit=None, all_assignees=False, q="кофейня", user_id=me, role="manager",
         workspace_search=False,
-    ) == me
+    ) is None
 
 
 def test_scope_regular_q_with_optin_is_whole_workspace():

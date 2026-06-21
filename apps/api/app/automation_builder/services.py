@@ -20,6 +20,7 @@ because of an automation problem.
 from __future__ import annotations
 
 import uuid
+from contextvars import ContextVar
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -41,6 +42,28 @@ from app.automation_builder.render import render_template_text
 from app.leads.models import Lead
 
 log = structlog.get_logger()
+
+
+# ---------------------------------------------------------------------------
+# Cascade-cycle guard (audit B4)
+#
+# `evaluate_trigger` is the single chokepoint every automation fan-out
+# passes through, including the re-entrant path:
+#   stage_change.move_stage() -> fan_out_automation_builder
+#     -> safe_evaluate_trigger -> evaluate_trigger
+#       -> _move_stage_action -> stage_change.move_stage() (again)
+# Two automations forming a cycle (A moves -> fires B, B moves -> fires A)
+# would recurse unboundedly. We track the current cascade depth in a
+# ContextVar (mirrors the contextvar pattern in dispatch.py) and refuse
+# to fan out past `_MAX_CASCADE_DEPTH`. asyncio propagates the contextvar
+# through the nested awaits, so the depth is per-logical-cascade.
+# ---------------------------------------------------------------------------
+
+_MAX_CASCADE_DEPTH = 5
+
+_cascade_depth: ContextVar[int] = ContextVar(
+    "_automation_cascade_depth", default=0
+)
 
 
 # ---------------------------------------------------------------------------
@@ -376,6 +399,51 @@ async def evaluate_trigger(
     # module's neighbours (Activity, send_email), so dragging them at
     # module import time would create a circular hazard with
     # `_send_template_action`'s own lazy import.
+    from app.automation_builder.dispatch import (
+        current_pending_length,
+        truncate_pending_to,
+    )
+
+    # Cascade-cycle guard (audit B4). evaluate_trigger re-enters itself
+    # via _move_stage_action -> stage_change.move_stage() ->
+    # fan_out_automation_builder. Refuse to recurse past the cap so two
+    # automations forming a cycle can't loop forever. Degrade safely:
+    # stop fanning out and return [] — never raise (the parent move must
+    # survive; safe_evaluate_trigger swallows anyway, but returning []
+    # keeps the run history clean).
+    depth = _cascade_depth.get()
+    if depth >= _MAX_CASCADE_DEPTH:
+        log.warning(
+            "automation.evaluate_trigger.cascade_depth_exceeded",
+            trigger=trigger,
+            depth=depth,
+            max_depth=_MAX_CASCADE_DEPTH,
+            workspace_id=str(workspace_id),
+            lead_id=str(lead.id),
+        )
+        return []
+    depth_token = _cascade_depth.set(depth + 1)
+    try:
+        return await _evaluate_trigger_inner(
+            db,
+            workspace_id=workspace_id,
+            trigger=trigger,
+            lead=lead,
+            payload=payload,
+        )
+    finally:
+        _cascade_depth.reset(depth_token)
+
+
+async def _evaluate_trigger_inner(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    trigger: str,
+    lead: Lead,
+    payload: dict[str, Any] | None = None,
+) -> list[AutomationRun]:
+    """Body of evaluate_trigger, run inside the cascade-depth guard."""
     from app.automation_builder.dispatch import (
         current_pending_length,
         truncate_pending_to,

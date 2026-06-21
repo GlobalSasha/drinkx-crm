@@ -6,6 +6,7 @@ import { Loader2, AlertTriangle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { useLead, useUpdateLead } from "@/lib/hooks/use-lead";
 import { usePipelines, DEFAULT_STAGES } from "@/lib/hooks/use-pipelines";
+import { DEFAULT_GATE_CRITERIA } from "@/lib/types";
 import { useClaimLead, useMoveStage, useUnclaimLead } from "@/lib/hooks/use-leads";
 import { useMe } from "@/lib/hooks/use-me";
 import type { Stage } from "@/lib/types";
@@ -166,12 +167,11 @@ export function LeadCard({ leadId }: Props) {
 
   function handleCloseWon() {
     if (!wonStage) return;
-    moveStage.mutate(
-      { leadId: lead!.id, body: { stage_id: wonStage.id } },
-      {
-        onSuccess: () => showToast("Сделка отмечена выигранной"),
-      },
-    );
+    // Soft-gate advisory: route the Won close through the same GateModal
+    // surface as every other stage move. The modal shows unmet readiness
+    // criteria as a NON-blocking warning — the manager always proceeds via
+    // «Переместить» (server never blocks a Won move). See B1.
+    setGateTarget(wonStage);
   }
 
   function handleCloseLost() {
@@ -270,8 +270,23 @@ export function LeadCard({ leadId }: Props) {
         <GateModal
           leadId={lead.id}
           targetStage={gateTarget}
+          fallbackCriteria={
+            gateTarget.is_won
+              ? DEFAULT_GATE_CRITERIA[
+                  Math.max(
+                    0,
+                    ...stages
+                      .filter((s) => !s.is_won && !s.is_lost)
+                      .map((s) => s.position),
+                  )
+                ] ?? []
+              : undefined
+          }
           onClose={() => setGateTarget(null)}
-          onSuccess={() => setGateTarget(null)}
+          onSuccess={() => {
+            if (gateTarget.is_won) showToast("Сделка отмечена выигранной");
+            setGateTarget(null);
+          }}
         />
       )}
 

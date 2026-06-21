@@ -276,14 +276,18 @@ function TaskListWidget() {
 
   const [period, setPeriod] = useState<PeriodFilter>("all");
 
-  // Client-side filtering only — no extra API calls.
+  // Client-side filtering only — no extra API calls. After filtering we
+  // bubble overdue tasks to the top (B5): overdue-first, otherwise the
+  // incoming order is preserved (Array.prototype.sort is stable).
   const rows = useMemo(
     () =>
-      allRows.filter((r) => {
-        if (period === "today" && !isToday(r.due)) return false;
-        if (period === "overdue" && !isOverdue(r)) return false;
-        return true;
-      }),
+      allRows
+        .filter((r) => {
+          if (period === "today" && !isToday(r.due)) return false;
+          if (period === "overdue" && !isOverdue(r)) return false;
+          return true;
+        })
+        .sort((a, b) => Number(isOverdue(b)) - Number(isOverdue(a))),
     [allRows, period],
   );
 

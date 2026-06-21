@@ -12,6 +12,7 @@ claim-from-pool flow.
 """
 from __future__ import annotations
 
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -19,6 +20,8 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activity.models import Activity
+from app.common.email import normalize_email
+from app.common.phone import to_e164
 from app.contacts.models import Contact
 from app.forms.models import WebForm
 from app.leads.models import Lead
@@ -194,6 +197,46 @@ def _project_payload(payload: dict[str, Any]) -> dict[str, str]:
     return out
 
 
+async def _find_existing_lead(
+    session: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    email: str | None,
+    phone: str | None,
+) -> Lead | None:
+    """Return a LIVE lead in `workspace_id` whose normalized email or E.164
+    phone matches the submission, else None — intake dedup (B3).
+
+    Keys on normalized email / E.164 phone ONLY (never the free-mail-excluded
+    corporate domain that `dedup.find_duplicates` uses) so a webform repeat
+    from the same person attaches to their existing lead instead of forking a
+    duplicate. Oldest live lead wins (deterministic).
+    """
+    from sqlalchemy import or_, select
+
+    norm_email = normalize_email(email)
+    e164 = to_e164(phone)
+    keys = []
+    if norm_email:
+        keys.append(Lead.email_normalized == norm_email)
+    if e164:
+        keys.append(Lead.phone_e164 == e164)
+    if not keys:
+        return None
+
+    stmt = (
+        select(Lead)
+        .where(
+            Lead.workspace_id == workspace_id,
+            Lead.archived_at.is_(None),
+            or_(*keys),
+        )
+        .order_by(Lead.created_at.asc())
+        .limit(1)
+    )
+    return (await session.execute(stmt)).scalars().first()
+
+
 async def create_lead_from_submission(
     session: AsyncSession,
     *,
@@ -238,26 +281,41 @@ async def create_lead_from_submission(
             pipeline_id = pipeline_id or fallback_pipeline
             stage_id = stage_id or fallback_stage
 
-    lead_kwargs: dict[str, Any] = {
-        "workspace_id": form.workspace_id,
-        "pipeline_id": pipeline_id,
-        "stage_id": stage_id,
-        "company_name": company,
-        "assignment_status": "pool",
-        "tags_json": [],
-        # Source surfaces in the lead-card chip strip — manager sees
-        # which form delivered the lead at a glance.
-        "source": f"form:{form.slug}"[:60],
-    }
-    # Copy optional projected fields straight onto the model.
-    for col in ("email", "phone", "website", "city", "inn"):
-        v = projected.get(col)
-        if v:
-            lead_kwargs[col] = v[:300]
+    # Intake dedup (B3): a repeat submission from the same person —
+    # matched on normalized email OR E.164 phone — attaches to the
+    # existing LIVE lead instead of forking a duplicate. Flag it for the
+    # manager (needs_review) and skip the owner-routing block below so we
+    # don't re-assign / re-task an already-owned lead.
+    existing = await _find_existing_lead(
+        session,
+        workspace_id=form.workspace_id,
+        email=projected.get("email"),
+        phone=projected.get("phone"),
+    )
+    if existing is not None:
+        existing.needs_review = True
+        lead = existing
+    else:
+        lead_kwargs: dict[str, Any] = {
+            "workspace_id": form.workspace_id,
+            "pipeline_id": pipeline_id,
+            "stage_id": stage_id,
+            "company_name": company,
+            "assignment_status": "pool",
+            "tags_json": [],
+            # Source surfaces in the lead-card chip strip — manager sees
+            # which form delivered the lead at a glance.
+            "source": f"form:{form.slug}"[:60],
+        }
+        # Copy optional projected fields straight onto the model.
+        for col in ("email", "phone", "website", "city", "inn"):
+            v = projected.get(col)
+            if v:
+                lead_kwargs[col] = v[:300]
 
-    lead = Lead(**lead_kwargs)
-    session.add(lead)
-    await session.flush()
+        lead = Lead(**lead_kwargs)
+        session.add(lead)
+        await session.flush()
 
     # Web-form contact (ADR-012): a submission carrying an email or phone
     # becomes a first-class Contact + primary ЛПР, so the lead card's
@@ -292,7 +350,10 @@ async def create_lead_from_submission(
     # Sprint «Website Leads Intake»: route to the form's fixed owner and
     # drop a "Связаться" task. No owner → lead stays in pool (legacy
     # behaviour). Deterministic, NOT AI — this is system-created routing.
-    if form.default_assignee_id:
+    # Only for brand-new leads: a dedup hit keeps its current owner /
+    # stage (B3) — re-assigning + re-tasking an existing lead would be
+    # surprising and could yank it from another manager.
+    if existing is None and form.default_assignee_id:
         now = datetime.now(timezone.utc)
         lead.assignment_status = "assigned"
         lead.assigned_to = form.default_assignee_id
