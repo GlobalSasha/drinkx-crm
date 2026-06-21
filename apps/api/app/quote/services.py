@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import uuid
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -72,3 +73,42 @@ async def seed_starter_catalog(
         return await repo.list_for_workspace(db, workspace_id, active_only=False)
     await repo.bulk_create(db, workspace_id, STARTER_CATALOG)
     return await repo.list_for_workspace(db, workspace_id, active_only=False)
+
+
+# ---------------------------------------------------------------------------
+# Quote totals — server-authoritative (КП Phase 2)
+# ---------------------------------------------------------------------------
+
+def _money(value) -> Decimal:
+    """Quantize to 2 decimal places, half-up — matches Numeric(12, 2)."""
+    return Decimal(str(value or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def compute_line_total(quantity, unit_price, line_discount_pct) -> Decimal:
+    q = Decimal(str(quantity or 0))
+    up = Decimal(str(unit_price or 0))
+    disc = Decimal(str(line_discount_pct or 0))
+    return _money(q * up * (Decimal(1) - disc / Decimal(100)))
+
+
+def compute_totals(lines, *, discount, vat_rate) -> dict:
+    """Server-authoritative quote totals.
+
+    `lines`: iterable of dicts with quantity / unit_price / line_discount_pct.
+    Formula (spec): line = qty*price*(1-disc%); subtotal = Σ lines;
+    after_discount = max(subtotal - quote_discount, 0); total = after_discount*(1+vat%).
+    Returns {line_totals: list[Decimal], subtotal: Decimal, total: Decimal}.
+    """
+    line_totals = [
+        compute_line_total(
+            line.get("quantity"), line.get("unit_price"), line.get("line_discount_pct")
+        )
+        for line in lines
+    ]
+    subtotal = _money(sum(line_totals, Decimal("0")))
+    after_discount = subtotal - _money(discount)
+    if after_discount < 0:
+        after_discount = Decimal("0.00")
+    vat_amount = _money(after_discount * Decimal(str(vat_rate or 0)) / Decimal(100))
+    total = _money(after_discount + vat_amount)
+    return {"line_totals": line_totals, "subtotal": subtotal, "total": total}
