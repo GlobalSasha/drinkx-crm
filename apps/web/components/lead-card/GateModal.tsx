@@ -10,15 +10,22 @@ import { Modal } from "@/components/ui/Modal";
 interface Props {
   leadId: string;
   targetStage: Stage;
+  // Advisory criteria to show when the target stage itself carries none
+  // (e.g. the terminal «Закрыто (won)» stage, whose gate_criteria_json is
+  // empty). Used purely as a non-blocking readiness checklist — the move
+  // always proceeds regardless of what is/isn't checked.
+  fallbackCriteria?: string[];
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function GateModal({ leadId, targetStage, onClose, onSuccess }: Props) {
+export function GateModal({ leadId, targetStage, fallbackCriteria, onClose, onSuccess }: Props) {
   const criteria =
     targetStage.gate_criteria_json?.length > 0
       ? targetStage.gate_criteria_json
-      : (DEFAULT_GATE_CRITERIA[targetStage.position] ?? []);
+      : (DEFAULT_GATE_CRITERIA[targetStage.position]?.length
+          ? DEFAULT_GATE_CRITERIA[targetStage.position]
+          : (fallbackCriteria ?? []));
 
   const [checked, setChecked] = useState<Record<number, boolean>>({});
   const [forceSkip, setForceSkip] = useState(false);
