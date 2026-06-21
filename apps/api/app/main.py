@@ -131,7 +131,9 @@ def create_app() -> FastAPI:
     app.include_router(reminders_router)
 
     from app.quote.routers import router as products_router
+    from app.quote.routers import quotes_router
     app.include_router(products_router)
+    app.include_router(quotes_router)
 
     from app.notes.routers import router as notes_router
     app.include_router(notes_router)

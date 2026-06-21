@@ -2,12 +2,23 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.quote import repositories as repo
-from app.quote.models import PRODUCT_CATEGORIES, Product
+from app.quote.models import (
+    PRODUCT_CATEGORIES,
+    QUOTE_STATUSES,
+    Product,
+    Quote,
+    QuoteLine,
+)
+
+
+class QuoteNotFound(Exception):
+    pass
 
 
 class ProductNotFound(Exception):
@@ -112,3 +123,156 @@ def compute_totals(lines, *, discount, vat_rate) -> dict:
     vat_amount = _money(after_discount * Decimal(str(vat_rate or 0)) / Decimal(100))
     total = _money(after_discount + vat_amount)
     return {"line_totals": line_totals, "subtotal": subtotal, "total": total}
+
+
+# ---------------------------------------------------------------------------
+# Quote CRUD (КП Phase 2)
+# ---------------------------------------------------------------------------
+
+async def _generate_number(db: AsyncSession, workspace_id: uuid.UUID) -> str:
+    n = await repo.count_quotes_for_workspace(db, workspace_id) + 1
+    return f"КП-{n:04d}"
+
+
+def _build_lines(lines_in: list[dict]) -> list[QuoteLine]:
+    out: list[QuoteLine] = []
+    for i, line in enumerate(lines_in):
+        out.append(
+            QuoteLine(
+                position=i,
+                product_id_ref=line.get("product_id_ref"),
+                product_name=line["product_name"],
+                description=line.get("description"),
+                quantity=line.get("quantity", 1),
+                unit_price=line.get("unit_price", 0),
+                line_discount_pct=line.get("line_discount_pct", 0),
+                total=compute_line_total(
+                    line.get("quantity"),
+                    line.get("unit_price"),
+                    line.get("line_discount_pct"),
+                ),
+            )
+        )
+    return out
+
+
+def _apply_totals(quote: Quote) -> None:
+    res = compute_totals(
+        [
+            {
+                "quantity": l.quantity,
+                "unit_price": l.unit_price,
+                "line_discount_pct": l.line_discount_pct,
+            }
+            for l in quote.lines
+        ],
+        discount=quote.discount,
+        vat_rate=quote.vat_rate,
+    )
+    quote.subtotal = res["subtotal"]
+    quote.total = res["total"]
+
+
+async def create_quote(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+    created_by: uuid.UUID | None,
+    payload: dict,
+) -> Quote:
+    quote = Quote(
+        workspace_id=workspace_id,
+        lead_id=lead_id,
+        created_by=created_by,
+        number=await _generate_number(db, workspace_id),
+        status="draft",
+        recipient_contact_id=payload.get("recipient_contact_id"),
+        valid_until=payload.get("valid_until"),
+        vat_rate=payload.get("vat_rate", 20),
+        discount=payload.get("discount", 0),
+    )
+    quote.lines = _build_lines(payload.get("lines") or [])
+    _apply_totals(quote)
+    db.add(quote)
+    await db.flush()
+    return quote
+
+
+async def update_quote(
+    db: AsyncSession, workspace_id: uuid.UUID, quote_id: uuid.UUID, patch: dict
+) -> Quote:
+    quote = await repo.get_quote(db, quote_id, workspace_id)
+    if quote is None:
+        raise QuoteNotFound(quote_id)
+    if "recipient_contact_id" in patch:
+        quote.recipient_contact_id = patch["recipient_contact_id"]
+    if "valid_until" in patch:
+        quote.valid_until = patch["valid_until"]
+    if patch.get("vat_rate") is not None:
+        quote.vat_rate = patch["vat_rate"]
+    if patch.get("discount") is not None:
+        quote.discount = patch["discount"]
+    if patch.get("lines") is not None:
+        quote.lines = _build_lines(patch["lines"])
+    _apply_totals(quote)
+    await db.flush()
+    return quote
+
+
+async def set_quote_status(
+    db: AsyncSession, workspace_id: uuid.UUID, quote_id: uuid.UUID, status: str
+) -> Quote:
+    if status not in QUOTE_STATUSES:
+        raise ValueError(f"Invalid status '{status}'. Allowed: {QUOTE_STATUSES}")
+    quote = await repo.get_quote(db, quote_id, workspace_id)
+    if quote is None:
+        raise QuoteNotFound(quote_id)
+    quote.status = status
+    now = datetime.now(timezone.utc)
+    if status == "sent" and quote.sent_at is None:
+        quote.sent_at = now
+    if status == "accepted" and quote.accepted_at is None:
+        quote.accepted_at = now
+    await db.flush()
+    return quote
+
+
+async def apply_to_deal(
+    db: AsyncSession, workspace_id: uuid.UUID, quote_id: uuid.UUID
+) -> Quote:
+    quote = await repo.get_quote(db, quote_id, workspace_id)
+    if quote is None:
+        raise QuoteNotFound(quote_id)
+    from app.leads import repositories as leads_repo
+
+    lead = await leads_repo.get_by_id(db, quote.lead_id, workspace_id)
+    if lead is not None:
+        lead.deal_amount = quote.total
+    await db.flush()
+    return quote
+
+
+async def delete_quote(
+    db: AsyncSession, workspace_id: uuid.UUID, quote_id: uuid.UUID
+) -> None:
+    quote = await repo.get_quote(db, quote_id, workspace_id)
+    if quote is None:
+        raise QuoteNotFound(quote_id)
+    if quote.status != "draft":
+        raise ValueError("Only draft quotes can be deleted")
+    await repo.delete_quote(db, quote)
+
+
+async def list_quotes(
+    db: AsyncSession, workspace_id: uuid.UUID, lead_id: uuid.UUID
+) -> list[Quote]:
+    return await repo.list_quotes_for_lead(db, lead_id, workspace_id)
+
+
+async def get_quote_or_raise(
+    db: AsyncSession, workspace_id: uuid.UUID, quote_id: uuid.UUID
+) -> Quote:
+    quote = await repo.get_quote(db, quote_id, workspace_id)
+    if quote is None:
+        raise QuoteNotFound(quote_id)
+    return quote

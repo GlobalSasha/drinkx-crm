@@ -24,7 +24,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.common.models import Base, UUIDPrimaryKeyMixin
 
@@ -120,6 +120,12 @@ class Quote(Base, UUIDPrimaryKeyMixin):
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    lines: Mapped[list["QuoteLine"]] = relationship(
+        cascade="all, delete-orphan",
+        order_by="QuoteLine.position",
+        lazy="selectin",
     )
 
 
