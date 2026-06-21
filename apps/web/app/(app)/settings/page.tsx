@@ -220,6 +220,7 @@ function SettingsPageInner() {
             active !== "costs" &&
             active !== "custom_fields" &&
             active !== "templates" &&
+            active !== "catalog" &&
             active !== "appearance" &&
             active !== "base_update" && (
               <div className="bg-brand-bg/60 border border-brand-border rounded-card px-6 py-12 text-center">

@@ -37,3 +37,17 @@ def test_catalog_routes_registered():
     expected = {"/api/products", "/api/products/seed-starter", "/api/products/{product_id}"}
     missing = expected - paths
     assert not missing, f"missing routes: {missing}"
+
+
+def test_quote_routes_registered():
+    from app.main import app
+
+    paths = {r.path for r in app.routes if hasattr(r, "path")}
+    expected = {
+        "/api/leads/{lead_id}/quotes",
+        "/api/quotes/{quote_id}",
+        "/api/quotes/{quote_id}/status",
+        "/api/quotes/{quote_id}/apply-to-deal",
+    }
+    missing = expected - paths
+    assert not missing, f"missing routes: {missing}"

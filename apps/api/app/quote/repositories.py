@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.quote.models import Product
+from app.quote.models import Product, Quote
 
 
 async def list_for_workspace(
@@ -63,4 +63,43 @@ async def bulk_create(
 ) -> None:
     for item in items:
         db.add(Product(workspace_id=workspace_id, **item))
+    await db.flush()
+
+
+# --- Quotes (Phase 2) ---
+
+
+async def list_quotes_for_lead(
+    db: AsyncSession, lead_id: uuid.UUID, workspace_id: uuid.UUID
+) -> list[Quote]:
+    stmt = (
+        select(Quote)
+        .where(Quote.lead_id == lead_id, Quote.workspace_id == workspace_id)
+        .order_by(Quote.created_at.desc())
+    )
+    return list((await db.execute(stmt)).scalars().all())
+
+
+async def get_quote(
+    db: AsyncSession, quote_id: uuid.UUID, workspace_id: uuid.UUID
+) -> Quote | None:
+    stmt = select(Quote).where(
+        Quote.id == quote_id, Quote.workspace_id == workspace_id
+    )
+    return (await db.execute(stmt)).scalar_one_or_none()
+
+
+async def count_quotes_for_workspace(
+    db: AsyncSession, workspace_id: uuid.UUID
+) -> int:
+    stmt = (
+        select(func.count())
+        .select_from(Quote)
+        .where(Quote.workspace_id == workspace_id)
+    )
+    return int((await db.execute(stmt)).scalar_one() or 0)
+
+
+async def delete_quote(db: AsyncSession, quote: Quote) -> None:
+    await db.delete(quote)
     await db.flush()
