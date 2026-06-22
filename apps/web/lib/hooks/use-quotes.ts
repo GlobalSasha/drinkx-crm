@@ -72,3 +72,16 @@ export function useDeleteQuote(leadId: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: listKey(leadId) }),
   });
 }
+
+export function useApplyToDeal(leadId: string, quoteId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api.post<QuoteOut>(`/api/quotes/${quoteId}/apply-to-deal`, {}),
+    onSuccess: (data) => {
+      qc.setQueryData(detailKey(quoteId), data);
+      // Server set lead.deal_amount = quote.total — refresh the lead card.
+      qc.invalidateQueries({ queryKey: ["lead", leadId] });
+    },
+  });
+}

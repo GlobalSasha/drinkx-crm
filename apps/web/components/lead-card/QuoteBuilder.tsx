@@ -7,8 +7,16 @@ import {
   Loader2,
   AlertTriangle,
   Check,
+  Printer,
+  Wallet,
 } from "lucide-react";
-import { useQuote, useUpdateQuote, useSetQuoteStatus, useDeleteQuote } from "@/lib/hooks/use-quotes";
+import {
+  useQuote,
+  useUpdateQuote,
+  useSetQuoteStatus,
+  useDeleteQuote,
+  useApplyToDeal,
+} from "@/lib/hooks/use-quotes";
 import { useContacts } from "@/lib/hooks/use-contacts";
 import { useProducts } from "@/lib/hooks/use-products";
 import type { ProductOut, QuoteOut, QuoteUpdate } from "@/lib/types";
@@ -83,10 +91,12 @@ export function QuoteBuilder({ leadId, quoteId, onClose }: Props) {
   const update = useUpdateQuote(leadId, quoteId);
   const setStatus = useSetQuoteStatus(leadId, quoteId);
   const del = useDeleteQuote(leadId);
+  const applyToDeal = useApplyToDeal(leadId, quoteId);
 
   const [form, setForm] = useState<FormState | null>(null);
   const [dirty, setDirty] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [dealApplied, setDealApplied] = useState(false);
 
   useEffect(() => {
     if (quote && (!form || form.id !== quote.id)) {
@@ -221,6 +231,35 @@ export function QuoteBuilder({ leadId, quoteId, onClose }: Props) {
       return;
     }
     onClose();
+  }
+
+  function openPrint() {
+    if (
+      dirty &&
+      !window.confirm(
+        "Есть несохранённые изменения — печать покажет последнюю сохранённую версию. Продолжить?",
+      )
+    ) {
+      return;
+    }
+    window.open(`/quote/${quoteId}/print`, "_blank", "noopener");
+  }
+
+  function applyDeal() {
+    if (
+      dirty &&
+      !window.confirm(
+        "Сначала сохраните КП — в сделку запишется последний сохранённый итог. Продолжить?",
+      )
+    ) {
+      return;
+    }
+    applyToDeal.mutate(undefined, {
+      onSuccess: () => {
+        setDealApplied(true);
+        setTimeout(() => setDealApplied(false), 2500);
+      },
+    });
   }
 
   return (
@@ -429,6 +468,31 @@ export function QuoteBuilder({ leadId, quoteId, onClose }: Props) {
             </button>
           </>
         )}
+
+        {/* Document actions — available for any status */}
+        <button
+          type="button"
+          onClick={openPrint}
+          className={`inline-flex items-center gap-1.5 px-4 py-2 type-body font-semibold ${C.button.ghost}`}
+        >
+          <Printer size={14} />
+          Печать / PDF
+        </button>
+        <button
+          type="button"
+          onClick={applyDeal}
+          disabled={applyToDeal.isPending}
+          className={`inline-flex items-center gap-1.5 px-4 py-2 type-body font-semibold ${C.button.ghost} disabled:opacity-50`}
+        >
+          {applyToDeal.isPending ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : dealApplied ? (
+            <Check size={14} className="text-success" />
+          ) : (
+            <Wallet size={14} />
+          )}
+          {dealApplied ? "Применено" : "Сумма сделки = итог"}
+        </button>
 
         {editable && (
           <button
