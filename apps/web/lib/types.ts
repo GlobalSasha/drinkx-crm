@@ -467,6 +467,72 @@ export interface ProductOut {
   is_active: boolean;
 }
 
+// Quote / КП (Phase 2 API → Phase 3 UI). Mirror app/quote/schemas.py.
+export type QuoteStatus = "draft" | "sent" | "accepted" | "rejected";
+
+export interface QuoteLineIn {
+  product_id_ref: string | null;
+  product_name: string;
+  description: string | null;
+  quantity: number;
+  unit_price: number;
+  line_discount_pct: number;
+}
+
+export interface QuoteLineOut {
+  id: string;
+  position: number;
+  product_id_ref: string | null;
+  product_name: string;
+  description: string | null;
+  quantity: number;
+  unit_price: number;
+  line_discount_pct: number;
+  total: number;
+}
+
+export interface QuoteCreate {
+  recipient_contact_id?: string | null;
+  valid_until?: string | null;
+  vat_rate?: number;
+  discount?: number;
+  lines?: QuoteLineIn[];
+}
+
+export interface QuoteUpdate {
+  recipient_contact_id?: string | null;
+  valid_until?: string | null;
+  vat_rate?: number;
+  discount?: number;
+  lines?: QuoteLineIn[];
+}
+
+export interface QuoteOut {
+  id: string;
+  lead_id: string;
+  number: string;
+  status: QuoteStatus;
+  recipient_contact_id: string | null;
+  valid_until: string | null;
+  vat_rate: number;
+  discount: number;
+  subtotal: number;
+  total: number;
+  sent_at: string | null;
+  accepted_at: string | null;
+  created_at: string;
+  lines: QuoteLineOut[];
+}
+
+export interface QuoteListItemOut {
+  id: string;
+  number: string;
+  status: QuoteStatus;
+  total: number;
+  valid_until: string | null;
+  created_at: string;
+}
+
 export const DEFAULT_GATE_CRITERIA: Record<number, string[]> = {
   1: ["ICP соответствие подтверждено", "ЛПР идентифицирован", "Сегмент и тип сделки определены", "Приоритет A/B/C/D присвоен"],
   2: ["Проведён discovery-звонок (≥30 мин)", "Боль/потребность зафиксирована", "Бюджет предварительно обсуждён"],
