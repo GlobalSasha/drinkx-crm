@@ -13,6 +13,14 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import func, select
 
+# Register the quote tables on Base.metadata at collection time. The
+# session-scoped create_all fixture (conftest) runs before any test body, so
+# the models must be imported at MODULE level — no other test file imports
+# app.quote.models at top level, so without this the products/quotes/
+# quote_lines tables are never created and the round-trip tests blow up with
+# "relation does not exist".
+import app.quote.models  # noqa: F401
+
 from tests.conftest import POSTGRES_AVAILABLE
 
 skip_no_pg = pytest.mark.skipif(
