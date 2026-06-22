@@ -221,6 +221,12 @@ const RELEASES: { version: string; date: string; title: string; items: ReleaseIt
   },
 ];
 
+// Текущая версия = самая свежая запись (RELEASES[0]). Темы версии — заголовки
+// всех записей с тем же номером, чтобы показать «что сейчас в CRM» одной строкой.
+const CURRENT_VERSION = RELEASES[0]?.version ?? "";
+const CURRENT_DATE = RELEASES[0]?.date ?? "";
+const CURRENT_HIGHLIGHTS = RELEASES.filter((r) => r.version === CURRENT_VERSION).map((r) => r.title);
+
 // ─── Переиспользуемые блоки ──────────────────────────────────────
 
 function Section({ id, icon: Icon, title, kicker, children }: {
@@ -353,8 +359,21 @@ export default function GuidePage() {
         <div className="min-w-0">
           {/* ЧТО НОВОГО */}
           <Section id="whatsnew" icon={Megaphone} kicker="Обновления" title="Что нового">
+            {/* Текущая версия — крупно, чтобы «что сейчас» было видно сразу */}
+            <div className="bg-brand-dark text-white rounded-card p-5 mb-4">
+              <div className="flex items-center flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1.5 bg-white/15 type-caption font-semibold px-2.5 py-0.5 rounded-full">
+                  <Sparkles size={12} /> {CURRENT_VERSION}
+                </span>
+                <span className="type-label">Текущая версия</span>
+                <span className="type-hint text-white/60 ml-auto">обновлено {CURRENT_DATE}</span>
+              </div>
+              <p className="type-body text-white/80 mt-2">
+                Что нового в этой версии: {CURRENT_HIGHLIGHTS.join(" · ")}.
+              </p>
+            </div>
             <p className="type-body text-brand-muted-strong mb-4">
-              Свежие возможности CRM — что появилось и как этим пользоваться. Новое — сверху.
+              Полный список ниже — что появилось и как этим пользоваться, новое сверху.
               Подчёркнутые пункты ведут на подробный раздел.
             </p>
             <div className="space-y-3">
