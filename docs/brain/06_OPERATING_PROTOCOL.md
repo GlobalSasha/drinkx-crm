@@ -136,3 +136,18 @@ When Sprint 1.X is done:
 - Claude Code reports back: "Sprint 1.X complete, branch ready for review,
   next sprint is 1.Y per `04_NEXT_SPRINT.md`"
 - Wait for product owner. Do nothing else.
+
+## Manager-facing docs & «Что нового»
+
+When a sprint ships anything a **manager can see or click**, update the in-app
+guide in the same PR — it is the canonical manager documentation surface:
+
+- **`apps/web/app/(app)/guide/page.tsx`** — the live guide managers read at
+  `/guide`. Add a new entry to the **`RELEASES`** array (newest first, bump the
+  `vYYYY.M` version) so the «Что нового» section announces the change, and add or
+  refresh the detailed `<Section>` (+ a `TOC` entry if it is a new screen). The
+  `anchor` field links a release item to its section.
+- Keep the prose for a **non-technical manager**: by screen/workflow, plain
+  Russian, no mechanics. Developer-facing technical docs are a separate artifact.
+- `docs/manual/РУКОВОДСТВО-МЕНЕДЖЕРА.md` is a standalone export and lags the
+  in-app guide; re-export from the guide only when the owner needs the offline file.
