@@ -36,8 +36,12 @@ import {
   Inbox,
   GitMerge,
   BarChart3,
+  ArrowRight,
   type LucideIcon,
 } from "lucide-react";
+import Link from "next/link";
+import { RELEASES } from "@/lib/releases";
+import { ReleaseCard } from "@/components/guide/ReleaseCard";
 
 // ─── Данные ──────────────────────────────────────────────────────
 
@@ -172,60 +176,9 @@ const FAQ: { q: string; a: string }[] = [
   },
 ];
 
-// ─── «Что нового» — лента релизов ────────────────────────────────
-// КАК ВЕСТИ: при каждом заметном для менеджера релизе допишите объект
-// В НАЧАЛО массива (новые — сверху), поднимите версию vГОД.МЕСЯЦ, и,
-// если появился новый экран, добавьте подробный <Section> ниже + пункт
-// в TOC. Поле `anchor` связывает запись с её разделом (#id).
-type ReleaseItem = { feature: string; how: string; anchor?: string };
-const RELEASES: { version: string; date: string; title: string; items: ReleaseItem[] }[] = [
-  {
-    version: "v2026.6",
-    date: "22 июня 2026",
-    title: "Коммерческие предложения (КП)",
-    items: [
-      { feature: "Сборка КП в карточке лида", how: "Вкладка «КП» → «Новый КП»: позиции из каталога или вручную, скидки по строке и на КП, ставка НДС — итог считается автоматически.", anchor: "quote" },
-      { feature: "Каталог товаров", how: "Настройки → «Каталог КП»: позиции и цены, которые подставляются в предложение.", anchor: "quote" },
-      { feature: "Печать в PDF", how: "Кнопка «Печать / PDF» открывает чистый лист — сохраните через Ctrl/⌘+P.", anchor: "quote" },
-      { feature: "Сумма сделки = итог КП", how: "Одной кнопкой переносит итог предложения в сумму сделки.", anchor: "quote" },
-    ],
-  },
-  {
-    version: "v2026.6",
-    date: "июнь 2026",
-    title: "Заявки с сайта",
-    items: [
-      { feature: "Раздел «Входящие заявки»", how: "Лента всех обращений с веб-форм: контакт, телефон/почта, вопрос клиента, статус.", anchor: "incoming" },
-      { feature: "Контакты из заявки", how: "Имя, телефон и почта из формы сразу попадают в лид.", anchor: "incoming" },
-      { feature: "Авто-ответ под каждую форму", how: "Настраивается отдельно для каждой формы (раздел доступен руководителям)." },
-    ],
-  },
-  {
-    version: "v2026.6",
-    date: "июнь 2026",
-    title: "Качество данных",
-    items: [
-      { feature: "«Найти дубли» и склейка", how: "Меню «⋯» в карточке → находит похожих по почте/телефону/названию и объединяет в один лид.", anchor: "duplicates" },
-      { feature: "UTM-источник на лиде", how: "Откуда пришёл клиент, видно в карточке; сводка по каналам — в «Прогнозе».", anchor: "forecast" },
-      { feature: "Нормализация телефонов", how: "Номера приводятся к единому виду — поиск и дедупликация работают точнее." },
-    ],
-  },
-  {
-    version: "v2026.6",
-    date: "июнь 2026",
-    title: "Аналитика",
-    items: [
-      { feature: "«Где застревают сделки»", how: "В «Прогнозе» — медианное время на этапе и сколько сделок стоят дольше нормы.", anchor: "forecast" },
-      { feature: "Командные дашборды", how: "Раздел «Команда» (для руководителей): Manager's Dashboard и портфель сделок менеджера по этапам.", anchor: "team" },
-    ],
-  },
-];
-
-// Текущая версия = самая свежая запись (RELEASES[0]). Темы версии — заголовки
-// всех записей с тем же номером, чтобы показать «что сейчас в CRM» одной строкой.
-const CURRENT_VERSION = RELEASES[0]?.version ?? "";
-const CURRENT_DATE = RELEASES[0]?.date ?? "";
-const CURRENT_HIGHLIGHTS = RELEASES.filter((r) => r.version === CURRENT_VERSION).map((r) => r.title);
+// «Что нового»: данные релизов вынесены в lib/releases.ts (их же читает
+// страница истории /guide/changelog). Здесь, на /guide, показываем только
+// последнюю запись + кнопку «История версий».
 
 // ─── Переиспользуемые блоки ──────────────────────────────────────
 
@@ -359,57 +312,18 @@ export default function GuidePage() {
         <div className="min-w-0">
           {/* ЧТО НОВОГО */}
           <Section id="whatsnew" icon={Megaphone} kicker="Обновления" title="Что нового">
-            {/* Текущая версия — крупно, чтобы «что сейчас» было видно сразу */}
-            <div className="bg-brand-dark text-white rounded-card p-5 mb-4">
-              <div className="flex items-center flex-wrap gap-2">
-                <span className="inline-flex items-center gap-1.5 bg-white/15 type-caption font-semibold px-2.5 py-0.5 rounded-full">
-                  <Sparkles size={12} /> {CURRENT_VERSION}
-                </span>
-                <span className="type-label">Текущая версия</span>
-                <span className="type-hint text-white/60 ml-auto">обновлено {CURRENT_DATE}</span>
-              </div>
-              <p className="type-body text-white/80 mt-2">
-                Что нового в этой версии: {CURRENT_HIGHLIGHTS.join(" · ")}.
-              </p>
-            </div>
             <p className="type-body text-brand-muted-strong mb-4">
-              Полный список ниже — что появилось и как этим пользоваться, новое сверху.
-              Подчёркнутые пункты ведут на подробный раздел.
+              Последнее обновление CRM. Подчёркнутые пункты ведут на подробный раздел руководства.
             </p>
-            <div className="space-y-3">
-              {RELEASES.map((rel, i) => (
-                <Card key={i}>
-                  <div className="flex items-center flex-wrap gap-2 mb-3">
-                    <span className="inline-flex items-center gap-1.5 bg-brand-accent text-white type-caption font-semibold px-2.5 py-0.5 rounded-full">
-                      <Sparkles size={12} /> {rel.version}
-                    </span>
-                    <h3 className="type-card-title text-brand-primary">{rel.title}</h3>
-                    <span className="type-hint text-brand-muted ml-auto">{rel.date}</span>
-                  </div>
-                  <ul className="space-y-2.5">
-                    {rel.items.map((it, j) => (
-                      <li key={j} className="flex gap-2.5">
-                        <CheckCircle2 size={15} className="text-brand-accent shrink-0 mt-0.5" />
-                        <div>
-                          <span className="type-label text-brand-primary">
-                            {it.anchor ? (
-                              <a
-                                href={`#${it.anchor}`}
-                                className="underline decoration-brand-border underline-offset-2 hover:text-brand-accent transition-colors"
-                              >
-                                {it.feature}
-                              </a>
-                            ) : (
-                              it.feature
-                            )}
-                          </span>
-                          <span className="type-body text-brand-muted-strong"> — {it.how}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </Card>
-              ))}
+            <ReleaseCard release={RELEASES[0]} featured />
+            <div className="mt-4">
+              <Link
+                href="/guide/changelog"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-brand-panel border border-brand-border type-label text-brand-primary hover:bg-brand-border transition-colors"
+              >
+                История версий
+                <ArrowRight size={15} />
+              </Link>
             </div>
           </Section>
 
