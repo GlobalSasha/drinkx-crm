@@ -4,7 +4,6 @@ import Link from "next/link";
 import { Loader2, AlertTriangle, Wallet, Package, Sparkles, ArrowUpRight } from "lucide-react";
 import { useManagerPortfolio } from "@/lib/hooks/use-manager-portfolio";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import {
   Empty,
   EmptyHeader,
@@ -92,6 +91,12 @@ export function ManagerPortfolio({ userId }: { userId: string | null }) {
       {/* By segment */}
       <Card>
         <CardHeader><CardTitle>По сегментам</CardTitle></CardHeader>
+        <div className="flex items-center gap-3 mb-2 type-hint text-brand-muted uppercase tracking-wider">
+          <span className="w-28 shrink-0">Сегмент</span>
+          <span className="flex-1" />
+          <span className="w-12 shrink-0 text-right">Сделок</span>
+          <span className="w-24 shrink-0 text-right">Сумма</span>
+        </div>
         <ul className="flex flex-col gap-2.5">
           {p.by_segment.map((s) => (
             <li key={s.segment} className="flex items-center gap-3">
@@ -102,7 +107,7 @@ export function ManagerPortfolio({ userId }: { userId: string | null }) {
                   style={{ width: `${Math.round((s.amount / maxSegAmount) * 100)}%` }}
                 />
               </div>
-              <span className="w-16 shrink-0 text-right type-caption text-brand-muted tabular-nums">{s.count} кл.</span>
+              <span className="w-12 shrink-0 text-right type-body text-brand-primary tabular-nums">{s.count}</span>
               <span className="w-24 shrink-0 text-right type-body text-brand-primary font-semibold tabular-nums whitespace-nowrap">{fmtSum(s.amount)}</span>
             </li>
           ))}
@@ -114,6 +119,7 @@ export function ManagerPortfolio({ userId }: { userId: string | null }) {
         <Card>
           <CardHeader><CardTitle>По этапам</CardTitle></CardHeader>
           <MiniTable
+            firstCol="Этап"
             rows={p.by_stage.map((s) => ({
               key: s.stage_id,
               label: s.stage_name,
@@ -126,7 +132,7 @@ export function ManagerPortfolio({ userId }: { userId: string | null }) {
         </Card>
         <Card>
           <CardHeader><CardTitle>По приоритету</CardTitle></CardHeader>
-          <MiniTable rows={p.by_priority.map((s) => ({ key: s.priority, label: s.label, count: s.count, amount: s.amount }))} />
+          <MiniTable firstCol="Приоритет" rows={p.by_priority.map((s) => ({ key: s.priority, label: s.label, count: s.count, amount: s.amount }))} />
         </Card>
       </div>
 
@@ -158,42 +164,51 @@ export function ManagerPortfolio({ userId }: { userId: string | null }) {
 }
 
 function MiniTable({
+  firstCol,
   rows,
 }: {
+  firstCol: string;
   rows: { key: string; label: string; count: number; amount: number; href?: string }[];
 }) {
   if (rows.length === 0) {
     return <p className="type-caption text-brand-muted">—</p>;
   }
   return (
-    <ul className="flex flex-col">
-      {rows.map((r) => {
-        const inner = (
-          <>
-            <span className="flex-1 type-body text-brand-primary truncate group-hover:text-brand-accent transition-colors">
-              {r.label}
-            </span>
-            <Badge variant="neutral">{r.count}</Badge>
-            <span className="w-24 shrink-0 text-right type-body text-brand-primary tabular-nums whitespace-nowrap">{fmtSum(r.amount)}</span>
-          </>
-        );
-        return (
-          <li key={r.key}>
-            {r.href ? (
-              <Link
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                href={r.href as any}
-                className="group flex items-center gap-3 -mx-2 px-2 py-1.5 rounded-lg hover:bg-brand-bg transition-colors"
-              >
-                {inner}
-              </Link>
-            ) : (
-              <div className="flex items-center gap-3 px-2 py-1.5">{inner}</div>
-            )}
-          </li>
-        );
-      })}
-    </ul>
+    <div>
+      <div className="flex items-center gap-3 mb-1 px-2 type-hint text-brand-muted uppercase tracking-wider">
+        <span className="flex-1 truncate">{firstCol}</span>
+        <span className="w-12 shrink-0 text-right">Сделок</span>
+        <span className="w-24 shrink-0 text-right">Сумма</span>
+      </div>
+      <ul className="flex flex-col">
+        {rows.map((r) => {
+          const inner = (
+            <>
+              <span className="flex-1 type-body text-brand-primary truncate group-hover:text-brand-accent transition-colors">
+                {r.label}
+              </span>
+              <span className="w-12 shrink-0 text-right type-body text-brand-primary tabular-nums">{r.count}</span>
+              <span className="w-24 shrink-0 text-right type-body text-brand-primary tabular-nums whitespace-nowrap">{fmtSum(r.amount)}</span>
+            </>
+          );
+          return (
+            <li key={r.key}>
+              {r.href ? (
+                <Link
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  href={r.href as any}
+                  className="group flex items-center gap-3 -mx-2 px-2 py-1.5 rounded-lg hover:bg-brand-bg transition-colors"
+                >
+                  {inner}
+                </Link>
+              ) : (
+                <div className="flex items-center gap-3 px-2 py-1.5">{inner}</div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
