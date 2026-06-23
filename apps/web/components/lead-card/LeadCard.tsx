@@ -1,7 +1,7 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { useLead, useUpdateLead } from "@/lib/hooks/use-lead";
@@ -24,7 +24,9 @@ import { TransferModal } from "./TransferModal";
 import { DuplicatesModal } from "./DuplicatesModal";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
 import { LeadCardHeader } from "./LeadCardHeader";
+import { NextStepPrompt } from "./NextStepPrompt";
 import { useFeed } from "@/lib/hooks/use-feed";
+import { useLeaveGuard } from "@/lib/hooks/use-leave-guard";
 import { C } from "@/lib/design-system";
 
 // Lead Card v3 — two-pane: key info lives in the always-visible left column,
@@ -54,6 +56,7 @@ export function LeadCard({ leadId }: Props) {
   const claim = useClaimLead();
   const me = useMe().data;
   const router = useRouter();
+  const pathname = usePathname();
 
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
@@ -112,6 +115,19 @@ export function LeadCard({ leadId }: Props) {
 
   const currentStage = stages.find((s) => s.id === lead?.stage_id);
   const displayStage = currentStage ?? stages[0];
+
+  // Lead Card v3 — Phase 2: when the manager leaves a card that has no open
+  // task (and isn't closed), prompt them to schedule the next step. The guard
+  // intercepts in-app link clicks; the original href is held in `pendingHref`
+  // until the manager saves a task or skips.
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const hasOpenTask = useMemo(
+    () => items.some((it) => it.type === "task" && !it.task_done),
+    [items],
+  );
+  const leadClosed = !!(currentStage?.is_won || currentStage?.is_lost);
+  const handleIntercept = useCallback((href: string) => setPendingHref(href), []);
+  useLeaveGuard(!!lead && !leadClosed && !hasOpenTask, pathname, handleIntercept);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -361,6 +377,24 @@ export function LeadCard({ leadId }: Props) {
         />
       )}
 
+      {pendingHref && (
+        <NextStepPrompt
+          leadId={lead.id}
+          company={lead.company_name}
+          onSaved={() => {
+            const href = pendingHref;
+            setPendingHref(null);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            router.push(href as any);
+          }}
+          onSkip={() => {
+            const href = pendingHref;
+            setPendingHref(null);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            router.push(href as any);
+          }}
+        />
+      )}
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-brand-primary text-white type-caption font-semibold px-5 py-2.5 rounded-full z-50 transition-all">
