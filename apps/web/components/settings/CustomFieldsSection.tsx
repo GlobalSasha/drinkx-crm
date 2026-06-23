@@ -103,7 +103,7 @@ export function CustomFieldsSection() {
           <button
             type="button"
             onClick={openCreate}
-            className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-full px-3.5 py-1.5 text-xs font-semibold hover:bg-brand-accent/90 active:scale-[0.98] transition-all duration-300"
+            className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-full px-3.5 py-1.5 text-xs font-semibold hover:bg-brand-accent/90 active:scale-[0.98] transition duration-300"
           >
             <Plus size={13} />
             Новое поле
@@ -380,7 +380,7 @@ function CustomFieldEditor({
             <button
               type="submit"
               disabled={pending}
-              className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-brand-accent/90 disabled:opacity-40 transition-all duration-300"
+              className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-brand-accent/90 disabled:opacity-40 transition duration-300"
             >
               {pending && <Loader2 size={13} className="animate-spin" />}
               {isEdit ? "Сохранить" : "Создать"}

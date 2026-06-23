@@ -411,7 +411,7 @@ function ConfirmDeleteModal({
             <button
               onClick={onConfirm}
               disabled={isPending}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-rose text-white text-sm font-semibold hover:bg-rose/90 disabled:opacity-40 transition-all duration-300"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-rose text-white text-sm font-semibold hover:bg-rose/90 disabled:opacity-40 transition duration-300"
             >
               {isPending && <Loader2 size={13} className="animate-spin" />}
               Деактивировать

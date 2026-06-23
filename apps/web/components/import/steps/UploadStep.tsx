@@ -101,7 +101,7 @@ export function UploadStep({ onUploaded }: Props) {
         onDragLeave={onDragLeave}
         disabled={busy}
         className={clsx(
-          "w-full rounded-card border-2 border-dashed transition-all duration-200 px-6 py-12 text-center flex flex-col items-center justify-center gap-3 outline-none",
+          "w-full rounded-card border-2 border-dashed transition duration-200 px-6 py-12 text-center flex flex-col items-center justify-center gap-3 outline-none",
           dragOver
             ? "border-brand-accent bg-brand-soft"
             : picked
@@ -178,7 +178,7 @@ export function UploadStep({ onUploaded }: Props) {
         <button
           onClick={startUpload}
           disabled={!picked || busy}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-brand-accent text-white text-sm font-semibold hover:bg-brand-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-brand-accent text-white text-sm font-semibold hover:bg-brand-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition duration-300"
         >
           {busy && <Loader2 size={14} className="animate-spin" />}
           {busy ? "Загружаем и анализируем…" : "Продолжить"}

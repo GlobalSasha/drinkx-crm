@@ -49,7 +49,7 @@ export function LeadLeftColumn({
         <p className={`type-hint text-brand-muted ${lead.priority ? "mt-2.5" : ""}`}>
           Сумма сделки
         </p>
-        <p className={`type-card-title ${C.color.text}`}>{formatRub(lead.deal_amount)}</p>
+        <p className={`type-card-title ${C.color.text} tabular-nums`}>{formatRub(lead.deal_amount)}</p>
       </div>
 
       {/* Next step — nearest open task / «поставить задачу» */}

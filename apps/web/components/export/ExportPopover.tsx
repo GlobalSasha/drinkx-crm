@@ -175,7 +175,7 @@ export function ExportPopover({
         aria-expanded={open}
         className={clsx(
           triggerClassName ??
-            "inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-brand-panel hover:border-brand-border active:scale-[0.98]",
+            "inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition duration-700 ease-soft hover:bg-brand-panel hover:border-brand-border active:scale-[0.98]",
         )}
       >
         <Download size={14} />
@@ -213,7 +213,7 @@ export function ExportPopover({
                     disabled={busy}
                     onClick={() => setFormat(f.value)}
                     className={clsx(
-                      "flex items-start gap-2 rounded-xl border px-2.5 py-2 text-left transition-all duration-200 outline-none",
+                      "flex items-start gap-2 rounded-xl border px-2.5 py-2 text-left transition duration-200 outline-none",
                       active
                         ? "border-brand-accent bg-brand-soft"
                         : "border-brand-border hover:border-brand-border hover:bg-brand-bg",
@@ -255,7 +255,7 @@ export function ExportPopover({
             disabled={busy || format === "md_zip"}
             onClick={() => setIncludeAiBrief((v) => !v)}
             className={clsx(
-              "mt-3 flex items-center justify-between w-full rounded-xl px-3 py-2 transition-all",
+              "mt-3 flex items-center justify-between w-full rounded-xl px-3 py-2 transition",
               "bg-brand-bg hover:bg-brand-panel",
               busy && "opacity-50 cursor-not-allowed",
               format === "md_zip" && "opacity-60 cursor-not-allowed",
@@ -329,7 +329,7 @@ export function ExportPopover({
               onClick={handleSubmit}
               disabled={busy || phase === "done"}
               className={clsx(
-                "inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300",
+                "inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition duration-300",
                 phase === "done"
                   ? "bg-emerald-600 text-white"
                   : "bg-brand-accent text-white hover:bg-brand-accent/90",

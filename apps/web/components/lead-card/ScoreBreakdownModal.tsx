@@ -145,7 +145,7 @@ export function ScoreBreakdownModal({ leadId, onClose }: Props) {
                     />
                     <div className="h-1 bg-brand-panel rounded-full overflow-hidden">
                       <div
-                        className={`h-full ${barColor} transition-all duration-200`}
+                        className={`h-full ${barColor} transition-[width] duration-200`}
                         style={{ width: `${pct * 100}%` }}
                       />
                     </div>

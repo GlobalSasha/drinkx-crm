@@ -410,7 +410,7 @@ export function QuoteBuilder({ leadId, quoteId, onClose }: Props) {
           <TotalRow label={`НДС ${num(form.vat_rate)}%`} value={`+ ${formatRub(totals.vatAmount)}`} />
           <div className="border-t border-brand-border pt-2 mt-1 flex items-center justify-between">
             <span className={`type-caption font-semibold ${C.color.text}`}>Итого</span>
-            <span className={`type-card-title ${C.color.text} tabular-nums`}>{formatRub(totals.total)}</span>
+            <span className={`type-card-title ${C.color.text}`}>{formatRub(totals.total)}</span>
           </div>
         </div>
       )}
@@ -610,7 +610,7 @@ function LineEditor({
       </div>
       <div className="flex items-center justify-end gap-1.5">
         <span className="type-hint text-brand-muted">Итого по позиции:</span>
-        <span className="type-caption font-semibold text-brand-primary tabular-nums">
+        <span className="type-caption font-semibold text-brand-primary">
           {formatRub(total)}
         </span>
       </div>
@@ -649,7 +649,7 @@ function TotalRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between">
       <span className="type-caption text-brand-muted">{label}</span>
-      <span className="type-caption text-brand-primary tabular-nums">{value}</span>
+      <span className="type-caption text-brand-primary">{value}</span>
     </div>
   );
 }

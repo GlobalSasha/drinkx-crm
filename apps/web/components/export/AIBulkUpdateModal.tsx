@@ -156,7 +156,7 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
                   onClick={handleDownloadSnapshot}
                   disabled={snapshotPhase === "loading"}
                   className={clsx(
-                    "inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300",
+                    "inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition duration-300",
                     snapshotPhase === "done"
                       ? "bg-emerald-600 text-white"
                       : "bg-brand-accent text-white hover:bg-brand-accent/90",
@@ -209,7 +209,7 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
                   onClick={handleCopyPrompt}
                   disabled={!promptQuery.data?.prompt}
                   className={clsx(
-                    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all",
+                    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition",
                     copied
                       ? "bg-emerald-600 text-white"
                       : "bg-brand-bg text-brand-primary border border-brand-border hover:bg-brand-panel",
@@ -229,7 +229,7 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
             >
               <button
                 onClick={handleHandoff}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-accent text-white text-sm font-semibold hover:bg-brand-accent/90 transition-all duration-300"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-accent text-white text-sm font-semibold hover:bg-brand-accent/90 transition duration-300"
               >
                 Продолжить — загрузить файл
                 <ArrowRight size={13} />

@@ -56,8 +56,8 @@ export function WorkloadTable() {
                   <td key={s.id} className="px-3 py-3 whitespace-nowrap">
                     {cell ? (
                       <>
-                        <span className="font-semibold">{cell.count}</span>
-                        <span className="text-xs text-brand-muted ml-1">
+                        <span className="font-semibold tabular-nums">{cell.count}</span>
+                        <span className="text-xs text-brand-muted ml-1 tabular-nums">
                           {fmtSum(cell.sum_amount)}
                         </span>
                       </>
@@ -68,8 +68,8 @@ export function WorkloadTable() {
                 );
               })}
               <td className="px-3 py-3 whitespace-nowrap">
-                <span className="font-semibold">{m.open_count}</span>
-                <span className="text-xs text-brand-muted ml-1">{fmtSum(m.pipeline_sum)}</span>
+                <span className="font-semibold tabular-nums">{m.open_count}</span>
+                <span className="text-xs text-brand-muted ml-1 tabular-nums">{fmtSum(m.pipeline_sum)}</span>
               </td>
               <td className="px-3 py-3">
                 {m.stuck_count > 0 ? (
@@ -77,7 +77,7 @@ export function WorkloadTable() {
                     // filter=rotting is a no-op until the pipeline gains a rotting quick-filter
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     href={`/pipeline?assigned_to=${m.user_id}&filter=rotting` as any}
-                    className="font-semibold text-warning hover:underline"
+                    className="font-semibold text-warning tabular-nums hover:underline"
                   >
                     {m.stuck_count}
                   </Link>

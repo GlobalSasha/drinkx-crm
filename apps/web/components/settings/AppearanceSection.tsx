@@ -55,7 +55,7 @@ export function AppearanceSection() {
                 type="button"
                 disabled={update.isPending}
                 onClick={() => update.mutate({ sidebar_color: key })}
-                className={`relative rounded-card border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 ${
+                className={`relative rounded-card border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 ${
                   active
                     ? "border-brand-accent ring-2 ring-brand-accent/30"
                     : "border-brand-border hover:border-brand-border"
@@ -86,7 +86,7 @@ export function AppearanceSection() {
                 type="button"
                 disabled={update.isPending}
                 onClick={() => update.mutate({ background_color: key })}
-                className={`rounded-card border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 ${
+                className={`rounded-card border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 ${
                   active
                     ? "border-brand-accent ring-2 ring-brand-accent/30"
                     : "border-brand-border hover:border-brand-border"
@@ -120,7 +120,7 @@ export function AppearanceSection() {
                 type="button"
                 disabled={update.isPending}
                 onClick={() => update.mutate({ density: key })}
-                className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
+                className={`px-4 py-1.5 rounded-full text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
                   active
                     ? "bg-white text-brand-primary"
                     : "text-brand-muted hover:text-brand-primary"
@@ -149,7 +149,7 @@ export function AppearanceSection() {
                 type="button"
                 disabled={update.isPending}
                 onClick={() => update.mutate({ font_size: key })}
-                className={`px-4 py-1.5 rounded-full font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
+                className={`px-4 py-1.5 rounded-full font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
                   active
                     ? "bg-white text-brand-primary"
                     : "text-brand-muted hover:text-brand-primary"

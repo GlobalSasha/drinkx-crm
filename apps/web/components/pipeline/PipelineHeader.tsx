@@ -86,14 +86,14 @@ export function PipelineHeader({ leads, totalCount }: Props) {
           <Button
             variant="primary"
             onClick={openCreateLeadModal}
-            className="font-semibold transition-all duration-700 ease-soft hover:bg-brand-accent/90 active:scale-[0.98]"
+            className="font-semibold transition duration-700 ease-soft hover:bg-brand-accent/90 active:scale-[0.98]"
           >
             <Plus size={15} />
             Лид
           </Button>
           <button
             onClick={openImportWizard}
-            className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-brand-panel hover:border-brand-border active:scale-[0.98]"
+            className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition duration-700 ease-soft hover:bg-brand-panel hover:border-brand-border active:scale-[0.98]"
             aria-label="Импорт лидов из файла"
           >
             <Upload size={14} />
@@ -111,7 +111,7 @@ export function PipelineHeader({ leads, totalCount }: Props) {
           <Button
             variant="ghost"
             onClick={openSprintModal}
-            className="text-brand-accent border-brand-accent/40 font-semibold transition-all duration-700 ease-soft hover:bg-brand-soft hover:border-brand-accent active:scale-[0.98]"
+            className="text-brand-accent border-brand-accent/40 font-semibold transition duration-700 ease-soft hover:bg-brand-soft hover:border-brand-accent active:scale-[0.98]"
           >
             <CalendarRange size={15} />
             <span className="hidden sm:inline">Сформировать план на неделю</span>
@@ -132,7 +132,7 @@ export function PipelineHeader({ leads, totalCount }: Props) {
             placeholder="Поиск..."
             value={filters.q}
             onChange={(e) => setQ(e.target.value)}
-            className="h-8 pl-8 pr-3 text-sm bg-brand-bg border border-brand-border rounded-full outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300 w-44"
+            className="h-8 pl-8 pr-3 text-sm bg-brand-bg border border-brand-border rounded-full outline-none focus:border-brand-accent/40 focus:bg-white transition duration-300 w-44"
           />
         </div>
 

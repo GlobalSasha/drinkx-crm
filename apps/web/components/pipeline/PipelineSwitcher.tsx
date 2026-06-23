@@ -86,7 +86,7 @@ export function PipelineSwitcher() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-3 py-1.5 text-sm font-semibold transition-all duration-300 hover:bg-brand-panel hover:border-brand-border active:scale-[0.98]"
+        className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-3 py-1.5 text-sm font-semibold transition duration-300 hover:bg-brand-panel hover:border-brand-border active:scale-[0.98]"
         aria-haspopup="listbox"
         aria-expanded={open}
       >

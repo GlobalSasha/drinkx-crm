@@ -43,7 +43,7 @@ const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "px-4 py-2.5 type-caption font-semibold border-b-2 transition-all whitespace-nowrap",
+      "px-4 py-2.5 type-caption font-semibold border-b-2 transition-colors duration-200 whitespace-nowrap",
       "border-transparent text-brand-muted",
       "data-[state=active]:border-brand-accent data-[state=active]:text-brand-accent-text",
       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 rounded-sm",

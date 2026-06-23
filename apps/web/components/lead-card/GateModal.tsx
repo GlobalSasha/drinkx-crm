@@ -179,7 +179,7 @@ export function GateModal({ leadId, targetStage, fallbackCriteria, onClose, onSu
                 onChange={(e) => setSkipReason(e.target.value)}
                 placeholder="Укажите причину..."
                 rows={2}
-                className="mt-2 w-full px-3 py-2 text-sm bg-brand-bg border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white resize-none transition-all"
+                className="mt-2 w-full px-3 py-2 text-sm bg-brand-bg border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white resize-none transition"
               />
             )}
           </div>
@@ -192,14 +192,14 @@ export function GateModal({ leadId, targetStage, fallbackCriteria, onClose, onSu
           <div className="flex gap-2 justify-end">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-full text-sm font-semibold text-brand-muted bg-brand-bg hover:bg-brand-panel transition-all"
+              className="px-4 py-2 rounded-full text-sm font-semibold text-brand-muted bg-brand-bg hover:bg-brand-panel transition"
             >
               Отмена
             </button>
             <button
               onClick={handleSubmit}
               disabled={moveStage.isPending}
-              className="px-5 py-2 rounded-full text-sm font-semibold bg-brand-accent text-white transition-all hover:bg-brand-accent/90 disabled:opacity-50"
+              className="px-5 py-2 rounded-full text-sm font-semibold bg-brand-accent text-white transition hover:bg-brand-accent/90 disabled:opacity-50"
             >
               {moveStage.isPending ? "..." : "Переместить"}
             </button>

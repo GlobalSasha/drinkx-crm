@@ -128,7 +128,7 @@ export function TeamSection() {
           {isAdmin && (
             <button
               onClick={() => setInviteOpen(true)}
-              className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-brand-accent/90 active:scale-[0.98] transition-all duration-300"
+              className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-brand-accent/90 active:scale-[0.98] transition duration-300"
             >
               <Plus size={14} />
               Пригласить
@@ -600,7 +600,7 @@ function InviteModal({
             {sent ? (
               <button
                 onClick={handleClose}
-                className="px-5 py-2.5 rounded-full bg-brand-accent text-white text-sm font-semibold hover:bg-brand-accent/90 transition-all duration-300"
+                className="px-5 py-2.5 rounded-full bg-brand-accent text-white text-sm font-semibold hover:bg-brand-accent/90 transition duration-300"
               >
                 Готово
               </button>
@@ -616,7 +616,7 @@ function InviteModal({
                 <button
                   onClick={handleSend}
                   disabled={busy || !email.trim()}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-brand-accent text-white text-sm font-semibold hover:bg-brand-accent/90 disabled:opacity-40 transition-all duration-300"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-brand-accent text-white text-sm font-semibold hover:bg-brand-accent/90 disabled:opacity-40 transition duration-300"
                 >
                   {busy && <Loader2 size={14} className="animate-spin" />}
                   {busy ? "Отправляем…" : "Отправить приглашение"}
