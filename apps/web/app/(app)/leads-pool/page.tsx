@@ -127,7 +127,7 @@ function PoolRow({
         ) : (
           <button
             onClick={handleClaim}
-            className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200 hover:bg-brand-accent/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+            className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-full px-3 py-1.5 text-xs font-semibold transition duration-200 hover:bg-brand-accent/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
           >
             Взять в работу
           </button>
@@ -436,7 +436,7 @@ function LeadsPoolPageInner() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setAiUpdateOpen(true)}
-              className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition-all duration-700 ease-soft hover:bg-brand-panel hover:border-brand-border active:scale-[0.98]"
+              className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition duration-700 ease-soft hover:bg-brand-panel hover:border-brand-border active:scale-[0.98]"
               aria-label="Обновление через AI"
             >
               <Sparkles size={14} />
@@ -482,7 +482,7 @@ function LeadsPoolPageInner() {
               placeholder="Поиск: имя, email, телефон, ИНН"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 pr-3 py-1.5 text-sm bg-brand-bg border border-brand-border rounded-full outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-300 w-64"
+              className="pl-8 pr-3 py-1.5 text-sm bg-brand-bg border border-brand-border rounded-full outline-none focus:border-brand-accent/40 focus:bg-white transition duration-300 w-64"
             />
           </div>
 

@@ -109,7 +109,7 @@ function SignInForm() {
       <button
         onClick={handleGoogle}
         disabled={loading}
-        className="w-full py-3.5 px-4 rounded-full border border-brand-border bg-white flex items-center justify-center gap-3 text-sm font-medium hover:border-brand-accent/30 transition-all duration-700 ease-soft active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+        className="w-full py-3.5 px-4 rounded-full border border-brand-border bg-white flex items-center justify-center gap-3 text-sm font-medium hover:border-brand-accent/30 transition duration-700 ease-soft active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
       >
         <span
           className="w-[18px] h-[18px] rounded-full shrink-0"
@@ -161,7 +161,7 @@ function SignInForm() {
           <button
             type="submit"
             disabled={loading || !email}
-            className="w-full py-3 px-4 rounded-full bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/90 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full py-3 px-4 rounded-full bg-brand-accent text-white text-sm font-medium hover:bg-brand-accent/90 transition active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {loading ? "Отправляем…" : "Получить ссылку"}
           </button>
@@ -177,7 +177,7 @@ function SignInForm() {
       <button
         onClick={handleTestUser}
         disabled={loading}
-        className="w-full py-2.5 px-4 rounded-full border border-brand-border bg-transparent text-sm text-brand-muted hover:text-brand-primary hover:border-brand-border transition-all duration-300 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+        className="w-full py-2.5 px-4 rounded-full border border-brand-border bg-transparent text-sm text-brand-muted hover:text-brand-primary hover:border-brand-border transition duration-300 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
       >
         🧪 Войти как тестовый пользователь
       </button>

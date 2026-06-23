@@ -120,7 +120,7 @@ export function ProgressStep({ jobId, initialJob, onClose }: Props) {
         {isSucceeded && (
           <button
             onClick={goToPool}
-            className="px-5 py-2.5 rounded-full bg-brand-accent text-white text-sm font-semibold hover:bg-brand-accent/90 transition-all duration-300"
+            className="px-5 py-2.5 rounded-full bg-brand-accent text-white text-sm font-semibold hover:bg-brand-accent/90 transition duration-300"
           >
             Перейти к базе лидов
           </button>
@@ -135,7 +135,7 @@ export function ProgressStep({ jobId, initialJob, onClose }: Props) {
             </button>
             <button
               onClick={onClose}
-              className="px-5 py-2.5 rounded-full bg-brand-accent text-white text-sm font-semibold hover:bg-brand-accent/90 transition-all duration-300"
+              className="px-5 py-2.5 rounded-full bg-brand-accent text-white text-sm font-semibold hover:bg-brand-accent/90 transition duration-300"
             >
               Закрыть
             </button>

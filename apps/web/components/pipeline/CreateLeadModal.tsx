@@ -138,7 +138,7 @@ export function CreateLeadModal() {
                     setError(null);
                   }}
                   placeholder="Начните печатать название…"
-                  className="w-full px-4 py-2.5 text-sm bg-brand-bg border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white transition-all duration-200"
+                  className="w-full px-4 py-2.5 text-sm bg-brand-bg border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white transition duration-200"
                 />
                 {isFetching && (
                   <Loader2
@@ -242,14 +242,14 @@ export function CreateLeadModal() {
               <button
                 type="button"
                 onClick={closeCreateLeadModal}
-                className="px-4 py-2 rounded-full text-sm font-semibold text-brand-muted bg-brand-bg hover:bg-brand-panel transition-all"
+                className="px-4 py-2 rounded-full text-sm font-semibold text-brand-muted bg-brand-bg hover:bg-brand-panel transition"
               >
                 Отмена
               </button>
               <button
                 type="submit"
                 disabled={pending || query.trim().length === 0}
-                className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-semibold bg-brand-accent text-white transition-all hover:bg-brand-accent/90 disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-semibold bg-brand-accent text-white transition hover:bg-brand-accent/90 disabled:opacity-50"
               >
                 {pending && <Loader2 size={14} className="animate-spin" />}
                 {picked ? "Создать лид" : "Создать"}

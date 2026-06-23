@@ -103,7 +103,7 @@ export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }:
               autoComplete="off"
               autoFocus
               spellCheck={false}
-              className="w-full px-3 py-2 text-sm font-mono bg-brand-bg border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white transition-all"
+              className="w-full px-3 py-2 text-sm font-mono bg-brand-bg border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white transition"
             />
             <p className="text-xs text-brand-muted mt-1">
               Спросите получателя в Settings → Profile (или у админа). Список
@@ -126,7 +126,7 @@ export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }:
               placeholder="Например: «Уехал в отпуск, передаю на твою территорию»"
               rows={2}
               maxLength={500}
-              className="w-full px-3 py-2 text-sm bg-brand-bg border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white resize-none transition-all"
+              className="w-full px-3 py-2 text-sm bg-brand-bg border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white resize-none transition"
             />
           </div>
 
@@ -143,14 +143,14 @@ export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }:
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-full text-sm font-semibold text-brand-muted bg-brand-bg hover:bg-brand-panel transition-all"
+              className="px-4 py-2 rounded-full text-sm font-semibold text-brand-muted bg-brand-bg hover:bg-brand-panel transition"
             >
               Отмена
             </button>
             <button
               type="submit"
               disabled={!canSubmit}
-              className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-semibold bg-brand-accent text-white transition-all hover:bg-brand-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-semibold bg-brand-accent text-white transition hover:bg-brand-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {transfer.isPending ? "..." : (
                 <>

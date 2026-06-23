@@ -149,7 +149,7 @@ export function AISection() {
 
             <div className="mt-3 h-2 bg-brand-bg rounded-full overflow-hidden">
               <div
-                className={`h-full transition-all duration-500 ${
+                className={`h-full transition-[width] duration-500 ${
                   overBudget
                     ? "bg-rose"
                     : pct > 80
@@ -223,7 +223,7 @@ export function AISection() {
             type="button"
             onClick={onSave}
             disabled={!dirty || !budgetValid || update.isPending}
-            className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-brand-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300"
+            className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-brand-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition duration-300"
           >
             {update.isPending ? (
               <Loader2 size={13} className="animate-spin" />

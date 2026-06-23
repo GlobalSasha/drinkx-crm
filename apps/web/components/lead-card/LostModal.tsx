@@ -108,7 +108,7 @@ export function LostModal({
               type="button"
               onClick={handleConfirm}
               disabled={moveStage.isPending || !reason.trim()}
-              className="inline-flex items-center gap-1.5 bg-rose text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-rose/90 disabled:opacity-40 transition-all duration-300"
+              className="inline-flex items-center gap-1.5 bg-rose text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-rose/90 disabled:opacity-40 transition duration-300"
             >
               {moveStage.isPending && (
                 <Loader2 size={13} className="animate-spin" />

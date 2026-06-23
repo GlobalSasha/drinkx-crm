@@ -343,7 +343,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
                       <button
                         type="button"
                         onClick={() => dismiss(n.id)}
-                        className="p-1.5 rounded-md text-brand-muted opacity-0 group-hover:opacity-100 hover:bg-rose/10 hover:text-rose transition-all"
+                        className="p-1.5 rounded-md text-brand-muted opacity-0 group-hover:opacity-100 hover:bg-rose/10 hover:text-rose transition"
                         aria-label="Скрыть"
                         title="Удалить уведомление"
                       >

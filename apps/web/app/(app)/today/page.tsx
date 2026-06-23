@@ -324,7 +324,7 @@ function TaskListWidget() {
         <div className="mt-3 flex items-center gap-2">
           <div className="flex-1 h-1.5 rounded-full bg-brand-bg overflow-hidden">
             <div
-              className="h-full rounded-full bg-brand-accent transition-all"
+              className="h-full rounded-full bg-brand-accent transition-[width]"
               style={{ width: `${progressPct}%` }}
             />
           </div>
@@ -462,7 +462,7 @@ function FunnelWidget() {
             </span>
             <div className="flex-1 h-2 bg-brand-bg rounded-full overflow-hidden">
               <div
-                className="h-full bg-brand-accent rounded-full transition-all duration-700 ease-out"
+                className="h-full bg-brand-accent rounded-full transition-[width] duration-700 ease-out"
                 style={{
                   width: `${s.pctOfMax}%`,
                   transitionDelay: `${index * 80}ms`,
