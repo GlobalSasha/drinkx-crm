@@ -113,7 +113,16 @@ export function ManagerPortfolio({ userId }: { userId: string | null }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader><CardTitle>По этапам</CardTitle></CardHeader>
-          <MiniTable rows={p.by_stage.map((s) => ({ key: s.stage_id, label: s.stage_name, count: s.count, amount: s.amount }))} />
+          <MiniTable
+            rows={p.by_stage.map((s) => ({
+              key: s.stage_id,
+              label: s.stage_name,
+              count: s.count,
+              amount: s.amount,
+              // Drill into the manager's deals on that exact stage.
+              href: userId ? `/pipeline?assigned_to=${userId}&stage=${s.stage_id}` : undefined,
+            }))}
+          />
         </Card>
         <Card>
           <CardHeader><CardTitle>По приоритету</CardTitle></CardHeader>
@@ -148,19 +157,42 @@ export function ManagerPortfolio({ userId }: { userId: string | null }) {
   );
 }
 
-function MiniTable({ rows }: { rows: { key: string; label: string; count: number; amount: number }[] }) {
+function MiniTable({
+  rows,
+}: {
+  rows: { key: string; label: string; count: number; amount: number; href?: string }[];
+}) {
   if (rows.length === 0) {
     return <p className="type-caption text-brand-muted">—</p>;
   }
   return (
-    <ul className="flex flex-col gap-1.5">
-      {rows.map((r) => (
-        <li key={r.key} className="flex items-center gap-3">
-          <span className="flex-1 type-body text-brand-primary truncate">{r.label}</span>
-          <Badge variant="neutral">{r.count}</Badge>
-          <span className="w-24 shrink-0 text-right type-body text-brand-primary tabular-nums whitespace-nowrap">{fmtSum(r.amount)}</span>
-        </li>
-      ))}
+    <ul className="flex flex-col">
+      {rows.map((r) => {
+        const inner = (
+          <>
+            <span className="flex-1 type-body text-brand-primary truncate group-hover:text-brand-accent transition-colors">
+              {r.label}
+            </span>
+            <Badge variant="neutral">{r.count}</Badge>
+            <span className="w-24 shrink-0 text-right type-body text-brand-primary tabular-nums whitespace-nowrap">{fmtSum(r.amount)}</span>
+          </>
+        );
+        return (
+          <li key={r.key}>
+            {r.href ? (
+              <Link
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                href={r.href as any}
+                className="group flex items-center gap-3 -mx-2 px-2 py-1.5 rounded-lg hover:bg-brand-bg transition-colors"
+              >
+                {inner}
+              </Link>
+            ) : (
+              <div className="flex items-center gap-3 px-2 py-1.5">{inner}</div>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }

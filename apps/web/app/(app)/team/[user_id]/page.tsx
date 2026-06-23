@@ -1,29 +1,26 @@
 "use client";
 
-// /team/[user_id] — Sprint 3.4 G3. Per-manager activity breakdown
-// with a daily table for the chosen period. Admin/head only.
+// /team/[user_id] — per-manager deep-dive for admins/heads.
+// Top: identity header. Middle: active-deal portfolio (period-independent).
+// Bottom: activity for the chosen period (КП / pool / moves / tasks) with a
+// daily trend chart. The old duplicate «Лиды по этапам» block was dropped —
+// it repeated the portfolio's «По этапам». Admin/head only.
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ExternalLink, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronLeft, ExternalLink, Loader2, Activity } from "lucide-react";
 
-import { T } from "@/lib/design-system";
 import { useMe } from "@/lib/hooks/use-me";
 import { useManagerStats } from "@/lib/hooks/use-team-stats";
-import { useTeamWorkload } from "@/lib/hooks/use-team-workload";
 import { ManagerPortfolio } from "@/components/team/ManagerPortfolio";
 import { pageContainerVariants } from "@/components/ui/PageContainer";
-import type { TeamPeriod } from "@/lib/types";
-
-function fmtSum(n: number): string {
-  if (!n) return "—";
-  return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(n) + " ₽";
-}
+import { Badge } from "@/components/ui/Badge";
+import type { TeamPeriod, TeamDailyRow } from "@/lib/types";
 
 const PERIODS: { value: TeamPeriod; label: string }[] = [
   { value: "today", label: "Сегодня" },
-  { value: "week",  label: "Неделя" },
+  { value: "week", label: "Неделя" },
   { value: "month", label: "Месяц" },
 ];
 
@@ -33,13 +30,36 @@ const ROLE_LABEL: Record<string, string> = {
   manager: "Менеджер",
 };
 
-function formatDay(iso: string): string {
-  const d = new Date(iso);
-  return new Intl.DateTimeFormat("ru-RU", {
-    weekday: "short",
-    day: "numeric",
-    month: "long",
-  }).format(d);
+const AVATAR_COLORS = [
+  "bg-brand-accent",
+  "bg-success",
+  "bg-warning",
+  "bg-rose",
+  "bg-brand-primary",
+];
+
+function colorFor(seed: string): string {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function initialsOf(name: string, email: string): string {
+  const src = (name || email || "?").trim();
+  const parts = src.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  return src.slice(0, 2).toUpperCase();
+}
+
+function shortDate(iso: string | undefined): string {
+  if (!iso) return "";
+  return new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short" }).format(new Date(iso));
+}
+
+function fullDay(iso: string): string {
+  return new Intl.DateTimeFormat("ru-RU", { weekday: "short", day: "numeric", month: "long" }).format(
+    new Date(iso),
+  );
 }
 
 export default function ManagerStatsPage() {
@@ -49,19 +69,6 @@ export default function ManagerStatsPage() {
   const userId = params?.user_id ?? null;
   const [period, setPeriod] = useState<TeamPeriod>("week");
   const stats = useManagerStats(userId, period);
-  const workload = useTeamWorkload();
-
-  // Workload endpoint returns all managers; find the current one and keep
-  // only stages with at least one active lead (no point listing empty rows).
-  const myWorkload = useMemo(() => {
-    if (!workload.data || !userId) return null;
-    const m = workload.data.managers.find((x) => x.user_id === userId);
-    if (!m) return null;
-    const rows = workload.data.stages
-      .map((s) => ({ stage: s, cell: m.by_stage[s.id] }))
-      .filter((r) => r.cell && r.cell.count > 0);
-    return { manager: m, rows };
-  }, [workload.data, userId]);
 
   useEffect(() => {
     if (me.data && me.data.role !== "admin" && me.data.role !== "head") {
@@ -78,211 +85,174 @@ export default function ManagerStatsPage() {
   }
   if (me.data.role !== "admin" && me.data.role !== "head") return null;
 
+  const name = stats.data?.name ?? "…";
+  const email = stats.data?.email ?? "";
+  const role = stats.data?.role ?? "";
+
   return (
     <div className={pageContainerVariants({ surface: "detail" })}>
       <Link
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         href={"/team" as any}
-        className="inline-flex items-center gap-1 text-xs font-mono text-brand-muted hover:text-brand-primary mb-4 transition-colors"
+        className="inline-flex items-center gap-1 type-caption font-medium text-brand-muted hover:text-brand-primary mb-4 transition-colors"
       >
-        <ChevronLeft size={12} />
+        <ChevronLeft size={14} />
         Назад к команде
       </Link>
 
-      <header className="flex flex-wrap items-end justify-between gap-4 mb-6">
-        <div>
-          <h1 className="type-card-title">
-            {stats.data?.name ?? "…"}
-          </h1>
-          {stats.data && (
-            <p className="text-xs font-mono text-brand-muted mt-0.5">
-              {stats.data.email} ·{" "}
-              {ROLE_LABEL[stats.data.role] ?? stats.data.role}
-            </p>
-          )}
-        </div>
-
-        <div className="flex gap-1 bg-brand-bg/80 rounded-full p-1">
-          {PERIODS.map((p) => (
-            <button
-              key={p.value}
-              type="button"
-              onClick={() => setPeriod(p.value)}
-              className={
-                "px-3 py-1.5 rounded-full text-xs font-semibold transition-colors " +
-                (period === p.value
-                  ? "bg-white text-brand-primary"
-                  : "text-brand-muted hover:text-brand-primary")
-              }
+      {/* Identity header */}
+      <header className="bg-white border border-brand-border rounded-card p-5 sm:p-6 mb-6">
+        <div className="flex flex-wrap items-center gap-4">
+          <span
+            className={`shrink-0 w-14 h-14 rounded-full flex items-center justify-center text-white text-lg font-bold ${colorFor(
+              email || name,
+            )}`}
+          >
+            {initialsOf(name, email)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="type-section-title text-brand-primary">{name}</h1>
+              {role && <Badge variant="accent">{ROLE_LABEL[role] ?? role}</Badge>}
+            </div>
+            {email && <p className="type-caption font-mono text-brand-muted mt-1">{email}</p>}
+          </div>
+          {userId && (
+            <Link
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              href={`/pipeline?assigned_to=${userId}` as any}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-brand-panel border border-brand-border type-caption font-semibold text-brand-primary hover:bg-brand-border transition-colors"
             >
-              {p.label}
-            </button>
-          ))}
+              Открыть в воронке <ExternalLink size={13} />
+            </Link>
+          )}
         </div>
       </header>
 
-      {/* Deal portfolio — active deals broken down by segment / stage /
-          priority + headline KPIs. Self-fetching, period-independent. */}
+      {/* Active-deal portfolio — KPIs, segments, stages, priority, top deals */}
       <section className="mb-8">
-        <h2 className="type-card-title mb-3">Портфель сделок</h2>
         <ManagerPortfolio userId={userId} />
       </section>
 
-      {stats.isLoading && (
-        <div className="bg-white border border-brand-border rounded-card p-6 animate-pulse h-[260px]" />
-      )}
-
-      {stats.isError && (
-        <p className="text-sm text-rose py-8 text-center">
-          Не удалось загрузить статистику.
-        </p>
-      )}
-
-      {stats.data && (
-        <>
-          {/* Total stats */}
-          <div className="bg-white border border-brand-border rounded-card p-5 mb-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Stat label="КП" value={stats.data.stats.kp_sent} />
-              <Stat label="Из пула" value={stats.data.stats.leads_taken_from_pool} />
-              <Stat label="Продвинуто" value={stats.data.stats.leads_moved} />
-              <Stat label="Задачи" value={stats.data.stats.tasks_completed} />
-            </div>
+      {/* Activity for the selected period */}
+      <section>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2">
+            <Activity size={16} className="text-brand-muted" />
+            <h2 className="type-card-title text-brand-primary">Активность</h2>
+            {stats.data && (
+              <span className="type-hint text-brand-muted">
+                {shortDate(stats.data.from)} – {shortDate(stats.data.to)}
+              </span>
+            )}
           </div>
+          <div className="flex gap-1 bg-brand-panel rounded-full p-1">
+            {PERIODS.map((pr) => (
+              <button
+                key={pr.value}
+                type="button"
+                aria-pressed={period === pr.value}
+                onClick={() => setPeriod(pr.value)}
+                className={
+                  "px-3 py-1.5 rounded-full type-caption font-semibold transition-colors " +
+                  (period === pr.value
+                    ? "bg-white text-brand-primary shadow-sm"
+                    : "text-brand-muted hover:text-brand-primary")
+                }
+              >
+                {pr.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
-          {/* Current lead distribution by stage — independent of period */}
-          {myWorkload && (
-            <div className="bg-white border border-brand-border rounded-card p-5 mb-6">
-              <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
-                <div>
-                  <h2 className="type-card-title">Лиды по этапам</h2>
-                  <p className={`${T.mono} uppercase text-brand-muted mt-0.5`}>
-                    Текущая загрузка, не зависит от периода
-                  </p>
-                </div>
-                {userId && (
-                  <Link
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    href={`/pipeline?assigned_to=${userId}` as any}
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-accent-text hover:underline"
-                  >
-                    Открыть в воронке <ExternalLink size={12} />
-                  </Link>
-                )}
+        {stats.isLoading && (
+          <div className="bg-white border border-brand-border rounded-card p-6 animate-pulse h-48" />
+        )}
+
+        {stats.isError && (
+          <p className="type-caption text-rose py-8 text-center">Не удалось загрузить активность.</p>
+        )}
+
+        {stats.data && (
+          <div className="bg-white border border-brand-border rounded-card p-5 sm:p-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <ActivityKpi label="КП отправлено" value={stats.data.stats.kp_sent} />
+              <ActivityKpi label="Взято из пула" value={stats.data.stats.leads_taken_from_pool} />
+              <ActivityKpi label="Продвинуто сделок" value={stats.data.stats.leads_moved} />
+              <ActivityKpi label="Задач закрыто" value={stats.data.stats.tasks_completed} />
+            </div>
+
+            {stats.data.daily.length > 1 ? (
+              <div className="mt-6 pt-5 border-t border-brand-border">
+                <p className="type-caption text-brand-muted mb-3">Активность по дням</p>
+                <ActivityTrend daily={stats.data.daily} />
               </div>
-
-              {myWorkload.rows.length === 0 ? (
-                <p className="text-sm text-brand-muted py-4">
-                  Активных лидов нет.
-                </p>
-              ) : (
-                <>
-                  <ul className="divide-y divide-brand-border">
-                    {myWorkload.rows.map(({ stage, cell }) => (
-                      <li key={stage.id} className="flex items-center gap-3 py-2.5">
-                        <span
-                          className="w-2 h-2 rounded-full shrink-0"
-                          style={{ background: stage.color }}
-                          aria-hidden
-                        />
-                        <Link
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          href={`/pipeline?assigned_to=${userId}&stage=${stage.id}` as any}
-                          className="text-sm text-brand-primary flex-1 truncate hover:underline"
-                        >
-                          {stage.name}
-                        </Link>
-                        <span className="text-sm font-semibold tabular-nums text-brand-primary shrink-0 w-10 text-right">
-                          {cell.count}
-                        </span>
-                        <span className="text-xs text-brand-muted tabular-nums shrink-0 w-28 text-right">
-                          {fmtSum(cell.sum_amount)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="flex items-center gap-3 mt-3 pt-3 border-t border-brand-border">
-                    <span className={`${T.mono} uppercase text-brand-muted flex-1`}>
-                      Всего в работе
-                    </span>
-                    <span className="text-sm font-bold tabular-nums text-brand-primary shrink-0 w-10 text-right">
-                      {myWorkload.manager.open_count}
-                    </span>
-                    <span className="text-xs text-brand-muted tabular-nums shrink-0 w-28 text-right">
-                      {fmtSum(myWorkload.manager.pipeline_sum)}
-                    </span>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Daily table */}
-          <div className="bg-white border border-brand-border rounded-card overflow-hidden">
-            <table className="w-full text-left">
-              <thead className="bg-brand-bg/60">
-                <tr className="border-b border-brand-border">
-                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold`}>
-                    Дата
-                  </th>
-                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold text-right w-[80px]`}>
-                    КП
-                  </th>
-                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold text-right w-[80px]`}>
-                    Из пула
-                  </th>
-                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold text-right w-[100px]`}>
-                    Продвинуто
-                  </th>
-                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold text-right w-[80px]`}>
-                    Задачи
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.data.daily.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-12 text-center">
-                      <p className="text-sm text-brand-muted">
-                        За этот период активности не было.
-                      </p>
-                    </td>
-                  </tr>
-                )}
-                {stats.data.daily.map((d) => (
-                  <tr key={d.date} className="border-b border-brand-border last:border-0 hover:bg-brand-bg/40">
-                    <td className="px-4 py-2.5 align-middle">
-                      <span className="text-sm text-brand-primary">{formatDay(d.date)}</span>
-                    </td>
-                    <td className="px-4 py-2.5 align-middle text-right tabular-nums text-sm">
-                      {d.kp_sent}
-                    </td>
-                    <td className="px-4 py-2.5 align-middle text-right tabular-nums text-sm">
-                      {d.leads_taken_from_pool}
-                    </td>
-                    <td className="px-4 py-2.5 align-middle text-right tabular-nums text-sm">
-                      {d.leads_moved}
-                    </td>
-                    <td className="px-4 py-2.5 align-middle text-right tabular-nums text-sm">
-                      {d.tasks_completed}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            ) : (
+              <p className="type-hint text-brand-muted mt-5 pt-5 border-t border-brand-border">
+                График по дням появляется для периодов «Неделя» и «Месяц».
+              </p>
+            )}
           </div>
-        </>
-      )}
+        )}
+      </section>
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function ActivityKpi({ label, value }: { label: string; value: number }) {
   return (
-    <div className="text-center">
-      <p className="type-kpi-number text-brand-primary">{value}</p>
-      <p className={`${T.mono} uppercase text-brand-muted mt-1`}>
-        {label}
+    <div className="flex flex-col">
+      <p className="type-kpi-number text-brand-primary tabular-nums">{value}</p>
+      <p className="type-caption text-brand-muted mt-0.5">{label}</p>
+    </div>
+  );
+}
+
+function ActivityTrend({ daily }: { daily: TeamDailyRow[] }) {
+  const data = daily.map((d) => ({
+    date: d.date,
+    total: d.kp_sent + d.leads_taken_from_pool + d.leads_moved + d.tasks_completed,
+  }));
+  const max = Math.max(1, ...data.map((d) => d.total));
+  const sum = data.reduce((acc, d) => acc + d.total, 0);
+  const peak = Math.max(0, ...data.map((d) => d.total));
+
+  return (
+    <div>
+      <div className="flex items-end gap-1 h-24">
+        {data.map((d) => {
+          const day = new Date(d.date);
+          const weekend = day.getDay() === 0 || day.getDay() === 6;
+          const pct = (d.total / max) * 100;
+          return (
+            <div
+              key={d.date}
+              className="flex-1 min-w-0 flex flex-col justify-end h-full"
+              title={`${fullDay(d.date)} · ${d.total}`}
+            >
+              <div
+                className={`w-full rounded-t-sm transition-opacity hover:opacity-70 ${
+                  d.total === 0
+                    ? "bg-brand-border/60"
+                    : weekend
+                      ? "bg-brand-accent/40"
+                      : "bg-brand-accent"
+                }`}
+                style={{ height: `${d.total === 0 ? 3 : Math.max(pct, 8)}%` }}
+              />
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex items-center justify-between mt-2">
+        <span className="type-hint text-brand-muted">{shortDate(data[0]?.date)}</span>
+        <span className="type-hint text-brand-muted">{shortDate(data[data.length - 1]?.date)}</span>
+      </div>
+      <p className="type-caption text-brand-muted mt-3">
+        Всего за период: <span className="text-brand-primary font-semibold tabular-nums">{sum}</span>{" "}
+        действий · пик <span className="text-brand-primary font-semibold tabular-nums">{peak}</span> в
+        день
       </p>
     </div>
   );
