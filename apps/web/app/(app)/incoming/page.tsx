@@ -211,7 +211,7 @@ function Row({ item, onOpenLead }: { item: InboxItemOut; onOpenLead: () => void 
 
       {/* Who */}
       <div className="flex items-center gap-2">
-        <span className="text-[15px] font-bold text-brand-primary truncate">
+        <span className="text-base font-bold text-brand-primary truncate">
           {item.contact_name || company}
         </span>
         {item.contact_name && (
@@ -257,7 +257,7 @@ function Row({ item, onOpenLead }: { item: InboxItemOut; onOpenLead: () => void 
 
       {/* Source + status */}
       <div className="flex items-center gap-2 mt-2.5 flex-wrap">
-        <span className={`${T.mono} text-[10px] uppercase tracking-wider px-2 py-1 rounded-md bg-brand-bg text-brand-muted`}>
+        <span className={`${T.mono} text-2xs uppercase tracking-wider px-2 py-1 rounded-md bg-brand-bg text-brand-muted`}>
           {item.channel}
         </span>
         {item.source_domain && (
@@ -280,7 +280,7 @@ function StatusPill({ st }: { st: ReturnType<typeof statusLabel> }) {
         ? "bg-brand-panel text-brand-muted-strong"
         : "bg-brand-bg text-brand-muted";
   return (
-    <span className={clsx("text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-md", cls)}>
+    <span className={clsx("text-2xs font-semibold uppercase tracking-wider px-2 py-1 rounded-md", cls)}>
       {st.text}
     </span>
   );

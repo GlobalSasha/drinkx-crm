@@ -70,7 +70,7 @@ function PipelineLeadCardImpl({ lead }: Props) {
       aria-label={`Открыть лид ${lead.company_name}`}
       onClick={() => router.push(`/leads/${lead.id}`)}
       onKeyDown={handleKey}
-      className="font-sans bg-white border border-brand-border rounded-md p-3 h-[88px] flex flex-col justify-between cursor-pointer select-none transition-opacity duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg"
+      className="font-sans bg-white border border-brand-border rounded-md p-3 h-[88px] flex flex-col justify-between cursor-pointer select-none transition-[opacity,border-color] duration-150 hover:border-brand-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg"
     >
       {/* Row 1 — company name (bold, single line). Sprint 3.6 G7:
           attribution Globe icon for form-sourced leads — operationally

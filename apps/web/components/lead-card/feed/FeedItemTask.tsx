@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckSquare, ListTodo, Paperclip, Square } from "lucide-react";
+import { Calendar, CheckSquare, ListTodo, Paperclip, Square } from "lucide-react";
 import type { FeedItemOut } from "@/lib/types";
 import { useCompleteTask } from "@/lib/hooks/use-feed";
 import { formatDateShort, formatTimeShort } from "./_time";
@@ -31,8 +31,9 @@ export function FeedItemTask({ item, leadId }: Props) {
             <span>{formatTimeShort(item.created_at)}</span>
           </p>
           {item.task_due_at && (
-            <span className="type-caption text-brand-muted ml-auto">
-              📅 до {formatDateShort(item.task_due_at)}
+            <span className="type-caption text-brand-muted ml-auto inline-flex items-center gap-1">
+              <Calendar size={11} className="shrink-0" />
+              до {formatDateShort(item.task_due_at)}
             </span>
           )}
         </div>

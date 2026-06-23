@@ -558,8 +558,8 @@ function LeadsPoolPageInner() {
             onClick={() => setNeedsReview((v) => (v === true ? undefined : true))}
             className={`text-xs px-2 py-1 rounded ${
               needsReview === true
-                ? "bg-amber-600 text-white"
-                : "bg-brand-bg border border-brand-border text-brand-muted hover:border-amber-400"
+                ? "bg-warning text-white"
+                : "bg-brand-bg border border-brand-border text-brand-muted hover:border-warning"
             }`}
           >
             Только AI-созданные
@@ -639,7 +639,7 @@ function LeadsPoolPageInner() {
 
         {!isLoading && !isError && filtered.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="bg-white border border-brand-border rounded-card p-10 shadow-overlay max-w-sm w-full">
+            <div className="bg-white border border-brand-border rounded-card p-10 max-w-sm w-full">
               <p className="type-card-title mb-2">В пуле пока пусто</p>
               <p className="text-sm text-brand-muted">
                 Импортируйте лиды или добавьте вручную.

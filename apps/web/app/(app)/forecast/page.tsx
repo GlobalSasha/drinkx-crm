@@ -422,9 +422,11 @@ function Kpi({
           {label}
         </span>
       </div>
-      <p className={`type-kpi-number tabular-nums ${valueColor}`}>
-        {loading ? "…" : value}
-      </p>
+      {loading ? (
+        <span className="block h-7 w-24 rounded-md bg-brand-panel animate-pulse" />
+      ) : (
+        <p className={`type-kpi-number tabular-nums ${valueColor}`}>{value}</p>
+      )}
       <p className="type-caption text-brand-muted">{note}</p>
     </div>
   );
