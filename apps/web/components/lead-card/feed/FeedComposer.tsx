@@ -11,15 +11,15 @@ import {
   Send,
   X,
 } from "lucide-react";
-import { useAskBlake, useCreateActivity } from "@/lib/hooks/use-feed";
+import { useCreateActivity } from "@/lib/hooks/use-feed";
 import { useUploadLeadFile } from "@/lib/hooks/use-task-files";
 
 interface Props {
   leadId: string;
-  /** Seed value pushed in by callers (e.g. «@Блейк » from FeedItemAI button). */
+  /** Seed value pushed in by callers — prefills the comment box. */
   seed?: string;
   onSeedConsumed?: () => void;
-  /** Lead Card v2 — switch the composer into a specific mode and
+  /** Lead Card v3 — switch the composer into a specific mode and
    *  focus the input. Used by `NextStepBanner` to drop the user
    *  straight into task creation. Cleared via `onModeRequestConsumed`
    *  after applying. */
@@ -30,12 +30,9 @@ interface Props {
 type Mode = "comment" | "task" | "call" | "file";
 
 /**
- * Bottom-of-feed composer with 4 modes. Default mode is `comment`; the
- * mode switcher buttons live to the right of the input.
- *
- * «@Блейк» (case-insensitive, at the start of the text) routes the
- * submission to the ask-blake endpoint instead of creating a regular
- * comment. The marker is stripped before the question is sent.
+ * Activity composer with 4 modes (Комментарий / Задача / Звонок / Файл).
+ * Default mode is `comment`; the mode switcher buttons live to the right
+ * of the input.
  */
 export function FeedComposer({
   leadId,
@@ -52,14 +49,13 @@ export function FeedComposer({
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const create = useCreateActivity(leadId);
-  const ask = useAskBlake(leadId);
   const uploadFile = useUploadLeadFile(leadId);
-  const isPending = create.isPending || ask.isPending || uploadFile.isPending;
+  const isPending = create.isPending || uploadFile.isPending;
 
-  // External seed (e.g. «Спросить подробнее» button on an AI message)
+  // External seed — prefill the comment box and focus it.
   useEffect(() => {
     if (seed === undefined) return;
-    setText(`@Блейк ${seed}`.trim());
+    setText(seed);
     setMode("comment");
     setTimeout(() => inputRef.current?.focus(), 30);
     onSeedConsumed?.();
@@ -80,14 +76,6 @@ export function FeedComposer({
     setPicked(null);
   }
 
-  function isAskBlake(value: string): { match: boolean; question: string } {
-    // Match @Блейк at start (with optional space), case-insensitive on the
-    // word. Strip the marker so the question is just the user's text.
-    const m = value.match(/^@?Блейк\s*[:,—-]?\s*/i);
-    if (m) return { match: true, question: value.slice(m[0].length).trim() };
-    return { match: false, question: value };
-  }
-
   async function handleSubmit(e?: React.FormEvent) {
     if (e) e.preventDefault();
     const value = text.trim();
@@ -95,17 +83,6 @@ export function FeedComposer({
     if (mode !== "file" && !value) return;
 
     if (mode === "comment") {
-      const { match, question } = isAskBlake(value);
-      if (match) {
-        if (!question) return;
-        try {
-          await ask.mutateAsync(question);
-          reset();
-        } catch {
-          /* error surfaced via mutation state; keep text in place */
-        }
-        return;
-      }
       try {
         await create.mutateAsync({ type: "comment", body: value });
         reset();
@@ -186,7 +163,7 @@ export function FeedComposer({
           onKeyDown={handleKeyDown}
           placeholder={
             mode === "comment"
-              ? "Написать комментарий или @Блейк..."
+              ? "Написать комментарий…"
               : mode === "task"
                 ? "Название задачи..."
                 : mode === "call"

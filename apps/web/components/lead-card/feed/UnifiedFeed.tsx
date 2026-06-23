@@ -15,10 +15,13 @@ import { FeedItemSystem } from "./FeedItemSystem";
 import { FeedItemTask } from "./FeedItemTask";
 import { FeedComposer } from "./FeedComposer";
 import { EmailModal } from "./EmailModal";
-import { NextStepBanner } from "./NextStepBanner";
 
 interface Props {
   leadId: string;
+  /** Lead Card v3 — the left column's «Следующий шаг» drives the
+   *  composer into task mode from outside the feed. */
+  composerModeRequest?: "comment" | "task" | "call" | "file" | null;
+  onComposerModeRequestConsumed?: () => void;
 }
 
 const SYSTEM_TYPES = new Set([
@@ -35,13 +38,14 @@ const SYSTEM_TYPES = new Set([
  * separators between days, dispatches each item to its per-type
  * component, owns the email-modal + composer-seed state.
  */
-export function UnifiedFeed({ leadId }: Props) {
+export function UnifiedFeed({
+  leadId,
+  composerModeRequest,
+  onComposerModeRequestConsumed,
+}: Props) {
   const feed = useFeed(leadId);
   const [openEmail, setOpenEmail] = useState<FeedItemOut | null>(null);
   const [composerSeed, setComposerSeed] = useState<string | undefined>(undefined);
-  const [composerModeRequest, setComposerModeRequest] = useState<
-    "comment" | "task" | "call" | "file" | null
-  >(null);
 
   // Flatten the paged feed into one chronological list.
   const items = useMemo(() => {
@@ -67,9 +71,12 @@ export function UnifiedFeed({ leadId }: Props) {
 
   return (
     <div className="space-y-4">
-      <NextStepBanner
-        items={items}
-        onCreateTaskRequest={() => setComposerModeRequest("task")}
+      <FeedComposer
+        leadId={leadId}
+        seed={composerSeed}
+        onSeedConsumed={() => setComposerSeed(undefined)}
+        modeRequest={composerModeRequest}
+        onModeRequestConsumed={onComposerModeRequestConsumed}
       />
 
       <div className="space-y-3">
@@ -118,14 +125,6 @@ export function UnifiedFeed({ leadId }: Props) {
           </div>
         )}
       </div>
-
-      <FeedComposer
-        leadId={leadId}
-        seed={composerSeed}
-        onSeedConsumed={() => setComposerSeed(undefined)}
-        modeRequest={composerModeRequest}
-        onModeRequestConsumed={() => setComposerModeRequest(null)}
-      />
 
       {openEmail && (
         <EmailModal item={openEmail} onClose={() => setOpenEmail(null)} />
