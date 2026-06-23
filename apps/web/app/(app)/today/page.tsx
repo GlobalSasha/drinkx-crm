@@ -453,7 +453,7 @@ function FunnelWidget() {
           <Link
             key={s.id}
             href={`/pipeline?stage=${s.id}`}
-            className="flex items-center gap-3 cursor-pointer"
+            className={`flex items-center gap-3 cursor-pointer -mx-2 px-2 py-1 rounded-card hover:bg-brand-bg/60 transition-colors ${C.focusRing}`}
           >
             <span
               className={`type-caption ${C.color.mutedLight} w-28 shrink-0 leading-tight line-clamp-2`}
@@ -526,7 +526,7 @@ function NotifWidget() {
               onClick={() => {
                 if (isUnread) markRead.mutate(n.id);
               }}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-card bg-brand-bg cursor-pointer"
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-card bg-brand-bg cursor-pointer hover:bg-brand-panel transition-colors ${C.focusRing}`}
             >
               <span className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`} />
               <p className={`type-caption ${C.color.text} truncate flex-1`}>

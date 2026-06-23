@@ -74,6 +74,7 @@ body {
     font-weight: 700;
     line-height: var(--leading-tight);
     letter-spacing: var(--tracking-tight);
+    text-wrap: balance;
   }
 
   .type-section-title {
@@ -82,6 +83,7 @@ body {
     font-weight: 600;
     line-height: var(--leading-snug);
     letter-spacing: var(--tracking-snug);
+    text-wrap: balance;
   }
 
   .type-card-title {
@@ -90,6 +92,7 @@ body {
     font-weight: 600;
     line-height: var(--leading-snug);
     letter-spacing: var(--tracking-snug);
+    text-wrap: balance;
   }
 
   .type-table-header {
@@ -145,6 +148,7 @@ body {
     font-weight: 400;
     line-height: var(--leading-normal);
     letter-spacing: var(--tracking-normal);
+    text-wrap: pretty;
   }
 
   .type-caption {

@@ -156,7 +156,7 @@ export default function ManagerStatsPage() {
                 className={
                   "px-3 py-1.5 rounded-full type-caption font-semibold transition-colors " +
                   (period === pr.value
-                    ? "bg-white text-brand-primary shadow-sm"
+                    ? "bg-white text-brand-primary"
                     : "text-brand-muted hover:text-brand-primary")
                 }
               >
