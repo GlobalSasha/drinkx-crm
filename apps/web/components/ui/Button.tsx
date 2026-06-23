@@ -24,26 +24,27 @@ import { cn } from "@/lib/cn";
  * omits them to avoid Tailwind class conflicts.
  */
 const buttonVariants = cva(
-  // Shared chrome: layout only. Focus ring + font weight live inside each
-  // C.button.* variant string to stay byte-identical to hand-rolled usage.
-  "inline-flex items-center justify-center gap-1.5 transition-colors disabled:opacity-40 disabled:pointer-events-none",
+  // Shared chrome: layout only. Each variant carries its own `transition`
+  // (covers colors + the active:scale press), focus ring and font weight so
+  // it stays byte-identical to the C.button.* tokens it mirrors.
+  "inline-flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none",
   {
     variants: {
       variant: {
         // Exact mirrors of C.button.* from lib/design-system.ts
         primary:
-          "bg-brand-accent text-white rounded-full font-medium transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg",
+          "bg-brand-accent text-white rounded-full font-medium transition hover:bg-brand-accent/90 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg",
         ghost:
-          "bg-transparent text-brand-muted border border-brand-border rounded-full font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg",
+          "bg-transparent text-brand-muted border border-brand-border rounded-full font-medium transition hover:bg-brand-panel active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg",
         pill:
-          "bg-brand-panel text-brand-muted-strong border border-brand-border rounded-full font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg",
+          "bg-brand-panel text-brand-muted-strong border border-brand-border rounded-full font-medium transition hover:bg-brand-border active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg",
         nav:
-          "bg-brand-panel text-brand-primary rounded-full font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg",
+          "bg-brand-panel text-brand-primary rounded-full font-medium transition hover:bg-brand-border active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg",
         // New variants (no matching C.button.* token — explicitly documented)
         destructive:
-          "text-rose bg-rose/10 hover:bg-rose/15 rounded-full font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg",
+          "text-rose bg-rose/10 transition hover:bg-rose/15 active:scale-[0.96] rounded-full font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg",
         link:
-          "text-brand-accent underline-offset-2 hover:underline rounded-md font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1",
+          "text-brand-accent underline-offset-2 transition hover:underline rounded-md font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1",
       },
       size: {
         default: "px-4 py-2 type-body",

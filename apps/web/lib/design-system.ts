@@ -62,11 +62,14 @@ export const C = {
   // focusRing — общий visible-only ring для клавиатурной навигации
   // (применяется к кнопкам, ссылкам, интерактивным карточкам).
   focusRing: 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg',
+  // `transition` (not `transition-all`) animates Tailwind's curated property
+  // set — colors + transform — so hover tint and the active:scale press both
+  // ease. active:scale-[0.96] gives a tactile press (make-interfaces-feel-better).
   button: {
-    primary: 'bg-brand-accent text-white rounded-full font-medium transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg',
-    pill:    'bg-brand-panel text-brand-muted-strong border border-brand-border rounded-full font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg',
-    nav:     'bg-brand-panel text-brand-primary rounded-full font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg',
-    ghost:   'bg-transparent text-brand-muted border border-brand-border rounded-full font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg',
+    primary: 'bg-brand-accent text-white rounded-full font-medium transition hover:bg-brand-accent/90 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg',
+    pill:    'bg-brand-panel text-brand-muted-strong border border-brand-border rounded-full font-medium transition hover:bg-brand-border active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg',
+    nav:     'bg-brand-panel text-brand-primary rounded-full font-medium transition hover:bg-brand-border active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg',
+    ghost:   'bg-transparent text-brand-muted border border-brand-border rounded-full font-medium transition hover:bg-brand-panel active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg',
   },
 
   // ─── Layout ──────────────────────────────────────────────
