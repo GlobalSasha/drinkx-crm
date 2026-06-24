@@ -168,14 +168,14 @@ export function LeadCardHeader({
                 if (e.key === "Enter") commitName();
                 if (e.key === "Escape") setEditingName(false);
               }}
-              className="text-4xl font-bold tracking-tight text-brand-primary bg-transparent border-b-2 border-brand-accent outline-none w-full"
-              style={{ lineHeight: "1.2" }}
+              className="text-2xl sm:text-3xl font-bold tracking-tight text-brand-primary bg-transparent border-b-2 border-brand-accent outline-none w-full"
+              style={{ lineHeight: "1.15" }}
             />
           ) : (
             <h1
               onClick={startEditName}
-              className="text-4xl font-bold tracking-tight text-brand-primary cursor-text hover:text-brand-accent-text transition-colors truncate"
-              style={{ lineHeight: "1.2" }}
+              className="text-2xl sm:text-3xl font-bold tracking-tight text-brand-primary cursor-text hover:text-brand-accent-text transition-colors truncate"
+              style={{ lineHeight: "1.15" }}
               title="Нажмите для редактирования"
             >
               {lead.company_name}
@@ -275,7 +275,7 @@ export function LeadCardHeader({
       {/* Row 2: meta — primary LPR + key dates. Hidden if nothing to show so
           the header collapses gracefully on bare leads. */}
       {(lead.primary_contact_name || lead.assigned_at || lead.last_activity_at) && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 ml-9 type-caption text-brand-muted">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 ml-9 type-caption text-brand-muted">
           {lead.primary_contact_name && (
             <span className="inline-flex items-center gap-1">
               <Star size={11} fill="currentColor" className="text-brand-accent" />
@@ -300,7 +300,7 @@ export function LeadCardHeader({
       )}
 
       {/* Row 3: stage / priority / segment pills */}
-      <div className="flex flex-wrap items-center gap-2 mt-3 ml-9">
+      <div className="flex flex-wrap items-center gap-2 mt-2 ml-9">
         <DropdownMenu open={stageDropdownOpen} onOpenChange={setStageDropdownOpen}>
           <DropdownMenuTrigger asChild>
             <button
@@ -394,7 +394,7 @@ export function LeadCardHeader({
 
       {(isWon || isLost) && (
         <div
-          className={`mt-3 ml-9 flex items-center gap-2 px-3 py-2 rounded-card type-caption font-semibold ${
+          className={`mt-2 ml-9 flex items-center gap-2 px-3 py-1.5 rounded-card type-caption font-semibold ${
             isWon ? "bg-success/10 text-success" : "bg-rose/10 text-rose"
           }`}
         >

@@ -212,7 +212,7 @@ export function LeadCard({ leadId }: Props) {
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
       {/* Sticky header — 2 rows per spec */}
       <header className="sticky top-0 z-20 bg-white border-b border-brand-border">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-3 pb-2">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-2.5 pb-2">
           <LeadCardHeader
             lead={lead}
             stages={stages}
@@ -242,7 +242,7 @@ export function LeadCard({ leadId }: Props) {
               mounted between header pills and tabs. Both blocks are
               self-fetching (their own queries) so they don't bloat
               this component. */}
-          <div className="mt-4">
+          <div className="mt-2.5">
             <StagesStepper
               leadId={lead.id}
               currentStageDays={lead.current_stage_days}
