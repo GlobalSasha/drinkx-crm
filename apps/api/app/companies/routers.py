@@ -71,7 +71,7 @@ async def get_company_card(
             status_code=status.HTTP_404_NOT_FOUND, detail="Company not found"
         )
 
-    leads = await companies_repo.list_leads_for_company(
+    lead_rows = await companies_repo.list_leads_for_company(
         db, workspace_id=user.workspace_id, company_id=company_id
     )
     contacts = await companies_repo.list_contacts_for_company(
@@ -83,7 +83,30 @@ async def get_company_card(
 
     return CompanyCardOut(
         **CompanyOut.model_validate(company).model_dump(),
-        leads=[CompanyLeadOut.model_validate(l) for l in leads],
+        leads=[
+            CompanyLeadOut(
+                id=r.Lead.id,
+                company_name=r.Lead.company_name,
+                stage_id=r.Lead.stage_id,
+                stage_name=r.stage_name,
+                stage_color=r.stage_color,
+                score=r.Lead.score,
+                fit_score=r.Lead.fit_score,
+                assigned_to=r.Lead.assigned_to,
+                # User.name defaults to "" — fall back to email so the card
+                # never shows a blank manager.
+                manager_name=(r.manager_name or None) or r.manager_email,
+                deal_amount=(
+                    float(r.Lead.deal_amount)
+                    if r.Lead.deal_amount is not None
+                    else None
+                ),
+                deal_type=r.Lead.deal_type,
+                last_activity_at=r.Lead.last_activity_at,
+                created_at=r.Lead.created_at,
+            )
+            for r in lead_rows
+        ],
         contacts=[CompanyContactOut.model_validate(c) for c in contacts],
         recent_activities=[CompanyActivityOut.model_validate(a) for a in activities],
     )

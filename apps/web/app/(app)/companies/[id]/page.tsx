@@ -1,5 +1,5 @@
 "use client";
-import { use, useState } from "react";
+import { use, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -16,6 +16,12 @@ import {
   X,
   Plus,
   GitMerge,
+  User as UserIcon,
+  FileText,
+  ChevronRight,
+  Activity as ActivityIcon,
+  Briefcase,
+  Wallet,
 } from "lucide-react";
 import {
   useCompany,
@@ -24,9 +30,26 @@ import {
 import { useCreateLead } from "@/lib/hooks/use-leads";
 import { useMe } from "@/lib/hooks/use-me";
 import { ApiError } from "@/lib/api-client";
-import type { CompanyUpdate } from "@/lib/types";
+import type { CompanyUpdate, CompanyLeadSummary } from "@/lib/types";
 import { C } from "@/lib/design-system";
+import { dealTypeLabel } from "@/lib/i18n";
+import { Modal } from "@/components/ui/Modal";
 import { CompanyMergeModal } from "@/components/companies/CompanyMergeModal";
+
+function formatRub(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return (
+    new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(value) +
+    " ₽"
+  );
+}
+
+function formatDateShort(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "short" });
+}
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -42,6 +65,12 @@ export default function CompanyCardPage({ params }: Props) {
   const [draft, setDraft] = useState<string>("");
   const [toast, setToast] = useState<string | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
+  const [reqOpen, setReqOpen] = useState(false);
+
+  const pipelineSum = useMemo(
+    () => (company?.leads ?? []).reduce((s, l) => s + (l.deal_amount ?? 0), 0),
+    [company?.leads],
+  );
 
   function showToast(msg: string) {
     setToast(msg);
@@ -109,7 +138,7 @@ export default function CompanyCardPage({ params }: Props) {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
           <Link
             href="/pipeline"
-            className="p-1.5 rounded-full text-brand-muted hover:bg-brand-panel transition-colors"
+            className="p-1.5 rounded-full text-brand-muted hover:bg-brand-panel transition-colors shrink-0"
             aria-label="Назад"
           >
             <ArrowLeft size={18} />
@@ -162,9 +191,18 @@ export default function CompanyCardPage({ params }: Props) {
           </div>
           <button
             type="button"
+            onClick={() => setReqOpen(true)}
+            aria-label="Реквизиты"
+            className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 type-body font-semibold ${C.button.ghost}`}
+          >
+            <FileText size={13} />
+            <span className="hidden sm:inline">Реквизиты</span>
+          </button>
+          <button
+            type="button"
             onClick={handleCreateLead}
             disabled={createLead.isPending}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 type-body font-semibold bg-brand-accent text-white rounded-full disabled:opacity-50 transition-opacity"
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 type-body font-semibold bg-brand-accent text-white rounded-full disabled:opacity-50 transition hover:bg-brand-accent/90 active:scale-[0.96]"
           >
             <Plus size={13} />
             Создать лид
@@ -173,21 +211,160 @@ export default function CompanyCardPage({ params }: Props) {
             <button
               type="button"
               onClick={() => setMergeOpen(true)}
-              className={`inline-flex items-center gap-1.5 px-4 py-1.5 type-body font-semibold ${C.button.ghost} transition-opacity`}
+              aria-label="Объединить"
+              className={`inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 type-body font-semibold ${C.button.ghost}`}
             >
               <GitMerge size={13} />
-              Объединить
+              <span className="hidden sm:inline">Объединить</span>
             </button>
           )}
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto w-full px-4 sm:px-6 py-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Left: data */}
-        <section className="md:col-span-2 bg-white rounded-card border border-brand-border p-5">
-          <h2 className={`type-card-title ${C.color.text} mb-4`}>
-            Реквизиты
-          </h2>
+      <main className="max-w-6xl mx-auto w-full px-4 sm:px-6 py-6 space-y-4">
+        {/* Snapshot — deal-centric stats at a glance */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <Stat
+            icon={<Briefcase size={13} />}
+            label="Сделок"
+            value={String(company.leads.length)}
+          />
+          <Stat
+            icon={<Wallet size={13} />}
+            label="Сумма пайплайна"
+            value={formatRub(pipelineSum > 0 ? pipelineSum : null)}
+          />
+          <Stat
+            icon={<UserIcon size={13} />}
+            label="Контактов"
+            value={String(company.contacts.length)}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Main — deals (manager · stage · amount), the reason you're here */}
+          <section className="md:col-span-2 space-y-3">
+            <h2 className={`type-card-title ${C.color.text}`}>
+              Сделки{" "}
+              <span className={`type-caption ${C.color.muted}`}>
+                ({company.leads.length})
+              </span>
+            </h2>
+            {company.leads.length === 0 ? (
+              <div className="rounded-card border border-dashed border-brand-border bg-white p-8 text-center">
+                <p className="type-body text-brand-muted">
+                  Пока нет сделок с этой компанией.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleCreateLead}
+                  disabled={createLead.isPending}
+                  className="mt-3 inline-flex items-center gap-1.5 px-4 py-1.5 type-body font-semibold bg-brand-accent text-white rounded-full disabled:opacity-50 transition hover:bg-brand-accent/90 active:scale-[0.98]"
+                >
+                  <Plus size={13} />
+                  Создать лид
+                </button>
+              </div>
+            ) : (
+              <ul className="space-y-3">
+                {company.leads.map((l) => (
+                  <li key={l.id}>
+                    <DealCard lead={l} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* Side — contacts + recent activity */}
+          <aside className="flex flex-col gap-4">
+            <section className="bg-white rounded-card border border-brand-border p-5">
+              <h2 className={`type-card-title ${C.color.text} mb-3`}>
+                Контакты{" "}
+                <span className={`type-caption ${C.color.muted}`}>
+                  ({company.contacts.length})
+                </span>
+              </h2>
+              {company.contacts.length === 0 ? (
+                <p className="type-hint text-brand-muted">Нет контактов.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {company.contacts.map((c) => (
+                    <li key={c.id} className="px-3 py-2 rounded-xl bg-brand-panel">
+                      <p className={`type-body font-semibold ${C.color.text}`}>{c.name}</p>
+                      {c.title && (
+                        <p className={`type-caption ${C.color.muted}`}>{c.title}</p>
+                      )}
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
+                        {c.phone && (
+                          <a href={`tel:${c.phone}`} className={`type-caption ${C.color.accent} tabular-nums`}>
+                            {c.phone}
+                          </a>
+                        )}
+                        {c.email && (
+                          <a href={`mailto:${c.email}`} className={`type-caption ${C.color.accent} truncate`}>
+                            {c.email}
+                          </a>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section className="bg-white rounded-card border border-brand-border p-5">
+              <h2 className={`type-card-title ${C.color.text} mb-3`}>
+                Активность{" "}
+                <span className={`type-caption ${C.color.muted}`}>
+                  ({company.recent_activities.length})
+                </span>
+              </h2>
+              {company.recent_activities.length === 0 ? (
+                <p className="type-hint text-brand-muted">Пока пусто.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {company.recent_activities.map((a) => (
+                    <li
+                      key={a.id}
+                      className="px-3 py-2 rounded-xl bg-brand-panel"
+                    >
+                      <p className={`font-mono type-caption ${C.color.muted} uppercase tracking-wider`}>
+                        {a.type} · {formatDateShort(a.created_at)}
+                      </p>
+                      {a.subject && (
+                        <p className={`type-caption ${C.color.text} mt-0.5 font-semibold truncate`}>
+                          {a.subject}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </aside>
+        </div>
+      </main>
+
+      {/* Requisites — demoted out of the hero into a dialog */}
+      <Modal
+        open={reqOpen}
+        onClose={() => setReqOpen(false)}
+        title="Реквизиты"
+        size="max-w-lg"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className={`type-card-title ${C.color.text}`}>Реквизиты</h2>
+          <button
+            type="button"
+            onClick={() => setReqOpen(false)}
+            className="p-1.5 rounded-full hover:bg-brand-panel text-brand-muted transition-colors"
+            aria-label="Закрыть"
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <div>
           <DataRow
             icon={<Building2 size={14} />}
             label="Юр. имя"
@@ -266,101 +443,8 @@ export default function CompanyCardPage({ params }: Props) {
             commit={commit}
             cancel={() => setEditField(null)}
           />
-        </section>
-
-        {/* Right: leads + contacts */}
-        <aside className="flex flex-col gap-4">
-          <section className="bg-white rounded-card border border-brand-border p-5">
-            <h2 className={`type-card-title ${C.color.text} mb-3`}>
-              Сделки <span className={`type-caption ${C.color.muted}`}>({company.leads.length})</span>
-            </h2>
-            {company.leads.length === 0 ? (
-              <p className="type-hint text-brand-muted">Нет сделок.</p>
-            ) : (
-              <ul className="space-y-2">
-                {company.leads.map((l) => (
-                  <li key={l.id}>
-                    <Link
-                      href={`/leads/${l.id}` as `/leads/${string}`}
-                      className={`block px-3 py-2 rounded-xl bg-brand-panel hover:bg-brand-bg transition-colors`}
-                    >
-                      <p className={`type-body font-semibold ${C.color.text} truncate`}>
-                        {l.company_name}
-                      </p>
-                      <p className={`type-caption ${C.color.muted}`}>
-                        score {l.score}/100
-                        {l.fit_score != null && ` · AI ${l.fit_score}/10`}
-                      </p>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <section className="bg-white rounded-card border border-brand-border p-5">
-            <h2 className={`type-card-title ${C.color.text} mb-3`}>
-              Контакты <span className={`type-caption ${C.color.muted}`}>({company.contacts.length})</span>
-            </h2>
-            {company.contacts.length === 0 ? (
-              <p className="type-hint text-brand-muted">Нет контактов.</p>
-            ) : (
-              <ul className="space-y-2">
-                {company.contacts.map((c) => (
-                  <li key={c.id} className="px-3 py-2 rounded-xl bg-brand-panel">
-                    <p className={`type-body font-semibold ${C.color.text}`}>{c.name}</p>
-                    {c.title && (
-                      <p className={`type-caption ${C.color.muted}`}>{c.title}</p>
-                    )}
-                    <div className="flex gap-2 mt-1">
-                      {c.phone && (
-                        <a href={`tel:${c.phone}`} className={`type-caption ${C.color.accent}`}>
-                          {c.phone}
-                        </a>
-                      )}
-                      {c.email && (
-                        <a href={`mailto:${c.email}`} className={`type-caption ${C.color.accent}`}>
-                          {c.email}
-                        </a>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <section className="bg-white rounded-card border border-brand-border p-5">
-            <h2 className={`type-card-title ${C.color.text} mb-3`}>
-              Активность{" "}
-              <span className={`type-caption ${C.color.muted}`}>
-                ({company.recent_activities.length})
-              </span>
-            </h2>
-            {company.recent_activities.length === 0 ? (
-              <p className="type-hint text-brand-muted">Пока пусто.</p>
-            ) : (
-              <ul className="space-y-2">
-                {company.recent_activities.map((a) => (
-                  <li
-                    key={a.id}
-                    className="type-caption text-brand-muted px-3 py-2 rounded-xl bg-brand-panel"
-                  >
-                    <p className={`font-mono ${C.color.muted} uppercase tracking-wider`}>
-                      {a.type} · {new Date(a.created_at).toLocaleDateString("ru-RU")}
-                    </p>
-                    {a.subject && (
-                      <p className={`${C.color.text} mt-0.5 font-semibold truncate`}>
-                        {a.subject}
-                      </p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </aside>
-      </main>
+        </div>
+      </Modal>
 
       {mergeOpen && (
         <CompanyMergeModal
@@ -379,6 +463,79 @@ export default function CompanyCardPage({ params }: Props) {
         </div>
       )}
     </div>
+  );
+}
+
+function Stat({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-card border border-brand-border bg-white px-4 py-3">
+      <div className={`flex items-center gap-1.5 type-caption ${C.color.muted}`}>
+        <span className="shrink-0">{icon}</span>
+        <span className="truncate">{label}</span>
+      </div>
+      <p className={`type-card-title ${C.color.text} mt-1 tabular-nums`}>{value}</p>
+    </div>
+  );
+}
+
+function DealCard({ lead }: { lead: CompanyLeadSummary }) {
+  return (
+    <Link
+      href={`/leads/${lead.id}` as `/leads/${string}`}
+      className="group block rounded-card border border-brand-border bg-white p-4 transition-colors hover:border-brand-accent/40"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <span
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-white text-xs font-semibold shrink-0"
+          style={{ backgroundColor: lead.stage_color ?? "#a1a1a6" }}
+        >
+          {lead.stage_name ?? "Без этапа"}
+        </span>
+        <ChevronRight
+          size={16}
+          className="text-brand-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+        />
+      </div>
+
+      <div className="mt-3 flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <p className="type-hint text-brand-muted">Сумма сделки</p>
+          <p className={`type-card-title ${C.color.text} tabular-nums`}>
+            {formatRub(lead.deal_amount)}
+          </p>
+          {lead.deal_type && (
+            <p className={`type-caption ${C.color.muted} mt-0.5`}>
+              {dealTypeLabel(lead.deal_type)}
+            </p>
+          )}
+        </div>
+        <p className={`type-caption ${C.color.muted} tabular-nums text-right shrink-0`}>
+          score {lead.score}/100
+          {lead.fit_score != null && ` · AI ${lead.fit_score}/10`}
+        </p>
+      </div>
+
+      <div className="mt-3 pt-3 border-t border-brand-border flex flex-wrap items-center gap-x-4 gap-y-1 type-caption text-brand-muted">
+        <span className="inline-flex items-center gap-1 min-w-0">
+          <UserIcon size={11} className="shrink-0" />
+          <span className="truncate">{lead.manager_name ?? "Не назначен"}</span>
+        </span>
+        {lead.last_activity_at && (
+          <span className="inline-flex items-center gap-1">
+            <ActivityIcon size={11} className="text-success" />
+            активность {formatDateShort(lead.last_activity_at)}
+          </span>
+        )}
+      </div>
+    </Link>
   );
 }
 
@@ -420,7 +577,12 @@ function DataRow({
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") commit();
-              if (e.key === "Escape") cancel();
+              if (e.key === "Escape") {
+                // Cancel just this field — don't let the keydown bubble to
+                // the Modal's document-level Escape handler (closes the dialog).
+                e.stopPropagation();
+                cancel();
+              }
             }}
             autoFocus
             className="flex-1 px-3 py-1 type-body bg-white border border-brand-accent rounded-xl outline-none"

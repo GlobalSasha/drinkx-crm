@@ -127,8 +127,10 @@ export function LeadInfoBlock({ lead }: Props) {
         onSave={onDescription}
       />
 
-      {/* Notion-style property table */}
-      <div className="mt-5 rounded-xl border border-brand-border overflow-hidden divide-y divide-brand-border">
+      {/* Flat property list — single surface inside the card (no nested
+          border/squircle), so it reads as part of «Информация» rather than
+          a block-in-a-block. */}
+      <div className="mt-4 divide-y divide-brand-border/70">
         <Row
           icon={<CircleDollarSign size={15} className={C.color.muted} />}
           label="Сумма"
@@ -361,20 +363,20 @@ function Row({
   return (
     <div
       onClick={editing ? undefined : startEdit}
-      className={`grid grid-cols-[7.5rem_1fr] sm:grid-cols-[10rem_1fr] group ${
+      className={`grid grid-cols-[7.5rem_1fr] sm:grid-cols-[9rem_1fr] items-start gap-3 px-1 py-2 group ${
         editable && !editing
           ? "cursor-text hover:bg-brand-bg transition-colors"
           : ""
       }`}
     >
-      {/* Property name cell */}
-      <div className="flex items-center gap-2 px-3 py-2.5 bg-brand-panel/40 border-r border-brand-border">
+      {/* Property name — flat label, no filled cell / vertical divider */}
+      <div className="flex items-center gap-2 min-w-0 pt-px">
         <span className="shrink-0">{icon}</span>
         <span className={`type-caption ${C.color.muted} truncate`}>{label}</span>
       </div>
 
-      {/* Value cell */}
-      <div className="px-3 py-2 flex items-center gap-2 min-w-0">
+      {/* Value */}
+      <div className="flex items-start gap-2 min-w-0">
         {editing ? (
           inputType === "select" ? (
             <select
@@ -415,7 +417,7 @@ function Row({
         ) : (
           <>
             <div className="min-w-0 flex-1">
-              <span className={`type-body ${value ? C.color.text : C.color.muted}`}>
+              <span className={`type-body tabular-nums ${value ? C.color.text : C.color.muted}`}>
                 {value ?? placeholder}
               </span>
               {hint && (

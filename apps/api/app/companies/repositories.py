@@ -6,13 +6,15 @@ from __future__ import annotations
 from typing import Sequence
 from uuid import UUID
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import Row, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activity.models import Activity
+from app.auth.models import User
 from app.companies.models import Company
 from app.contacts.models import Contact
 from app.leads.models import Lead
+from app.pipelines.models import Stage
 
 
 async def get_by_id(
@@ -76,13 +78,26 @@ async def find_duplicates_by_normalized(
 
 async def list_leads_for_company(
     db: AsyncSession, *, workspace_id: UUID, company_id: UUID
-) -> Sequence[Lead]:
+) -> Sequence[Row]:
+    """Leads (deals) for this company, enriched with stage name/color and
+    the assigned manager's name. Returns Result rows (`.Lead`, `.stage_name`,
+    `.stage_color`, `.manager_name`, `.manager_email`); the router projects
+    them onto `CompanyLeadOut`. Outer joins so unassigned / unstaged leads
+    still come back."""
     res = await db.execute(
-        select(Lead)
+        select(
+            Lead,
+            Stage.name.label("stage_name"),
+            Stage.color.label("stage_color"),
+            User.name.label("manager_name"),
+            User.email.label("manager_email"),
+        )
+        .outerjoin(Stage, Stage.id == Lead.stage_id)
+        .outerjoin(User, User.id == Lead.assigned_to)
         .where(Lead.workspace_id == workspace_id, Lead.company_id == company_id)
         .order_by(desc(Lead.created_at))
     )
-    return res.scalars().all()
+    return res.all()
 
 
 async def list_contacts_for_company(
