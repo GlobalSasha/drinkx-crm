@@ -72,16 +72,27 @@ class CompanyListOut(BaseModel):
 
 
 class CompanyLeadOut(BaseModel):
-    """Lead summary inside the company card response."""
+    """Lead (deal) summary inside the company card response.
+
+    Enriched beyond the raw lead row: `stage_name`/`stage_color` and
+    `manager_name` are resolved server-side (joins to stages/users) so the
+    company card can surface manager · stage · deal at a glance without the
+    client re-resolving UUIDs."""
 
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
     company_name: str
     stage_id: UUID | None = None
+    stage_name: str | None = None
+    stage_color: str | None = None
     score: int
     fit_score: float | None = None
     assigned_to: UUID | None = None
+    manager_name: str | None = None
+    deal_amount: float | None = None
+    deal_type: str | None = None
+    last_activity_at: datetime | None = None
     created_at: datetime
 
 

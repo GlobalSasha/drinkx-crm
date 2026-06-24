@@ -1614,9 +1614,15 @@ export interface CompanyLeadSummary {
   id: string;
   company_name: string;
   stage_id: string | null;
+  stage_name: string | null;
+  stage_color: string | null;
   score: number;
   fit_score: number | null;
   assigned_to: string | null;
+  manager_name: string | null;
+  deal_amount: number | null;
+  deal_type: string | null;
+  last_activity_at: string | null;
   created_at: string;
 }
 
