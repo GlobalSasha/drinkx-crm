@@ -38,6 +38,15 @@ class TaskUpdateIn(BaseModel):
     task_due_at: datetime | None = None
 
 
+class CommentUpdateIn(BaseModel):
+    """Body for PATCH /leads/{id}/activities/{id}/comment — edit a
+    manager comment's text. Author-or-admin only (enforced server-side)."""
+
+    model_config = ConfigDict()
+
+    body: str = Field(min_length=1, max_length=4000)
+
+
 class ActivityOut(ActivityBase):
     id: UUID
     lead_id: UUID

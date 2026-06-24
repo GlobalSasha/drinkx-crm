@@ -14,6 +14,7 @@ from app.activity.schemas import (
     ActivityOut,
     AskBlakeIn,
     AskBlakeOut,
+    CommentUpdateIn,
     FeedItemOut,
     FeedListOut,
     MyTaskOut,
@@ -273,6 +274,40 @@ async def update_activity(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="lead not found")
     except services.ActivityNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="task not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    await db.commit()
+    return activity  # type: ignore[return-value]
+
+
+@router.patch("/{activity_id}/comment", response_model=ActivityOut)
+async def update_comment(
+    lead_id: UUID,
+    activity_id: UUID,
+    payload: CommentUpdateIn,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> ActivityOut:
+    """Edit the text of a manager comment in the activity feed. Only the
+    comment's author or an admin may edit."""
+    try:
+        activity = await services.update_comment(
+            db,
+            workspace_id=user.workspace_id,
+            lead_id=lead_id,
+            activity_id=activity_id,
+            actor=user,
+            body=payload.body,
+        )
+    except LeadNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="lead not found")
+    except services.ActivityNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="comment not found")
+    except services.ActivityForbidden:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the author or an admin can edit this comment",
+        )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     await db.commit()
