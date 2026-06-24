@@ -154,6 +154,19 @@ def lead_agent_refresh_suggestion(lead_id: str) -> dict:
     (3.1+ may also fire it from automation hooks). The async core lives
     in `app.lead_agent.tasks` to keep domain code self-contained; this
     wrapper is the standard sync entry-point Celery requires."""
+    from app.config import get_settings
+
+    # Automatic Блейк suggestions are off by default — every auto trigger
+    # (silence scan, stage-change hook, inbox refresh) funnels through here,
+    # so one guard disables them all. Manual «Спросить Блейка» uses a
+    # separate code path and is unaffected.
+    if not get_settings().lead_agent_auto_suggestions_enabled:
+        return {
+            "job": "lead_agent_refresh_suggestion",
+            "status": "disabled",
+            "lead_id": lead_id,
+        }
+
     from app.lead_agent.tasks import refresh_suggestion_async
 
     return asyncio.run(refresh_suggestion_async(UUID(lead_id)))
@@ -180,6 +193,11 @@ def lead_agent_scan_silence() -> dict:
     where `last_activity_at` is older than the silence threshold and
     queue `lead_agent_refresh_suggestion` for each one so the actual
     LLM work runs in the worker pool (not the beat process)."""
+    from app.config import get_settings
+
+    if not get_settings().lead_agent_auto_suggestions_enabled:
+        return {"job": "lead_agent_scan_silence", "status": "disabled"}
+
     from app.lead_agent.tasks import scan_silence_async
 
     return asyncio.run(scan_silence_async())

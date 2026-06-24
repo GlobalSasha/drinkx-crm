@@ -47,10 +47,19 @@ export function UnifiedFeed({
   const [openEmail, setOpenEmail] = useState<FeedItemOut | null>(null);
   const [composerSeed, setComposerSeed] = useState<string | undefined>(undefined);
 
-  // Flatten the paged feed into one chronological list.
+  // Flatten the paged feed into one chronological list. Automatic Блейк
+  // suggestions are retired — keep only the manual «Спросить Блейка»
+  // answers (payload_json.source === "blake_chat"); hide the auto cards
+  // (source "runner") and any legacy source-less ai_suggestion rows.
   const items = useMemo(() => {
     if (!feed.data) return [] as FeedItemOut[];
-    return feed.data.pages.flatMap((p) => p.items);
+    return feed.data.pages
+      .flatMap((p) => p.items)
+      .filter(
+        (it) =>
+          it.type !== "ai_suggestion" ||
+          it.payload_json?.source === "blake_chat",
+      );
   }, [feed.data]);
 
   if (feed.isLoading) {
