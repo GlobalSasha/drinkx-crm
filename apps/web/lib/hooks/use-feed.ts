@@ -140,3 +140,58 @@ export function useCreateActivity(leadId: string) {
     },
   });
 }
+
+/**
+ * Edit the text of a manager comment in the feed.
+ *
+ * Backend: `PATCH /leads/{id}/activities/{activityId}/comment` — the
+ * server enforces author-or-admin. Optimistic: swaps `body` (and bumps
+ * `updated_at` so the «изменено» marker shows immediately) in the feed
+ * cache, rolling back on error.
+ */
+export function useUpdateComment(leadId: string) {
+  const qc = useQueryClient();
+  return useMutation<
+    FeedItemOut,
+    ApiError,
+    { activityId: string; body: string }
+  >({
+    mutationFn: ({ activityId, body }) =>
+      api.patch<FeedItemOut>(
+        `/leads/${leadId}/activities/${activityId}/comment`,
+        { body },
+      ),
+    onMutate: async ({ activityId, body }) => {
+      await qc.cancelQueries({ queryKey: ["feed", leadId] });
+      const prev = qc.getQueryData(["feed", leadId]);
+      qc.setQueryData(["feed", leadId], (data: unknown) => {
+        if (!data || typeof data !== "object") return data;
+        const d = data as { pages?: FeedListOut[] };
+        if (!d.pages) return data;
+        return {
+          ...d,
+          pages: d.pages.map((p) => ({
+            ...p,
+            items: p.items.map((it) =>
+              it.id === activityId
+                ? {
+                    ...it,
+                    body,
+                    payload_json: { ...(it.payload_json ?? {}), edited: true },
+                  }
+                : it,
+            ),
+          })),
+        };
+      });
+      return { prev };
+    },
+    onError: (_err, _vars, context) => {
+      const ctx = context as { prev?: unknown } | undefined;
+      if (ctx?.prev !== undefined) qc.setQueryData(["feed", leadId], ctx.prev);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["feed", leadId] });
+    },
+  });
+}

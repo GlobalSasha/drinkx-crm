@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activity import repositories as repo
 from app.activity.models import Activity, ActivityType
+from app.auth.models import User
 from app.leads import repositories as leads_repo
 from app.leads.services import LeadNotFound
 
@@ -20,6 +21,10 @@ class ActivityNotFound(Exception):
 
 class ActivityWrongType(Exception):
     pass
+
+
+class ActivityForbidden(Exception):
+    """Caller is neither the activity's author nor an admin."""
 
 
 def _validate_type(type_: str) -> None:
@@ -145,6 +150,47 @@ async def update_task(
         activity.payload_json = {**activity.payload_json, "title": cleaned}
     if task_due_at is not None:
         activity.task_due_at = task_due_at
+    await db.flush()
+    await db.refresh(activity)
+    return activity
+
+
+async def update_comment(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+    activity_id: uuid.UUID,
+    *,
+    actor: User,
+    body: str,
+) -> Activity:
+    """Edit the text of a manager comment. Only the comment's author or
+    an admin may edit (mirrors the notes domain edit-own rule). Raises
+    LeadNotFound / ActivityNotFound / ActivityForbidden / ValueError."""
+    cleaned = body.strip()
+    if not cleaned:
+        raise ValueError("body cannot be empty")
+    await _get_lead_or_raise(db, lead_id, workspace_id)
+    activity = await repo.get_by_id(db, activity_id, lead_id)
+    if activity is None:
+        raise ActivityNotFound(activity_id)
+    # Authorize BEFORE inspecting the row's type/shape — otherwise the
+    # 404/400/403 status code becomes a within-workspace oracle that lets
+    # a non-owner enumerate the existence and type of other managers'
+    # activities. A non-owner always gets a uniform 403.
+    if activity.user_id != actor.id and actor.role != "admin":
+        raise ActivityForbidden(activity_id)
+    if activity.type != ActivityType.comment.value:
+        raise ValueError("only comment activities can be edited")
+    # ask-Blake questions are AI-conversation turns paired with an answer
+    # row; editing the question after the fact would desync the visible
+    # Q/A. Keep them immutable.
+    if (activity.payload_json or {}).get("source") == "ask_blake":
+        raise ValueError("ask-Blake questions cannot be edited")
+    activity.body = cleaned
+    # Explicit edited flag (JSON column → no migration) so the feed can
+    # mark «изменено» exactly, instead of guessing from timestamp deltas.
+    activity.payload_json = {**(activity.payload_json or {}), "edited": True}
     await db.flush()
     await db.refresh(activity)
     return activity
