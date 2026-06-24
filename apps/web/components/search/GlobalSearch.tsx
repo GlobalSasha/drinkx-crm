@@ -113,17 +113,46 @@ export function GlobalSearch({ open, onClose }: Props) {
 
         <div className="max-h-[60vh] overflow-y-auto">
           {!query.trim() && (
-            <p className={`px-5 py-8 type-caption ${C.color.muted} text-center`}>
-              Начните печатать. <kbd className="font-mono">↑↓</kbd> для навигации,{" "}
-              <kbd className="font-mono">↵</kbd> чтобы открыть,{" "}
-              <kbd className="font-mono">esc</kbd> — закрыть.
-            </p>
+            <div className="flex flex-col items-center gap-3 px-5 py-10 text-center">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-panel text-brand-muted">
+                <Search size={18} />
+              </span>
+              <p className={`type-body font-medium ${C.color.text}`}>
+                Начните печатать, чтобы искать
+              </p>
+              <p className="type-caption text-brand-muted">
+                Компании · Лиды · Контакты · Файлы
+              </p>
+              <div className="mt-1 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 type-caption text-brand-muted">
+                <span className="inline-flex items-center gap-1.5">
+                  <Kbd>↑</Kbd>
+                  <Kbd>↓</Kbd>
+                  навигация
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Kbd>↵</Kbd>
+                  открыть
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Kbd>Esc</Kbd>
+                  закрыть
+                </span>
+              </div>
+            </div>
           )}
 
           {query.trim() && flat.length === 0 && !isFetching && (
-            <p className={`px-5 py-8 type-caption ${C.color.muted} text-center`}>
-              Ничего не найдено.
-            </p>
+            <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-panel text-brand-muted">
+                <Search size={18} />
+              </span>
+              <p className={`type-body font-medium ${C.color.text}`}>
+                Ничего не найдено
+              </p>
+              <p className="type-caption text-brand-muted">
+                Попробуйте другой запрос
+              </p>
+            </div>
           )}
 
           {(["company", "lead", "contact", "file"] as SearchHitType[]).map((type) => {
@@ -181,6 +210,17 @@ export function GlobalSearch({ open, onClose }: Props) {
         </div>
       </div>
     </div>
+  );
+}
+
+/** Keycap chip — renders a single key as a small bordered cap so the
+ *  shortcut hints read as keys, not run-in text (make-interfaces-feel-better:
+ *  subtle shadow for depth, min-width keeps single glyphs square). */
+function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="inline-flex min-w-[1.5rem] items-center justify-center rounded-md border border-brand-border bg-white px-1.5 py-0.5 font-mono text-2xs font-medium leading-none text-brand-muted-strong shadow-[0_1px_0_rgba(17,17,17,0.06)]">
+      {children}
+    </kbd>
   );
 }
 
