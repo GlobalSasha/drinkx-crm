@@ -96,6 +96,14 @@ class Settings(BaseSettings):
     gmail_sync_interval_minutes: int = 5
     gmail_max_body_chars: int = 10000
 
+    # Lead-agent (Блейк) AUTOMATIC feed suggestions. When false (default),
+    # the scheduled silence scan and the stage-change / inbox refresh
+    # triggers become no-ops, so no automatic `ai_suggestion` cards are
+    # written to the lead activity feed. Manual «Спросить Блейка»
+    # (POST /leads/{id}/feed/ask-blake) is a separate path and stays on.
+    # Set env LEAD_AGENT_AUTO_SUGGESTIONS_ENABLED=true to re-enable.
+    lead_agent_auto_suggestions_enabled: bool = False
+
     # Credential encryption at rest (Sprint 2.1 G1).
     # If empty, channel credentials are stored as plaintext and a startup
     # WARNING is logged once. Generate a key with:
