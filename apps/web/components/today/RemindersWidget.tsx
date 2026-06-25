@@ -6,6 +6,7 @@ import { C } from "@/lib/design-system";
 import {
   useReminders,
   useCreateReminder,
+  useUpdateReminder,
   useDeleteReminder,
 } from "@/lib/hooks/use-reminders";
 
@@ -13,10 +14,13 @@ import {
 export function RemindersWidget() {
   const { data: reminders = [], isLoading } = useReminders();
   const create = useCreateReminder();
+  const update = useUpdateReminder();
   const remove = useDeleteReminder();
 
   const [adding, setAdding] = useState(false);
   const [text, setText] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
 
   function handleAdd() {
     const t = text.trim();
@@ -27,6 +31,25 @@ export function RemindersWidget() {
         setAdding(false);
       },
     });
+  }
+
+  function startEdit(id: string, current: string) {
+    setEditingId(id);
+    setEditText(current);
+  }
+
+  function commitEdit() {
+    if (!editingId || update.isPending) return;
+    const t = editText.trim();
+    const orig = reminders.find((r) => r.id === editingId);
+    if (!t || (orig && t === orig.text)) {
+      setEditingId(null);
+      return;
+    }
+    update.mutate(
+      { id: editingId, text: t },
+      { onSuccess: () => setEditingId(null) },
+    );
   }
 
   return (
@@ -102,24 +125,50 @@ export function RemindersWidget() {
         )}
 
         {!isLoading &&
-          reminders.map((r) => (
-            <div
-              key={r.id}
-              className="group flex items-start gap-2 px-3 py-2 rounded-card bg-brand-bg"
-            >
-              <p className={`type-caption ${C.color.text} flex-1 break-words`}>
-                {r.text}
-              </p>
-              <button
-                type="button"
-                onClick={() => remove.mutate(r.id)}
-                aria-label="Удалить напоминание"
-                className="shrink-0 text-brand-muted hover:text-rose opacity-0 group-hover:opacity-100 transition"
+          reminders.map((r) => {
+            const isEditing = editingId === r.id;
+            return (
+              <div
+                key={r.id}
+                className="group flex items-start gap-2 px-3 py-2 rounded-card bg-brand-bg"
               >
-                <X size={13} />
-              </button>
-            </div>
-          ))}
+                {isEditing ? (
+                  <input
+                    autoFocus
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    onBlur={commitEdit}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") commitEdit();
+                      if (e.key === "Escape") setEditingId(null);
+                    }}
+                    maxLength={500}
+                    disabled={update.isPending}
+                    className={`flex-1 bg-white border border-brand-accent/40 rounded-lg px-2 py-1 type-caption ${C.color.text} outline-none focus:border-brand-accent disabled:opacity-60`}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => startEdit(r.id, r.text)}
+                    title="Нажмите, чтобы редактировать"
+                    className={`type-caption ${C.color.text} flex-1 break-words text-left cursor-text hover:text-brand-accent-text transition-colors`}
+                  >
+                    {r.text}
+                  </button>
+                )}
+                {!isEditing && (
+                  <button
+                    type="button"
+                    onClick={() => remove.mutate(r.id)}
+                    aria-label="Удалить напоминание"
+                    className="shrink-0 text-brand-muted hover:text-rose opacity-0 group-hover:opacity-100 transition"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
+            );
+          })}
 
         {!isLoading && reminders.length === 0 && !adding && (
           <button

@@ -11,7 +11,7 @@ from app.auth.dependencies import current_user
 from app.auth.models import User
 from app.db import get_db
 from app.reminders import services
-from app.reminders.schemas import ReminderCreate, ReminderOut
+from app.reminders.schemas import ReminderCreate, ReminderOut, ReminderUpdate
 
 router = APIRouter(prefix="/api/reminders", tags=["reminders"])
 
@@ -36,6 +36,28 @@ async def create_reminder(
     row = await services.create(
         db, workspace_id=user.workspace_id, user_id=user.id, text=payload.text
     )
+    await db.commit()
+    return ReminderOut.model_validate(row)
+
+
+@router.patch("/{reminder_id}", response_model=ReminderOut)
+async def update_reminder(
+    reminder_id: UUID,
+    payload: ReminderUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(current_user)],
+) -> ReminderOut:
+    row = await services.update(
+        db,
+        workspace_id=user.workspace_id,
+        user_id=user.id,
+        reminder_id=reminder_id,
+        text=payload.text,
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Reminder not found"
+        )
     await db.commit()
     return ReminderOut.model_validate(row)
 

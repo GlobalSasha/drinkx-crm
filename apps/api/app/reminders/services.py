@@ -45,6 +45,31 @@ async def create(
     return reminder
 
 
+async def update(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    user_id: uuid.UUID,
+    reminder_id: uuid.UUID,
+    text: str,
+) -> Reminder | None:
+    """Edit the text of one reminder owned by the caller. Returns None if
+    the row doesn't exist or belongs to someone else."""
+    res = await db.execute(
+        select(Reminder).where(
+            Reminder.id == reminder_id,
+            Reminder.workspace_id == workspace_id,
+            Reminder.user_id == user_id,
+        )
+    )
+    reminder = res.scalar_one_or_none()
+    if reminder is None:
+        return None
+    reminder.text = text.strip()
+    await db.flush()
+    return reminder
+
+
 async def delete(
     db: AsyncSession,
     *,
