@@ -11,6 +11,10 @@ class ReminderCreate(BaseModel):
     text: str = Field(min_length=1, max_length=500)
 
 
+class ReminderUpdate(BaseModel):
+    text: str = Field(min_length=1, max_length=500)
+
+
 class ReminderOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID

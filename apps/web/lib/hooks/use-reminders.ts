@@ -27,6 +27,17 @@ export function useCreateReminder() {
   });
 }
 
+export function useUpdateReminder() {
+  const qc = useQueryClient();
+  return useMutation<ReminderOut, ApiError, { id: string; text: string }>({
+    mutationFn: ({ id, text }) =>
+      api.patch<ReminderOut>(`/api/reminders/${id}`, { text }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["reminders"] });
+    },
+  });
+}
+
 export function useDeleteReminder() {
   const qc = useQueryClient();
   return useMutation<void, ApiError, string>({
