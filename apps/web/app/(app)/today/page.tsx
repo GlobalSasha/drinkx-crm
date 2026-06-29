@@ -40,6 +40,8 @@ import { useMyTasks, useCompleteMyTask } from "@/lib/hooks/use-my-tasks";
 import { relativeTime } from "@/lib/relative-time";
 import { TaskTable } from "@/components/tasks/TaskTable";
 import { RemindersWidget } from "@/components/today/RemindersWidget";
+import { CeoOverview } from "@/components/today/CeoOverview";
+import { useMe } from "@/lib/hooks/use-me";
 import { myTaskToRow, isOverdue, isToday, type TaskRow } from "@/lib/tasks";
 
 // ─── Widget registry ────────────────────────────────────────
@@ -638,9 +640,19 @@ export default function TodayPage() {
   // out of static rendering unless it sits under a Suspense boundary.
   return (
     <Suspense fallback={null}>
-      <TodayPageInner />
+      <TodayRouter />
     </Suspense>
   );
+}
+
+// Sprint CEO G5: руководитель (head/admin) видит обзорный экран потока заявок;
+// менеджеры — обычный /today. Один роут, разветвление по роли.
+function TodayRouter() {
+  const me = useMe();
+  if (me.isLoading) return null;
+  const role = me.data?.role;
+  if (role === "head" || role === "admin") return <CeoOverview />;
+  return <TodayPageInner />;
 }
 
 function TodayPageInner() {

@@ -59,12 +59,12 @@ and Website Leads Intake are done; their record is in git history + `00_CURRENT_
 - [x] Оба под `require_admin_or_head`. DB-тест `tests/test_company.py` (2 теста; скип без PG, в CI).
 
 ### CEO-G5 — Обзорный /today по роли (frontend) ⭐ цель
-- [ ] `/today` рендерит CEO-вариант, если `me.data.role in (head, admin)`; у менеджеров —
-      текущий /today без изменений. (Один пункт меню, разветвление по роли — решение из сессии.)
-- [ ] Секции по утверждённому макету: пульс (4 числа) · заявки по дням (стек по источникам,
-      Chart.js) · откуда пришли + конверсия · по менеджерам · без движения. Строки менеджеров
-      и зависших заявок — кликабельные (открыть лида / профиль менеджера).
-- Pre-PR (frontend): `npm run typecheck` + `npm run lint` + `pnpm build`.
+- [x] `/today` → `TodayRouter` по `useMe().role`: head/admin видят `<CeoOverview />`, менеджеры —
+      прежний `<TodayPageInner />`. Один роут, разветвление по роли.
+- [x] `CeoOverview` ([components/today/CeoOverview.tsx]) по утверждённому макету: тумблер неделя/месяц ·
+      пульс (4 числа) · заявки по дням (стек по источникам, recharts) · откуда пришли + конверсия ·
+      по менеджерам (клик → /team/[id]) · без движения (клик → /leads/[id]). Хук `use-company.ts`.
+- [x] Pre-PR (frontend): `npm run typecheck` ✓ + `npm run lint` (0 errors) ✓ + `pnpm build` ✓.
 
 > Отложено (НЕ в этом спринте): AI-дайджест дня, воронка лид→КП→сделка, прогресс к плану/квоте
 > (модель `Quota` есть, но без эндпоинтов), разбивка внутри источника, workspace-wide лента

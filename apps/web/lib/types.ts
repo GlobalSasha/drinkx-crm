@@ -192,6 +192,55 @@ export interface LeadSourceUpdate {
   sort_order?: number;
 }
 
+/** CEO overview (Sprint CEO G4/G5). */
+export interface SourceBreakdown {
+  source_id: string | null;
+  name: string;
+  is_paid: boolean;
+  leads: number;
+  qualified: number;
+  conversion_pct: number;
+}
+
+export interface DailyPoint {
+  date: string; // ISO date
+  source_id: string | null;
+  count: number;
+}
+
+export interface CompanySummary {
+  period: string;
+  leads_today: number;
+  leads_yesterday: number;
+  leads_7d: number;
+  avg_per_day_7d: number;
+  stuck_count: number;
+  ad_conversion_pct: number | null;
+  sources: SourceBreakdown[];
+  daily: DailyPoint[];
+}
+
+export interface StuckLead {
+  lead_id: string;
+  company_name: string;
+  source_name: string | null;
+  manager_name: string | null;
+  days_idle: number;
+}
+
+export interface ManagerLoad {
+  user_id: string;
+  name: string;
+  in_work: number;
+  new_week: number;
+  stuck: number;
+}
+
+export interface CompanyAttention {
+  stuck: StuckLead[];
+  managers: ManagerLoad[];
+}
+
 export interface LeadUpdate {
   company_name?: string;
   segment?: string | null;
