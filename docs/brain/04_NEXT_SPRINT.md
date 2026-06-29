@@ -37,16 +37,16 @@ and Website Leads Intake are done; their record is in git history + `00_CURRENT_
       list active_only, delete system→409 / custom→ok. Локально нет PG → скип; пойдут в CI.
 
 ### CEO-G2 — Источник в форме лида (full-stack)
-- [ ] `LeadCreate`/`LeadUpdate` принимают `source_id` (Optional); persist в `leads.source_id`.
-- [ ] `CreateLeadModal` ([apps/web/components/pipeline/CreateLeadModal.tsx]) — добавить поле
-      «Источник / откуда появился лид»: дропдаун из `GET /api/lead-sources` (только активные).
-      Необязательное, но на видном месте.
-- Pre-PR (frontend): `npm run typecheck` + `npm run lint` + `pnpm build`.
+- [x] `LeadCreate`/`LeadUpdate` принимают `source_id` (Optional); persist в `leads.source_id`
+      (через `model_dump` — доп. кода в сервисе не нужно). `LeadOut.source_id` тоже отдаётся.
+- [x] `CreateLeadModal` — поле «Откуда появился лид»: дропдаун из `GET /lead-sources?active_only=true`
+      (хук `use-lead-sources.ts`), проброс `source_id` в create. Необязательное.
+- [x] Pre-PR (frontend): `npm run typecheck` ✓ + `npm run lint` (0 errors) ✓ + `pnpm build` ✓.
 
 ### CEO-G3 — Settings → «Источники лидов» (frontend)
-- [ ] Новый раздел в `/settings` по образцу `CatalogSection` ([apps/web/components/settings/]):
-      список источников, добавить/переименовать/отключить, тумблер «платный». Gated
-      `role in (admin, head)`. `is_system` — только переименование/тумблер, без удаления.
+- [x] Раздел `LeadSourcesSection` в `/settings` (icon Megaphone) по образцу `CatalogSection`:
+      список (вкл. неактивные), add/rename/toggle active/paid, delete. Gated `role in (admin, head)`.
+      `is_system` → бейдж «системный» без кнопки удаления.
 
 ### CEO-G4 — Агрегаты для дашборда (backend)
 - [ ] `GET /api/company/summary?period=week|month` → пульс: заявок сегодня / за 7 дней /

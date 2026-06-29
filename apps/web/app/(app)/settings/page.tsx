@@ -17,6 +17,7 @@ import {
   Coins,
   ChevronRight,
   KeyRound,
+  Megaphone,
   Paintbrush,
   Package,
   Plug,
@@ -37,6 +38,7 @@ import { CatalogSection } from "@/components/settings/CatalogSection";
 import { ChannelsSection } from "@/components/settings/ChannelsSection";
 import { CostsSection } from "@/components/settings/CostsSection";
 import { CustomFieldsSection } from "@/components/settings/CustomFieldsSection";
+import { LeadSourcesSection } from "@/components/settings/LeadSourcesSection";
 import { PipelinesSection } from "@/components/settings/PipelinesSection";
 import { TeamSection } from "@/components/settings/TeamSection";
 import { TemplatesSection } from "@/components/settings/TemplatesSection";
@@ -49,6 +51,7 @@ type SectionKey =
   | "costs"
   | "custom_fields"
   | "templates"
+  | "lead_sources"
   | "catalog"
   | "appearance"
   | "base_update"
@@ -71,6 +74,7 @@ const SECTIONS: SectionDef[] = [
   { key: "costs",         label: "Расходы",      icon: <Coins size={15} />,    ready: true  },
   { key: "custom_fields", label: "Кастомные поля", icon: <Sparkles size={15} />, ready: true },
   { key: "templates",     label: "Шаблоны",      icon: <ScrollText size={15} />, ready: true },
+  { key: "lead_sources",  label: "Источники лидов", icon: <Megaphone size={15} />, ready: true },
   { key: "catalog",       label: "Каталог КП",   icon: <Package size={15} />,  ready: true  },
   { key: "appearance",    label: "Внешний вид",  icon: <Paintbrush size={15} />, ready: true },
   { key: "base_update",   label: "Обновление базы", icon: <UploadCloud size={15} />, ready: true },
@@ -210,6 +214,7 @@ function SettingsPageInner() {
           {active === "costs" && <CostsSection />}
           {active === "custom_fields" && <CustomFieldsSection />}
           {active === "templates" && <TemplatesSection />}
+          {active === "lead_sources" && <LeadSourcesSection />}
           {active === "catalog" && <CatalogSection />}
           {active === "appearance" && <AppearanceSection />}
           {active === "base_update" && <BaseUpdateSection />}
@@ -220,6 +225,7 @@ function SettingsPageInner() {
             active !== "costs" &&
             active !== "custom_fields" &&
             active !== "templates" &&
+            active !== "lead_sources" &&
             active !== "catalog" &&
             active !== "appearance" &&
             active !== "base_update" && (

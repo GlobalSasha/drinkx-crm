@@ -21,6 +21,9 @@ class LeadBase(BaseModel):
     website: str | None = None
     inn: str | None = None
     source: str | None = None
+    # «Откуда появился лид» — FK into the lead_sources dictionary (Sprint CEO G1/G2).
+    # The legacy free-text `source` above stays for form-slug parsing + backfill.
+    source_id: UUID | None = None
     tags_json: list[str] = Field(default_factory=list)
     deal_type: str | None = None
     priority: str | None = None
@@ -52,6 +55,7 @@ class LeadUpdate(BaseModel):
     website: str | None = None
     inn: str | None = None
     source: str | None = None
+    source_id: UUID | None = None
     tags_json: list[str] | None = None
     deal_type: str | None = None
     priority: str | None = None
