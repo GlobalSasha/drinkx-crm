@@ -161,6 +161,11 @@ async def upsert_user_from_token(session: AsyncSession, claims: TokenClaims) -> 
         workspace.default_pipeline_id = pipeline.id
         await session.flush()
 
+        # Sprint CEO G1: seed the default lead-source dictionary.
+        from app.lead_sources.repositories import seed_defaults as seed_lead_sources
+
+        await seed_lead_sources(session, workspace_id=workspace.id)
+
         role = "admin"
     else:
         # Subsequent user — joins the existing shared workspace.

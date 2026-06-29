@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { X, Loader2, Plus, Sparkles } from "lucide-react";
 import { usePipelineStore } from "@/lib/store/pipeline-store";
 import { useCreateLead } from "@/lib/hooks/use-leads";
+import { useLeadSources } from "@/lib/hooks/use-lead-sources";
 import { useCompanyAutocomplete } from "@/lib/hooks/use-search";
 import { useCreateCompany } from "@/lib/hooks/use-companies";
 import { ApiError } from "@/lib/api-client";
@@ -23,8 +24,10 @@ export function CreateLeadModal() {
     DuplicateWarningResponse["candidates"] | null
   >(null);
   const [error, setError] = useState<string | null>(null);
+  const [sourceId, setSourceId] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const { items: companyHits, isFetching } = useCompanyAutocomplete(query);
+  const { data: leadSources } = useLeadSources(true);
 
   useEffect(() => {
     if (createLeadModalOpen) {
@@ -32,6 +35,7 @@ export function CreateLeadModal() {
       setPicked(null);
       setDuplicateCandidates(null);
       setError(null);
+      setSourceId("");
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [createLeadModalOpen]);
@@ -55,7 +59,11 @@ export function CreateLeadModal() {
 
   function createWithExisting(companyId: string) {
     createLead.mutate(
-      { company_name: "", company_id: companyId } as Parameters<typeof createLead.mutate>[0],
+      {
+        company_name: "",
+        company_id: companyId,
+        source_id: sourceId || null,
+      } as Parameters<typeof createLead.mutate>[0],
       {
         onSuccess: () => closeCreateLeadModal(),
         onError: () => setError("Не удалось создать лид"),
@@ -201,6 +209,26 @@ export function CreateLeadModal() {
                 </div>
               )}
             </label>
+
+            {leadSources && leadSources.length > 0 && (
+              <label className="block">
+                <span className="font-mono text-2xs uppercase tracking-[0.12em] text-brand-muted block mb-1.5">
+                  Откуда появился лид
+                </span>
+                <select
+                  value={sourceId}
+                  onChange={(e) => setSourceId(e.target.value)}
+                  className="w-full px-4 py-2.5 text-sm bg-brand-bg border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white transition duration-200"
+                >
+                  <option value="">Не указан</option>
+                  {leadSources.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
 
             {duplicateCandidates && duplicateCandidates.length > 0 && (
               <div className="rounded-card bg-warning/5 border border-warning/30 p-3">

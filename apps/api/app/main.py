@@ -118,6 +118,9 @@ def create_app() -> FastAPI:
     from app.pipelines.routers import router as pipelines_router
     app.include_router(pipelines_router)
 
+    from app.lead_sources.routers import router as lead_sources_router
+    app.include_router(lead_sources_router)
+
     from app.enrichment.routers import router as enrichment_router
     app.include_router(enrichment_router)
 

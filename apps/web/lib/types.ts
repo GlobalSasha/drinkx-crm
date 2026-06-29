@@ -97,6 +97,7 @@ export interface LeadOut {
   website: string | null;
   inn: string | null;
   source: string | null;
+  source_id: string | null;
   tags_json: string[];
   deal_type: DealType | null;
   priority: Priority | null;
@@ -164,6 +165,31 @@ export interface LeadCreate {
   // `companies.name` → `leads.company_name` when set, so the snapshot
   // stays in sync from the start.
   company_id?: string | null;
+  // Sprint CEO G2: «откуда появился лид» — FK into the lead_sources dictionary.
+  source_id?: string | null;
+}
+
+/** Lead-source dictionary row (Sprint CEO G1). */
+export interface LeadSource {
+  id: string;
+  name: string;
+  is_active: boolean;
+  is_paid: boolean;
+  is_system: boolean;
+  sort_order: number;
+}
+
+export interface LeadSourceCreate {
+  name: string;
+  is_paid?: boolean;
+  sort_order?: number;
+}
+
+export interface LeadSourceUpdate {
+  name?: string;
+  is_active?: boolean;
+  is_paid?: boolean;
+  sort_order?: number;
 }
 
 export interface LeadUpdate {

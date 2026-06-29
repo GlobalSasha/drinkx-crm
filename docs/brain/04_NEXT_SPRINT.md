@@ -1,9 +1,78 @@
-# Next Sprint — Odoo-reuse follow-ups + UI consistency
+# Next Sprint — CEO Overview (role-based /today) + extensible lead sources
 
-**Status:** 🟢 READY TO START (a fresh session begins here)
+**Status:** 🟢 ACTIVE — start at **Sprint CEO** below (the Odoo-reuse sprint G1–G5 is DONE,
+kept below as record). **Alembic head `0050`. Next free index `0051`.**
 **Prev:** Odoo-reuse arc — 8 PRs (#102–#109) shipped. Full record in `00_CURRENT_STATE.md`
 (section «Odoo-reuse arc + test CI (2026-06-04)»). Sprint 3.5 (Production Polish v2)
 and Website Leads Intake are done; their record is in git history + `00_CURRENT_STATE.md`.
+
+---
+
+## Sprint CEO — обзорный /today для руководителя + расширяемые источники лидов
+
+**Why:** руководителю (`role` = `head`/`admin`) нужен НЕ операционный «мой день», а сводка
+по **входящему потоку заявок**: сколько лидов, откуда, конверсия с рекламы, по дням, у кого
+в работе, что висит без движения. Сделки идут редко и долго — выручку/forecast наверх НЕ тащим.
+Концепт утверждён на моках (см. сессию 2026-06-29). Решения: **плоский список источников**,
+порог «без движения» = **7 дней** без касания, «конверсия с рекламы» = заявка → **квалификация**
+(лид вышел из первой/intake-стадии), считаем по источникам с `is_paid=true`.
+
+**Build foundation first (источники), then the dashboard** — дашборд группирует по `source_id`.
+
+### CEO-G1 — Справочник источников `LeadSource` (backend) ⭐ фундамент
+Сейчас `lead.source` — свободный текст (`String(60)`, [leads/models.py:98]) и в форме не
+заполняется. Делаем настраиваемый справочник по образцу Pipeline/Stage + каталога.
+- [x] Новый пакет-домен `app/lead_sources/` (models/schemas/repositories/services/routers),
+      по образцу `app/utm/`. Модель `LeadSource`: `id`, `workspace_id` (FK + unique
+      `(workspace_id, name)`), `name`, `is_active`, `is_paid`, `is_system`, `sort_order`,
+      timestamps. `DEFAULT_LEAD_SOURCES` в models.py.
+- [x] Миграция `0051_lead_sources`: создать `lead_sources` + `leads.source_id` (nullable FK →
+      SET NULL, index) + сид дефолтов для всех существующих воркспейсов (INSERT…SELECT,
+      ON CONFLICT DO NOTHING). Старый текстовый `leads.source` не трогаем.
+- [x] Seed-дефолты при bootstrap воркспейса (`app/auth/services.py`, рядом с `DEFAULT_STAGES`):
+      Яндекс Директ (paid+system), Сайт (system), Выставка, Холодный обзвон, Реферал.
+- [x] CRUD `/api/lead-sources`: GET list (`?active_only` для формы, любой авторизованный),
+      POST/PATCH/DELETE под `require_admin_or_head`; DELETE → 409 при `is_system`.
+- [x] DB-backed тест `tests/test_lead_sources.py`: seed-идемпотентность, create+unique-конфликт,
+      list active_only, delete system→409 / custom→ok. Локально нет PG → скип; пойдут в CI.
+
+### CEO-G2 — Источник в форме лида (full-stack)
+- [x] `LeadCreate`/`LeadUpdate` принимают `source_id` (Optional); persist в `leads.source_id`
+      (через `model_dump` — доп. кода в сервисе не нужно). `LeadOut.source_id` тоже отдаётся.
+- [x] `CreateLeadModal` — поле «Откуда появился лид»: дропдаун из `GET /lead-sources?active_only=true`
+      (хук `use-lead-sources.ts`), проброс `source_id` в create. Необязательное.
+- [x] Pre-PR (frontend): `npm run typecheck` ✓ + `npm run lint` (0 errors) ✓ + `pnpm build` ✓.
+
+### CEO-G3 — Settings → «Источники лидов» (frontend)
+- [x] Раздел `LeadSourcesSection` в `/settings` (icon Megaphone) по образцу `CatalogSection`:
+      список (вкл. неактивные), add/rename/toggle active/paid, delete. Gated `role in (admin, head)`.
+      `is_system` → бейдж «системный» без кнопки удаления.
+
+### CEO-G4 — Агрегаты для дашборда (backend)
+- [ ] `GET /api/company/summary?period=week|month` → пульс: заявок сегодня / за 7 дней /
+      средн. в день; конверсия с рекламы (paid-источники: вышли из intake-стадии ÷ всего за
+      период); счётчик «без движения» (>7 дн. без `last_activity_at`); разбивка по источникам
+      (count + конверсия); ряд «заявки по дням» за 14 дн. с разбивкой по `source_id`.
+- [ ] `GET /api/company/attention` → список зависших заявок (>7 дн. без касания): компания,
+      источник, менеджер, дней тишины. + по менеджерам: в работе / новых за неделю / зависших
+      (реюз `team/*` где можно).
+- [ ] Оба под `require_admin_or_head`. DB-backed тесты.
+
+### CEO-G5 — Обзорный /today по роли (frontend) ⭐ цель
+- [ ] `/today` рендерит CEO-вариант, если `me.data.role in (head, admin)`; у менеджеров —
+      текущий /today без изменений. (Один пункт меню, разветвление по роли — решение из сессии.)
+- [ ] Секции по утверждённому макету: пульс (4 числа) · заявки по дням (стек по источникам,
+      Chart.js) · откуда пришли + конверсия · по менеджерам · без движения. Строки менеджеров
+      и зависших заявок — кликабельные (открыть лида / профиль менеджера).
+- Pre-PR (frontend): `npm run typecheck` + `npm run lint` + `pnpm build`.
+
+> Отложено (НЕ в этом спринте): AI-дайджест дня, воронка лид→КП→сделка, прогресс к плану/квоте
+> (модель `Quota` есть, но без эндпоинтов), разбивка внутри источника, workspace-wide лента
+> событий. Плейсхолдеры под AI-дайджест/план можно оставить в макете.
+
+---
+
+## Record — Odoo-reuse sprint (G1–G5, DONE)
 
 ---
 
