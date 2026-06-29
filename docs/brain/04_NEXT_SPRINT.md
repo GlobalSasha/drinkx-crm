@@ -49,22 +49,22 @@ and Website Leads Intake are done; their record is in git history + `00_CURRENT_
       `is_system` → бейдж «системный» без кнопки удаления.
 
 ### CEO-G4 — Агрегаты для дашборда (backend)
-- [ ] `GET /api/company/summary?period=week|month` → пульс: заявок сегодня / за 7 дней /
-      средн. в день; конверсия с рекламы (paid-источники: вышли из intake-стадии ÷ всего за
-      период); счётчик «без движения» (>7 дн. без `last_activity_at`); разбивка по источникам
-      (count + конверсия); ряд «заявки по дням» за 14 дн. с разбивкой по `source_id`.
-- [ ] `GET /api/company/attention` → список зависших заявок (>7 дн. без касания): компания,
-      источник, менеджер, дней тишины. + по менеджерам: в работе / новых за неделю / зависших
-      (реюз `team/*` где можно).
-- [ ] Оба под `require_admin_or_head`. DB-backed тесты.
+- [x] Новый домен `app/company/` (schemas/repositories/services/routers).
+      `GET /api/company/summary?period=week|month` → пульс (сегодня/вчера/7д/средн.в день),
+      `stuck_count` (open assigned, non-terminal, `COALESCE(last_activity_at,created_at)` >7д),
+      конверсия с рекламы (paid: stage.position>0 ÷ всего за период), `sources[]` (count+conversion),
+      `daily[]` за 14 дн. по `source_id`. «Квалификация» = вышел из intake (position 0).
+- [x] `GET /api/company/attention` → `stuck[]` (top-30: компания, источник, менеджер, days_idle) +
+      `managers[]` (в работе / новых за неделю / зависших), всё raw-SQL по образцу `team/*`.
+- [x] Оба под `require_admin_or_head`. DB-тест `tests/test_company.py` (2 теста; скип без PG, в CI).
 
 ### CEO-G5 — Обзорный /today по роли (frontend) ⭐ цель
-- [ ] `/today` рендерит CEO-вариант, если `me.data.role in (head, admin)`; у менеджеров —
-      текущий /today без изменений. (Один пункт меню, разветвление по роли — решение из сессии.)
-- [ ] Секции по утверждённому макету: пульс (4 числа) · заявки по дням (стек по источникам,
-      Chart.js) · откуда пришли + конверсия · по менеджерам · без движения. Строки менеджеров
-      и зависших заявок — кликабельные (открыть лида / профиль менеджера).
-- Pre-PR (frontend): `npm run typecheck` + `npm run lint` + `pnpm build`.
+- [x] `/today` → `TodayRouter` по `useMe().role`: head/admin видят `<CeoOverview />`, менеджеры —
+      прежний `<TodayPageInner />`. Один роут, разветвление по роли.
+- [x] `CeoOverview` ([components/today/CeoOverview.tsx]) по утверждённому макету: тумблер неделя/месяц ·
+      пульс (4 числа) · заявки по дням (стек по источникам, recharts) · откуда пришли + конверсия ·
+      по менеджерам (клик → /team/[id]) · без движения (клик → /leads/[id]). Хук `use-company.ts`.
+- [x] Pre-PR (frontend): `npm run typecheck` ✓ + `npm run lint` (0 errors) ✓ + `pnpm build` ✓.
 
 > Отложено (НЕ в этом спринте): AI-дайджест дня, воронка лид→КП→сделка, прогресс к плану/квоте
 > (модель `Quota` есть, но без эндпоинтов), разбивка внутри источника, workspace-wide лента
