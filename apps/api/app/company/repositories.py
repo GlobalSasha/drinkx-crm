@@ -16,21 +16,31 @@ STUCK_DAYS = 7
 
 
 async def pulse_counts(
-    db: AsyncSession, *, workspace_id: uuid.UUID, today_start: datetime, yesterday_start: datetime, week_start: datetime
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    today_start: datetime,
+    yesterday_start: datetime,
+    week_start: datetime,
+    prior_week_start: datetime,
 ) -> dict:
+    """today / yesterday / trailing-7d, plus the 7 days before that (week_prior)
+    for the week-over-week delta."""
     sql = text("""
         SELECT
           count(*) FILTER (WHERE created_at >= :today_start)                               AS today,
           count(*) FILTER (WHERE created_at >= :yest_start AND created_at < :today_start)   AS yesterday,
-          count(*) FILTER (WHERE created_at >= :week_start)                                 AS week
+          count(*) FILTER (WHERE created_at >= :week_start)                                 AS week,
+          count(*) FILTER (WHERE created_at >= :prior_week_start AND created_at < :week_start) AS week_prior
         FROM leads
         WHERE workspace_id = :wid AND archived_at IS NULL
     """)
     r = (await db.execute(sql, {
         "wid": workspace_id, "today_start": today_start,
         "yest_start": yesterday_start, "week_start": week_start,
+        "prior_week_start": prior_week_start,
     })).one()
-    return {"today": int(r.today), "yesterday": int(r.yesterday), "week": int(r.week)}
+    return {"today": int(r.today), "yesterday": int(r.yesterday), "week": int(r.week), "week_prior": int(r.week_prior)}
 
 
 async def stuck_count(db: AsyncSession, *, workspace_id: uuid.UUID) -> int:
@@ -47,10 +57,16 @@ async def stuck_count(db: AsyncSession, *, workspace_id: uuid.UUID) -> int:
 
 
 async def source_breakdown(
-    db: AsyncSession, *, workspace_id: uuid.UUID, from_: datetime
+    db: AsyncSession, *, workspace_id: uuid.UUID, from_: datetime, to_: datetime | None = None
 ) -> list[dict]:
-    """Per-source lead + qualified counts for leads created since `from_`."""
-    sql = text("""
+    """Per-source lead + qualified counts for leads created in [from_, to_).
+
+    `to_` is exclusive; omit it for the open-ended current window (through now).
+    """
+    # Build the upper bound only when present — passing a NULL param makes
+    # asyncpg unable to infer its type (AmbiguousParameterError).
+    upper = "AND l.created_at < :to_" if to_ is not None else ""
+    sql = text(f"""
         SELECT ls.id AS source_id, ls.name AS name, COALESCE(ls.is_paid, false) AS is_paid,
                count(*)                          AS leads,
                count(*) FILTER (WHERE s.position > 0) AS qualified
@@ -58,10 +74,14 @@ async def source_breakdown(
         LEFT JOIN lead_sources ls ON ls.id = l.source_id
         LEFT JOIN stages s ON s.id = l.stage_id
         WHERE l.workspace_id = :wid AND l.archived_at IS NULL AND l.created_at >= :from_
+          {upper}
         GROUP BY ls.id, ls.name, ls.is_paid
         ORDER BY leads DESC
     """)
-    rows = (await db.execute(sql, {"wid": workspace_id, "from_": from_})).all()
+    params: dict = {"wid": workspace_id, "from_": from_}
+    if to_ is not None:
+        params["to_"] = to_
+    rows = (await db.execute(sql, params)).all()
     return [
         {
             "source_id": r.source_id,
@@ -94,7 +114,7 @@ async def stuck_leads(
 ) -> list[dict]:
     sql = text(f"""
         SELECT l.id AS lead_id, l.company_name AS company_name,
-               ls.name AS source_name, u.name AS manager_name,
+               ls.name AS source_name, u.name AS manager_name, s.name AS stage_name,
                EXTRACT(DAY FROM now() - COALESCE(l.last_activity_at, l.created_at))::int AS days_idle
         FROM leads l
         JOIN stages s ON s.id = l.stage_id
@@ -115,6 +135,7 @@ async def stuck_leads(
             "company_name": r.company_name,
             "source_name": r.source_name,
             "manager_name": r.manager_name,
+            "stage_name": r.stage_name,
             "days_idle": int(r.days_idle),
         }
         for r in rows
@@ -123,7 +144,7 @@ async def stuck_leads(
 
 async def manager_load(db: AsyncSession, *, workspace_id: uuid.UUID) -> list[dict]:
     sql = text(f"""
-        SELECT l.assigned_to AS uid, u.name AS name,
+        SELECT l.assigned_to AS uid, u.name AS name, u.max_active_deals AS max_active_deals,
                count(*) FILTER (WHERE s.is_won = false AND s.is_lost = false) AS in_work,
                count(*) FILTER (WHERE l.created_at >= now() - interval '7 days') AS new_week,
                count(*) FILTER (
@@ -137,7 +158,7 @@ async def manager_load(db: AsyncSession, *, workspace_id: uuid.UUID) -> list[dic
           AND l.assignment_status = 'assigned'
           AND l.archived_at IS NULL
           AND l.assigned_to IS NOT NULL
-        GROUP BY l.assigned_to, u.name
+        GROUP BY l.assigned_to, u.name, u.max_active_deals
         ORDER BY in_work DESC
     """)
     rows = (await db.execute(sql, {"wid": workspace_id})).all()
@@ -145,6 +166,7 @@ async def manager_load(db: AsyncSession, *, workspace_id: uuid.UUID) -> list[dic
         {
             "user_id": r.uid,
             "name": r.name or "—",
+            "max_active_deals": int(r.max_active_deals) if r.max_active_deals is not None else None,
             "in_work": int(r.in_work),
             "new_week": int(r.new_week),
             "stuck": int(r.stuck),

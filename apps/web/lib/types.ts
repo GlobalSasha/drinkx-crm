@@ -200,6 +200,7 @@ export interface SourceBreakdown {
   leads: number;
   qualified: number;
   conversion_pct: number;
+  prev_leads: number;
 }
 
 export interface DailyPoint {
@@ -213,9 +214,11 @@ export interface CompanySummary {
   leads_today: number;
   leads_yesterday: number;
   leads_7d: number;
+  leads_7d_prior: number;
   avg_per_day_7d: number;
   stuck_count: number;
   ad_conversion_pct: number | null;
+  ad_conversion_pct_prior: number | null;
   sources: SourceBreakdown[];
   daily: DailyPoint[];
 }
@@ -225,12 +228,14 @@ export interface StuckLead {
   company_name: string;
   source_name: string | null;
   manager_name: string | null;
+  stage_name: string | null;
   days_idle: number;
 }
 
 export interface ManagerLoad {
   user_id: string;
   name: string;
+  max_active_deals: number | null;
   in_work: number;
   new_week: number;
   stuck: number;
@@ -239,6 +244,7 @@ export interface ManagerLoad {
 export interface CompanyAttention {
   stuck: StuckLead[];
   managers: ManagerLoad[];
+  oldest_days_idle: number;
 }
 
 export interface LeadUpdate {
