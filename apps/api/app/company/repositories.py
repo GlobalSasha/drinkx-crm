@@ -63,7 +63,10 @@ async def source_breakdown(
 
     `to_` is exclusive; omit it for the open-ended current window (through now).
     """
-    sql = text("""
+    # Build the upper bound only when present — passing a NULL param makes
+    # asyncpg unable to infer its type (AmbiguousParameterError).
+    upper = "AND l.created_at < :to_" if to_ is not None else ""
+    sql = text(f"""
         SELECT ls.id AS source_id, ls.name AS name, COALESCE(ls.is_paid, false) AS is_paid,
                count(*)                          AS leads,
                count(*) FILTER (WHERE s.position > 0) AS qualified
@@ -71,11 +74,14 @@ async def source_breakdown(
         LEFT JOIN lead_sources ls ON ls.id = l.source_id
         LEFT JOIN stages s ON s.id = l.stage_id
         WHERE l.workspace_id = :wid AND l.archived_at IS NULL AND l.created_at >= :from_
-          AND (:to_ IS NULL OR l.created_at < :to_)
+          {upper}
         GROUP BY ls.id, ls.name, ls.is_paid
         ORDER BY leads DESC
     """)
-    rows = (await db.execute(sql, {"wid": workspace_id, "from_": from_, "to_": to_})).all()
+    params: dict = {"wid": workspace_id, "from_": from_}
+    if to_ is not None:
+        params["to_"] = to_
+    rows = (await db.execute(sql, params)).all()
     return [
         {
             "source_id": r.source_id,
