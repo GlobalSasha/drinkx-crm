@@ -6,7 +6,7 @@
 // Deals are rare/slow so this is about INCOMING LEAD FLOW, never revenue.
 // Built entirely on the existing brand tokens / Card / recharts wrappers.
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import {
   ArrowUpRight,
@@ -85,46 +85,41 @@ function useDailyTotals(summary: CompanySummary | undefined): number[] {
 }
 
 export function CeoOverview() {
-  const [period, setPeriod] = useState<"week" | "month">("week");
-  const { data: summary, isLoading } = useCompanySummary(period);
-  const { data: attention } = useCompanyAttention();
+  // Trailing week + 14-day trend across the whole screen — one consistent
+  // window, no period toggle (a month/week switch only re-scoped part of the
+  // screen, which read as dishonest). Month view, if wanted, is a separate
+  // properly-scoped feature.
+  const { data: summary, isLoading, isError: summaryError } = useCompanySummary();
+  const { data: attention, isError: attentionError } = useCompanyAttention();
   const { rows, series } = useDailySeries(summary);
   const totals = useDailyTotals(summary);
+  const failed = summaryError || attentionError;
 
   return (
     <div className={pageContainerVariants({ surface: "reading" })}>
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <PageHeader icon={<Eye size={20} />} title="Обзор" />
-        <div className="inline-flex rounded-full border border-brand-border bg-white p-0.5">
-          {(["week", "month"] as const).map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => setPeriod(p)}
-              className={`px-3.5 py-1.5 type-label rounded-full transition active:scale-[0.96] ${
-                period === p ? "bg-brand-soft text-brand-accent" : "text-brand-muted hover:text-brand-primary"
-              }`}
-            >
-              {p === "week" ? "Неделя" : "Месяц"}
-            </button>
-          ))}
+      <PageHeader icon={<Eye size={20} />} title="Обзор" />
+
+      {failed ? (
+        <div className="rounded-card border border-rose/20 bg-rose/5 p-6 mt-2">
+          <p className="type-card-title text-rose">Не удалось загрузить сводку</p>
+          <p className="type-body text-brand-muted mt-1">Обновите страницу — данные временно недоступны.</p>
         </div>
-      </div>
+      ) : (
+        <div className="space-y-6 mt-2">
+          <HeroVerdict summary={summary} attention={attention} loading={isLoading} />
 
-      <div className="space-y-6 mt-2">
-        <HeroVerdict summary={summary} attention={attention} loading={isLoading} />
+          <KpiBand summary={summary} oldestIdle={attention?.oldest_days_idle ?? 0} totals={totals} />
 
-        <KpiBand summary={summary} oldestIdle={attention?.oldest_days_idle ?? 0} totals={totals} />
+          <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-4">
+            <StuckList stuck={attention?.stuck} loading={!attention} />
+            <ManagerLoadCard managers={attention?.managers} loading={!attention} />
+          </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-4">
-          <StuckList stuck={attention?.stuck} loading={!attention} />
-          <ManagerLoadCard managers={attention?.managers} loading={!attention} />
+          <SourcesCard summary={summary} loading={isLoading} />
+
+          <DailyDisclosure rows={rows} series={series} hasData={(summary?.daily.length ?? 0) > 0} />
         </div>
-
-        <SourcesCard summary={summary} loading={isLoading} />
-
-        <DailyDisclosure rows={rows} series={series} hasData={(summary?.daily.length ?? 0) > 0} />
-      </div>
+      )}
     </div>
   );
 }
@@ -217,7 +212,6 @@ function KpiBand({
         label="В среднем в день"
         value={summary ? String(summary.avg_per_day_7d) : "—"}
         note="за последние 7 дней"
-        sparkline={totals}
       />
       <KpiTile
         label="Конверсия с рекламы"
@@ -266,7 +260,7 @@ function KpiTile({
           </span>
         )}
       </div>
-      {note && <span className={`type-hint ${danger ? "text-rose/80" : "text-brand-muted"}`}>{note}</span>}
+      {note && <span className={`type-hint not-italic ${danger ? "text-rose/80" : "text-brand-muted"}`}>{note}</span>}
       {sparkline && sparkline.length > 1 && (
         <div className="h-5 w-full mt-0.5 hidden sm:block">
           <ResponsiveContainer width="100%" height="100%">
@@ -317,7 +311,7 @@ function StuckList({ stuck, loading }: { stuck: StuckLead[] | undefined; loading
         </p>
       )}
       {items.length > STUCK_PREVIEW && (
-        <p className="type-hint text-brand-muted mt-2 px-1">и ещё {items.length - STUCK_PREVIEW}</p>
+        <p className="type-hint not-italic text-brand-muted mt-2 px-1">и ещё {items.length - STUCK_PREVIEW}</p>
       )}
     </Card>
   );
@@ -338,10 +332,23 @@ function ManagerLoadCard({ managers, loading }: { managers: ManagerLoad[] | unde
   const rows = useMemo(() => {
     const list = (managers ?? []).map((m) => {
       const cap = m.max_active_deals && m.max_active_deals > 0 ? m.max_active_deals : null;
-      const load = cap ? m.in_work / cap : m.stuck > 0 ? 0.9 : 0.3;
+      // load = null when capacity is unknown — render a neutral grey bar rather
+      // than fabricating an "overload" zone (the previous 0.9 mislabelled a
+      // stuck lead as capacity overload).
+      const load = cap ? m.in_work / cap : null;
       return { ...m, load };
     });
-    return list.sort((a, b) => b.load - a.load);
+    const maxIn = Math.max(1, ...list.map((m) => m.in_work));
+    const withBar = list.map((m) => {
+      const zone =
+        m.load == null ? "bg-brand-muted" : m.load > 0.85 ? "bg-rose" : m.load > 0.6 ? "bg-warning" : "bg-success";
+      const width =
+        m.load == null ? Math.round((m.in_work / maxIn) * 100) : Math.min(100, Math.round(m.load * 100));
+      return { ...m, zone, width };
+    });
+    return withBar.sort(
+      (a, b) => (b.load ?? -1) - (a.load ?? -1) || b.stuck - a.stuck || b.in_work - a.in_work,
+    );
   }, [managers]);
 
   return (
@@ -352,36 +359,30 @@ function ManagerLoadCard({ managers, loading }: { managers: ManagerLoad[] | unde
       {rows.length > 0 ? (
         <>
           <ul className="space-y-2.5">
-            {rows.map((m) => {
-              const zone = m.load > 0.85 ? "bg-rose" : m.load > 0.6 ? "bg-warning" : "bg-success";
-              return (
-                <li key={m.user_id}>
-                  <Link
-                    href={`/team/${m.user_id}` as `/team/${string}`}
-                    className="block px-3 py-2 rounded-card hover:bg-brand-bg transition-colors active:scale-[0.99]"
-                  >
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="type-body text-brand-primary truncate">{m.name}</span>
-                      <span className="type-hint text-brand-muted shrink-0 not-italic">
-                        в работе <span className="tabular-nums text-brand-primary">{m.in_work}</span>
-                        {m.stuck > 0 && (
-                          <>
-                            {" · "}
-                            <span className="tabular-nums text-rose">{m.stuck}</span> стоп
-                          </>
-                        )}
-                      </span>
-                    </div>
-                    <span className="mt-1.5 block h-2 rounded-full bg-brand-bg overflow-hidden">
-                      <span
-                        className={`block h-full rounded-full ${zone}`}
-                        style={{ width: `${Math.min(100, Math.round(m.load * 100))}%` }}
-                      />
+            {rows.map((m) => (
+              <li key={m.user_id}>
+                <Link
+                  href={`/team/${m.user_id}` as `/team/${string}`}
+                  className="block px-3 py-2 rounded-card hover:bg-brand-bg transition-colors active:scale-[0.99]"
+                >
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="type-body text-brand-primary truncate">{m.name}</span>
+                    <span className="type-hint text-brand-muted shrink-0 not-italic">
+                      в работе <span className="tabular-nums text-brand-primary">{m.in_work}</span>
+                      {m.stuck > 0 && (
+                        <>
+                          {" · "}
+                          <span className="tabular-nums text-rose">{m.stuck}</span> стоп
+                        </>
+                      )}
                     </span>
-                  </Link>
-                </li>
-              );
-            })}
+                  </div>
+                  <span className="mt-1.5 block h-2 rounded-full bg-brand-bg overflow-hidden">
+                    <span className={`block h-full rounded-full ${m.zone}`} style={{ width: `${m.width}%` }} />
+                  </span>
+                </Link>
+              </li>
+            ))}
           </ul>
           <div className="flex items-center gap-3 mt-3 px-1 type-hint text-brand-muted not-italic">
             <LegendDot cls="bg-rose" label="перегруз" />
@@ -415,7 +416,7 @@ function SourcesCard({ summary, loading }: { summary: CompanySummary | undefined
     <Card>
       <CardHeader>
         <CardTitle>Откуда пришли</CardTitle>
-        <span className="type-hint text-brand-muted">ранжировано по объёму</span>
+        <span className="type-hint not-italic text-brand-muted">ранжировано по объёму</span>
       </CardHeader>
       {sources.length > 0 ? (
         <div className="space-y-2">
