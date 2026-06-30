@@ -71,15 +71,20 @@ async def test_summary_counts_and_ad_conversion(db, workspace, user):
 
     assert out["leads_today"] == 1          # L1
     assert out["leads_7d"] == 3             # L1, L2, L4 (L3 is 10d old)
+    assert out["leads_7d_prior"] == 1       # L3 (10d) falls in [today-13, today-6)
     assert out["stuck_count"] == 1          # L3 only (assigned, 10d idle)
 
     # Paid (Директ) = L1,L2,L4 → 3 leads, qualified L2,L4 (position>0) → 2 → 66.7%
     assert out["ad_conversion_pct"] == 66.7
+    # Prior month window [today-59, today-29) is empty → no paid leads → None
+    assert out["ad_conversion_pct_prior"] is None
 
     by_name = {s["name"]: s for s in out["sources"]}
     assert by_name["Яндекс Директ"]["leads"] == 3
     assert by_name["Яндекс Директ"]["qualified"] == 2
     assert by_name["Выставка"]["leads"] == 1
+    # Prior month window empty → every source's prev_leads is 0
+    assert all(s["prev_leads"] == 0 for s in out["sources"])
     assert len(out["daily"]) >= 3           # L1..L4 all within 14d
 
 
@@ -93,11 +98,14 @@ async def test_attention_stuck_and_managers(db, workspace, user):
     assert s["company_name"] == "L3"
     assert s["source_name"] == "Выставка"
     assert s["manager_name"] == user.name
+    assert s["stage_name"] == "В работе"     # the "why" hint
     assert s["days_idle"] >= 7
+    assert out["oldest_days_idle"] >= 7      # MAX across stuck
 
     assert len(out["managers"]) == 1
     m = out["managers"][0]
     assert m["user_id"] == user.id
+    assert m["max_active_deals"] == 20       # User default capacity
     assert m["in_work"] == 2                 # L3 + L4
     assert m["stuck"] == 1                   # L3
     assert m["new_week"] == 1                # L4 (2d); L3 is 10d
