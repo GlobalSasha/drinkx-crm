@@ -236,9 +236,10 @@ concrete correctness/security/UX gaps its maturity exposed. Plans **009–017**.
 advisor-reviewed (scope clean, migration chain 0051→0052→0053 linear, SSRF guard
 reused for outbound HTTP, tests meaningful), and committed to branch
 `feat/twenty-audit-hardening` in 3 commits (`d2025b8` security, `aac070c` AI,
-`1401ee2` automation). **CI-pending** = local machine has no uv/Postgres, so the
-pytest suites + Alembic upgrade run only in GitHub CI (open a PR to trigger) — no
-green DB run has happened yet. Nothing pushed or deployed.
+`1401ee2` automation). **CI GREEN** — PR #154 `pytest pass` (2m44s, run 28538628520)
+against postgres:16 after aligning 4 pre-existing tests to the intended new behavior
+(commit `cc3d630`: plans 012 retry / 015-016 return-dict + tg-raise). Branch pushed;
+**not merged, not deployed** — deploy fires only on merge to main, pending owner's word.
 
 **Two follow-ups left (not blockers):**
 - `009*` — `app/leads/dedup.py` (`find_duplicates` / `merge_leads`) was left untouched
