@@ -11,16 +11,25 @@ from app.activity import services as svc
 from app.activity.models import ActivityType
 
 
-def _fake_activity(*, type_=ActivityType.task.value):
+_OWNER_ID = uuid.UUID("33333333-3333-3333-3333-333333333333")
+
+
+def _fake_activity(*, type_=ActivityType.task.value, user_id=_OWNER_ID):
     return SimpleNamespace(
         id=uuid.UUID("11111111-1111-1111-1111-111111111111"),
         lead_id=uuid.UUID("22222222-2222-2222-2222-222222222222"),
+        user_id=user_id,
         type=type_,
         body="старая",
         task_due_at=None,
         archived_at=None,
         payload_json={"title": "старая"},
     )
+
+
+def _owner_actor():
+    """An actor matching _OWNER_ID — passes _authorize_task_actor."""
+    return SimpleNamespace(id=_OWNER_ID, role="manager")
 
 
 @pytest.mark.asyncio
@@ -33,6 +42,7 @@ async def test_update_task_empty_payload_raises(monkeypatch):
             workspace_id=uuid.uuid4(),
             lead_id=uuid.uuid4(),
             activity_id=uuid.uuid4(),
+            actor=_owner_actor(),
             body=None,
             task_due_at=None,
         )
@@ -50,6 +60,7 @@ async def test_update_task_whitespace_body_raises(monkeypatch):
             workspace_id=uuid.uuid4(),
             lead_id=uuid.uuid4(),
             activity_id=uuid.uuid4(),
+            actor=_owner_actor(),
             body="   ",
             task_due_at=None,
         )
@@ -67,6 +78,7 @@ async def test_update_task_rejects_non_task_activity(monkeypatch):
             workspace_id=uuid.uuid4(),
             lead_id=uuid.uuid4(),
             activity_id=uuid.uuid4(),
+            actor=_owner_actor(),
             body="новый",
             task_due_at=None,
         )
@@ -85,6 +97,7 @@ async def test_update_task_writes_body_and_title(monkeypatch):
         workspace_id=uuid.uuid4(),
         lead_id=activity.lead_id,
         activity_id=activity.id,
+        actor=_owner_actor(),
         body="новый текст",
         task_due_at=None,
     )
@@ -103,6 +116,7 @@ async def test_archive_task_rejects_non_task_activity(monkeypatch):
             workspace_id=uuid.uuid4(),
             lead_id=uuid.uuid4(),
             activity_id=uuid.uuid4(),
+            actor=_owner_actor(),
         )
 
 
@@ -119,6 +133,7 @@ async def test_archive_task_raises_when_not_found(monkeypatch):
             workspace_id=uuid.uuid4(),
             lead_id=uuid.uuid4(),
             activity_id=uuid.uuid4(),
+            actor=_owner_actor(),
         )
 
 
@@ -134,6 +149,7 @@ async def test_archive_task_sets_archived_at(monkeypatch):
         workspace_id=uuid.uuid4(),
         lead_id=activity.lead_id,
         activity_id=activity.id,
+        actor=_owner_actor(),
     )
     assert result.archived_at is not None
 
@@ -154,6 +170,7 @@ async def test_archive_task_is_idempotent(monkeypatch):
         workspace_id=uuid.uuid4(),
         lead_id=activity.lead_id,
         activity_id=activity.id,
+        actor=_owner_actor(),
     )
     assert result.archived_at == pre_archived_at  # unchanged
 
@@ -172,6 +189,7 @@ async def test_restore_task_clears_archived_at(monkeypatch):
         workspace_id=uuid.uuid4(),
         lead_id=activity.lead_id,
         activity_id=activity.id,
+        actor=_owner_actor(),
     )
     assert result.archived_at is None
 
@@ -191,4 +209,5 @@ async def test_restore_task_rejects_non_task_activity(monkeypatch):
             workspace_id=uuid.uuid4(),
             lead_id=uuid.uuid4(),
             activity_id=uuid.uuid4(),
+            actor=_owner_actor(),
         )

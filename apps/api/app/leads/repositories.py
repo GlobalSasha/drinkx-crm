@@ -283,6 +283,7 @@ async def list_leads(
     base = select(Lead).where(
         Lead.workspace_id == workspace_id,
         Lead.assignment_status == "assigned",
+        Lead.deleted_at.is_(None),
     )
     if form_id is not None:
         slug = await _slug_for_form_id(db, form_id, workspace_id)
@@ -345,6 +346,7 @@ async def list_pool(
     base = select(Lead).where(
         Lead.workspace_id == workspace_id,
         Lead.assignment_status == "pool",
+        Lead.deleted_at.is_(None),
     )
     if form_id is not None:
         slug = await _slug_for_form_id(db, form_id, workspace_id)
@@ -406,6 +408,7 @@ async def get_pool_leads_needing_enrichment(
         .where(
             Lead.assignment_status == "pool",
             Lead.archived_at.is_(None),
+            Lead.deleted_at.is_(None),
             ~recent_run_exists,
         )
         .order_by(Lead.created_at.asc())
@@ -445,9 +448,58 @@ async def update_lead(db: AsyncSession, lead: Lead, patch_dict: dict[str, Any]) 
     return lead
 
 
-async def delete_lead(db: AsyncSession, lead: Lead) -> None:
+async def destroy_lead(db: AsyncSession, lead: Lead) -> None:
+    """Permanent, irreversible hard delete. Gated to admin/head at the
+    router layer — see `soft_delete_lead` for the everyday Trash path."""
     await db.delete(lead)
     await db.flush()
+
+
+async def soft_delete_lead(db: AsyncSession, lead: Lead, user_id: uuid.UUID) -> None:
+    """Move a lead to Trash: sets deleted_at/deleted_by, no data loss."""
+    lead.deleted_at = datetime.now(timezone.utc)
+    lead.deleted_by = user_id
+    await db.flush()
+
+
+async def restore_lead(db: AsyncSession, lead: Lead) -> None:
+    """Clear deleted_at/deleted_by, returning the lead to active lists."""
+    lead.deleted_at = None
+    lead.deleted_by = None
+    await db.flush()
+
+
+async def list_trash(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    *,
+    page: int = 1,
+    page_size: int = 50,
+) -> tuple[list[Lead], int]:
+    """Return (rows, total) of soft-deleted leads only, most recently
+    deleted first."""
+    base = select(Lead).where(
+        Lead.workspace_id == workspace_id,
+        Lead.deleted_at.isnot(None),
+    )
+
+    count_result = await db.execute(select(func.count()).select_from(base.subquery()))
+    total: int = count_result.scalar_one()
+
+    list_stmt = (
+        base.add_columns(
+            Contact.name.label("primary_contact_name"),
+            _open_count_subquery(_TASK_KINDS).label("open_tasks_count"),
+            _open_count_subquery(_FOLLOWUP_KINDS).label("open_followups_count"),
+        )
+        .outerjoin(Contact, Contact.id == Lead.primary_contact_id)
+        .options(defer(Lead.ai_data), defer(Lead.agent_state))
+        .order_by(Lead.deleted_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    rows_result = await db.execute(list_stmt)
+    return await _populate_extras(list(rows_result.all()), db=db), total
 
 
 async def claim_lead(

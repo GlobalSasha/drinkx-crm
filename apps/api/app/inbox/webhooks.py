@@ -137,7 +137,8 @@ async def phone_webhook(
 
     Auth is validated only when `mango_api_salt` is configured —
     leaving it blank is the documented dev path (sign validation
-    short-circuits with a once-per-startup warning).
+    short-circuits with a warning) EXCEPT in production, where an
+    unset salt fails closed with a 503 (plan 013 / B10).
     """
     s = get_settings()
     form = await request.form()
@@ -170,9 +171,15 @@ async def phone_webhook(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="invalid_sign",
             )
+    elif s.app_env == "production":
+        log.error("inbox.webhook.phone.no_salt_configured")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="phone_webhook_not_configured",
+        )
     else:
         # Dev / pre-creds path. Log once so the operator can't miss it.
-        log.warning("inbox.webhook.phone.unsigned_accepted")
+        log.warning("inbox.webhook.phone.unsigned_accepted_dev_only")
 
     adapter = PhoneAdapter()
     try:

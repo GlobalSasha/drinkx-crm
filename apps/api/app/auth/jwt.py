@@ -7,7 +7,10 @@ Supports both:
   projects since they switched away from shared HS256 secrets.
 
 Stub mode (ADR-014) is on while neither SUPABASE_JWT_SECRET nor SUPABASE_URL
-is configured — every request returns a fixed dev identity.
+is configured — every request returns a fixed dev identity. Stub mode is
+never allowed in production (APP_ENV=production): if Supabase env is
+missing there, requests fail loud with a 500 instead of silently
+authenticating as the stub user (plan 013 / B10).
 """
 from __future__ import annotations
 
@@ -38,7 +41,14 @@ class TokenClaims:
 
 def _is_stub_mode() -> bool:
     s = get_settings()
-    return not s.supabase_jwt_secret and not s.supabase_url
+    if s.supabase_jwt_secret or s.supabase_url:
+        return False
+    if s.app_env == "production":
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="auth misconfigured: SUPABASE_URL/JWT secret unset in production",
+        )
+    return True
 
 
 def _stub_claims() -> TokenClaims:

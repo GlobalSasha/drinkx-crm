@@ -201,13 +201,13 @@ async def test_update_lead_applies_only_provided_fields(db, workspace, user):
 
 @skip_no_pg
 async def test_delete_lead(db, workspace, user):
-    """Deleting a lead makes get_by_id return None."""
+    """Permanently destroying a lead makes get_by_id return None."""
     lead = await _make_lead(db, workspace.id, company_name="To Delete")
     lead_id = lead.id
 
     from app.leads import repositories as repo
 
-    await repo.delete_lead(db, lead)
+    await repo.destroy_lead(db, lead)
 
     result = await repo.get_by_id(db, lead_id, workspace.id)
     assert result is None
