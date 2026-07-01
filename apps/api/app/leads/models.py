@@ -170,6 +170,15 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     blocker: Mapped[str | None] = mapped_column(String(500), nullable=True)
     next_step: Mapped[str | None] = mapped_column(String(500), nullable=True)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Soft-delete (Trash / restore, plan 009). Distinct from `archived_at`
+    # above, which is the enrichment-pool filter / merge-dedup concept.
+    # A lead with deleted_at set is in Trash: hidden from every active-lead
+    # list/pool/board query, not editable, and recoverable via restore
+    # until an admin/head permanently destroys it.
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     # Set when this lead was merged into another (dedup): the surviving lead's id.
     # archived_at is set too. Self-referential FK (SET NULL) — soft, reversible.
     merged_into_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -237,6 +246,7 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
         sa.Index("ix_leads_workspace_max_user_id", "workspace_id", "max_user_id"),
         sa.Index("ix_leads_workspace_assigned_to", "workspace_id", "assigned_to"),
         sa.Index("ix_leads_workspace_needs_review", "workspace_id", "needs_review"),
+        sa.Index("ix_leads_workspace_deleted_at", "workspace_id", "deleted_at"),
     )
 
 

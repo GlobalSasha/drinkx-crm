@@ -222,6 +222,20 @@ async def lead_utm_stats(
     return [UtmSourceStatOut(**r) for r in rows]
 
 
+@router.get("/trash", response_model=LeadListOut)
+async def list_trash(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> LeadListOut:
+    """Soft-deleted leads only — the Trash view. Declared before
+    `/{lead_id}` so the literal path wins."""
+    filters = dict(page=page, page_size=page_size)
+    items, total = await services.list_trash(db, user.workspace_id, filters)
+    return LeadListOut(items=items, total=total, page=page, page_size=page_size)
+
+
 @router.get("/{lead_id}", response_model=LeadOut)
 async def get_lead(
     lead_id: UUID,
@@ -231,7 +245,7 @@ async def get_lead(
     from app.leads.repositories import get_by_id
 
     lead = await get_by_id(db, lead_id, user.workspace_id)
-    if lead is None:
+    if lead is None or lead.deleted_at is not None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
     # Attach days-on-current-stage for the lead card stages bar.
     lead.current_stage_days = await services.current_stage_days(db, lead)  # type: ignore[attr-defined]
@@ -317,10 +331,70 @@ async def delete_lead(
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
     user: Annotated[User, Depends(current_user)] = ...,
 ) -> None:
+    """Move a lead to Trash (soft delete). Recoverable via `restore`."""
+    from app.audit.audit import log as log_audit_event
+
     try:
-        await services.delete_lead(db, user.workspace_id, lead_id)
+        await services.soft_delete_lead(db, user.workspace_id, lead_id, user.id)
     except LeadNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+    await log_audit_event(
+        db,
+        action="lead.soft_delete",
+        workspace_id=user.workspace_id,
+        user_id=user.id,
+        entity_type="lead",
+        entity_id=lead_id,
+    )
+    await db.commit()
+
+
+@router.post("/{lead_id}/restore", response_model=LeadOut)
+async def restore_lead(
+    lead_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> LeadOut:
+    """Restore a lead out of Trash."""
+    from app.audit.audit import log as log_audit_event
+
+    try:
+        lead = await services.restore_lead(db, user.workspace_id, lead_id)
+    except LeadNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+    await log_audit_event(
+        db,
+        action="lead.restore",
+        workspace_id=user.workspace_id,
+        user_id=user.id,
+        entity_type="lead",
+        entity_id=lead_id,
+    )
+    await db.commit()
+    return lead  # type: ignore[return-value]
+
+
+@router.delete("/{lead_id}/permanent", status_code=status.HTTP_204_NO_CONTENT)
+async def destroy_lead(
+    lead_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(require_admin_or_head)] = ...,
+) -> None:
+    """Permanently destroy a lead. admin/head only — irreversible."""
+    from app.audit.audit import log as log_audit_event
+
+    try:
+        await services.destroy_lead(db, user.workspace_id, lead_id)
+    except LeadNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+    await log_audit_event(
+        db,
+        action="lead.destroy",
+        workspace_id=user.workspace_id,
+        user_id=user.id,
+        entity_type="lead",
+        entity_id=lead_id,
+    )
     await db.commit()
 
 

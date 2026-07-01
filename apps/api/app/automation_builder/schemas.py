@@ -11,8 +11,14 @@ from pydantic import BaseModel, ConfigDict, Field
 # Pydantic Literal validates at the API boundary so the service never
 # sees a stray string.
 TriggerType = Literal["stage_change", "form_submission", "inbox_match"]
-ActionType = Literal["send_template", "create_task", "move_stage"]
-StepType = Literal["delay_hours", "send_template", "create_task", "move_stage"]
+# Plan 017 — `http_request` is a generic outbound-HTTP action (ADR-022):
+# config shape is `{method, url, headers?, body_template?}`.
+ActionType = Literal[
+    "send_template", "create_task", "move_stage", "http_request"
+]
+StepType = Literal[
+    "delay_hours", "send_template", "create_task", "move_stage", "http_request"
+]
 RunStatus = Literal["queued", "success", "skipped", "failed"]
 StepRunStatus = Literal["pending", "success", "skipped", "failed"]
 
@@ -95,3 +101,8 @@ class AutomationStepRunOut(BaseModel):
     executed_at: datetime | None
     status: StepRunStatus
     error: str | None = None
+
+
+class AutomationTestFireRequest(BaseModel):
+    """Body for `POST /{id}/test` — plan 015 author/debug loop."""
+    lead_id: uuid.UUID

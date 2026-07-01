@@ -90,6 +90,9 @@ class LeadOut(LeadBase):
     won_at: datetime | None
     lost_at: datetime | None
     lost_reason: str | None
+    # Soft-delete (Trash / restore, plan 009). Present so a restored /
+    # trashed lead's card can render its Trash status.
+    deleted_at: datetime | None = None
     ai_data: dict | None = None
     # Primary contact («основной ЛПР») — id from leads.primary_contact_id,
     # name resolved via LEFT JOIN in the list-query repository.
@@ -153,6 +156,9 @@ class LeadListItemOut(LeadBase):
     won_at: datetime | None
     lost_at: datetime | None
     lost_reason: str | None
+    # Soft-delete (Trash / restore, plan 009). GET /leads/trash relies on
+    # this to show "deleted N days ago" on each row.
+    deleted_at: datetime | None = None
     primary_contact_id: UUID | None = None
     primary_contact_name: str | None = None
     # Sprint 3.6 G1 — landing-form attribution (same as LeadOut).

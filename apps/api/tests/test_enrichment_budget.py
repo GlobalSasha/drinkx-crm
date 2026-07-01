@@ -64,7 +64,8 @@ async def test_has_budget_remaining_true_initially():
 
 @pytest.mark.asyncio
 async def test_add_to_daily_spend_increments_counter():
-    """add_to_daily_spend calls incrbyfloat and expire on the Redis client."""
+    """add_to_daily_spend calls incrbyfloat and expire on the Redis client
+    for both the daily key and the monthly-ceiling key (Plan 011)."""
     from app.enrichment.budget import add_to_daily_spend
 
     redis_mock = AsyncMock()
@@ -74,8 +75,8 @@ async def test_add_to_daily_spend_increments_counter():
     with patch("app.enrichment.budget.get_redis", return_value=redis_mock):
         await add_to_daily_spend(uuid.uuid4(), 0.05)
 
-    redis_mock.incrbyfloat.assert_called_once()
-    redis_mock.expire.assert_called_once()
+    assert redis_mock.incrbyfloat.call_count == 2
+    assert redis_mock.expire.call_count == 2
 
 
 @pytest.mark.asyncio

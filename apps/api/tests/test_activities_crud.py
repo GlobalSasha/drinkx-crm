@@ -195,7 +195,7 @@ async def test_complete_task_sets_task_done(db, workspace, user):
     from app.activity import services
 
     completed = await services.complete_task(
-        db, workspace.id, lead.id, activity.id, user.id
+        db, workspace.id, lead.id, activity.id, user
     )
     assert completed.task_done is True
     assert completed.task_completed_at is not None
@@ -210,7 +210,7 @@ async def test_complete_task_on_non_task_raises(db, workspace, user):
     from app.activity import services
 
     with pytest.raises(services.ActivityWrongType):
-        await services.complete_task(db, workspace.id, lead.id, activity.id, user.id)
+        await services.complete_task(db, workspace.id, lead.id, activity.id, user)
 
 
 @skip_no_pg
@@ -222,8 +222,8 @@ async def test_complete_task_is_idempotent(db, workspace, user):
 
     from app.activity import services
 
-    first = await services.complete_task(db, workspace.id, lead.id, activity.id, user.id)
-    second = await services.complete_task(db, workspace.id, lead.id, activity.id, user.id)
+    first = await services.complete_task(db, workspace.id, lead.id, activity.id, user)
+    second = await services.complete_task(db, workspace.id, lead.id, activity.id, user)
 
     assert second.task_done is True
     assert second.task_completed_at == first.task_completed_at

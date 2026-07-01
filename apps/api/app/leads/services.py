@@ -114,7 +114,7 @@ async def get_lead(
     isolation but don't want to duplicate the 404-or-Lead branching.
     """
     lead = await repo.get_by_id(db, lead_id, workspace_id)
-    if lead is None:
+    if lead is None or lead.deleted_at is not None:
         raise LeadNotFound(lead_id)
     return lead
 
@@ -243,7 +243,7 @@ async def update_lead(
     payload: LeadUpdate,
 ) -> Lead:
     lead = await repo.get_by_id(db, lead_id, workspace_id)
-    if lead is None:
+    if lead is None or lead.deleted_at is not None:
         raise LeadNotFound(lead_id)
     _validate_enum_fields(payload.priority, payload.deal_type)
     patch = payload.model_dump(exclude_unset=True)
@@ -261,15 +261,51 @@ async def update_lead(
     return await repo.update_lead(db, lead, patch)
 
 
-async def delete_lead(
+async def soft_delete_lead(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> None:
+    """Move a lead to Trash. Recoverable via `restore_lead`."""
+    lead = await repo.get_by_id(db, lead_id, workspace_id)
+    if lead is None or lead.deleted_at is not None:
+        raise LeadNotFound(lead_id)
+    await repo.soft_delete_lead(db, lead, user_id)
+
+
+async def restore_lead(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+) -> Lead:
+    """Restore a lead out of Trash. Raises LeadNotFound if the lead
+    doesn't exist in the workspace or isn't currently trashed."""
+    lead = await repo.get_by_id(db, lead_id, workspace_id)
+    if lead is None or lead.deleted_at is None:
+        raise LeadNotFound(lead_id)
+    await repo.restore_lead(db, lead)
+    return lead
+
+
+async def destroy_lead(
     db: AsyncSession,
     workspace_id: uuid.UUID,
     lead_id: uuid.UUID,
 ) -> None:
+    """Permanent, irreversible delete. Router gates this to admin/head."""
     lead = await repo.get_by_id(db, lead_id, workspace_id)
     if lead is None:
         raise LeadNotFound(lead_id)
-    await repo.delete_lead(db, lead)
+    await repo.destroy_lead(db, lead)
+
+
+async def list_trash(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    filters: dict[str, Any],
+) -> tuple[list[Lead], int]:
+    return await repo.list_trash(db, workspace_id, **filters)
 
 
 async def claim_lead(

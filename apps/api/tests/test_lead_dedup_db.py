@@ -89,6 +89,22 @@ async def test_excludes_archived(db, workspace):
 
 
 @skip_no_pg
+async def test_excludes_trashed(db, workspace):
+    # A soft-deleted (Trash) lead must not be suggested as a merge candidate (plan 009).
+    master = _lead(workspace.id, phone="89161234567")
+    trashed = _lead(
+        workspace.id,
+        company_name="Trashed dup",
+        phone="89161234567",
+        deleted_at=datetime.now(timezone.utc),
+    )
+    await _persist(db, master, trashed)
+
+    res = await find_duplicates(db, master)
+    assert trashed.id not in {lead.id for lead in res}
+
+
+@skip_no_pg
 async def test_scoped_to_workspace(db, workspace):
     from app.auth.models import Workspace
 

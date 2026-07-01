@@ -121,23 +121,32 @@ async def create_activity(
     return await repo.create(db, lead_id, user_id, payload_dict)
 
 
+def _authorize_task_actor(activity: Activity, actor: User) -> None:
+    """Owner (creator) or admin/head may mutate a task. Mirrors update_comment.
+    Raise BEFORE inspecting the row's type so status codes don't leak existence."""
+    if activity.user_id != actor.id and actor.role not in ("admin", "head"):
+        raise ActivityForbidden(activity.id)
+
+
 async def update_task(
     db: AsyncSession,
     workspace_id: uuid.UUID,
     lead_id: uuid.UUID,
     activity_id: uuid.UUID,
     *,
+    actor: User,
     body: str | None,
     task_due_at: datetime | None,
 ) -> Activity:
     """Update body and/or task_due_at on a task-Activity. Raises
-    LeadNotFound / ActivityNotFound / ValueError if not a task."""
+    LeadNotFound / ActivityNotFound / ActivityForbidden / ValueError if not a task."""
     if body is None and task_due_at is None:
         raise ValueError("at least one of body or task_due_at must be provided")
     await _get_lead_or_raise(db, lead_id, workspace_id)
     activity = await repo.get_by_id(db, activity_id, lead_id)
     if activity is None:
         raise ActivityNotFound(activity_id)
+    _authorize_task_actor(activity, actor)
     if activity.type != ActivityType.task.value:
         raise ValueError("only task activities can be updated via this endpoint")
     if body is not None:
@@ -201,15 +210,19 @@ async def archive_task(
     workspace_id: uuid.UUID,
     lead_id: uuid.UUID,
     activity_id: uuid.UUID,
+    *,
+    actor: User,
 ) -> Activity:
     """Soft-archive a task-Activity. Sets archived_at = now() so the row is
     hidden from active views but preserved (with its file attachments) in the
     per-lead archive. File-attachment Activities are NOT cascade-archived;
-    they remain visible under the archived task in the archive view."""
+    they remain visible under the archived task in the archive view.
+    Raises LeadNotFound / ActivityNotFound / ActivityForbidden / ValueError."""
     await _get_lead_or_raise(db, lead_id, workspace_id)
     activity = await repo.get_by_id(db, activity_id, lead_id)
     if activity is None:
         raise ActivityNotFound(activity_id)
+    _authorize_task_actor(activity, actor)
     if activity.type != ActivityType.task.value:
         raise ValueError("only task activities can be archived via this endpoint")
     if activity.archived_at is not None:
@@ -223,12 +236,16 @@ async def restore_task(
     workspace_id: uuid.UUID,
     lead_id: uuid.UUID,
     activity_id: uuid.UUID,
+    *,
+    actor: User,
 ) -> Activity:
-    """Restore an archived task. Sets archived_at = NULL."""
+    """Restore an archived task. Sets archived_at = NULL.
+    Raises LeadNotFound / ActivityNotFound / ActivityForbidden / ValueError."""
     await _get_lead_or_raise(db, lead_id, workspace_id)
     activity = await repo.get_by_id(db, activity_id, lead_id)
     if activity is None:
         raise ActivityNotFound(activity_id)
+    _authorize_task_actor(activity, actor)
     if activity.type != ActivityType.task.value:
         raise ValueError("only task activities can be restored via this endpoint")
     activity.archived_at = None
@@ -240,12 +257,14 @@ async def complete_task(
     workspace_id: uuid.UUID,
     lead_id: uuid.UUID,
     activity_id: uuid.UUID,
-    user_id: uuid.UUID,
+    actor: User,
 ) -> Activity:
+    """Raises LeadNotFound / ActivityNotFound / ActivityForbidden / ActivityWrongType."""
     await _get_lead_or_raise(db, lead_id, workspace_id)
     activity = await repo.get_by_id(db, activity_id, lead_id)
     if activity is None:
         raise ActivityNotFound(activity_id)
+    _authorize_task_actor(activity, actor)
     if activity.type != ActivityType.task.value:
         raise ActivityWrongType("Cannot complete non-task activity")
     if activity.task_done:
@@ -258,12 +277,16 @@ async def reopen_task(
     workspace_id: uuid.UUID,
     lead_id: uuid.UUID,
     activity_id: uuid.UUID,
+    *,
+    actor: User,
 ) -> Activity:
-    """Reopen a completed task so it returns to the active list."""
+    """Reopen a completed task so it returns to the active list.
+    Raises LeadNotFound / ActivityNotFound / ActivityForbidden / ActivityWrongType."""
     await _get_lead_or_raise(db, lead_id, workspace_id)
     activity = await repo.get_by_id(db, activity_id, lead_id)
     if activity is None:
         raise ActivityNotFound(activity_id)
+    _authorize_task_actor(activity, actor)
     if activity.type != ActivityType.task.value:
         raise ActivityWrongType("Cannot reopen non-task activity")
     if not activity.task_done:

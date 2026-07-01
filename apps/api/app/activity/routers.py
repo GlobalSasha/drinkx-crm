@@ -220,12 +220,17 @@ async def complete_task(
 ) -> ActivityOut:
     try:
         activity = await services.complete_task(
-            db, user.workspace_id, lead_id, activity_id, user.id
+            db, user.workspace_id, lead_id, activity_id, user
         )
     except LeadNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
     except services.ActivityNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Activity not found")
+    except services.ActivityForbidden:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the owner or an admin/head can complete this task",
+        )
     except services.ActivityWrongType as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     await db.commit()
@@ -241,12 +246,17 @@ async def reopen_task(
 ) -> ActivityOut:
     try:
         activity = await services.reopen_task(
-            db, user.workspace_id, lead_id, activity_id
+            db, user.workspace_id, lead_id, activity_id, actor=user
         )
     except LeadNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
     except services.ActivityNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Activity not found")
+    except services.ActivityForbidden:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the owner or an admin/head can reopen this task",
+        )
     except services.ActivityWrongType as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     await db.commit()
@@ -267,6 +277,7 @@ async def update_activity(
             workspace_id=user.workspace_id,
             lead_id=lead_id,
             activity_id=activity_id,
+            actor=user,
             body=payload.body,
             task_due_at=payload.task_due_at,
         )
@@ -274,6 +285,11 @@ async def update_activity(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="lead not found")
     except services.ActivityNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="task not found")
+    except services.ActivityForbidden:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the owner or an admin/head can edit this task",
+        )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     await db.commit()
@@ -329,11 +345,17 @@ async def delete_activity(
             workspace_id=user.workspace_id,
             lead_id=lead_id,
             activity_id=activity_id,
+            actor=user,
         )
     except LeadNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="lead not found")
     except services.ActivityNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="task not found")
+    except services.ActivityForbidden:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the owner or an admin/head can archive this task",
+        )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     await db.commit()
@@ -353,11 +375,17 @@ async def restore_activity(
             workspace_id=user.workspace_id,
             lead_id=lead_id,
             activity_id=activity_id,
+            actor=user,
         )
     except LeadNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="lead not found")
     except services.ActivityNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="task not found")
+    except services.ActivityForbidden:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the owner or an admin/head can restore this task",
+        )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     await db.commit()

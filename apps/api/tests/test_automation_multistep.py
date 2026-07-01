@@ -517,7 +517,7 @@ async def test_execute_due_step_runs_fires_pending_step():
     ):
         result = await svc.execute_due_step_runs(db)
 
-    assert result == {"scanned": 1, "fired": 1, "failed": 0}
+    assert result == {"scanned": 1, "fired": 1, "failed": 0, "retried": 0, "skipped": 0}
     assert step_run.status == "success"
     assert step_run.executed_at is not None
     assert step_run.error is None

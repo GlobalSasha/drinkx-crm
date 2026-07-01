@@ -7,6 +7,12 @@ Surface (mounted at `/api/automations`):
   PATCH  /api/automations/{id}          — update (admin/head)
   DELETE /api/automations/{id}          — delete (admin/head)
   GET    /api/automations/{id}/runs     — recent run history (any role)
+  GET    /api/automations/runs/{run_id}/steps — per-step grid (any role)
+  POST   /api/automations/{id}/test     — test-fire against a lead
+                                          (admin/head; plan 015)
+  POST   /api/automations/runs/{run_id}/rerun — re-schedule a
+                                          stranded/failed run's steps
+                                          (admin/head; plan 015)
 """
 from __future__ import annotations
 
@@ -25,6 +31,7 @@ from app.automation_builder.schemas import (
     AutomationOut,
     AutomationRunOut,
     AutomationStepRunOut,
+    AutomationTestFireRequest,
     AutomationUpdate,
 )
 from app.db import get_db
@@ -94,6 +101,14 @@ async def create_automation_endpoint(
             detail={
                 "code": "invalid_steps",
                 "message": f"Шаги цепочки некорректны: {exc}",
+            },
+        ) from exc
+    except svc.UnsupportedTemplateChannel as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "unsupported_template_channel",
+                "message": f"Канал шаблона пока не поддерживается автоматизациями: {exc}",
             },
         ) from exc
 
@@ -173,6 +188,14 @@ async def update_automation_endpoint(
             detail={
                 "code": "invalid_steps",
                 "message": f"Шаги цепочки некорректны: {exc}",
+            },
+        ) from exc
+    except svc.UnsupportedTemplateChannel as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "unsupported_template_channel",
+                "message": f"Канал шаблона пока не поддерживается автоматизациями: {exc}",
             },
         ) from exc
 
@@ -257,3 +280,81 @@ async def list_automation_step_runs_endpoint(
         workspace_id=user.workspace_id,
     )
     return [AutomationStepRunOut.model_validate(r) for r in rows]
+
+
+@router.post(
+    "/{automation_id}/test", response_model=AutomationRunOut
+)
+async def test_fire_automation_endpoint(
+    automation_id: uuid.UUID,
+    payload: AutomationTestFireRequest,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(require_admin_or_head)] = ...,
+) -> AutomationRunOut:
+    """Fire an automation's chain against a chosen lead — plan 015
+    author/debug loop. Runs through the same dispatch path as a real
+    trigger; see `svc.test_fire` for the dry-run contract."""
+    try:
+        run = await svc.test_fire(
+            db,
+            workspace_id=user.workspace_id,
+            automation_id=automation_id,
+            lead_id=payload.lead_id,
+        )
+    except svc.AutomationNotFound as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="automation not found",
+        ) from exc
+    except svc.LeadNotFound as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="lead not found",
+        ) from exc
+
+    await log_audit_event(
+        db,
+        workspace_id=user.workspace_id,
+        user_id=user.id,
+        action="automation.test_fire",
+        entity_type="automation",
+        entity_id=automation_id,
+        delta={"lead_id": str(payload.lead_id), "run_status": run.status},
+    )
+    await db.commit()
+    return AutomationRunOut.model_validate(run)
+
+
+@router.post(
+    "/runs/{run_id}/rerun", response_model=AutomationRunOut
+)
+async def rerun_automation_run_endpoint(
+    run_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(require_admin_or_head)] = ...,
+) -> AutomationRunOut:
+    """Re-schedule a stranded/failed run's steps for the scheduler to
+    pick up — plan 015 operator recovery path."""
+    try:
+        run = await svc.rerun_run(
+            db,
+            workspace_id=user.workspace_id,
+            run_id=run_id,
+        )
+    except svc.RunNotFound as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="run not found",
+        ) from exc
+
+    await log_audit_event(
+        db,
+        workspace_id=user.workspace_id,
+        user_id=user.id,
+        action="automation.rerun",
+        entity_type="automation_run",
+        entity_id=run_id,
+        delta={"run_status": run.status},
+    )
+    await db.commit()
+    return AutomationRunOut.model_validate(run)

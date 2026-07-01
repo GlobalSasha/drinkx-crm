@@ -369,7 +369,9 @@ async def test_factory_advances_chain_on_failure(monkeypatch):
         system="s", user="u", task_type=TaskType.prefilter, chain=["first", "second"]
     )
     assert result.text == "ok"
-    assert call_order == ["first", "second"]
+    # plan 012: a transient (5xx) error now retries the SAME provider once
+    # before advancing the chain, so "first" is attempted twice before "second".
+    assert call_order == ["first", "first", "second"]
 
 
 @pytest.mark.asyncio
@@ -420,7 +422,8 @@ async def test_factory_logs_provider_attempts(monkeypatch):
         system="s", user="u", task_type=TaskType.daily_plan, chain=["mimo", "anthropic"]
     )
     assert result.provider == "anthropic"
-    assert call_order == ["mimo", "anthropic"]
+    # plan 012: a transient 429 retries "mimo" once before falling to "anthropic".
+    assert call_order == ["mimo", "mimo", "anthropic"]
 
 
 # ---------------------------------------------------------------------------

@@ -202,3 +202,83 @@ Features/spikes, not quick fixes:
 - **AI anti-pattern sweep**: mostly PASS — enrichment is POST→202→Celery (not sync REST); Pydantic AI schemas use Optional+defaults & never raise; Lead Agent is suggest-only (human-in-loop intact); no LLM↔raw-SQL (field allowlist). Only **B4** (cycle) and **B6** (auto-send) are real violations.
 - **Workspace isolation in team/search/audit/users**: confirmed sound (every query scoped by `user.workspace_id`; last-admin guards present). No IDOR there — **B2** (lead detail) is the exception.
 - **Custom attributes as a "metadata DSL" (PRD anti-pattern #5)**: NOT present — bounded to 4 kinds, regex-validated. Not a finding.
+
+---
+
+# Audit round 3 — 2026-07-01: Twenty CRM comparison (advisor: Opus 4.8, read-only)
+
+Lens: **compare `twentyhq/twenty` architecture/patterns against DrinkX and find what
+we overlooked**. Method: 18 agents (6 dims × research-Twenty + audit-ours + synthesize)
+produced 41 candidate findings; each was re-verified in-code by the advisor. Planned
+against `9e93b16`.
+
+**Framing:** Twenty is a multi-tenant *build-your-own-CRM platform* (runtime metadata
+engine, schema-per-tenant, auto-generated GraphQL, generic record renderer). Copying
+that core is a poor fit for our single-workspace, AI-first product and conflicts with
+our "no metadata DSL" anti-pattern — so the wins are **not** "become Twenty" but the
+concrete correctness/security/UX gaps its maturity exposed. Plans **009–017**.
+
+## Execution order & status (round 3)
+
+| Plan | Title | Cat | Prio | Effort | Status |
+|------|-------|-----|------|--------|--------|
+| 009 | Lead soft-delete → Trash + restore; permanent-destroy admin/head + audit | security | P1 | M | DONE* (CI-pending) |
+| 010 | Ownership guards on per-lead task mutations (mirror comment rule) | security | P1 | S | DONE (CI-pending) |
+| 011 | Fail-safe AI budget guard (Redis outage → fail closed + monthly ceiling) | bug | P1 | S | DONE (CI-pending) |
+| 012 | LLM provider retry/backoff before fallback | perf | P1 | S | DONE (CI-pending) |
+| 013 | Fail-closed security defaults (auth-stub + Mango webhook — implements B10) | security | P1 | S | DONE (CI-pending) |
+| 014 | Prompt-injection hardening for enrichment / lead-agent | security | P2 | M | DONE (CI-pending) |
+| 015 | Automation step reliability — bounded retry + manual re-run/test-fire | bug | P2 | M | DONE (CI-pending) |
+| 016 | Visible failure for unsupported tg/sms template channels | bug | P2 | S | DONE (CI-pending) |
+| 017 | Outbound webhooks + generic http_request action (design/spike) | direction | P2 | M | DONE (CI-pending) |
+
+**Execution status (2026-07-01):** all nine implemented by executor subagents,
+advisor-reviewed (scope clean, migration chain 0051→0052→0053 linear, SSRF guard
+reused for outbound HTTP, tests meaningful), and committed to branch
+`feat/twenty-audit-hardening` in 3 commits (`d2025b8` security, `aac070c` AI,
+`1401ee2` automation). **CI GREEN** — PR #154 `pytest pass` (2m44s, run 28538628520)
+against postgres:16 after aligning 4 pre-existing tests to the intended new behavior
+(commit `cc3d630`: plans 012 retry / 015-016 return-dict + tg-raise). Branch pushed;
+**not merged, not deployed** — deploy fires only on merge to main, pending owner's word.
+
+**Follow-ups:**
+- `009*` — ✅ DONE: `app/leads/dedup.py` now excludes trashed leads from
+  `find_duplicates` and `merge_leads` rejects a trashed master / excludes trashed
+  duplicates (`MergeError`). Tests in `test_lead_dedup_db.py::test_excludes_trashed`,
+  `test_lead_merge.py::{test_merge_rejects_trashed_master,test_merge_excludes_trashed_dups}`.
+- Trashed-lead sub-resources (deal/score/stage-move endpoints) don't all 404 on
+  `deleted_at` yet — overlaps with round-2 **B2**; a small hardening follow-up (open).
+
+## Cross-references to earlier rounds
+
+- **009** resolves the *delete* half of round-2 **B2** (lead IDOR) with the chosen
+  policy (soft-delete for all; permanent-destroy admin/head only). The *edit/move-stage*
+  half of B2 is still open.
+- **010** extends **B2** to the task/activity mutation surface.
+- **013** implements round-2 **B10** (Mango webhook fail-closed).
+- **015** is complementary to round-2 **B4** (cascade depth guard) — coordinate so a
+  retry can't feed a cascade loop.
+- **014** is distinct from round-1 **002** (SSRF fetch guard): 002 validates the fetch
+  *target*, 014 hardens the *content* that reaches the LLM.
+
+## Round-3 backlog — verified, not yet full plans (ask to expand any into `018+`)
+
+Medium leverage: URL-sync list filters (`leads-pool/page.tsx:147`); audit coverage for
+lead/note mutations (partly in 009/010); custom fields on Company & Contact
+(`custom_attributes/models.py:102`); more field types boolean+multi-select
+(`:41`); column sort/visibility on lists (`ui/DataTable.tsx:24`); contact-autocreate
+floor (folded into 014); DB CHECK on custom-value invariant (`:115`); Gmail threaded
+send (`inbox/message_services.py:487`); LLM eval/quality harness; streaming Sales-Coach
+chat (`lead_agent/routers.py:143`). Housekeeping: rename `company/`→`ceo_overview/`
+(collides with `companies/`); delete stray `"… 2.py"`/`"… 3.tsx"` duplicate files.
+
+## Round-3 considered and mostly rejected (poor fit — recorded so nobody re-audits)
+
+Twenty's core, **not** recommended to copy: runtime metadata engine / custom objects
+(L, HIGH-risk, conflicts with our anti-pattern); GraphQL/dual auto-API (no payoff
+without metadata); schema-per-tenant (we're single-workspace by ADR-021); generic
+record renderer (bespoke screens fine for a fixed object set); React-Flow visual
+workflow builder (revisit after 015/017 enrich the vocabulary); native MCP server
+(roadmap bet); full metadata-driven per-object/field RBAC (over-engineering — the
+useful subset is 009/010's mutation guards). Saved views as first-class objects are
+genuinely valuable but L — do URL-synced filters (backlog) first as the cheap 80%.

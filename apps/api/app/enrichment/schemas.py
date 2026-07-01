@@ -37,9 +37,11 @@ class FoundContact(BaseModel):
     phone: str | None = None
     linkedin_url: str | None = None
     source: str = ""
-    # Default 0.6 (was 0.0) so LLM responses that omit `confidence` still pass
-    # the auto-create gate — they land as verified_status='to_verify' anyway.
-    confidence: float = Field(default=0.6, ge=0.0, le=1.0)
+    # Default 0.0 (plan 014) — an LLM response that omits `confidence` must
+    # NOT pass CONTACT_AUTOCREATE_MIN_CONFIDENCE. A 0.6 default let injected
+    # or hallucinated names materialize as Contact rows silently; omission
+    # now fails the gate like any other low-confidence extraction.
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
 
     @field_validator("confidence", mode="before")
     @classmethod
