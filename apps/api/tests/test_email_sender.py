@@ -357,12 +357,13 @@ async def test_send_template_action_email_queues_pending_dispatch():
 # ===========================================================================
 
 @pytest.mark.asyncio
-async def test_send_template_action_tg_channel_keeps_pending_stub():
-    """Telegram template → no real send (provider lands in 2.7+).
-    Activity row carries `delivery_status='pending'` +
-    `outbound_pending=True`. Confirms send_email is NOT called for
-    non-email channels — important regression-guard since G1's
-    routing logic adds an `if channel == "email"` branch."""
+async def test_send_template_action_tg_channel_raises_not_implemented():
+    """Telegram/SMS template → `_send_template_action` raises
+    TemplateChannelNotImplemented (plan 016). Non-email channels are no
+    longer silently written as a sticky `pending` Activity that reads as
+    "sent" — a false positive worse than a visible failure. send_email is
+    NOT called and NO Activity is written; the caller records the step as
+    `skipped` with the channel reason."""
     db = AsyncMock()
     db.add = MagicMock()
     template = _make_template(channel="tg")
@@ -382,25 +383,16 @@ async def test_send_template_action_tg_channel_keeps_pending_stub():
         send_calls.append(kw)
         return True
 
-    # `send_email` is lazy-imported inside `_send_template_action`, so
-    # patch the source module — the name doesn't bind on
-    # `app.automation_builder.services` at module import time.
     with patch.object(ab_svc, "Activity", new=fake_activity), \
          patch("app.email.sender.send_email", new=fake_send_email):
-        # Sprint 2.7 G2 — handler signature now takes `(lead, config,
-        # automation_id_str)` so the same code path serves both the
-        # synchronous step 0 fire and the beat scheduler's step N fire.
-        await ab_svc._send_template_action(
-            db,
-            lead=lead,
-            config=automation.action_config_json,
-            automation_id_str=str(automation.id),
-        )
+        with pytest.raises(ab_svc.TemplateChannelNotImplemented):
+            await ab_svc._send_template_action(
+                db,
+                lead=lead,
+                config=automation.action_config_json,
+                automation_id_str=str(automation.id),
+            )
 
-    # send_email NOT called for non-email channels
+    # No real send, and no sticky pending Activity written (plan 016).
     assert len(send_calls) == 0
-    # Activity row stays in pending state
-    payload = _captured_payload(activity_calls)
-    assert payload.get("delivery_status") == "pending"
-    assert payload.get("outbound_pending") is True
-    assert payload.get("channel") == "tg"
+    assert activity_calls == []
