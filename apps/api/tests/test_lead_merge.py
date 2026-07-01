@@ -133,3 +133,40 @@ async def test_merge_unknown_master_raises(db, workspace):
             db, workspace_id=workspace.id, master_id=uuid.uuid4(),
             duplicate_ids=[uuid.uuid4()], user_id=None,
         )
+
+
+@skip_no_pg
+async def test_merge_rejects_trashed_master(db, workspace):
+    """A soft-deleted (Trash) lead cannot be a merge master — restore first (plan 009)."""
+    from datetime import datetime, timezone
+
+    master = _lead(workspace.id, deleted_at=datetime.now(timezone.utc))
+    dup = _lead(workspace.id, company_name="Acme Dup")
+    db.add_all([master, dup])
+    await db.flush()
+
+    with pytest.raises(MergeError):
+        await merge_leads(
+            db, workspace_id=workspace.id, master_id=master.id,
+            duplicate_ids=[dup.id], user_id=None,
+        )
+
+
+@skip_no_pg
+async def test_merge_excludes_trashed_dups(db, workspace):
+    """A trashed lead is not a valid merge duplicate; if it's the only one, raise (plan 009)."""
+    from datetime import datetime, timezone
+
+    master = _lead(workspace.id)
+    trashed_dup = _lead(
+        workspace.id, company_name="Trashed Dup",
+        deleted_at=datetime.now(timezone.utc),
+    )
+    db.add_all([master, trashed_dup])
+    await db.flush()
+
+    with pytest.raises(MergeError):
+        await merge_leads(
+            db, workspace_id=workspace.id, master_id=master.id,
+            duplicate_ids=[trashed_dup.id], user_id=None,
+        )

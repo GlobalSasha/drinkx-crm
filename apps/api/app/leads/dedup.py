@@ -10,8 +10,8 @@ on three OR-combined keys, all derived/normalized:
 
 A "duplicate bomb" guard mirrors Odoo's SEARCH_RESULT_LIMIT: if a key matches a
 whole crowd (≥ limit rows), it is not a useful signal, so we suppress rather
-than flood the manager with false positives. Archived leads are excluded — we
-only suggest merging into live leads.
+than flood the manager with false positives. Archived and trashed (soft-deleted) leads are
+excluded — we only suggest merging into live leads.
 """
 from __future__ import annotations
 
@@ -44,6 +44,7 @@ async def find_duplicates(db: AsyncSession, lead: Lead, *, limit: int = DUP_LIMI
             Lead.workspace_id == lead.workspace_id,
             Lead.id != lead.id,
             Lead.archived_at.is_(None),
+            Lead.deleted_at.is_(None),
             or_(*keys),
         )
         .order_by(Lead.created_at.asc())
@@ -101,6 +102,8 @@ async def merge_leads(
     ).scalar_one_or_none()
     if master is None:
         raise MergeError("master lead not found in workspace")
+    if master.deleted_at is not None:
+        raise MergeError("master lead is in trash — restore it before merging")
 
     wanted = [d for d in duplicate_ids if d != master_id]
     dups = list(
@@ -110,6 +113,7 @@ async def merge_leads(
                     Lead.id.in_(wanted),
                     Lead.workspace_id == workspace_id,
                     Lead.merged_into_id.is_(None),
+                    Lead.deleted_at.is_(None),
                 )
             )
         ).scalars().all()

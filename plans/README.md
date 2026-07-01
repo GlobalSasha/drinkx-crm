@@ -241,14 +241,13 @@ against postgres:16 after aligning 4 pre-existing tests to the intended new beha
 (commit `cc3d630`: plans 012 retry / 015-016 return-dict + tg-raise). Branch pushed;
 **not merged, not deployed** — deploy fires only on merge to main, pending owner's word.
 
-**Two follow-ups left (not blockers):**
-- `009*` — `app/leads/dedup.py` (`find_duplicates` / `merge_leads`) was left untouched
-  on purpose: whether a **trashed** lead should still be suggested as a merge
-  candidate / be a valid merge master is a product decision. Recommended default:
-  exclude `deleted_at IS NOT NULL` from `find_duplicates`, and reject a trashed
-  `master_id`/`duplicate_ids` in `merge_leads` with a `MergeError`.
+**Follow-ups:**
+- `009*` — ✅ DONE: `app/leads/dedup.py` now excludes trashed leads from
+  `find_duplicates` and `merge_leads` rejects a trashed master / excludes trashed
+  duplicates (`MergeError`). Tests in `test_lead_dedup_db.py::test_excludes_trashed`,
+  `test_lead_merge.py::{test_merge_rejects_trashed_master,test_merge_excludes_trashed_dups}`.
 - Trashed-lead sub-resources (deal/score/stage-move endpoints) don't all 404 on
-  `deleted_at` yet — overlaps with round-2 **B2**; a small hardening follow-up.
+  `deleted_at` yet — overlaps with round-2 **B2**; a small hardening follow-up (open).
 
 ## Cross-references to earlier rounds
 
