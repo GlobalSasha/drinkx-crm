@@ -222,18 +222,32 @@ concrete correctness/security/UX gaps its maturity exposed. Plans **009–017**.
 
 | Plan | Title | Cat | Prio | Effort | Status |
 |------|-------|-----|------|--------|--------|
-| 009 | Lead soft-delete → Trash + restore; permanent-destroy admin/head + audit | security | P1 | M | TODO |
-| 010 | Ownership guards on per-lead task mutations (mirror comment rule) | security | P1 | S | TODO |
-| 011 | Fail-safe AI budget guard (Redis outage → fail closed + monthly ceiling) | bug | P1 | S | TODO |
-| 012 | LLM provider retry/backoff before fallback | perf | P1 | S | TODO |
-| 013 | Fail-closed security defaults (auth-stub + Mango webhook — implements B10) | security | P1 | S | TODO |
-| 014 | Prompt-injection hardening for enrichment / lead-agent | security | P2 | M | TODO |
-| 015 | Automation step reliability — bounded retry + manual re-run/test-fire | bug | P2 | M | TODO |
-| 016 | Visible failure for unsupported tg/sms template channels | bug | P2 | S | TODO |
-| 017 | Outbound webhooks + generic http_request action (design/spike) | direction | P2 | M | TODO |
+| 009 | Lead soft-delete → Trash + restore; permanent-destroy admin/head + audit | security | P1 | M | DONE* (CI-pending) |
+| 010 | Ownership guards on per-lead task mutations (mirror comment rule) | security | P1 | S | DONE (CI-pending) |
+| 011 | Fail-safe AI budget guard (Redis outage → fail closed + monthly ceiling) | bug | P1 | S | DONE (CI-pending) |
+| 012 | LLM provider retry/backoff before fallback | perf | P1 | S | DONE (CI-pending) |
+| 013 | Fail-closed security defaults (auth-stub + Mango webhook — implements B10) | security | P1 | S | DONE (CI-pending) |
+| 014 | Prompt-injection hardening for enrichment / lead-agent | security | P2 | M | DONE (CI-pending) |
+| 015 | Automation step reliability — bounded retry + manual re-run/test-fire | bug | P2 | M | DONE (CI-pending) |
+| 016 | Visible failure for unsupported tg/sms template channels | bug | P2 | S | DONE (CI-pending) |
+| 017 | Outbound webhooks + generic http_request action (design/spike) | direction | P2 | M | DONE (CI-pending) |
 
-Do the P1 pack (009–013) first — all small/medium, HIGH-confidence, clean verification.
-All nine are independent.
+**Execution status (2026-07-01):** all nine implemented by executor subagents,
+advisor-reviewed (scope clean, migration chain 0051→0052→0053 linear, SSRF guard
+reused for outbound HTTP, tests meaningful), and committed to branch
+`feat/twenty-audit-hardening` in 3 commits (`d2025b8` security, `aac070c` AI,
+`1401ee2` automation). **CI-pending** = local machine has no uv/Postgres, so the
+pytest suites + Alembic upgrade run only in GitHub CI (open a PR to trigger) — no
+green DB run has happened yet. Nothing pushed or deployed.
+
+**Two follow-ups left (not blockers):**
+- `009*` — `app/leads/dedup.py` (`find_duplicates` / `merge_leads`) was left untouched
+  on purpose: whether a **trashed** lead should still be suggested as a merge
+  candidate / be a valid merge master is a product decision. Recommended default:
+  exclude `deleted_at IS NOT NULL` from `find_duplicates`, and reject a trashed
+  `master_id`/`duplicate_ids` in `merge_leads` with a `MergeError`.
+- Trashed-lead sub-resources (deal/score/stage-move endpoints) don't all 404 on
+  `deleted_at` yet — overlaps with round-2 **B2**; a small hardening follow-up.
 
 ## Cross-references to earlier rounds
 
