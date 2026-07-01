@@ -167,6 +167,26 @@ async def create_run(
     return row
 
 
+async def get_run_by_id(
+    db: AsyncSession,
+    *,
+    run_id: uuid.UUID,
+    workspace_id: uuid.UUID,
+) -> AutomationRun | None:
+    """Single run row, workspace-scoped through the automation join —
+    same id-guessing defense as `list_runs_for_automation`. Used by
+    `rerun_run` (plan 015)."""
+    res = await db.execute(
+        select(AutomationRun)
+        .join(Automation, Automation.id == AutomationRun.automation_id)
+        .where(
+            AutomationRun.id == run_id,
+            Automation.workspace_id == workspace_id,
+        )
+    )
+    return res.scalar_one_or_none()
+
+
 async def list_runs_for_automation(
     db: AsyncSession,
     *,

@@ -160,6 +160,15 @@ class Settings(BaseSettings):
     salute_client_secret: str = ""
     salute_scope: str = "SALUTE_SPEECH_PERS"
 
+    # Outbound webhooks (plan 017 / ADR-022) — the `http_request`
+    # automation action signs every outbound POST body with this secret
+    # via HMAC-SHA256 (`X-DrinkX-Signature` header). One shared secret
+    # per deployment in this slice — see ADR-022 §2 for why per-endpoint
+    # secrets are deferred to phase 2 (event-subscription registry).
+    # Empty in dev signs with an empty key (fine for local testing; set
+    # a real value in production).
+    automation_http_signing_secret: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

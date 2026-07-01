@@ -19,12 +19,17 @@ because of an automation problem.
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
+import json
 import uuid
 from contextvars import ContextVar
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import httpx
 import structlog
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activity.models import Activity
@@ -39,6 +44,9 @@ from app.automation_builder.models import (
     AutomationStepRun,
 )
 from app.automation_builder.render import render_template_text
+from app.common.ssrf import is_safe_fetch_url
+from app.config import get_settings
+from app.email.sender import EmailSendError
 from app.leads.models import Lead
 
 log = structlog.get_logger()
@@ -67,6 +75,48 @@ _cascade_depth: ContextVar[int] = ContextVar(
 
 
 # ---------------------------------------------------------------------------
+# Step retry — bounded backoff for transient failures (plan 015)
+#
+# `execute_due_step_runs` used to mark any exception `failed` with no
+# re-attempt. That kills the whole chain on a one-off SMTP hiccup or DB
+# deadlock. We now classify the exception: transient errors get
+# re-queued (status stays `pending`, `attempt_count` bumps, `scheduled_at`
+# pushed out by a fixed backoff) up to `_MAX_STEP_ATTEMPTS`; everything
+# else — and anything past the cap — is terminal and marked `failed`
+# exactly as before.
+#
+# Idempotency note (plan 015 STOP condition): a step is only ever
+# retried when the SAVEPOINT wrapping `_dispatch_step` rolled back
+# (the `except` branch below runs after the nested transaction failed
+# and unwound). Nothing the handler staged — the Activity row, the
+# queued `PendingDispatch` — survives that rollback, so re-running the
+# same step from scratch cannot double-fire a side effect. The one
+# handler with a non-transactional side effect, `_move_stage_action`,
+# is additionally guarded by its own `lead.stage_id == target.id`
+# early-return, so a retry that lands after a prior *successful*
+# dispatch (this shouldn't happen — success does not retry — but kept
+# as defense in depth) is still a no-op instead of a duplicate move.
+# ---------------------------------------------------------------------------
+
+_MAX_STEP_ATTEMPTS = 3
+
+# Fixed backoff — the beat scheduler only ticks every 5 minutes anyway
+# (see `docs/brain/00_CURRENT_STATE.md`), so a short bounded delay is
+# enough to ride out a one-tick blip without adding a full exponential
+# schedule for a v1 recovery mechanism.
+_STEP_RETRY_BACKOFF_MINUTES = 5
+
+
+def _is_transient_step_error(exc: Exception) -> bool:
+    """True for errors worth a bounded retry: SMTP send failures and
+    DB operational hiccups (deadlock, connection drop, statement
+    timeout). Everything else — missing template, bad config, a hard
+    stage-transition gate — is a configuration/data problem a retry
+    can't fix, so it stays terminal."""
+    return isinstance(exc, (EmailSendError, OperationalError))
+
+
+# ---------------------------------------------------------------------------
 # Custom exceptions — router maps to HTTP
 # ---------------------------------------------------------------------------
 
@@ -92,6 +142,30 @@ class InvalidSteps(Exception):
     a delay outside the 0 < hours <= 720 window)."""
 
 
+class UnsupportedTemplateChannel(Exception):
+    """400 — a `send_template` action/step references a template whose
+    channel (tg / sms) has no real dispatch path yet (plan 016). Raised
+    at rule create/update time so the misconfiguration is caught at
+    authoring, before it can silently no-op at fire time."""
+
+
+class RunNotFound(Exception):
+    """404 — wrong run id, or cross-workspace lookup (plan 015)."""
+
+
+class LeadNotFound(Exception):
+    """404 — `lead_id` doesn't exist in the workspace (plan 015 test_fire)."""
+
+
+class TemplateChannelNotImplemented(Exception):
+    """Not a failure — raised by `_send_template_action` when the
+    resolved template's channel has no real dispatch path yet (tg /
+    sms, plan 016). Callers catch this SEPARATELY from `Exception` and
+    record the step/run as `skipped` (with `str(exc)` as the reason,
+    e.g. `channel_not_implemented:tg`) instead of `failed`, and — unlike
+    a real failure — do NOT halt the rest of the chain."""
+
+
 # ---------------------------------------------------------------------------
 # CRUD
 # ---------------------------------------------------------------------------
@@ -111,6 +185,14 @@ def _validate_action_config(action_type: str, config: dict | None) -> None:
     elif action_type == "move_stage":
         if not config.get("target_stage_id"):
             raise InvalidActionConfig("move_stage requires target_stage_id")
+    elif action_type == "http_request":
+        if not config.get("url"):
+            raise InvalidActionConfig("http_request requires url")
+        method = str(config.get("method") or "POST").upper()
+        if method not in ("GET", "POST", "PUT", "PATCH", "DELETE"):
+            raise InvalidActionConfig(
+                f"http_request method not supported: {method}"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -159,6 +241,59 @@ def _validate_steps(steps: list[dict] | None) -> None:
         else:
             # Action step — re-use the existing per-action-type guard.
             _validate_action_config(step_type, config)
+
+
+async def _validate_send_template_channels(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    action_type: str | None,
+    action_config_json: dict | None,
+    steps: list[dict] | None,
+) -> None:
+    """Reject at create/update time (plan 016) if a `send_template`
+    action/step references a template whose channel has no real
+    dispatch path yet (tg / sms). Needs a DB fetch (channel lives on
+    `MessageTemplate`, not in `action_config_json`), so this is async
+    and separate from the pure-shape `_validate_*` checks above.
+
+    Silently no-ops for a `template_id` that doesn't parse as a UUID
+    or doesn't resolve — `_validate_action_config` (missing key) or the
+    runtime dispatch path (not-found) already surfaces those problems;
+    this check only adds the channel gate on top of an otherwise-valid
+    reference.
+    """
+    from sqlalchemy import select
+
+    from app.template.models import MessageTemplate
+
+    template_ids: set[str] = set()
+    if action_type == "send_template" and action_config_json:
+        tid = action_config_json.get("template_id")
+        if tid:
+            template_ids.add(str(tid))
+    for step in steps or []:
+        if step.get("type") == "send_template":
+            tid = (step.get("config") or {}).get("template_id")
+            if tid:
+                template_ids.add(str(tid))
+
+    for tid in template_ids:
+        try:
+            template_uuid = uuid.UUID(tid)
+        except (TypeError, ValueError):
+            continue
+        res = await db.execute(
+            select(MessageTemplate).where(
+                MessageTemplate.id == template_uuid,
+                MessageTemplate.workspace_id == workspace_id,
+            )
+        )
+        template = res.scalar_one_or_none()
+        if template is not None and template.channel != "email":
+            raise UnsupportedTemplateChannel(
+                f"channel not yet supported for automations: {template.channel}"
+            )
 
 
 def _has_steps(automation: Automation) -> bool:
@@ -233,6 +368,13 @@ async def create_automation(
         raise InvalidAction(action_type)
     _validate_action_config(action_type, action_config_json)
     _validate_steps(steps_json)
+    await _validate_send_template_channels(
+        db,
+        workspace_id=workspace_id,
+        action_type=action_type,
+        action_config_json=action_config_json,
+        steps=steps_json,
+    )
 
     return await repo.create(
         db,
@@ -295,6 +437,20 @@ async def update_automation(
         normalised = steps_json if steps_json else None
         _validate_steps(normalised)
         steps_json = normalised
+
+    target_steps = steps_json if steps_set else automation.steps_json
+    if (
+        action_type is not None
+        or action_config_json is not None
+        or steps_set
+    ):
+        await _validate_send_template_channels(
+            db,
+            workspace_id=workspace_id,
+            action_type=target_action,
+            action_config_json=target_config,
+            steps=target_steps,
+        )
 
     return await repo.update(
         db,
@@ -514,6 +670,7 @@ async def _evaluate_trigger_inner(
         # lockstep with the savepoint outcome.
         pre_pending_len = current_pending_length()
         step0_failed_error: str | None = None
+        step0_skipped_reason: str | None = None
         try:
             async with db.begin_nested():
                 if is_step0_delay:
@@ -525,6 +682,16 @@ async def _evaluate_trigger_inner(
                     await _dispatch_step(
                         db, automation=automation, lead=lead, step=step0
                     )
+        except TemplateChannelNotImplemented as exc:
+            # Not a failure (plan 016) — record the step as `skipped`
+            # and let the rest of the chain proceed normally.
+            truncate_pending_to(pre_pending_len)
+            step0_skipped_reason = str(exc)[:500]
+            log.info(
+                "automation.action.skipped",
+                automation_id=str(automation.id),
+                reason=step0_skipped_reason,
+            )
         except Exception as exc:
             truncate_pending_to(pre_pending_len)
             step0_failed_error = str(exc)[:500]
@@ -537,7 +704,8 @@ async def _evaluate_trigger_inner(
         # Parent run row — single source of truth for the fan-out
         # outcome. Multi-step rows that scheduled later steps still
         # land as `status='success'` here; per-step status lives on
-        # AutomationStepRun.
+        # AutomationStepRun. A skipped step 0 is not a failure — the
+        # chain continues, so the run stays 'success'.
         run_status = "failed" if step0_failed_error else "success"
         run = await repo.create_run(
             db,
@@ -551,6 +719,11 @@ async def _evaluate_trigger_inner(
         # Per-step audit row for step 0 — always written so the
         # RunsDrawer per-step grid is populated even for legacy
         # single-action automations.
+        step0_status = (
+            "failed" if step0_failed_error
+            else "skipped" if step0_skipped_reason
+            else "success"
+        )
         await repo.create_step_run(
             db,
             automation_run_id=run.id,
@@ -559,8 +732,8 @@ async def _evaluate_trigger_inner(
             step_json=step0,
             scheduled_at=now,
             executed_at=now,
-            status=run_status,
-            error=step0_failed_error,
+            status=step0_status,
+            error=step0_failed_error or step0_skipped_reason,
         )
 
         if step0_failed_error:
@@ -686,6 +859,13 @@ async def _dispatch_step(
             config=config,
             automation_id_str=automation_id_str,
         )
+    elif step_type == "http_request":
+        await _http_request_action(
+            db,
+            lead=lead,
+            config=config,
+            automation_id_str=automation_id_str,
+        )
     elif step_type == "delay_hours":
         # Pure gate — handled by `_compute_schedule_offsets`; no work here.
         return
@@ -723,11 +903,15 @@ async def _send_template_action(
                                commit was already final by then
       - `skipped_no_email`   → set here for empty/whitespace
                                `lead.email` — no dispatch queued
-      - `pending` (sticky)   → tg / sms; provider lands in 2.7+,
-                               the row stays as a record of what
-                               would have been sent
 
-    Activity stays `type="comment"` across all branches — no new
+    tg / sms channels have no real dispatch path yet (plan 016): this
+    raises `TemplateChannelNotImplemented` instead of writing a sticky
+    `pending` Activity that would read as "sent" but never actually
+    dispatch. No Activity is written for that branch — the step/run
+    is recorded as `skipped` (see the three call sites) instead, which
+    is the honest state until a provider is wired.
+
+    Activity stays `type="comment"` across the email branches — no new
     ActivityType enum value. The frontend chip-renderer reads
     `payload_json.delivery_status`.
     """
@@ -832,19 +1016,13 @@ async def _send_template_action(
         )
         return
 
-    # Non-email channels (tg / sms) — Sprint 2.5 stub stays. Sprint
-    # 2.7+ will pick providers; until then the Activity row records
-    # what would have been sent. `outbound_pending=True` flags
-    # «not yet dispatched» so a future migration can reconcile.
-    payload["outbound_pending"] = True
-    payload["delivery_status"] = "pending"
-    db.add(
-        Activity(
-            lead_id=lead.id,
-            user_id=None,
-            type="comment",
-            payload_json=payload,
-        )
+    # Non-email channels (tg / sms) — no real dispatch path yet (plan
+    # 016). Writing a sticky `pending` Activity here used to read as
+    # "sent" while nothing was ever dispatched — a false positive worse
+    # than a visible failure. Raise instead so the caller records the
+    # step/run as `skipped` with this reason; no Activity is written.
+    raise TemplateChannelNotImplemented(
+        f"channel_not_implemented:{template.channel}"
     )
 
 
@@ -934,6 +1112,148 @@ async def _move_stage_action(
 
 
 # ---------------------------------------------------------------------------
+# http_request action — plan 017 / ADR-022 (generic outbound-webhook slice)
+#
+# Config shape: {"method": "POST", "url": str, "headers": dict | None,
+#                "body_template": str | None}. `method` defaults to POST.
+# `body_template` is rendered via `render_template_text` (same
+# `{{lead.field}}` substitution `send_template` uses) and embedded as
+# `data.body` in the signed envelope below.
+#
+# SECURITY (non-negotiable, see ADR-022 §2):
+#   - Every URL — including every redirect hop — MUST pass
+#     `is_safe_fetch_url` before any request is made. `httpx` redirects
+#     are followed manually (never `follow_redirects=True`) so each hop
+#     can be re-validated, exactly mirroring
+#     `app/enrichment/sources/web_fetch.py`'s existing SSRF-safe pattern.
+#   - The body is signed with HMAC-SHA256 over the exact bytes sent,
+#     using the single deployment-wide `automation_http_signing_secret`
+#     (per-endpoint secrets are phase 2 — see the ADR).
+#   - A hard timeout; no retries are attempted here (an unreachable
+#     third-party endpoint is terminal, not transient — `services.py`'s
+#     `_is_transient_step_error` does NOT cover this handler's errors).
+# ---------------------------------------------------------------------------
+
+_HTTP_REQUEST_TIMEOUT_SECONDS = 10.0
+_HTTP_REQUEST_MAX_REDIRECTS = 3
+
+
+class HttpRequestBlocked(Exception):
+    """Raised when the configured URL (or a redirect hop) fails the SSRF
+    guard. Callers treat this exactly like any other action failure —
+    the step/run is recorded `failed` — but the distinct type lets the
+    reason surface cleanly (`blocked_ssrf:<url>`) instead of an opaque
+    httpx error."""
+
+
+def _sign_http_request_body(body: bytes) -> str:
+    """HMAC-SHA256 over the exact raw body bytes, hex-encoded, prefixed
+    the way most webhook providers format it so a receiver's verification
+    code can split on `=`."""
+    secret = get_settings().automation_http_signing_secret.encode("utf-8")
+    digest = hmac.new(secret, body, hashlib.sha256).hexdigest()
+    return f"sha256={digest}"
+
+
+async def _http_request_action(
+    db: AsyncSession,
+    *,
+    lead: Lead,
+    config: dict,
+    automation_id_str: str,
+) -> None:
+    """Build the signed payload, validate the URL (and every redirect
+    hop) against the SSRF guard, and POST (or the configured method)
+    with a hard timeout. Raises on any failure — SSRF block, timeout,
+    network error, or non-2xx response — so the caller's existing
+    failed-step bookkeeping (identical to every other action handler)
+    applies with no special-casing.
+
+    No DB row is staged by this handler on success — unlike
+    `create_task`/`send_template`, there is no natural Activity to log
+    here in this thin slice (no lead-facing side effect to show in the
+    feed). The step/run audit trail (`AutomationStepRun.status`) is the
+    record of what happened, same as it is for every step today.
+    """
+    url = config.get("url")
+    if not url:
+        raise ValueError("http_request missing url")
+    method = str(config.get("method") or "POST").upper()
+    body_template = config.get("body_template")
+    extra_headers = config.get("headers") or {}
+
+    if not is_safe_fetch_url(url):
+        log.warning(
+            "automation.http_request.blocked_ssrf",
+            automation_id=automation_id_str,
+            url=url,
+        )
+        raise HttpRequestBlocked(f"blocked_ssrf:{url}")
+
+    rendered_body = (
+        render_template_text(str(body_template), lead) if body_template else ""
+    )
+    payload = {
+        "event": "automation.http_request",
+        "occurred_at": datetime.now(tz=timezone.utc).isoformat(),
+        "workspace_id": str(lead.workspace_id),
+        "data": {
+            "lead_id": str(lead.id),
+            "automation_id": automation_id_str,
+            "body": rendered_body,
+        },
+    }
+    body_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    signature = _sign_http_request_body(body_bytes)
+
+    headers = {
+        "Content-Type": "application/json",
+        "X-DrinkX-Signature": signature,
+        **{str(k): str(v) for k, v in extra_headers.items()},
+    }
+
+    async with httpx.AsyncClient(
+        timeout=_HTTP_REQUEST_TIMEOUT_SECONDS, follow_redirects=False
+    ) as client:
+        current_url = url
+        resp = await client.request(
+            method, current_url, content=body_bytes, headers=headers
+        )
+        redirects = 0
+        while resp.is_redirect and redirects < _HTTP_REQUEST_MAX_REDIRECTS:
+            location = resp.headers.get("location")
+            if not location:
+                break
+            next_url = (
+                str(resp.next_request.url) if resp.next_request else location
+            )
+            # Re-validate every redirect target — defeats DNS/redirect
+            # rebinding, mirrors `web_fetch.py`.
+            if not is_safe_fetch_url(next_url):
+                log.warning(
+                    "automation.http_request.blocked_ssrf_redirect",
+                    automation_id=automation_id_str,
+                    url=next_url,
+                )
+                raise HttpRequestBlocked(f"blocked_ssrf_redirect:{next_url}")
+            current_url = next_url
+            resp = await client.request(
+                method, current_url, content=body_bytes, headers=headers
+            )
+            redirects += 1
+
+    if not resp.is_success:
+        raise ValueError(f"http_request failed: status={resp.status_code}")
+
+    log.info(
+        "automation.http_request.ok",
+        automation_id=automation_id_str,
+        url=url,
+        status=resp.status_code,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Step scheduler — Sprint 2.7 G2
 #
 # Called from the `automation_step_scheduler` Celery beat task in
@@ -970,6 +1290,8 @@ async def execute_due_step_runs(
 
     fired = 0
     failed = 0
+    retried = 0
+    skipped = 0
     for step_run in rows:
         # Re-fetch the lead — it may have been deleted between the
         # parent run and now. SET NULL on `lead_id` would already
@@ -1022,7 +1344,54 @@ async def execute_due_step_runs(
             await db.commit()
             await flush_pending_email_dispatches(queue)
             fired += 1
+        except TemplateChannelNotImplemented as exc:
+            # Not a failure (plan 016) — terminal, no retry. The rest
+            # of the chain (later steps already scheduled) proceeds
+            # unaffected.
+            step_run.status = "skipped"
+            step_run.error = str(exc)[:500]
+            step_run.executed_at = datetime.now(tz=timezone.utc)
+            try:
+                await db.commit()
+            except Exception:  # pragma: no cover — defensive
+                await db.rollback()
+            skipped += 1
+            log.info(
+                "automation.step_run.skipped",
+                step_run_id=str(step_run.id),
+                step_index=step_run.step_index,
+                reason=str(exc)[:200],
+            )
         except Exception as exc:
+            if (
+                _is_transient_step_error(exc)
+                and step_run.attempt_count < _MAX_STEP_ATTEMPTS
+            ):
+                # Transient + attempts remain — leave `pending`, bump
+                # the counter, push `scheduled_at` out by the backoff
+                # so the next beat tick doesn't immediately re-hit the
+                # same failure. `executed_at` stays None — this row is
+                # NOT done yet.
+                step_run.attempt_count += 1
+                step_run.status = "pending"
+                step_run.error = str(exc)[:500]
+                step_run.scheduled_at = datetime.now(
+                    tz=timezone.utc
+                ) + timedelta(minutes=_STEP_RETRY_BACKOFF_MINUTES)
+                try:
+                    await db.commit()
+                except Exception:  # pragma: no cover — defensive
+                    await db.rollback()
+                retried += 1
+                log.warning(
+                    "automation.step_run.retry_scheduled",
+                    step_run_id=str(step_run.id),
+                    step_index=step_run.step_index,
+                    attempt_count=step_run.attempt_count,
+                    error=str(exc)[:200],
+                )
+                continue
+
             step_run.status = "failed"
             step_run.error = str(exc)[:500]
             step_run.executed_at = datetime.now(tz=timezone.utc)
@@ -1035,6 +1404,7 @@ async def execute_due_step_runs(
                 "automation.step_run.failed",
                 step_run_id=str(step_run.id),
                 step_index=step_run.step_index,
+                attempt_count=step_run.attempt_count,
                 error=str(exc)[:200],
             )
 
@@ -1042,6 +1412,8 @@ async def execute_due_step_runs(
         "scanned": len(rows),
         "fired": fired,
         "failed": failed,
+        "retried": retried,
+        "skipped": skipped,
     }
 
 
@@ -1068,3 +1440,242 @@ async def list_step_runs_for_run(
         .order_by(AutomationStepRun.step_index.asc())
     )
     return list(res.scalars().all())
+
+
+# ---------------------------------------------------------------------------
+# Rerun + test-fire — plan 015 (operator recovery / author debug loop)
+#
+# Both reuse the existing dispatch path (`_dispatch_step` / the beat
+# scheduler's queue) rather than re-implementing chain execution, per
+# the plan's "do not duplicate `_dispatch_step` logic" instruction.
+# ---------------------------------------------------------------------------
+
+async def rerun_run(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    run_id: uuid.UUID,
+) -> AutomationRun:
+    """Re-schedule a stranded/failed run's steps for immediate pickup
+    by `execute_due_step_runs`. Does not execute anything synchronously
+    itself — it only resets rows so the normal scheduler path (the
+    same one steps 1+ always go through) picks them up on its next
+    tick, keeping this on the one dispatch chokepoint.
+
+    Two cases:
+      - Step 0 failed (chain never got past the synchronous fire):
+        the step-0 row is reset to `pending` / `scheduled_at=now`, AND
+        any steps after it that were never scheduled (because the
+        chain stopped, per `services.py` line ~566) are (re)created
+        from the automation's current chain definition, offset from
+        "now" the same way the original fan-out would have.
+      - Some step N>0 failed (or is stuck stranded): every `failed`
+        step row for this run is reset to `pending` / `scheduled_at=now`
+        so the scheduler re-attempts it. `attempt_count` is reset to 0
+        — a manual rerun is a fresh attempt budget, not a continuation
+        of the automatic retry count.
+
+    Idempotent to call twice: rows already `pending` or `success` are
+    left untouched; only `failed` rows (and the step0-stall gap) are
+    touched.
+    """
+    run = await repo.get_run_by_id(db, run_id=run_id, workspace_id=workspace_id)
+    if run is None:
+        raise RunNotFound(str(run_id))
+
+    automation = await repo.get_by_id(
+        db, automation_id=run.automation_id, workspace_id=workspace_id
+    )
+    if automation is None:
+        # FK is ON DELETE CASCADE from automations -> automation_runs,
+        # so in practice the run row would be gone too. Defensive only.
+        raise RunNotFound(str(run_id))
+
+    now = datetime.now(tz=timezone.utc)
+    existing_steps = await repo.list_step_runs_for_run(
+        db, automation_run_id=run.id
+    )
+    existing_by_index = {s.step_index: s for s in existing_steps}
+
+    reset_any = False
+    for step in existing_steps:
+        if step.status == "failed":
+            step.status = "pending"
+            step.error = None
+            step.executed_at = None
+            step.attempt_count = 0
+            step.scheduled_at = now
+            reset_any = True
+
+    # Step-0-stall case: the chain never scheduled steps 1+ because
+    # step 0 failed. Recreate any missing (never-scheduled) non-delay
+    # step rows from the automation's current chain, offset from now
+    # exactly like `_evaluate_trigger_inner` does for a fresh fire.
+    step0 = existing_by_index.get(0)
+    if step0 is not None and step0.status == "pending":
+        chain = _resolved_chain(automation)
+        offsets = _compute_schedule_offsets(chain)
+        for idx in range(1, len(chain)):
+            if idx in existing_by_index:
+                continue
+            step = chain[idx]
+            if step.get("type") == "delay_hours":
+                continue
+            scheduled_at = now + timedelta(hours=offsets[idx])
+            await repo.create_step_run(
+                db,
+                automation_run_id=run.id,
+                lead_id=run.lead_id,
+                step_index=idx,
+                step_json=step,
+                scheduled_at=scheduled_at,
+                executed_at=None,
+                status="pending",
+                error=None,
+            )
+            reset_any = True
+
+    if reset_any:
+        run.status = "queued"
+        run.error = None
+
+    return run
+
+
+async def test_fire(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    automation_id: uuid.UUID,
+    lead_id: uuid.UUID,
+) -> AutomationRun:
+    """Fire an automation's chain against a chosen lead through the
+    same execution path as a real trigger (`_dispatch_step` for step 0,
+    the beat scheduler for steps 1+) — so an admin can validate a rule
+    without contriving real trigger data.
+
+    Dry-run contract: side effects ARE real (the same handlers a live
+    trigger would use — this is deliberate, per the plan: "reuse the
+    existing per-automation SAVEPOINT ... so a test that would send
+    email is subject to the same controls"). What makes this a *test*
+    fire rather than a duplicate live fire:
+      - `condition_json` is skipped — the whole point is validating a
+        rule against a hand-picked lead regardless of whether that
+        lead would naturally satisfy the condition.
+      - It does NOT go through `evaluate_trigger`'s trigger-matching /
+        fan-out-over-all-automations loop — only the one chosen
+        automation fires, once, against the one chosen lead.
+      - It still creates a normal `AutomationRun` / `AutomationStepRun`
+        audit trail, so the run shows up in the automation's history
+        exactly like a real fire (nothing is hidden or special-cased
+        in the RunsDrawer) — the operator can tell it happened by the
+        same trail a real fire would leave.
+    """
+    from sqlalchemy import select
+
+    from app.automation_builder.dispatch import (
+        current_pending_length,
+        truncate_pending_to,
+    )
+
+    automation = await repo.get_by_id(
+        db, automation_id=automation_id, workspace_id=workspace_id
+    )
+    if automation is None:
+        raise AutomationNotFound(str(automation_id))
+
+    lead_res = await db.execute(
+        select(Lead).where(
+            Lead.id == lead_id, Lead.workspace_id == workspace_id
+        )
+    )
+    lead = lead_res.scalar_one_or_none()
+    if lead is None:
+        raise LeadNotFound(str(lead_id))
+
+    now = datetime.now(tz=timezone.utc)
+    chain = _resolved_chain(automation)
+    offsets = _compute_schedule_offsets(chain)
+    step0 = chain[0]
+    is_step0_delay = step0.get("type") == "delay_hours"
+
+    # Same SAVEPOINT isolation as a real fire (Sprint 2.6 G1 stability
+    # fix #2) — a broken step 0 config can't poison the caller's
+    # session, and the pending-email queue stays in lockstep with the
+    # savepoint outcome exactly as documented on `evaluate_trigger`.
+    pre_pending_len = current_pending_length()
+    step0_failed_error: str | None = None
+    step0_skipped_reason: str | None = None
+    try:
+        async with db.begin_nested():
+            if not is_step0_delay:
+                await _dispatch_step(
+                    db, automation=automation, lead=lead, step=step0
+                )
+    except TemplateChannelNotImplemented as exc:
+        # Not a failure (plan 016) — record as `skipped`, chain proceeds.
+        truncate_pending_to(pre_pending_len)
+        step0_skipped_reason = str(exc)[:500]
+        log.info(
+            "automation.test_fire.step0_skipped",
+            automation_id=str(automation.id),
+            lead_id=str(lead.id),
+            reason=step0_skipped_reason,
+        )
+    except Exception as exc:
+        truncate_pending_to(pre_pending_len)
+        step0_failed_error = str(exc)[:500]
+        log.warning(
+            "automation.test_fire.step0_failed",
+            automation_id=str(automation.id),
+            lead_id=str(lead.id),
+            error=str(exc)[:200],
+        )
+
+    run_status = "failed" if step0_failed_error else "success"
+    run = await repo.create_run(
+        db,
+        automation_id=automation.id,
+        lead_id=lead.id,
+        status=run_status,
+        error=step0_failed_error,
+    )
+
+    step0_status = (
+        "failed" if step0_failed_error
+        else "skipped" if step0_skipped_reason
+        else "success"
+    )
+    await repo.create_step_run(
+        db,
+        automation_run_id=run.id,
+        lead_id=lead.id,
+        step_index=0,
+        step_json=step0,
+        scheduled_at=now,
+        executed_at=now,
+        status=step0_status,
+        error=step0_failed_error or step0_skipped_reason,
+    )
+
+    if step0_failed_error:
+        return run
+
+    for idx in range(1, len(chain)):
+        step = chain[idx]
+        if step.get("type") == "delay_hours":
+            continue
+        scheduled_at = now + timedelta(hours=offsets[idx])
+        await repo.create_step_run(
+            db,
+            automation_run_id=run.id,
+            lead_id=lead.id,
+            step_index=idx,
+            step_json=step,
+            scheduled_at=scheduled_at,
+            executed_at=None,
+            status="pending",
+            error=None,
+        )
+
+    return run

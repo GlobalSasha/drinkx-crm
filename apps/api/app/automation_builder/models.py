@@ -25,7 +25,8 @@ from app.common.models import Base, UUIDPrimaryKeyMixin
 # (USER_ROLES, ATTRIBUTE_KINDS, VALID_CHANNELS) — no Postgres ENUM type.
 
 VALID_TRIGGERS = ("stage_change", "form_submission", "inbox_match")
-VALID_ACTIONS = ("send_template", "create_task", "move_stage")
+# Plan 017 — `http_request` is a generic outbound-HTTP action (ADR-022).
+VALID_ACTIONS = ("send_template", "create_task", "move_stage", "http_request")
 # Sprint 2.7 G2: a step's `type` is either an action OR `delay_hours`
 # (gates the next step's schedule, has no side-effect of its own).
 VALID_STEP_TYPES = ("delay_hours",) + VALID_ACTIONS
@@ -175,3 +176,10 @@ class AutomationStepRun(Base, UUIDPrimaryKeyMixin):
     )
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     error: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Plan 015 — bounded retry on transient failures. Bumped each time
+    # `execute_due_step_runs` catches a transient error and re-queues
+    # the row instead of marking it `failed`. Defaults to 0 for
+    # existing rows (additive migration).
+    attempt_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
