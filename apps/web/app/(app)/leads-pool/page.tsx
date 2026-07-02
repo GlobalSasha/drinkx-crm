@@ -91,6 +91,13 @@ function PoolRow({
     >
       <td className="px-4 py-3">
         <p className="font-semibold text-sm text-brand-primary">{lead.company_name}</p>
+        {(lead.city || lead.segment) && (
+          <p className="md:hidden text-xs text-brand-muted mt-0.5">
+            {[lead.city, lead.segment ? segmentLabel(lead.segment) : null]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        )}
         {lead.source_form_name && (
           <span
             className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-2xs font-mono text-brand-accent-text bg-brand-soft"
@@ -104,22 +111,22 @@ function PoolRow({
           <NeedsReviewRow lead={lead} />
         )}
       </td>
-      <td className="px-4 py-3 text-sm text-brand-muted">{lead.city ?? "—"}</td>
-      <td className="px-4 py-3 text-sm text-brand-muted">{lead.segment ? segmentLabel(lead.segment) : "—"}</td>
+      <td className="hidden md:table-cell px-4 py-3 text-sm text-brand-muted">{lead.city ?? "—"}</td>
+      <td className="hidden md:table-cell px-4 py-3 text-sm text-brand-muted">{lead.segment ? segmentLabel(lead.segment) : "—"}</td>
       <td className="px-4 py-3">
         <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${TIER_STYLE[tier]}`}>
           {tier}
         </span>
       </td>
-      <td className="px-4 py-3 type-amount text-brand-muted">
+      <td className="hidden md:table-cell px-4 py-3 type-amount text-brand-muted">
         {lead.fit_score != null ? lead.fit_score : "—"}
       </td>
-      <td className="px-4 py-3">
+      <td className="hidden md:table-cell px-4 py-3">
         <span className={`${T.mono} bg-black/5 text-brand-muted px-1.5 py-0.5 rounded-md`}>
           {lead.assignment_status}
         </span>
       </td>
-      <td className="px-4 py-3 text-right">
+      <td className="px-4 py-3 text-right whitespace-nowrap">
         {claiming ? (
           <span className="inline-flex items-center gap-1 text-xs text-brand-muted font-semibold">
             <Loader2 size={12} className="animate-spin" /> Взято
@@ -653,10 +660,20 @@ function LeadsPoolPageInner() {
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-brand-border">
-                  {["Компания", "Город", "Сегмент", "Tier", "Fit Score", "Статус", ""].map((h) => (
+                  {/* Город/Сегмент/Fit/Статус уходят под md: на телефоне они
+                      показываются подстрокой в первой ячейке PoolRow. */}
+                  {[
+                    { h: "Компания", cls: "" },
+                    { h: "Город", cls: "hidden md:table-cell" },
+                    { h: "Сегмент", cls: "hidden md:table-cell" },
+                    { h: "Tier", cls: "" },
+                    { h: "Fit Score", cls: "hidden md:table-cell" },
+                    { h: "Статус", cls: "hidden md:table-cell" },
+                    { h: "", cls: "" },
+                  ].map(({ h, cls }) => (
                     <th
                       key={h}
-                      className="px-4 py-2.5 type-table-header text-brand-muted whitespace-nowrap"
+                      className={`px-4 py-2.5 type-table-header text-brand-muted whitespace-nowrap ${cls}`}
                     >
                       {h}
                     </th>

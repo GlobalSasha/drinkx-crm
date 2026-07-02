@@ -12,19 +12,38 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/
 import { MultiSelectDropdown } from "@/components/ui/MultiSelectDropdown";
 import { segmentLabel } from "@/lib/i18n";
 
+// Город/Сегмент/ИНН скрыты под md — на телефоне контекст идёт подстрокой
+// в колонке «Название».
+const HIDE_ON_MOBILE = {
+  headerClassName: "hidden md:table-cell",
+  cellClassName: "hidden md:table-cell",
+};
+
 const columns: ColumnDef<CompanyOut, unknown>[] = [
   {
     accessorKey: "name",
     header: "Название",
-    cell: (info) => (
-      <span className="type-body text-brand-accent font-medium">
-        {(info.getValue() as string) || "—"}
-      </span>
-    ),
+    cell: (info) => {
+      const c = info.row.original;
+      const sub = [c.city, c.primary_segment ? segmentLabel(c.primary_segment) : null]
+        .filter(Boolean)
+        .join(" · ");
+      return (
+        <div>
+          <span className="type-body text-brand-accent font-medium">
+            {(info.getValue() as string) || "—"}
+          </span>
+          {sub && (
+            <p className="md:hidden type-caption text-brand-muted mt-0.5">{sub}</p>
+          )}
+        </div>
+      );
+    },
   },
   {
     accessorKey: "city",
     header: "Город",
+    meta: HIDE_ON_MOBILE,
     cell: (info) => (
       <span className="type-caption text-brand-muted">
         {(info.getValue() as string | null) ?? "—"}
@@ -34,6 +53,7 @@ const columns: ColumnDef<CompanyOut, unknown>[] = [
   {
     accessorKey: "primary_segment",
     header: "Сегмент",
+    meta: HIDE_ON_MOBILE,
     cell: (info) => {
       const raw = info.getValue() as string | null;
       return (
@@ -46,6 +66,7 @@ const columns: ColumnDef<CompanyOut, unknown>[] = [
   {
     accessorKey: "inn",
     header: "ИНН",
+    meta: HIDE_ON_MOBILE,
     cell: (info) => (
       <span className="type-caption font-mono text-brand-muted">
         {(info.getValue() as string | null) ?? "—"}
