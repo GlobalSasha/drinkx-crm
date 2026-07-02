@@ -101,7 +101,7 @@ export function ImportWizard({ open, onClose }: Props) {
             </div>
             <button
               onClick={attemptClose}
-              className="shrink-0 p-1.5 -mr-1.5 rounded-lg text-brand-muted hover:bg-brand-bg hover:text-brand-primary transition-colors"
+              className="shrink-0 p-2.5 -mr-2 rounded-lg text-brand-muted hover:bg-brand-bg hover:text-brand-primary transition-colors"
               aria-label="Закрыть"
             >
               <X size={16} />

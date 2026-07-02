@@ -132,7 +132,7 @@ export function TaskTable({ rows, onComplete, isCompleting, emptyText }: Props) 
                 <td className="px-1 py-2.5 align-top text-right">
                   <ArrowUpRight
                     size={15}
-                    className="text-brand-muted opacity-0 group-hover:opacity-100 transition-opacity inline-block"
+                    className="text-brand-muted opacity-0 coarse:opacity-100 group-hover:opacity-100 transition-opacity inline-block"
                   />
                 </td>
               </tr>

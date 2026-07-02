@@ -161,7 +161,7 @@ export function RemindersWidget() {
                     type="button"
                     onClick={() => remove.mutate(r.id)}
                     aria-label="Удалить напоминание"
-                    className="shrink-0 text-brand-muted hover:text-rose opacity-0 group-hover:opacity-100 transition"
+                    className="shrink-0 text-brand-muted hover:text-rose opacity-0 coarse:opacity-100 group-hover:opacity-100 transition"
                   >
                     <X size={13} />
                   </button>

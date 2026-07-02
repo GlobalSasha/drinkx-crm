@@ -104,10 +104,10 @@ export function GlobalSearch({ open, onClose }: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-full hover:bg-brand-panel transition-colors"
+            className="p-2.5 -m-1.5 rounded-full hover:bg-brand-panel transition-colors"
             aria-label="Закрыть"
           >
-            <X size={16} className={C.color.muted} />
+            <X size={18} className={C.color.muted} />
           </button>
         </div>
 

@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 
 const config: Config = {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./lib/**/*.{ts,tsx}"],
@@ -70,7 +71,11 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // coarse: — touch-primary devices (phones/tablets). Used to keep
+    // hover-revealed controls always visible where hover doesn't exist.
+    plugin(({ addVariant }) => addVariant("coarse", "@media (pointer: coarse)")),
+  ],
 };
 
 export default config;

@@ -108,7 +108,7 @@ export function UnifiedFeed({
                   <div className="flex-1 h-px bg-brand-border" />
                 </div>
               )}
-              <div id={`activity-${item.id}`} className="scroll-mt-20">
+              <div id={`activity-${item.id}`} className="scroll-mt-32">
                 <FeedItemSwitch
                   item={item}
                   leadId={leadId}

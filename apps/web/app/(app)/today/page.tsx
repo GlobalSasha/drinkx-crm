@@ -17,7 +17,8 @@ import {
 import {
   DndContext,
   closestCenter,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -587,7 +588,7 @@ function SortableWidget({
       id={id}
       ref={setNodeRef}
       style={style}
-      className={`relative ${spanClassName} ${editing ? "cursor-grab active:cursor-grabbing" : ""}`}
+      className={`relative ${spanClassName} ${editing ? "cursor-grab active:cursor-grabbing touch-manipulation" : ""}`}
       {...dragProps}
     >
       {editing && (
@@ -731,7 +732,9 @@ function TodayPageInner() {
   }, [order, hidden, userId, hydrated]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    // Touch: long-press to drag so normal page scroll keeps working.
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
   );
 
   function handleDragEnd(event: DragEndEvent) {

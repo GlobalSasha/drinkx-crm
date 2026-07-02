@@ -423,7 +423,7 @@ function SourcesCard({ summary, loading }: { summary: CompanySummary | undefined
           {sources.map((s) => {
             const delta = s.leads - s.prev_leads;
             return (
-              <div key={s.source_id ?? "none"} className="grid grid-cols-[8.5rem_1fr_auto] items-center gap-3">
+              <div key={s.source_id ?? "none"} className="grid grid-cols-[6.5rem_1fr_auto] sm:grid-cols-[8.5rem_1fr_auto] items-center gap-2 sm:gap-3">
                 <span className="type-body text-brand-primary inline-flex items-center gap-1.5 truncate">
                   <Megaphone size={14} className={s.is_paid ? "text-brand-accent" : "text-brand-muted"} />
                   {s.name}

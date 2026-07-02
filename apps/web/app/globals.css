@@ -56,6 +56,14 @@
 }
 
 html, body { background: var(--page-bg); color: var(--ink); }
+
+/* iOS Safari auto-zooms any focused form control with font-size < 16px.
+   The base scale is 14px, so on touch devices we floor form controls at 16px. */
+@media (pointer: coarse) {
+  input, select, textarea {
+    font-size: max(16px, 1em);
+  }
+}
 body {
   font-family: var(--font-ui), -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: var(--base-font-size, var(--text-base));

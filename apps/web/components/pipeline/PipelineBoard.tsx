@@ -4,7 +4,8 @@ import {
   type DragEndEvent,
   DragOverlay,
   type DragStartEvent,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   closestCorners,
@@ -36,7 +37,9 @@ export function PipelineBoard({ stages, leads }: Props) {
   const [toasts, setToasts] = useState<ToastState[]>([]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    // Touch (tablets show the board too): long-press to drag, scroll stays free.
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
   );
 
   const addToast = useCallback(

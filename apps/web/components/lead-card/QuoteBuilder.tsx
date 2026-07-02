@@ -380,7 +380,7 @@ export function QuoteBuilder({ leadId, quoteId, onClose }: Props) {
         </label>
         <div className="space-y-1">
           <span className={C.form.label}>НДС</span>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <VatPill active={num(form.vat_rate) === 20} editable={!!editable} onClick={() => patchForm({ vat_rate: "20" })}>
               20%
             </VatPill>

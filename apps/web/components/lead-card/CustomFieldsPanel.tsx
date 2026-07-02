@@ -190,7 +190,7 @@ function CustomFieldRow({
             )}
             <Pencil
               size={11}
-              className="text-brand-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+              className="text-brand-muted opacity-0 coarse:opacity-100 group-hover:opacity-100 transition-opacity shrink-0"
             />
           </button>
         ) : (

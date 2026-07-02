@@ -130,7 +130,7 @@ export function MappingStep({ job, onBack, onConfirmed }: Props) {
 
       {/* Mapping table */}
       <div className="rounded-card border border-brand-border bg-white overflow-hidden">
-        <div className="grid grid-cols-[1fr_1fr_minmax(180px,1.2fr)_24px] items-center gap-3 px-4 py-2.5 bg-brand-bg border-b border-brand-border text-2xs font-mono uppercase tracking-wider text-brand-muted">
+        <div className="grid grid-cols-[1fr_minmax(150px,1fr)_24px] md:grid-cols-[1fr_1fr_minmax(180px,1.2fr)_24px] items-center gap-3 px-4 py-2.5 bg-brand-bg border-b border-brand-border text-2xs font-mono uppercase tracking-wider text-brand-muted">
           <span>Колонка в файле</span>
           <span className="hidden md:block">Пример значения</span>
           <span>Поле CRM</span>
@@ -144,7 +144,7 @@ export function MappingStep({ job, onBack, onConfirmed }: Props) {
             return (
               <div
                 key={header}
-                className="grid grid-cols-[1fr_1fr_minmax(180px,1.2fr)_24px] items-center gap-3 px-4 py-3"
+                className="grid grid-cols-[1fr_minmax(150px,1fr)_24px] md:grid-cols-[1fr_1fr_minmax(180px,1.2fr)_24px] items-center gap-3 px-4 py-3"
               >
                 <span className="text-sm font-semibold text-brand-primary truncate">
                   {header}

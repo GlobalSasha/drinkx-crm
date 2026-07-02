@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Manrope, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -19,6 +19,13 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "DrinkX CRM",
   description: "Smart AI CRM for B2B coffee station sales",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // viewportFit: cover — lets env(safe-area-inset-*) work on notched phones
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

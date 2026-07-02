@@ -24,7 +24,8 @@ import {
   closestCenter,
   DndContext,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -119,7 +120,9 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
   const busy = create.isPending || update.isPending;
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+    // Touch: long-press to drag so list scrolling keeps working.
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
@@ -249,7 +252,7 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
             <button
               onClick={busy ? undefined : onClose}
               disabled={busy}
-              className="shrink-0 p-1.5 -mr-1.5 rounded-lg text-brand-muted hover:bg-brand-bg hover:text-brand-primary transition-colors disabled:opacity-40"
+              className="shrink-0 p-2.5 -mr-2 rounded-lg text-brand-muted hover:bg-brand-bg hover:text-brand-primary transition-colors disabled:opacity-40"
               aria-label="Закрыть"
             >
               <X size={16} />

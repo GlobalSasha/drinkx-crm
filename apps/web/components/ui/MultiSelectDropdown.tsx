@@ -78,7 +78,7 @@ export function MultiSelectDropdown({
 
       {open && (
         <div
-          className={`absolute top-full mt-1.5 z-30 min-w-[14rem] max-w-[20rem] max-h-[20rem] flex flex-col bg-white border border-brand-border rounded-xl shadow-[0_8px_32px_-4px_rgba(0,0,0,0.12)] overflow-hidden ${
+          className={`absolute top-full mt-1.5 z-30 min-w-[14rem] max-w-[min(20rem,calc(100vw-2rem))] max-h-[20rem] flex flex-col bg-white border border-brand-border rounded-xl shadow-[0_8px_32px_-4px_rgba(0,0,0,0.12)] overflow-hidden ${
             align === "right" ? "right-0" : "left-0"
           }`}
           role="listbox"
