@@ -38,9 +38,9 @@ export function ReminderToast({ task, onOpen, onSnooze, onClose }: Props) {
               type="button"
               onClick={onClose}
               aria-label="Закрыть напоминание"
-              className="-mt-1 -mr-1 p-1 rounded-full text-brand-muted hover:text-brand-primary hover:bg-black/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+              className="-mt-2 -mr-2 p-2.5 rounded-full text-brand-muted hover:text-brand-primary hover:bg-black/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
             >
-              <X size={14} />
+              <X size={16} />
             </button>
           </div>
           <p className="type-body font-semibold text-brand-primary mt-0.5 line-clamp-2">

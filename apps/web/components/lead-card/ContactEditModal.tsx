@@ -149,23 +149,23 @@ export function ContactEditModal({ leadId, contact, onClose }: Props) {
 
         <div className="space-y-4">
           {/* Name row 1 */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Фамилия" value={form.last_name} onChange={(v) => patch("last_name", v)} />
             <Field label="Имя *" required value={form.first_name} onChange={(v) => patch("first_name", v)} />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Отчество" value={form.middle_name} onChange={(v) => patch("middle_name", v)} />
             <Field label="Должность" value={form.title} onChange={(v) => patch("title", v)} placeholder="Категорийный менеджер" />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Компания" value={form.company} onChange={(v) => patch("company", v)} hint="Только UI — не сохраняется на бэке v1" />
             <Field label="Подразделение" value={form.department} onChange={(v) => patch("department", v)} hint="Только UI — не сохраняется на бэке v1" />
           </div>
 
           {/* Phone + Email */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FieldWithIcon
               label="Телефон"
               value={form.phone}
@@ -189,7 +189,7 @@ export function ContactEditModal({ leadId, contact, onClose }: Props) {
             <p className="type-caption text-brand-muted mb-3">
               Социальные сети
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FieldWithIcon
                 label="LinkedIn"
                 value={form.linkedin_url}
@@ -207,7 +207,7 @@ export function ContactEditModal({ leadId, contact, onClose }: Props) {
                 type="url"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3 mt-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
               <FieldWithIcon
                 label="Instagram"
                 value={form.instagram_url}

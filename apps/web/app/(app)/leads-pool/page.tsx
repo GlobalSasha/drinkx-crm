@@ -482,7 +482,7 @@ function LeadsPoolPageInner() {
               placeholder="Поиск: имя, email, телефон, ИНН"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 pr-3 py-1.5 text-sm bg-brand-bg border border-brand-border rounded-full outline-none focus:border-brand-accent/40 focus:bg-white transition duration-300 w-64"
+              className="pl-8 pr-3 py-1.5 text-sm bg-brand-bg border border-brand-border rounded-full outline-none focus:border-brand-accent/40 focus:bg-white transition duration-300 w-full sm:w-64"
             />
           </div>
 

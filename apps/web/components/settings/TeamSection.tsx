@@ -138,8 +138,8 @@ export function TeamSection() {
       </div>
 
       {/* Users table */}
-      <div className="bg-white border border-brand-border rounded-card overflow-hidden">
-        <table className="w-full text-left">
+      <div className="bg-white border border-brand-border rounded-card overflow-hidden overflow-x-auto">
+        <table className="w-full min-w-[560px] text-left">
           <thead className="bg-brand-bg/60">
             <tr className="border-b border-brand-border">
               <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold`}>
@@ -191,8 +191,8 @@ export function TeamSection() {
           <h3 className={`${T.mono} uppercase text-brand-muted mb-2`}>
             Ожидают принятия приглашения
           </h3>
-          <div className="bg-white border border-brand-border rounded-card overflow-hidden">
-            <table className="w-full text-left">
+          <div className="bg-white border border-brand-border rounded-card overflow-hidden overflow-x-auto">
+            <table className="w-full min-w-[480px] text-left">
               <thead className="bg-brand-bg/60">
                 <tr className="border-b border-brand-border">
                   <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold`}>

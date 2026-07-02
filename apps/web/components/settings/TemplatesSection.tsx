@@ -281,9 +281,10 @@ function TemplateEditor({
           <button
             type="button"
             onClick={onClose}
-            className="text-brand-muted hover:text-brand-primary p-1"
+            className="text-brand-muted hover:text-brand-primary p-2.5 -mr-1.5"
+            aria-label="Закрыть"
           >
-            <X size={16} />
+            <X size={18} />
           </button>
         </div>
 

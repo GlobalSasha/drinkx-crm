@@ -72,7 +72,7 @@ export function FeedItemComment({ item }: Props) {
               type="button"
               onClick={startEdit}
               aria-label="Редактировать комментарий"
-              className="ml-auto shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full text-brand-muted opacity-0 group-hover:opacity-100 hover:text-brand-primary hover:bg-brand-panel transition-colors focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+              className="ml-auto shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full text-brand-muted opacity-0 coarse:opacity-100 group-hover:opacity-100 hover:text-brand-primary hover:bg-brand-panel transition-colors focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             >
               <Pencil size={13} />
             </button>

@@ -153,7 +153,7 @@ export function ManagerPortfolio({ userId }: { userId: string | null }) {
                   )}
                 </div>
                 <span className="type-body text-brand-primary tabular-nums font-semibold whitespace-nowrap">{fmtSum(d.amount)}</span>
-                <ArrowUpRight size={14} className="text-brand-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+                <ArrowUpRight size={14} className="text-brand-muted opacity-0 coarse:opacity-100 group-hover:opacity-100 transition-opacity" />
               </Link>
             </li>
           ))}

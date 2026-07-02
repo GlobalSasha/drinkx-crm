@@ -152,17 +152,17 @@ export function NotificationsDrawer({ open, onClose }: Props) {
           <div className="flex items-center gap-1">
             <button
               onClick={() => refetch()}
-              className="p-2 rounded-lg text-brand-muted hover:bg-brand-bg hover:text-brand-primary transition-colors"
+              className="p-2.5 rounded-lg text-brand-muted hover:bg-brand-bg hover:text-brand-primary transition-colors"
               aria-label="Обновить"
             >
-              <RefreshCw size={14} className={isFetching ? "animate-spin" : ""} />
+              <RefreshCw size={16} className={isFetching ? "animate-spin" : ""} />
             </button>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg text-brand-muted hover:bg-brand-bg hover:text-brand-primary transition-colors"
+              className="p-2.5 rounded-lg text-brand-muted hover:bg-brand-bg hover:text-brand-primary transition-colors"
               aria-label="Закрыть"
             >
-              <X size={16} />
+              <X size={18} />
             </button>
           </div>
         </div>
@@ -333,21 +333,21 @@ export function NotificationsDrawer({ open, onClose }: Props) {
                         <button
                           type="button"
                           onClick={() => markRead(n.id)}
-                          className="p-1.5 rounded-md text-brand-muted hover:bg-success/10 hover:text-success transition-colors"
+                          className="p-2 rounded-md text-brand-muted hover:bg-success/10 hover:text-success transition-colors"
                           aria-label="Прочитано"
                           title="Отметить прочитанным"
                         >
-                          <Check size={13} />
+                          <Check size={15} />
                         </button>
                       )}
                       <button
                         type="button"
                         onClick={() => dismiss(n.id)}
-                        className="p-1.5 rounded-md text-brand-muted opacity-0 group-hover:opacity-100 hover:bg-rose/10 hover:text-rose transition"
+                        className="p-2 rounded-md text-brand-muted opacity-0 coarse:opacity-100 group-hover:opacity-100 hover:bg-rose/10 hover:text-rose transition"
                         aria-label="Скрыть"
                         title="Удалить уведомление"
                       >
-                        <X size={13} />
+                        <X size={15} />
                       </button>
                     </div>
                   </li>

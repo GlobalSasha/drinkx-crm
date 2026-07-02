@@ -294,7 +294,7 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
             <button
               onClick={busy ? undefined : onClose}
               disabled={busy}
-              className="shrink-0 p-1.5 -mr-1.5 rounded-lg text-brand-muted hover:bg-brand-bg hover:text-brand-primary transition-colors disabled:opacity-40"
+              className="shrink-0 p-2.5 -mr-2 rounded-lg text-brand-muted hover:bg-brand-bg hover:text-brand-primary transition-colors disabled:opacity-40"
               aria-label="Закрыть"
             >
               <X size={16} />

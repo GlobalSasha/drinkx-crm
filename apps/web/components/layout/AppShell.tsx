@@ -81,10 +81,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </Link>
         <button
           onClick={() => setMobileNavOpen(true)}
-          className="p-2 -mr-2 rounded-full text-brand-muted transition-colors"
+          className="p-2.5 -mr-2.5 rounded-full text-brand-muted transition-colors"
           aria-label="Открыть меню"
         >
-          <Menu size={20} />
+          <Menu size={22} />
         </button>
       </header>
 
@@ -128,10 +128,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
           <button
             onClick={() => setMobileNavOpen(false)}
-            className="md:hidden p-1 rounded-full opacity-70 hover:opacity-100 transition-opacity"
+            className="md:hidden p-2.5 -m-2 rounded-full opacity-70 hover:opacity-100 transition-opacity"
             aria-label="Закрыть меню"
           >
-            <X size={16} />
+            <X size={18} />
           </button>
         </div>
 

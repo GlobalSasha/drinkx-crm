@@ -13,7 +13,8 @@ import { InlineConfirm } from "@/components/ui/InlineConfirm";
 import {
   DndContext,
   DragEndEvent,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
@@ -434,11 +435,13 @@ function DraggableList({
   }, [items]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       // 6px drag distance before activating — keeps Edit/Delete
       // button clicks from accidentally starting a drag.
       activationConstraint: { distance: 6 },
     }),
+    // Touch: long-press to drag so list scrolling keeps working.
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
   );
 
   const byId = new Map(items.map((d) => [d.id, d]));

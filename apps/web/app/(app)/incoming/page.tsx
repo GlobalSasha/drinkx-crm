@@ -200,10 +200,10 @@ function ContactChip({
       <a
         href={href}
         onClick={(e) => e.stopPropagation()}
-        className="inline-flex items-center gap-1.5 px-3 py-1 type-caption font-medium text-brand-muted-strong hover:text-brand-accent transition-colors"
+        className="inline-flex items-center gap-1.5 px-3 py-1 max-w-[220px] type-caption font-medium text-brand-muted-strong hover:text-brand-accent transition-colors"
       >
         {icon}
-        {label}
+        <span className="truncate">{label}</span>
       </a>
       <button
         type="button"

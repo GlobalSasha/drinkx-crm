@@ -127,30 +127,32 @@ export default function FormsPage() {
         )}
 
         {items.length > 0 && (
-          <div className="rounded-card border border-brand-border bg-white overflow-hidden">
-            <div className={`grid grid-cols-[1fr_180px_90px_110px_140px_100px] items-center gap-3 px-4 py-2.5 bg-brand-bg border-b border-brand-border ${T.mono} uppercase text-brand-muted`}>
-              <span>Название</span>
-              <span>Slug</span>
-              <span className="text-right">Подач</span>
-              <span>Активна</span>
-              <span>Создана</span>
-              <span />
-            </div>
-            <div className="divide-y divide-brand-border">
-              {items.map((form) => (
-                <FormRow
-                  key={form.id}
-                  form={form}
-                  onClick={() => openEditor(form)}
-                  onToggleActive={(next) =>
-                    toggleActive.mutate({
-                      id: form.id,
-                      is_active: next,
-                    })
-                  }
-                  onDelete={() => setConfirmDelete(form)}
-                />
-              ))}
+          <div className="rounded-card border border-brand-border bg-white overflow-hidden overflow-x-auto">
+            <div className="min-w-[680px]">
+              <div className={`grid grid-cols-[1fr_180px_90px_110px_140px_100px] items-center gap-3 px-4 py-2.5 bg-brand-bg border-b border-brand-border ${T.mono} uppercase text-brand-muted`}>
+                <span>Название</span>
+                <span>Slug</span>
+                <span className="text-right">Подач</span>
+                <span>Активна</span>
+                <span>Создана</span>
+                <span />
+              </div>
+              <div className="divide-y divide-brand-border">
+                {items.map((form) => (
+                  <FormRow
+                    key={form.id}
+                    form={form}
+                    onClick={() => openEditor(form)}
+                    onToggleActive={(next) =>
+                      toggleActive.mutate({
+                        id: form.id,
+                        is_active: next,
+                      })
+                    }
+                    onDelete={() => setConfirmDelete(form)}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         )}

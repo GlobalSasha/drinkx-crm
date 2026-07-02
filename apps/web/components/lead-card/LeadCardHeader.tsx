@@ -151,7 +151,7 @@ export function LeadCardHeader({
       <div className="flex items-start gap-3">
         <Link
           href="/pipeline"
-          className="mt-1 p-1.5 rounded-full text-brand-muted hover:bg-brand-panel transition-colors shrink-0"
+          className="mt-0.5 p-2.5 -ml-1 rounded-full text-brand-muted hover:bg-brand-panel transition-colors shrink-0"
           aria-label="Назад"
         >
           <ArrowLeft size={18} />

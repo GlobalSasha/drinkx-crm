@@ -329,7 +329,7 @@ function ModeButton({
       title={label}
       aria-label={label}
       aria-pressed={active}
-      className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
+      className={`inline-flex items-center justify-center w-8 h-8 coarse:w-10 coarse:h-10 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
         active
           ? "bg-brand-accent text-white"
           : "text-brand-muted hover:text-brand-primary hover:bg-brand-bg"

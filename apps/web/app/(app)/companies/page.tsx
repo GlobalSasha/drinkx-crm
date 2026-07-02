@@ -145,7 +145,7 @@ export default function CompaniesPage() {
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[220px] max-w-md">
+        <div className="relative flex-1 min-w-0 sm:min-w-[220px] max-w-md">
           <Search
             size={13}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted pointer-events-none"

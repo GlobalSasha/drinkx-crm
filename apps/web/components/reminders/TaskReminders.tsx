@@ -73,7 +73,10 @@ export function TaskReminders() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 flex flex-col gap-3 max-w-[calc(100vw-2rem)] pointer-events-none">
+    <div
+      className="fixed right-4 sm:right-6 z-40 flex flex-col gap-3 max-w-[calc(100vw-2rem)] pointer-events-none"
+      style={{ bottom: "max(1rem, env(safe-area-inset-bottom))" }}
+    >
       {due.map((t) => (
         <ReminderToast
           key={t.id}
