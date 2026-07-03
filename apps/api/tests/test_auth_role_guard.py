@@ -5,6 +5,12 @@ import pytest
 
 from app.auth.routers import update_me
 from app.auth.schemas import UserUpdateIn
+from tests.conftest import POSTGRES_AVAILABLE
+
+pytestmark = pytest.mark.skipif(
+    not POSTGRES_AVAILABLE,
+    reason="Requires a running Postgres at postgresql+asyncpg://drinkx:dev@localhost:5432/drinkx_test",
+)
 
 
 @pytest.mark.asyncio
