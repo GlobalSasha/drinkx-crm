@@ -206,6 +206,9 @@ def create_app() -> FastAPI:
     from app.base_update.routers import router as base_update_router
     app.include_router(base_update_router)
 
+    from app.external.routers import router as external_router
+    app.include_router(external_router)
+
     return app
 
 
