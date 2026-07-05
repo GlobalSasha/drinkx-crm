@@ -37,15 +37,22 @@ from app.external.dependencies import _extract_bearer, resolve_service_key
 # whitelisting only ``localhost:*`` / ``127.0.0.1:*`` Host headers and rejecting
 # everything else with 421. In production this server is mounted inside FastAPI
 # behind an nginx reverse proxy at ``crm.drinkx.tech`` — the Host header is the
-# public domain, not localhost — so that default makes /mcp unreachable. Access
-# is already gated by nginx + a per-call Bearer machine key (every tool resolves
-# ``read:core`` before returning data), so we disable the redundant Host check
-# rather than trying to enumerate every proxy Host value.
+# public domain, not localhost — so the default allowlist makes /mcp unreachable.
+# We keep the Host check ON (defense-in-depth) but extend the allowlist to the
+# public domain plus localhost (local dev + the in-process transport test, whose
+# base_url is ``http://localhost``). Access is additionally gated by nginx + a
+# per-call Bearer machine key (every tool resolves ``read:core`` before data).
 server = FastMCP(
     "drinkx-crm",
     streamable_http_path="/",
     transport_security=TransportSecuritySettings(
-        enable_dns_rebinding_protection=False
+        allowed_hosts=[
+            "crm.drinkx.tech",
+            "localhost",
+            "localhost:*",
+            "127.0.0.1",
+            "127.0.0.1:*",
+        ],
     ),
 )
 
