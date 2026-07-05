@@ -49,6 +49,7 @@ def _check_rate_limit(key_id: uuid.UUID) -> None:
     tokens = min(_RATE_LIMIT_RPS, tokens + (now - last) * _RATE_LIMIT_RPS)
     if tokens < 1.0:
         _rate_state[key_id] = (tokens, now)
+        log.info("external.auth.rate_limited", key_id=str(key_id))
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="rate limit exceeded")
     _rate_state[key_id] = (tokens - 1.0, now)
 
@@ -57,6 +58,7 @@ async def resolve_service_key(
     session: AsyncSession, token: str | None, *, scope: str
 ) -> ServiceContext:
     if not token:
+        log.warning("external.auth.missing_token")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing key")
     row = (
         await session.execute(
@@ -64,14 +66,18 @@ async def resolve_service_key(
         )
     ).scalar_one_or_none()
     if row is None:
+        log.warning("external.auth.invalid_token")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid key")
     if row.revoked_at is not None:
+        log.warning("external.auth.revoked_key", key_id=str(row.id), workspace_id=str(row.workspace_id))
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="key revoked")
     if scope not in row.scopes:
+        log.warning("external.auth.missing_scope", key_id=str(row.id), scope=scope)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"scope {scope} required")
     _check_rate_limit(row.id)
     row.last_used_at = datetime.now(timezone.utc)
     await session.commit()
+    log.info("external.auth.ok", key_id=str(row.id), workspace_id=str(row.workspace_id))
     return ServiceContext(workspace_id=row.workspace_id, key_id=row.id, scopes=list(row.scopes))
 
 
