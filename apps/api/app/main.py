@@ -209,6 +209,9 @@ def create_app() -> FastAPI:
     from app.external.routers import router as external_router
     app.include_router(external_router)
 
+    from app.external.mcp_server import build_mcp_app
+    app.mount("/mcp", build_mcp_app())
+
     return app
 
 
