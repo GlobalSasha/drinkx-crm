@@ -162,6 +162,13 @@ wrap the same service layer as the REST endpoints:
 All tool outputs are JSON-serializable dicts (via `model_dump(mode="json")`),
 with `None`/absent fields omitted.
 
+> **Null handling differs from REST.** MCP tool responses use `exclude_none`,
+> so a field whose value is `null` is **omitted entirely** from the dict. REST
+> responses keep the same field present with an explicit `null`. The OS side
+> must therefore treat an **absent** field in an MCP payload as "unknown /
+> unchanged", **not** as "changed to null" — do not diff a missing MCP key
+> against a previously-seen value and infer the value was cleared.
+
 ## Obtaining a key
 
 An operator with server access issues a machine key via the CLI:

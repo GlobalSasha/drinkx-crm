@@ -22,12 +22,32 @@ from __future__ import annotations
 import uuid
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 from app.db import get_session_factory  # returns an async_sessionmaker
 from app.external import services as svc
 from app.external.dependencies import _extract_bearer, resolve_service_key
 
-server = FastMCP("drinkx-crm")
+# ``streamable_http_path="/"`` makes the sub-app's internal route ``/`` so that
+# ``app.mount("/mcp", ...)`` yields a final path of exactly ``/mcp`` (externally
+# ``/api/mcp``). The default ``/mcp`` would double-prefix to ``/mcp/mcp``.
+#
+# ``transport_security``: FastMCP auto-enables DNS-rebinding protection when the
+# (unused, since we mount rather than self-serve) default host is 127.0.0.1,
+# whitelisting only ``localhost:*`` / ``127.0.0.1:*`` Host headers and rejecting
+# everything else with 421. In production this server is mounted inside FastAPI
+# behind an nginx reverse proxy at ``crm.drinkx.tech`` — the Host header is the
+# public domain, not localhost — so that default makes /mcp unreachable. Access
+# is already gated by nginx + a per-call Bearer machine key (every tool resolves
+# ``read:core`` before returning data), so we disable the redundant Host check
+# rather than trying to enumerate every proxy Host value.
+server = FastMCP(
+    "drinkx-crm",
+    streamable_http_path="/",
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=False
+    ),
+)
 
 
 def _authorization_header() -> str | None:
