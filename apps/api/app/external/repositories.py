@@ -81,12 +81,14 @@ async def get_lead_row(db, workspace_id, lead_id):
 
 
 async def get_company_row(db, workspace_id, company_id):
-    stmt = select(Company).where(Company.id == company_id, Company.workspace_id == workspace_id)
+    stmt = select(Company).where(
+        Company.id == company_id, Company.workspace_id == workspace_id, Company.is_archived.is_(False)
+    )
     return (await db.execute(stmt)).scalar_one_or_none()
 
 
 async def list_companies_rows(db, workspace_id, *, q, updated_since, cursor, limit):
-    stmt = select(Company).where(Company.workspace_id == workspace_id)
+    stmt = select(Company).where(Company.workspace_id == workspace_id, Company.is_archived.is_(False))
     if q is not None:
         stmt = stmt.where(Company.name.ilike(f"%{q}%"))
     if updated_since is not None:

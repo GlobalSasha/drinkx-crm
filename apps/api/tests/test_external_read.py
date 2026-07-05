@@ -13,6 +13,7 @@ from app.activity.models import Activity  # noqa: F401
 from app.followups.models import Followup  # noqa: F401
 from app.lead_sources.models import LeadSource  # noqa: F401
 
+from app.companies.models import Company
 from app.external import services as svc
 
 skip_no_pg = pytest.mark.skipif(not POSTGRES_AVAILABLE, reason="requires Postgres")
@@ -74,6 +75,20 @@ async def test_workspace_isolation(db, workspace, user):
     p, s0, s1, a, b = await _seed(db, workspace, user)
     other_ws = uuid.uuid4()
     assert await svc.get_lead(db, other_ws, a.id) is None
+
+
+@skip_no_pg
+async def test_list_and_get_company_exclude_archived(db, workspace, user):
+    active = Company(workspace_id=workspace.id, name="Active Co", normalized_name="active co")
+    archived = Company(workspace_id=workspace.id, name="Archived Co", normalized_name="archived co", is_archived=True)
+    db.add_all([active, archived]); await db.flush()
+
+    page = await svc.list_companies(db, workspace.id, limit=50)
+    names = {c.name for c in page.items}
+    assert names == {"Active Co"}
+
+    assert await svc.get_company(db, workspace.id, archived.id) is None
+    assert (await svc.get_company(db, workspace.id, active.id)).name == "Active Co"
 
 
 @skip_no_pg
