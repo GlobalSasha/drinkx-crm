@@ -47,21 +47,31 @@ class PublicFormsCORSMiddleware(BaseHTTPMiddleware):
 log = structlog.get_logger()
 
 
-@asynccontextmanager
-async def lifespan(_app: FastAPI):
-    s = get_settings()
-    log.info("api.startup", env=s.app_env)
-    # Sentry init (only if DSN set) — keep cheap on startup
-    from app.observability import init_sentry_if_dsn
-    init_sentry_if_dsn(s)
-    yield
-    log.info("api.shutdown")
-
-
 def create_app() -> FastAPI:
     s = get_settings()
     from app.observability import configure_logging
     configure_logging(s)
+
+    # Build the MCP sub-app once so we can (a) mount it and (b) drive its
+    # lifespan from the FastAPI lifespan below. Starlette does NOT propagate
+    # lifespan to sub-apps mounted via ``app.mount(...)``, so without this the
+    # StreamableHTTPSessionManager's ``run()`` never starts and the first /mcp
+    # request raises ``RuntimeError("Task group is not initialized")``.
+    from app.external.mcp_server import build_mcp_app
+    mcp_app = build_mcp_app()
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        log.info("api.startup", env=s.app_env)
+        # Sentry init (only if DSN set) — keep cheap on startup
+        from app.observability import init_sentry_if_dsn
+        init_sentry_if_dsn(s)
+        # Enter the mounted MCP app's lifespan so the streamable-HTTP session
+        # manager's ``run()`` executes for the whole app lifetime.
+        async with mcp_app.router.lifespan_context(_app):
+            yield
+        log.info("api.shutdown")
+
     app = FastAPI(
         title="DrinkX CRM API",
         version="0.1.0",
@@ -205,6 +215,11 @@ def create_app() -> FastAPI:
 
     from app.base_update.routers import router as base_update_router
     app.include_router(base_update_router)
+
+    from app.external.routers import router as external_router
+    app.include_router(external_router)
+
+    app.mount("/mcp", mcp_app)
 
     return app
 

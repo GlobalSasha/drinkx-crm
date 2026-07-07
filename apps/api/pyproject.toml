@@ -32,6 +32,7 @@ dependencies = [
     "feedparser>=6.0",
     "pypdf>=5.0",
     "phonenumbers>=8.13.0",
+    "mcp>=1.2.0",
 ]
 
 [dependency-groups]
