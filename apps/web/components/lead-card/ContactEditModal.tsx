@@ -195,16 +195,18 @@ export function ContactEditModal({ leadId, contact, onClose }: Props) {
                 value={form.linkedin_url}
                 onChange={(v) => patch("linkedin_url", v)}
                 icon={<Linkedin size={13} className={C.color.muted} />}
-                placeholder="https://linkedin.com/in/…"
-                type="url"
+                placeholder="linkedin.com/in/… или @username"
+                type="text"
+                inputMode="url"
               />
               <FieldWithIcon
                 label="Telegram"
                 value={form.telegram_url}
                 onChange={(v) => patch("telegram_url", v)}
                 icon={<TgSend size={13} className={C.color.muted} />}
-                placeholder="https://t.me/…"
-                type="url"
+                placeholder="@username или t.me/…"
+                type="text"
+                inputMode="url"
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
@@ -213,8 +215,9 @@ export function ContactEditModal({ leadId, contact, onClose }: Props) {
                 value={form.instagram_url}
                 onChange={(v) => patch("instagram_url", v)}
                 icon={<Instagram size={13} className={C.color.muted} />}
-                placeholder="https://instagram.com/…"
-                type="url"
+                placeholder="@username или instagram.com/…"
+                type="text"
+                inputMode="url"
                 hint="Только UI — не сохраняется на бэке v1"
               />
               <FieldWithIcon
@@ -222,8 +225,9 @@ export function ContactEditModal({ leadId, contact, onClose }: Props) {
                 value={form.facebook_url}
                 onChange={(v) => patch("facebook_url", v)}
                 icon={<Facebook size={13} className={C.color.muted} />}
-                placeholder="https://facebook.com/…"
-                type="url"
+                placeholder="@username или facebook.com/…"
+                type="text"
+                inputMode="url"
                 hint="Только UI — не сохраняется на бэке v1"
               />
             </div>
@@ -372,6 +376,7 @@ function FieldWithIcon({
   icon,
   placeholder,
   type = "text",
+  inputMode,
   hint,
 }: {
   label: string;
@@ -380,6 +385,7 @@ function FieldWithIcon({
   icon: React.ReactNode;
   placeholder?: string;
   type?: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
   hint?: string;
 }) {
   return (
@@ -393,6 +399,7 @@ function FieldWithIcon({
         </span>
         <input
           type={type}
+          inputMode={inputMode}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}

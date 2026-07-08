@@ -3,7 +3,7 @@ import { Phone, Mail, Send as TgSend, Users } from "lucide-react";
 import { useContacts } from "@/lib/hooks/use-contacts";
 import type { LeadOut } from "@/lib/types";
 import { C } from "@/lib/design-system";
-import { safeHref } from "@/lib/safe-url";
+import { socialHref } from "@/lib/safe-url";
 
 // Always-visible primary-contact summary for the lead card's left column.
 // Shows the lead's primary ЛПР (or the first contact); the full list lives in
@@ -71,7 +71,7 @@ export function PrimaryContactCard({
   const hasName = !!(primary.name && primary.name.trim());
   const name = hasName ? primary.name : "Без имени";
   const role = primary.role_type ? ROLE_LABELS[primary.role_type] : null;
-  const tg = safeHref(primary.telegram_url);
+  const tg = socialHref(primary.telegram_url, "telegram");
 
   return (
     <div className="rounded-card border border-brand-border bg-white p-4">

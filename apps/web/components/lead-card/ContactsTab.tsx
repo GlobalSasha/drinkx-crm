@@ -16,7 +16,7 @@ import { useContacts } from "@/lib/hooks/use-contacts";
 import { useSetPrimaryContact } from "@/lib/hooks/use-lead";
 import type { ContactOut, LeadOut } from "@/lib/types";
 import { C } from "@/lib/design-system";
-import { safeHref } from "@/lib/safe-url";
+import { socialHref } from "@/lib/safe-url";
 import { ContactEditModal } from "./ContactEditModal";
 import { Badge } from "@/components/ui/Badge";
 
@@ -231,17 +231,17 @@ function ContactRow({
             {contact.email && (
               <LinkBtn href={`mailto:${contact.email}`} icon={<Mail size={11} />} label={contact.email} />
             )}
-            {safeHref(contact.linkedin_url) && (
+            {socialHref(contact.linkedin_url, "linkedin") && (
               <LinkBtn
-                href={safeHref(contact.linkedin_url)!}
+                href={socialHref(contact.linkedin_url, "linkedin")!}
                 external
                 icon={<Linkedin size={11} />}
                 label="LinkedIn"
               />
             )}
-            {safeHref(contact.telegram_url) && (
+            {socialHref(contact.telegram_url, "telegram") && (
               <LinkBtn
-                href={safeHref(contact.telegram_url)!}
+                href={socialHref(contact.telegram_url, "telegram")!}
                 external
                 icon={<TgSend size={11} />}
                 label="Telegram"
@@ -251,17 +251,17 @@ function ContactRow({
                 no backend column yet, so this branch will be silent until
                 the schema catches up. Kept here so future links render
                 without another touch. */}
-            {safeHref((contact as ContactOut & { instagram_url?: string | null }).instagram_url) && (
+            {socialHref((contact as ContactOut & { instagram_url?: string | null }).instagram_url, "instagram") && (
               <LinkBtn
-                href={safeHref((contact as ContactOut & { instagram_url?: string | null }).instagram_url)!}
+                href={socialHref((contact as ContactOut & { instagram_url?: string | null }).instagram_url, "instagram")!}
                 external
                 icon={<Instagram size={11} />}
                 label="Instagram"
               />
             )}
-            {safeHref((contact as ContactOut & { facebook_url?: string | null }).facebook_url) && (
+            {socialHref((contact as ContactOut & { facebook_url?: string | null }).facebook_url, "facebook") && (
               <LinkBtn
-                href={safeHref((contact as ContactOut & { facebook_url?: string | null }).facebook_url)!}
+                href={socialHref((contact as ContactOut & { facebook_url?: string | null }).facebook_url, "facebook")!}
                 external
                 icon={<Facebook size={11} />}
                 label="Facebook"
