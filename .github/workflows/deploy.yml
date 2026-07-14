@@ -50,7 +50,9 @@ jobs:
             return 1
           }
 
-          check "Web" https://crm.drinkx.tech/ || exit 1
+          # "/" is an entry point, not a page: middleware 307s it to /today or
+          # /sign-in depending on the session. Probe a page that returns 200.
+          check "Web" https://crm.drinkx.tech/sign-in || exit 1
           check "API" https://crm.drinkx.tech/api/health || exit 1
 
           echo "✅ Deploy verified"
