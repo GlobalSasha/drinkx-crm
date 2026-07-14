@@ -26,16 +26,20 @@ import { cn } from "@/lib/cn";
 /** Primary palette — orange-led + warm neutral grays. Index 0 is the
  *  brand accent. Use slot 1+ for secondary series. */
 export const BRAND_CHART_COLORS = [
-  "#FF4E00", // brand-accent
-  "#1A1A1A", // brand-primary
-  "#B7672D", // warning (warm brown-orange)
-  "#6B6B6B", // brand-muted
-  "#D6D4CE", // brand-border (lightest)
+  "#FF4E00", // chart-1 (accent)
+  "#2B5BA8", // chart-2
+  "#2D7A5A", // chart-3
+  "#B7672D", // chart-4
+  "#B23A48", // chart-5
+  "#6B6B6B", // chart-6 (muted)
 ] as const;
+
+export const STAGE_COLOR_FALLBACK = "#6B6B6B"; // brand-muted — единый фолбэк цвета этапа
 
 /** Subdued grid color — matches our brand-border but slightly lighter for grids. */
 export const CHART_GRID_COLOR = "#E5E3DC"; // brand-panel
 export const CHART_AXIS_COLOR = "#6B6B6B"; // brand-muted
+export const CHART_AXIS_LINE_COLOR = "#D6D4CE"; // brand-border
 
 interface ChartContainerProps {
   children: React.ReactElement;
@@ -78,7 +82,7 @@ export function ChartTooltip(props: TooltipExtras) {
         backgroundColor: "#F5F4F0", // brand-bg
         border: "1px solid #D6D4CE", // brand-border
         borderRadius: "1rem",
-        boxShadow: "0 8px 24px -8px rgba(17, 17, 17, 0.08)", // shadow-soft equivalent
+        boxShadow: "0 16px 48px -16px rgba(17,17,17,0.18)", // shadow-overlay token value (tooltips are overlays)
         padding: "10px 12px",
         fontFamily: "var(--font-ui, system-ui)",
       }}

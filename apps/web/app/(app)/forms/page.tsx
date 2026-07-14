@@ -234,7 +234,7 @@ function FormRow({
       >
         <span
           className={clsx(
-            "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform",
+            "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white border border-black/10 transition-transform",
             form.is_active && "translate-x-4",
           )}
         />

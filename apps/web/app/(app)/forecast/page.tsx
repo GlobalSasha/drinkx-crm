@@ -12,7 +12,7 @@ import { useStageDwell } from "@/lib/hooks/use-stage-dwell";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/Empty";
-import { ChartContainer, ChartTooltip, BRAND_CHART_COLORS } from "@/components/ui/Chart";
+import { ChartContainer, ChartTooltip, BRAND_CHART_COLORS, CHART_GRID_COLOR, CHART_AXIS_COLOR, CHART_AXIS_LINE_COLOR } from "@/components/ui/Chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { C } from "@/lib/design-system";
 
@@ -197,17 +197,17 @@ export default function ForecastPage() {
         ) : (
           <ChartContainer height={280} aria-label="Воронка по сумме сделок на каждом этапе">
             <BarChart data={stageBars} margin={{ top: 8, right: 12, bottom: 8, left: 12 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E3DC" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} vertical={false} />
               <XAxis
                 dataKey="name"
-                tick={{ fill: "#6B6B6B", fontSize: 11 }}
-                axisLine={{ stroke: "#D6D4CE" }}
+                tick={{ fill: CHART_AXIS_COLOR, fontSize: 11 }}
+                axisLine={{ stroke: CHART_AXIS_LINE_COLOR }}
                 tickLine={false}
               />
               <YAxis
                 tickFormatter={(v) => fmtMoney(Number(v))}
-                tick={{ fill: "#6B6B6B", fontSize: 11 }}
-                axisLine={{ stroke: "#D6D4CE" }}
+                tick={{ fill: CHART_AXIS_COLOR, fontSize: 11 }}
+                axisLine={{ stroke: CHART_AXIS_LINE_COLOR }}
                 tickLine={false}
                 width={90}
               />

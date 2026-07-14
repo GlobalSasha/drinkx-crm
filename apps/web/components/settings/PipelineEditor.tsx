@@ -45,6 +45,7 @@ import {
   useUpdatePipeline,
 } from "@/lib/hooks/use-pipelines";
 import type { Pipeline, PipelineCreateIn, StageIn } from "@/lib/types";
+import { STAGE_COLOR_FALLBACK } from "@/components/ui/Chart";
 
 interface StageRow {
   // React key — survives reorder + add/delete without a stable backend id
@@ -59,7 +60,7 @@ interface StageRow {
   is_lost: boolean;
 }
 
-const DEFAULT_COLOR = "#a1a1a6";
+const DEFAULT_COLOR = STAGE_COLOR_FALLBACK;
 
 function newClientId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

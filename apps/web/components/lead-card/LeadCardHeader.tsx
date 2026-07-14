@@ -30,6 +30,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { C } from "@/lib/design-system";
 import type { LeadOut, Stage } from "@/lib/types";
+import { STAGE_COLOR_FALLBACK } from "@/components/ui/Chart";
 
 // Priority pill colors keyed on the letter (A/B/C/D). The visible label is the
 // Russian word from `lead.priority_label` (server-side); the background tone
@@ -307,7 +308,7 @@ export function LeadCardHeader({
               type="button"
               disabled={isClosed}
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-semibold text-white text-xs bg-brand-primary hover:opacity-90 transition-opacity disabled:opacity-50"
-              style={{ backgroundColor: displayStage?.color ?? "#3b82f6" }}
+              style={{ backgroundColor: displayStage?.color ?? STAGE_COLOR_FALLBACK }}
             >
               <ArrowRight size={11} />
               {displayStage?.name ?? "—"}

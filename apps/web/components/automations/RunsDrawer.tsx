@@ -24,7 +24,7 @@ export function RunsDrawer({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/30">
-      <aside className="bg-white h-full w-full max-w-md shadow-xl flex flex-col">
+      <aside className="bg-white h-full w-full max-w-md shadow-overlay flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b border-brand-border">
           <div className="min-w-0">
             <h3 className="type-card-title truncate">

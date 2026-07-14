@@ -34,17 +34,17 @@ export default function GlobalError({
           fontFamily: "system-ui, sans-serif",
           padding: "2rem",
           color: "#111",
-          background: "#fafafa",
+          background: "#F5F4F0",
         }}
       >
         <h1 className="type-card-title mb-2">
           Что-то пошло не так
         </h1>
-        <p style={{ color: "#666", marginBottom: "1rem" }}>
+        <p style={{ color: "#6B6B6B", marginBottom: "1rem" }}>
           Мы уже знаем — попробуйте обновить страницу.
         </p>
         {error.digest ? (
-          <p className={`${T.mono} text-[#999]`}>
+          <p className={`${T.mono} text-brand-muted`}>
             ID: {error.digest}
           </p>
         ) : null}

@@ -27,6 +27,16 @@ const config: Config = {
           border:         "#D6D4CE",
           dark:           "#111111",
         },
+        // Категориальная палитра графиков — только существующие токены,
+        // порядок закреплён в .interface-design/system.md.
+        chart: {
+          1: "#FF4E00",
+          2: "#2B5BA8",
+          3: "#2D7A5A",
+          4: "#B7672D",
+          5: "#B23A48",
+          6: "#6B6B6B",
+        },
       },
       fontFamily: {
         sans: ["var(--font-ui)", "system-ui", "sans-serif"],
@@ -56,6 +66,9 @@ const config: Config = {
         widest: "0.06em",
       },
       borderRadius: {
+        // md переопределён (Tailwind-дефолт 6px чужероден мягкой системе):
+        // мелкие вложенные элементы — пункты меню, миниатюры, строки-ховеры.
+        md: "0.75rem",
         lg: "1.5rem",
         xl: "1.75rem",
         card: "2rem",
