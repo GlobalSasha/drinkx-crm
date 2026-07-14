@@ -375,7 +375,7 @@ export function LeadCardHeader({
           <Link
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             href={`/leads-pool?form_id=${lead.source_form_id}` as any}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-brand-soft text-brand-accent-text text-xs font-semibold hover:bg-brand-soft/80 transition-colors"
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-soft text-brand-accent-text text-xs font-semibold hover:bg-brand-soft/80 transition-colors ${C.focusRing}`}
             title="Открыть пул лидов этого лендинга"
           >
             <Globe size={11} aria-hidden />
@@ -384,7 +384,7 @@ export function LeadCardHeader({
         )}
         {lead.source?.startsWith("form:") && !lead.source_form_name && (
           <span
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-brand-panel text-brand-muted text-xs font-semibold"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-panel text-brand-muted text-xs font-semibold"
             title="Форма удалена"
           >
             <Globe size={11} aria-hidden />

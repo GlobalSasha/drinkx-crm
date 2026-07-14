@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 
+import { C } from "@/lib/design-system";
 import { useCreateExport, useExportJob } from "@/lib/hooks/use-export";
 import { ApiError } from "@/lib/api-client";
 import { downloadAuthed } from "@/lib/download";
@@ -175,7 +176,7 @@ export function ExportPopover({
         aria-expanded={open}
         className={clsx(
           triggerClassName ??
-            "inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition duration-700 ease-soft hover:bg-brand-panel hover:border-brand-border active:scale-[0.98]",
+            `inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition hover:bg-brand-panel active:scale-[0.96] ${C.focusRing}`,
         )}
       >
         <Download size={14} />

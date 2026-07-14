@@ -146,9 +146,7 @@ function CounterWidget({ label, icon, value, note, accent, loading }: CounterPro
       <div className="min-w-0 flex flex-col gap-1.5">
         <div className="flex items-center gap-2">
           <span className={iconColor}>{icon}</span>
-          <span
-            className={`text-sm ${C.color.mutedLight} uppercase tracking-wider font-semibold`}
-          >
+          <span className={`type-caption font-semibold ${C.color.mutedLight}`}>
             {label}
           </span>
         </div>
@@ -183,7 +181,7 @@ function WidgetHeader({
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           {icon}
-          <h3 className={`type-caption font-bold italic ${titleColor}`}>{title}</h3>
+          <h3 className={`type-caption font-bold ${titleColor}`}>{title}</h3>
         </div>
         {subtitle && (
           <p className={`type-caption ${C.color.mutedLight} mt-0.5`}>
@@ -191,7 +189,6 @@ function WidgetHeader({
           </p>
         )}
       </div>
-      <ArrowUpRight size={14} className={`${C.color.mutedLight} mt-0.5 shrink-0`} />
     </div>
   );
 }
@@ -257,7 +254,8 @@ function FilterChip({
     <button
       type="button"
       onClick={onClick}
-      className={`px-3 py-1 rounded-full type-caption font-semibold transition-colors ${
+      aria-pressed={active}
+      className={`px-3 py-1 rounded-full type-caption font-semibold transition-colors ${C.focusRing} ${
         active
           ? "bg-brand-accent text-white"
           : "bg-brand-panel text-brand-muted-strong hover:bg-brand-border"
@@ -778,14 +776,17 @@ function TodayPageInner() {
         return (
           <Link
             href="/pipeline?filter=rotting"
-            className="block h-full cursor-pointer"
+            className={`block h-full cursor-pointer rounded-card ${C.focusRing}`}
           >
             <RottingCounter />
           </Link>
         );
       case "w-pipeline":
         return (
-          <Link href="/pipeline" className="block h-full cursor-pointer">
+          <Link
+            href="/pipeline"
+            className={`block h-full cursor-pointer rounded-card ${C.focusRing}`}
+          >
             <PipelineCounter />
           </Link>
         );
@@ -799,7 +800,7 @@ function TodayPageInner() {
   return (
     <div className={pageContainerVariants({ surface: "data" })}>
       {/* Header */}
-      <div className="bg-white border border-brand-border border-l-[3px] border-l-brand-accent rounded-card p-6 mb-6">
+      <div className="bg-white border border-brand-border rounded-card p-6 mb-6">
           <div className="type-caption text-brand-muted">{dateTimeCaption}</div>
           <h1 className={`type-page-title ${C.color.text} mt-1`}>
             {greetingText}, <span className="text-brand-accent">{firstName}</span>
