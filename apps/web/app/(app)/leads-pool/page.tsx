@@ -316,7 +316,7 @@ function LeadsPoolPageInner() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setAiUpdateOpen(true)}
-              className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition duration-700 ease-soft hover:bg-brand-panel hover:border-brand-border active:scale-[0.98]"
+              className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition hover:bg-brand-panel active:scale-[0.96]"
               aria-label="Обновление через AI"
             >
               <Sparkles size={14} />

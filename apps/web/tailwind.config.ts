@@ -74,8 +74,9 @@ const config: Config = {
         card: "2rem",
       },
       transitionTimingFunction: {
+        // `spring` (перелёт >1) удалён 2026-07-14: нигде не использовался,
+        // а пружинность не в характере системы. Единственная кривая — soft.
         "soft": "cubic-bezier(0.32, 0.72, 0, 1)",
-        "spring": "cubic-bezier(0.16, 1.16, 0.3, 1)",
       },
       boxShadow: {
         // Single elevation for true overlays (modals, dropdowns, popovers,

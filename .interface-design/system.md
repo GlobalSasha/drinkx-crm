@@ -92,8 +92,12 @@ kpi-number-lg 32/700/tabular, amount 13/500/tabular, hint 11/500/italic, button 
 
 ## Движение
 
-Только CSS, framer-motion не вводить. Easing — токены `soft`
-(`cubic-bezier(0.32,0.72,0,1)`) и `spring` (`cubic-bezier(0.16,1.16,0.3,1)`).
+Только CSS, framer-motion не вводить. Easing — единственная кривая `soft`
+(`cubic-bezier(0.32,0.72,0,1)`); токен `spring` удалён 2026-07-14 (не использовался,
+пружинный перелёт не в характере системы). Входы оверлеев — keyframes `overlayIn`
+(дропдауны 150мс, тултипы 125мс, из точки вызова через Radix origin), `modalIn`
+200мс + `backdropIn` 150мс; выходы мгновенные — тише входов. Reduced-motion:
+у keyframes есть opacity-версии под `prefers-reduced-motion`.
 Нажатие — `active:scale-[0.96]` (встроено в `C.button.*`). `transition-all` запрещён —
 именованные свойства (`transition-colors`, `transition-transform`, `transition-opacity`).
 Длительности < 300ms; частые действия не анимируем. Новое движение — с
