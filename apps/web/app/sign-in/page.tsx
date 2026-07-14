@@ -2,9 +2,12 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { T } from "@/lib/design-system";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+
+// Left unset in production, so the shortcut and its credentials never reach the prod bundle.
+const TEST_LOGIN_EMAIL = process.env.NEXT_PUBLIC_TEST_LOGIN_EMAIL;
+const TEST_LOGIN_PASSWORD = process.env.NEXT_PUBLIC_TEST_LOGIN_PASSWORD;
 
 function SignInForm() {
   const router = useRouter();
@@ -50,12 +53,13 @@ function SignInForm() {
   }
 
   async function handleTestUser() {
+    if (!TEST_LOGIN_EMAIL || !TEST_LOGIN_PASSWORD) return;
     setLoading(true);
     setError(null);
     const supabase = getSupabaseBrowserClient();
     const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: "test@drinkx.tech",
-      password: "DrinkX_Test_2026!",
+      email: TEST_LOGIN_EMAIL,
+      password: TEST_LOGIN_PASSWORD,
     });
     if (signInError) {
       setError(signInError.message);
@@ -168,19 +172,23 @@ function SignInForm() {
         </form>
       )}
 
-      <div className={`my-6 flex items-center gap-3 ${T.mono} text-brand-muted`}>
-        <div className="flex-1 h-px bg-black/10" />
-        ИЛИ
-        <div className="flex-1 h-px bg-black/10" />
-      </div>
+      {TEST_LOGIN_EMAIL && TEST_LOGIN_PASSWORD && (
+        <>
+          <div className={`my-6 flex items-center gap-3 ${T.mono} text-brand-muted`}>
+            <div className="flex-1 h-px bg-black/10" />
+            ИЛИ
+            <div className="flex-1 h-px bg-black/10" />
+          </div>
 
-      <button
-        onClick={handleTestUser}
-        disabled={loading}
-        className="w-full py-2.5 px-4 rounded-full border border-brand-border bg-transparent text-sm text-brand-muted hover:text-brand-primary hover:border-brand-border transition duration-300 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
-      >
-        🧪 Войти как тестовый пользователь
-      </button>
+          <button
+            onClick={handleTestUser}
+            disabled={loading}
+            className="w-full py-2.5 px-4 rounded-full border border-brand-border bg-transparent text-sm text-brand-muted hover:text-brand-primary hover:border-brand-border transition duration-300 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            🧪 Войти как тестовый пользователь
+          </button>
+        </>
+      )}
 
       <p className="text-xs text-brand-muted mt-8 leading-relaxed text-center">
         При входе создаётся профиль менеджера в workspace DrinkX.
@@ -188,12 +196,6 @@ function SignInForm() {
         Используем только email и имя из Google · никакой почтовой переписки
         без явного согласия.
       </p>
-
-      <div className="mt-6 pt-6 border-t border-brand-border text-center">
-        <Link href="/" className="text-xs text-brand-muted hover:text-brand-accent">
-          ← на главную
-        </Link>
-      </div>
     </div>
   );
 }
