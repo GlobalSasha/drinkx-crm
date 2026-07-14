@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { LeadOut, Stage } from "@/lib/types";
 import { priorityChip } from "@/lib/ui/priority";
-import { T } from "@/lib/design-system";
+import { C, T } from "@/lib/design-system";
 
 interface Props {
   stages: Stage[];
@@ -124,7 +124,7 @@ export function PipelineList({ stages, leads }: Props) {
                     key={lead.id}
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     href={`/leads/${lead.id}` as any}
-                    className="flex items-center gap-3 px-3 py-2.5 bg-white border border-brand-border rounded-xl active:bg-brand-bg hover:border-brand-accent/30 transition-colors"
+                    className={`flex items-center gap-3 px-3 py-2.5 bg-white border border-brand-border rounded-xl active:bg-brand-bg hover:border-brand-accent/30 transition-colors ${C.focusRing}`}
                   >
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-brand-primary truncate">

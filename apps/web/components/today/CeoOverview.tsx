@@ -32,6 +32,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { ChartContainer, ChartTooltip, BRAND_CHART_COLORS, CHART_GRID_COLOR, CHART_AXIS_COLOR } from "@/components/ui/Chart";
+import { C } from "@/lib/design-system";
 import { useCompanySummary, useCompanyAttention } from "@/lib/hooks/use-company";
 import type { CompanySummary, StuckLead, ManagerLoad } from "@/lib/types";
 
@@ -289,7 +290,7 @@ function StuckList({ stuck, loading }: { stuck: StuckLead[] | undefined; loading
             <li key={s.lead_id}>
               <Link
                 href={`/leads/${s.lead_id}`}
-                className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-card bg-brand-bg hover:bg-brand-border/50 transition-colors active:scale-[0.99]"
+                className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-card bg-brand-bg hover:bg-brand-border/50 transition-colors active:scale-[0.99] ${C.focusRing}`}
               >
                 <span className="min-w-0">
                   <span className="type-body text-brand-primary block truncate">{s.company_name}</span>
@@ -362,7 +363,7 @@ function ManagerLoadCard({ managers, loading }: { managers: ManagerLoad[] | unde
               <li key={m.user_id}>
                 <Link
                   href={`/team/${m.user_id}` as `/team/${string}`}
-                  className="block px-3 py-2 rounded-card hover:bg-brand-bg transition-colors active:scale-[0.99]"
+                  className={`block px-3 py-2 rounded-card hover:bg-brand-bg transition-colors active:scale-[0.99] ${C.focusRing}`}
                 >
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="type-body text-brand-primary truncate">{m.name}</span>
@@ -468,7 +469,7 @@ function DailyDisclosure({
 }) {
   return (
     <details className="group rounded-card border border-brand-border bg-white overflow-hidden">
-      <summary className="flex items-center justify-between gap-2 px-5 sm:px-6 py-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+      <summary className={`flex items-center justify-between gap-2 px-5 sm:px-6 py-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden rounded-card ${C.focusRing}`}>
         <span className="type-card-title text-brand-primary">Заявки по дням</span>
         <span className="flex items-center gap-2 type-hint text-brand-muted not-italic">
           последние 14 дней
