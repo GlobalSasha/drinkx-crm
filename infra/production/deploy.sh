@@ -8,9 +8,18 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-echo "==> Pull"
-git fetch origin
-git reset --hard origin/main
+# No `git fetch` here on purpose. The server reaches github.com only
+# intermittently from its Russian datacenter, and a wedged fetch took down two
+# deploys on 2026-07-14. CI now rsyncs the working tree in before calling this
+# script (see .github/workflows/deploy.yml).
+#
+# Running this by hand deploys whatever is currently on disk. To deploy a
+# specific commit by hand, put it there first — e.g. `git fetch && git reset
+# --hard origin/main` — and expect that to hang whenever GitHub is unreachable.
+#
+# Don't read the commit from .git — rsync leaves it untouched, so it still
+# points at whatever was last fetched here and would lie about what is live.
+echo "==> Deploying ${DEPLOY_SHA:-working tree on disk (no SHA passed)}"
 
 echo "==> Cleanup orphan rename stubs from prior partial runs"
 docker ps -a --format '{{.Names}}' | grep -E '^[a-f0-9]+_drinkx-' | xargs -r docker rm -f || true

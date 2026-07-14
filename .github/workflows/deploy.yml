@@ -17,6 +17,8 @@ jobs:
     timeout-minutes: 25
 
     steps:
+      - uses: actions/checkout@v4
+
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
@@ -24,10 +26,36 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
 
+      # The server sits in a Russian datacenter and reaches github.com only
+      # intermittently: TCP connects, the TLS handshake then hangs forever, so
+      # `git fetch` on the box wedged and two deploys died with "Broken pipe"
+      # (2026-07-14). The runner always has GitHub — so it ships the code and
+      # the server never talks to GitHub at all.
+      #
+      # No --delete: `git reset --hard` never removed untracked files either,
+      # and a stray --delete here would wipe infra/production/.env (the prod
+      # secrets, deliberately not in git). .env is excluded twice on purpose.
+      - name: Ship code to server
+        run: |
+          rsync -az --timeout=60 \
+            -e "ssh -i ~/.ssh/deploy_key -o ServerAliveInterval=30 -o ServerAliveCountMax=10" \
+            --exclude='.git/' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            --exclude='infra/production/.env' \
+            --exclude='node_modules/' \
+            --exclude='.next/' \
+            --exclude='__pycache__/' \
+            --exclude='.venv/' \
+            ./ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/drinkx-crm/"
+
+      # ServerAliveInterval keeps the session alive across the ~12-15m build,
+      # which prints nothing for minutes at a time.
       - name: Trigger deploy
         run: |
-          ssh -i ~/.ssh/deploy_key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
-            "bash /opt/drinkx-crm/infra/production/deploy.sh"
+          ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 \
+            -i ~/.ssh/deploy_key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
+            "DEPLOY_SHA='${{ github.sha }}' bash /opt/drinkx-crm/infra/production/deploy.sh"
 
       - name: Verify health
         run: |
