@@ -273,7 +273,7 @@ function TemplateEditor({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
-      <div className="bg-white rounded-card shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-card shadow-overlay w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-brand-border">
           <h3 className="type-card-title">
             {isEdit ? "Редактировать шаблон" : "Новый шаблон"}

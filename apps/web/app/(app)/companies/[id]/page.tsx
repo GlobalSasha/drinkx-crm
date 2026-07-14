@@ -33,6 +33,7 @@ import { ApiError } from "@/lib/api-client";
 import type { CompanyUpdate, CompanyLeadSummary } from "@/lib/types";
 import { C } from "@/lib/design-system";
 import { dealTypeLabel } from "@/lib/i18n";
+import { STAGE_COLOR_FALLBACK } from "@/components/ui/Chart";
 import { Modal } from "@/components/ui/Modal";
 import { CompanyMergeModal } from "@/components/companies/CompanyMergeModal";
 
@@ -495,7 +496,7 @@ function DealCard({ lead }: { lead: CompanyLeadSummary }) {
       <div className="flex items-center justify-between gap-3">
         <span
           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-white text-xs font-semibold shrink-0"
-          style={{ backgroundColor: lead.stage_color ?? "#a1a1a6" }}
+          style={{ backgroundColor: lead.stage_color ?? STAGE_COLOR_FALLBACK }}
         >
           {lead.stage_name ?? "Без этапа"}
         </span>

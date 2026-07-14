@@ -31,11 +31,10 @@ import { pageContainerVariants } from "@/components/ui/PageContainer";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { ChartContainer, ChartTooltip, BRAND_CHART_COLORS } from "@/components/ui/Chart";
+import { ChartContainer, ChartTooltip, BRAND_CHART_COLORS, CHART_GRID_COLOR, CHART_AXIS_COLOR } from "@/components/ui/Chart";
 import { useCompanySummary, useCompanyAttention } from "@/lib/hooks/use-company";
 import type { CompanySummary, StuckLead, ManagerLoad } from "@/lib/types";
 
-const SOURCE_COLORS = ["#FF4E00", "#2a78d6", "#1baf7a", "#eda100", "#9085e9", "#6B6B6B"];
 const STUCK_PREVIEW = 5;
 
 function fmtDay(iso: string): string {
@@ -58,7 +57,7 @@ function useDailySeries(summary: CompanySummary | undefined) {
     const series = order.map((key, i) => ({
       key,
       name: nameOf.get(key) ?? "—",
-      color: SOURCE_COLORS[i % SOURCE_COLORS.length],
+      color: BRAND_CHART_COLORS[i % BRAND_CHART_COLORS.length],
     }));
     const byDay = new Map<string, Record<string, number | string>>();
     for (const p of summary.daily) {
@@ -489,9 +488,9 @@ function DailyDisclosure({
             </div>
             <ChartContainer height={220} aria-label="Входящие заявки по дням с разбивкой по источникам">
               <BarChart data={rows} margin={{ top: 8, right: 8, bottom: 8, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E3DC" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6B6B6B" }} axisLine={false} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#6B6B6B" }} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: CHART_AXIS_COLOR }} axisLine={false} tickLine={false} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: CHART_AXIS_COLOR }} axisLine={false} tickLine={false} />
                 <ChartTooltip />
                 {series.map((s) => (
                   <Bar key={s.key} dataKey={s.key} name={s.name} stackId="s" fill={s.color} radius={[2, 2, 0, 0]} />
