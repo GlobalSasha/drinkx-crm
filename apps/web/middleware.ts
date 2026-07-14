@@ -7,12 +7,19 @@ export async function middleware(request: NextRequest) {
 
   // Public routes
   const isPublic =
-    pathname === "/" ||
     pathname.startsWith("/sign-in") ||
     pathname.startsWith("/auth/callback") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/") ||
     /\.[a-z0-9]+$/i.test(pathname); // static files
+
+  // The root is an entry point, not a page
+  if (pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = user ? "/today" : "/sign-in";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

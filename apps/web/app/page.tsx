@@ -1,44 +1,7 @@
-import Link from "next/link";
+import { redirect } from "next/navigation";
 
-export default function HomePage() {
-  return (
-    <main className="min-h-screen flex items-center justify-center p-8">
-      <div className="max-w-2xl w-full bg-white border border-brand-border rounded-card p-12">
-        <div className="font-mono text-xs uppercase tracking-[0.2em] text-brand-muted mb-3">
-          Phase 1 · Foundation
-        </div>
-        <h1 className="text-5xl font-bold tracking-tight leading-none mb-6">
-          drinkx<span className="text-brand-accent">.</span>crm
-        </h1>
-        <p className="text-brand-muted mb-8 leading-relaxed">
-          Production build. Skeleton only — see <code className="font-mono text-sm">AUTOPILOT.md</code> for the
-          roadmap. Prototype with all real screens lives at{" "}
-          <a className="text-brand-accent underline" href="https://globalsasha.github.io/drinkx-crm-prototype/">
-            globalsasha.github.io/drinkx-crm-prototype
-          </a>
-          .
-        </p>
-        <div className="flex gap-3 flex-wrap">
-          <Link
-            href="/sign-in"
-            className="inline-flex items-center gap-2 bg-brand-accent text-white rounded-full px-5 py-3 font-semibold transition-transform duration-700 ease-soft active:scale-[0.98]"
-          >
-            Войти →
-          </Link>
-          <Link
-            href="/today"
-            className="inline-flex items-center gap-2 bg-black/5 text-brand-primary rounded-full px-5 py-3 font-semibold transition-transform duration-700 ease-soft active:scale-[0.98]"
-          >
-            Today (preview)
-          </Link>
-          <Link
-            href="/pipeline"
-            className="inline-flex items-center gap-2 bg-black/5 text-brand-primary rounded-full px-5 py-3 font-semibold transition-transform duration-700 ease-soft active:scale-[0.98]"
-          >
-            Pipeline (preview)
-          </Link>
-        </div>
-      </div>
-    </main>
-  );
+// Routing for "/" lives in middleware.ts (signed in → /today, otherwise → /sign-in).
+// This page is only the fallback for a request that somehow reaches the router.
+export default function RootPage() {
+  redirect("/sign-in");
 }
