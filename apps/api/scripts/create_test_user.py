@@ -8,9 +8,14 @@ real data to navigate.
 Idempotent: re-running the script updates the existing user's password and
 tops up its lead assignment instead of creating duplicates.
 
+The credentials come from the environment and are NEVER stored here: this repo
+is public, so a password in the source is a password on the internet. (It was
+hardcoded until 2026-07-14; that account has since been retired.)
+
 Run inside the api container on prod:
 
-    docker exec -i drinkx-api-1 python scripts/create_test_user.py
+    docker exec -e TEST_LOGIN_EMAIL='...' -e TEST_LOGIN_PASSWORD='...' \
+      -i drinkx-api-1 python scripts/create_test_user.py
 
 Requires SUPABASE_URL, SUPABASE_SECRET_KEY, DATABASE_URL in the env (already
 set on the production container).
@@ -24,8 +29,6 @@ from datetime import datetime, timezone
 
 import httpx
 
-TEST_EMAIL = "test@drinkx.tech"
-TEST_PASSWORD = "DrinkX_Test_2026!"
 TEST_NAME = "Тест Менеджер"
 LEAD_TARGET = 12  # 10-15 range
 
@@ -98,13 +101,13 @@ async def supabase_upsert_user(
 
 
 async def main() -> int:
-    import asyncpg
-
     supabase_url = (os.environ.get("SUPABASE_URL") or "").rstrip("/")
     service_key = os.environ.get("SUPABASE_SECRET_KEY") or ""
     db_url = (os.environ.get("DATABASE_URL") or "").replace(
         "postgresql+asyncpg://", "postgresql://"
     )
+    test_email = os.environ.get("TEST_LOGIN_EMAIL") or ""
+    test_password = os.environ.get("TEST_LOGIN_PASSWORD") or ""
 
     if not supabase_url or not service_key:
         print("✗ SUPABASE_URL / SUPABASE_SECRET_KEY not set", file=sys.stderr)
@@ -112,6 +115,20 @@ async def main() -> int:
     if not db_url:
         print("✗ DATABASE_URL not set", file=sys.stderr)
         return 2
+    if not test_email or not test_password:
+        print(
+            "✗ TEST_LOGIN_EMAIL / TEST_LOGIN_PASSWORD not set.\n"
+            "  They are deliberately not in the source — this repo is public.\n"
+            "  Pass them on the command line:\n"
+            "    docker exec -e TEST_LOGIN_EMAIL='...' -e TEST_LOGIN_PASSWORD='...' \\\n"
+            "      -i drinkx-api-1 python scripts/create_test_user.py",
+            file=sys.stderr,
+        )
+        return 2
+
+    # Imported after the env checks so a misconfigured run fails with a readable
+    # message instead of an ImportError traceback.
+    import asyncpg
 
     conn = await asyncpg.connect(db_url)
     try:
@@ -127,8 +144,8 @@ async def main() -> int:
             supabase_user_id = await supabase_upsert_user(
                 base_url=supabase_url,
                 service_key=service_key,
-                email=TEST_EMAIL,
-                password=TEST_PASSWORD,
+                email=test_email,
+                password=test_password,
                 name=TEST_NAME,
             )
         except RuntimeError as exc:
@@ -160,7 +177,7 @@ async def main() -> int:
             RETURNING id
             """,
             workspace_id,
-            TEST_EMAIL,
+            test_email,
             TEST_NAME,
             supabase_user_id,
             now,
@@ -206,9 +223,10 @@ async def main() -> int:
             user_id,
         )
 
+        # The password is not echoed: this output lands in docker/CI logs.
         print("✅ Test user created")
-        print(f"Email: {TEST_EMAIL}")
-        print(f"Password: {TEST_PASSWORD}")
+        print(f"Email: {test_email}")
+        print("Password: the one you passed in TEST_LOGIN_PASSWORD")
         print("URL: https://crm.drinkx.tech")
         print(f"Leads assigned: {total_assigned} (newly: {newly_assigned})")
         print(f"User ID: {user_id}")
