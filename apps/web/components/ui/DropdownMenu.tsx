@@ -36,9 +36,9 @@ const DropdownMenuContent = React.forwardRef<
       sideOffset={sideOffset}
       className={cn(
         "z-50 min-w-[12rem] bg-white border border-brand-border rounded-card shadow-overlay overflow-hidden p-1",
-        "data-[state=open]:animate-in data-[state=closed]:animate-out",
-        "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-        "data-[side=bottom]:slide-in-from-top-1 data-[side=top]:slide-in-from-bottom-1",
+        // Вход из точки вызова (origin от Radix); выход мгновенный — тише входа.
+        "data-[state=open]:animate-[overlayIn_150ms_cubic-bezier(0.32,0.72,0,1)]",
+        "origin-[var(--radix-dropdown-menu-content-transform-origin)]",
         className,
       )}
       {...props}

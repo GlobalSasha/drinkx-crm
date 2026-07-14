@@ -23,7 +23,7 @@ export function ReminderToast({ task, onOpen, onSnooze, onClose }: Props) {
   return (
     <div
       role="alert"
-      className="pointer-events-auto w-[330px] max-w-full rounded-card border border-white/50 bg-white/75 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.18)] p-4 animate-[fadeInUp_0.28s_ease-out]"
+      className="pointer-events-auto w-[330px] max-w-full rounded-card border border-white/50 bg-white/75 backdrop-blur-2xl shadow-overlay p-4 animate-[fadeInUp_0.28s_ease-out]"
     >
       <div className="flex items-start gap-2.5">
         <span className="shrink-0 w-7 h-7 rounded-full bg-warning/15 flex items-center justify-center mt-0.5">

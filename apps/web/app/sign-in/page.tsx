@@ -113,7 +113,7 @@ function SignInForm() {
       <button
         onClick={handleGoogle}
         disabled={loading}
-        className="w-full py-3.5 px-4 rounded-full border border-brand-border bg-white flex items-center justify-center gap-3 text-sm font-medium hover:border-brand-accent/30 transition duration-700 ease-soft active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+        className="w-full py-3.5 px-4 rounded-full border border-brand-border bg-white flex items-center justify-center gap-3 text-sm font-medium hover:border-brand-accent/30 transition active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
       >
         <span
           className="w-[18px] h-[18px] rounded-full shrink-0"

@@ -73,7 +73,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 animate-[backdropIn_150ms_ease-out]"
       onClick={dismissOnBackdrop ? onClose : undefined}
     >
       <div
@@ -83,7 +83,7 @@ export function Modal({
         aria-labelledby={headingId}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className={`bg-white rounded-3xl ${size} w-full p-6 shadow-overlay outline-none max-h-[calc(100dvh-2rem)] overflow-y-auto`}
+        className={`bg-white rounded-3xl ${size} w-full p-6 shadow-overlay outline-none max-h-[calc(100dvh-2rem)] overflow-y-auto animate-[modalIn_200ms_cubic-bezier(0.32,0.72,0,1)]`}
       >
         <h2 id={headingId} className="sr-only">
           {title}

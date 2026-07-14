@@ -35,9 +35,9 @@ const TooltipContent = React.forwardRef<
       sideOffset={sideOffset}
       className={cn(
         "z-50 px-2.5 py-1.5 rounded-lg bg-brand-primary text-white type-caption font-medium shadow-overlay",
-        "data-[state=delayed-open]:animate-in data-[state=closed]:animate-out",
-        "data-[state=closed]:fade-out-0 data-[state=delayed-open]:fade-in-0",
-        "data-[side=bottom]:slide-in-from-top-1 data-[side=top]:slide-in-from-bottom-1",
+        // Вход из точки вызова (origin от Radix); выход мгновенный — тише входа.
+        "data-[state=delayed-open]:animate-[overlayIn_125ms_cubic-bezier(0.32,0.72,0,1)]",
+        "origin-[var(--radix-tooltip-content-transform-origin)]",
         className,
       )}
       {...props}
