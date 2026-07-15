@@ -124,7 +124,7 @@ async def test_managers_metrics_and_stuck_alert(db, workspace, user):
     assert m["user_id"] == user.id
     assert m["name"] == user.name
     assert m["role"] == "manager"
-    assert m["new_leads"] == 2          # both leads created within week
+    assert m["new_leads"] == 1          # only «Active Co» (2 дня); «Stuck Co» создан 10 дней назад — вне недели
     assert m["in_work"] == 2            # both non-terminal assigned
     assert m["stuck"] == 1              # rotting lead
     assert m["tasks_overdue"] == 1
@@ -137,7 +137,7 @@ async def test_managers_metrics_and_stuck_alert(db, workspace, user):
     assert stuck_alerts[0]["user_id"] == user.id
     assert stuck_alerts[0]["count"] == 1
 
-    assert out["totals"]["new_leads"] == 2
+    assert out["totals"]["new_leads"] == 1
     assert out["totals"]["stuck"] == 1
     assert out["totals"]["kp_sent"] == 1
 
