@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
@@ -129,8 +130,22 @@ export function LeadCardHeader({
   const [nameValue, setNameValue] = useState("");
   const [stageDropdownOpen, setStageDropdownOpen] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   const priorityClass = priorityPillStyle(lead.priority);
+
+  // Return to wherever the user actually came from — a manager's scoped
+  // pipeline (`/pipeline?assigned_to=…`), the manager deep-dive page, the
+  // inbox, /today, or their own board — instead of a hardcoded `/pipeline`.
+  // Fall back to `/pipeline` only when there is no in-app history to pop
+  // (the lead was opened directly: fresh tab, refresh, or external link).
+  function handleBack() {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/pipeline");
+    }
+  }
 
   function startEditName() {
     setNameValue(lead.company_name);
@@ -150,13 +165,14 @@ export function LeadCardHeader({
     <>
       {/* Row 1: back + company name + action buttons */}
       <div className="flex items-start gap-3">
-        <Link
-          href="/pipeline"
+        <button
+          type="button"
+          onClick={handleBack}
           className="mt-0.5 p-2.5 -ml-1 rounded-full text-brand-muted hover:bg-brand-panel transition-colors shrink-0"
           aria-label="Назад"
         >
           <ArrowLeft size={18} />
-        </Link>
+        </button>
 
         <div className="flex-1 min-w-0">
           {editingName ? (
