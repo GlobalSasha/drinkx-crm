@@ -247,6 +247,55 @@ export interface CompanyAttention {
   oldest_days_idle: number;
 }
 
+// ── CEO /today: manager activity («труд ↔ результат») ──────────────
+export type ManagerPeriod = "day" | "week" | "month";
+
+export interface ManagerDailyPoint {
+  date: string; // ISO date
+  minutes: number;
+}
+
+export interface ManagerRow {
+  user_id: string;
+  name: string;
+  role: string;
+  active_minutes: number;
+  active_daily: ManagerDailyPoint[];
+  new_leads: number;
+  actions: number;
+  kp_sent: number;
+  stage_moves: number;
+  tasks_done: number;
+  tasks_overdue: number;
+  in_work: number;
+  stuck: number;
+  oldest_stuck_days: number;
+  last_active_at: string | null;
+}
+
+export interface ManagerTotals {
+  active_minutes: number;
+  new_leads: number;
+  actions: number;
+  kp_sent: number;
+  stuck: number;
+}
+
+export interface ManagerAlert {
+  type: "silent" | "stuck";
+  user_id: string;
+  name: string;
+  days?: number | null;
+  count?: number | null;
+}
+
+export interface CompanyManagers {
+  period: ManagerPeriod;
+  totals: ManagerTotals;
+  alerts: ManagerAlert[];
+  managers: ManagerRow[];
+}
+
 export interface LeadUpdate {
   company_name?: string;
   segment?: string | null;

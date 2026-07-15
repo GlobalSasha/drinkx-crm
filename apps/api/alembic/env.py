@@ -31,6 +31,7 @@ from app.template import models as _template_models  # noqa: F401
 from app.automation_builder import models as _automation_builder_models  # noqa: F401
 from app.quotas import models as _quotas_models  # noqa: F401
 from app.utm import models as _utm_models  # noqa: F401
+from app.presence import models as _presence_models  # noqa: F401
 
 config = context.config
 

@@ -85,41 +85,53 @@ function useDailyTotals(summary: CompanySummary | undefined): number[] {
 }
 
 export function CeoOverview() {
-  // Trailing week + 14-day trend across the whole screen — one consistent
-  // window, no period toggle (a month/week switch only re-scoped part of the
-  // screen, which read as dishonest). Month view, if wanted, is a separate
-  // properly-scoped feature.
+  return (
+    <div className={pageContainerVariants({ surface: "reading" })}>
+      <PageHeader icon={<Eye size={20} />} title="Обзор" />
+      <LeadFlowBody />
+    </div>
+  );
+}
+
+/**
+ * The incoming-lead-flow overview body (hero, KPIs, stuck, sources, daily),
+ * without page chrome. Rendered standalone by {@link CeoOverview} and embedded
+ * as a collapsed «Поток заявок» section inside the manager-activity /today.
+ *
+ * Trailing week + 14-day trend across the whole block — one consistent window,
+ * no period toggle (a month/week switch only re-scoped part of the screen,
+ * which read as dishonest).
+ */
+export function LeadFlowBody() {
   const { data: summary, isLoading, isError: summaryError } = useCompanySummary();
   const { data: attention, isError: attentionError } = useCompanyAttention();
   const { rows, series } = useDailySeries(summary);
   const totals = useDailyTotals(summary);
   const failed = summaryError || attentionError;
 
+  if (failed) {
+    return (
+      <div className="rounded-card border border-rose/20 bg-rose/5 p-6 mt-2">
+        <p className="type-card-title text-rose">Не удалось загрузить сводку</p>
+        <p className="type-body text-brand-muted mt-1">Обновите страницу — данные временно недоступны.</p>
+      </div>
+    );
+  }
+
   return (
-    <div className={pageContainerVariants({ surface: "reading" })}>
-      <PageHeader icon={<Eye size={20} />} title="Обзор" />
+    <div className="space-y-6 mt-2">
+      <HeroVerdict summary={summary} attention={attention} loading={isLoading} />
 
-      {failed ? (
-        <div className="rounded-card border border-rose/20 bg-rose/5 p-6 mt-2">
-          <p className="type-card-title text-rose">Не удалось загрузить сводку</p>
-          <p className="type-body text-brand-muted mt-1">Обновите страницу — данные временно недоступны.</p>
-        </div>
-      ) : (
-        <div className="space-y-6 mt-2">
-          <HeroVerdict summary={summary} attention={attention} loading={isLoading} />
+      <KpiBand summary={summary} oldestIdle={attention?.oldest_days_idle ?? 0} totals={totals} />
 
-          <KpiBand summary={summary} oldestIdle={attention?.oldest_days_idle ?? 0} totals={totals} />
+      <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-4">
+        <StuckList stuck={attention?.stuck} loading={!attention} />
+        <ManagerLoadCard managers={attention?.managers} loading={!attention} />
+      </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-4">
-            <StuckList stuck={attention?.stuck} loading={!attention} />
-            <ManagerLoadCard managers={attention?.managers} loading={!attention} />
-          </div>
+      <SourcesCard summary={summary} loading={isLoading} />
 
-          <SourcesCard summary={summary} loading={isLoading} />
-
-          <DailyDisclosure rows={rows} series={series} hasData={(summary?.daily.length ?? 0) > 0} />
-        </div>
-      )}
+      <DailyDisclosure rows={rows} series={series} hasData={(summary?.daily.length ?? 0) > 0} />
     </div>
   );
 }
