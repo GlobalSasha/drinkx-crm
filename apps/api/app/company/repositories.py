@@ -173,3 +173,157 @@ async def manager_load(db: AsyncSession, *, workspace_id: uuid.UUID) -> list[dic
         }
         for r in rows
     ]
+
+
+# ---------------------------------------------------------------------------
+# Per-manager work + result metrics (CEO managers dashboard)
+# ---------------------------------------------------------------------------
+
+
+async def manager_roster(db: AsyncSession, *, workspace_id: uuid.UUID) -> list[dict]:
+    """All managers in the workspace, ordered by name."""
+    sql = text("""
+        SELECT u.id AS user_id, u.name AS name, u.role AS role,
+               u.last_login_at AS last_login_at
+        FROM users u
+        WHERE u.workspace_id = :wid AND u.role = 'manager'
+        ORDER BY u.name
+    """)
+    rows = (await db.execute(sql, {"wid": workspace_id})).all()
+    return [
+        {
+            "user_id": r.user_id,
+            "name": r.name,
+            "role": r.role,
+            "last_login_at": r.last_login_at,
+        }
+        for r in rows
+    ]
+
+
+async def new_leads_per_user(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    user_ids: list[uuid.UUID],
+    from_: datetime,
+    to: datetime,
+) -> dict[uuid.UUID, int]:
+    if not user_ids:
+        return {}
+    sql = text("""
+        SELECT assigned_to AS user_id, count(*) AS n
+        FROM leads
+        WHERE workspace_id = :wid
+          AND assigned_to = ANY(:uids)
+          AND created_at >= :from_ AND created_at <= :to
+          AND archived_at IS NULL
+        GROUP BY assigned_to
+    """)
+    rows = (
+        await db.execute(
+            sql, {"wid": workspace_id, "uids": user_ids, "from_": from_, "to": to}
+        )
+    ).all()
+    return {r.user_id: int(r.n) for r in rows}
+
+
+async def actions_per_user(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    user_ids: list[uuid.UUID],
+    from_: datetime,
+    to: datetime,
+) -> dict[uuid.UUID, int]:
+    if not user_ids:
+        return {}
+    sql = text("""
+        SELECT a.user_id, count(*) AS n
+        FROM activities a
+        JOIN users u ON u.id = a.user_id
+        WHERE u.workspace_id = :wid
+          AND a.user_id = ANY(:uids)
+          AND a.created_at >= :from_ AND a.created_at <= :to
+          AND a.type IN (
+            'comment','task','reminder','file','email','tg','phone','form_submission'
+          )
+        GROUP BY a.user_id
+    """)
+    rows = (
+        await db.execute(
+            sql, {"wid": workspace_id, "uids": user_ids, "from_": from_, "to": to}
+        )
+    ).all()
+    return {r.user_id: int(r.n) for r in rows}
+
+
+async def tasks_overdue_per_user(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    user_ids: list[uuid.UUID],
+) -> dict[uuid.UUID, int]:
+    """Point-in-time overdue task count on leads assigned to each user."""
+    if not user_ids:
+        return {}
+    sql = text("""
+        SELECT l.assigned_to AS user_id, count(*) AS n
+        FROM activities a
+        JOIN leads l ON l.id = a.lead_id
+        WHERE l.workspace_id = :wid
+          AND l.assigned_to = ANY(:uids)
+          AND a.type = 'task'
+          AND a.task_done = false
+          AND a.task_due_at < now()
+        GROUP BY l.assigned_to
+    """)
+    rows = (await db.execute(sql, {"wid": workspace_id, "uids": user_ids})).all()
+    return {r.user_id: int(r.n) for r in rows}
+
+
+async def portfolio_per_user(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    user_ids: list[uuid.UUID],
+) -> dict[uuid.UUID, dict]:
+    """Batched portfolio KPI over active assigned non-terminal leads."""
+    if not user_ids:
+        return {}
+    sql = text("""
+        SELECT l.assigned_to AS user_id,
+               count(*) AS in_work,
+               count(*) FILTER (
+                 WHERE l.is_rotting_stage OR l.is_rotting_next_step
+               ) AS stuck,
+               COALESCE(
+                 MAX(
+                   EXTRACT(DAY FROM now() - COALESCE(l.last_activity_at, l.created_at))::int
+                 ) FILTER (WHERE l.is_rotting_stage OR l.is_rotting_next_step),
+                 0
+               ) AS oldest_stuck_days
+        FROM leads l
+        JOIN stages s ON s.id = l.stage_id
+        WHERE l.workspace_id = :wid
+          AND l.assigned_to = ANY(:uids)
+          AND l.assignment_status = 'assigned'
+          AND l.archived_at IS NULL
+          AND s.is_won = false AND s.is_lost = false
+        GROUP BY l.assigned_to
+    """)
+    rows = (await db.execute(sql, {"wid": workspace_id, "uids": user_ids})).all()
+    return {
+        r.user_id: {
+            "in_work": int(r.in_work),
+            "stuck": int(r.stuck),
+            "oldest_stuck_days": int(r.oldest_stuck_days or 0),
+        }
+        for r in rows
+    }
+
+
+async def workspace_has_leads(db: AsyncSession, *, workspace_id: uuid.UUID) -> bool:
+    """Cheap existence check — gates silent-manager alerts."""
+    sql = text("SELECT EXISTS(SELECT 1 FROM leads WHERE workspace_id = :wid)")
+    return bool((await db.execute(sql, {"wid": workspace_id})).scalar_one())

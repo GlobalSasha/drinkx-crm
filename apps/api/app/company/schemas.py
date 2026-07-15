@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel
 
@@ -59,3 +59,49 @@ class CompanyAttentionOut(BaseModel):
     stuck: list[StuckLead]
     managers: list[ManagerLoad]
     oldest_days_idle: int  # MAX(days_idle) across stuck leads, 0 when none
+
+
+class ManagerAlert(BaseModel):
+    type: str  # "silent" | "stuck"
+    user_id: uuid.UUID
+    name: str
+    days: int | None = None
+    count: int | None = None
+
+
+class ManagerDailyPoint(BaseModel):
+    date: date
+    minutes: int
+
+
+class ManagerRow(BaseModel):
+    user_id: uuid.UUID
+    name: str
+    role: str
+    active_minutes: int
+    active_daily: list[ManagerDailyPoint]
+    new_leads: int
+    actions: int
+    kp_sent: int
+    stage_moves: int
+    tasks_done: int
+    tasks_overdue: int
+    in_work: int
+    stuck: int
+    oldest_stuck_days: int
+    last_active_at: datetime | None
+
+
+class ManagerTotals(BaseModel):
+    active_minutes: int
+    new_leads: int
+    actions: int
+    kp_sent: int
+    stuck: int
+
+
+class CompanyManagersOut(BaseModel):
+    period: str
+    totals: ManagerTotals
+    alerts: list[ManagerAlert]
+    managers: list[ManagerRow]
