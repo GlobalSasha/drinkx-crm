@@ -3,10 +3,9 @@
 Hotfix 2026-05-08: single-workspace model. DrinkX needs ONE shared
 workspace for the entire team — every user signs in into the same
 data plane (same lead pool, same pipelines, same notifications).
-The first user creates the workspace; every subsequent user joins
-it automatically with role='manager'. No invites in v1; assignment
-isolation is already handled at the lead level
-(`assignment_status='assigned'` + `assigned_to=user_id`).
+The first user creates the workspace. Once it exists, a new user may
+join only when an admin has created a pending invite for their email.
+Existing users keep signing in normally.
 
 The previous behavior (a workspace per user) was creating
 disconnected silos as soon as a second team member signed in —
@@ -31,6 +30,12 @@ from app.auth.models import User, UserInvite, Workspace
 from app.config import get_settings
 from app.notifications.services import safe_notify
 from app.pipelines.models import DEFAULT_STAGES, Pipeline, Stage
+
+VALID_INVITE_ROLES = ("admin", "head", "manager")
+
+
+class InviteRequired(Exception):
+    """The identity is valid, but this workspace did not invite it."""
 
 
 async def _apply_pending_invite(
@@ -92,10 +97,13 @@ async def upsert_user_from_token(session: AsyncSession, claims: TokenClaims) -> 
       - Creates the bootstrap Pipeline + 12 stages
       - User joins as role='admin'
 
-    Every subsequent user:
+    Every subsequent new user:
+      - Must have a pending invite for the same email and workspace
       - Joins the EXISTING shared workspace (oldest by created_at)
-      - User joins as role='manager'
-      - No invite, no manual assignment — the team uses one data plane
+      - Receives the role selected by the inviter
+
+    Existing users:
+      - Continue to sign in without needing a fresh invite
     """
     # 1. Try to find by Supabase user id
     result = await session.execute(
@@ -168,16 +176,32 @@ async def upsert_user_from_token(session: AsyncSession, claims: TokenClaims) -> 
 
         role = "admin"
     else:
-        # Subsequent user — joins the existing shared workspace.
-        # Note: workspace might still be in the legacy «one workspace
-        # per user» state if the data migration hasn't run yet, but
-        # selecting the OLDEST workspace is the right pick — that's
-        # the canonical one in production today.
-        role = "manager"
+        # New identities may join an existing workspace only when an
+        # admin explicitly invited this email. Authentication by Google
+        # or Supabase alone proves identity, not permission to see CRM data.
+        normalized_email = claims.email.lower().strip()
+        invite_result = await session.execute(
+            select(UserInvite)
+            .where(
+                UserInvite.workspace_id == workspace.id,
+                UserInvite.email == normalized_email,
+                UserInvite.accepted_at.is_(None),
+            )
+            .limit(1)
+        )
+        invite = invite_result.scalar_one_or_none()
+        if invite is None:
+            raise InviteRequired(normalized_email)
+
+        role = (
+            invite.suggested_role
+            if invite.suggested_role in VALID_INVITE_ROLES
+            else "manager"
+        )
 
     user = User(
         workspace_id=workspace.id,
-        email=claims.email,
+        email=claims.email.lower().strip(),
         name=claims.name or claims.email.split("@", 1)[0].title(),
         role=role,
         supabase_user_id=claims.sub,

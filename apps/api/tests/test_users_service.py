@@ -71,6 +71,7 @@ def _stub_sqlalchemy():
     sa_orm.relationship = _Callable()
     sa_orm.selectinload = _Callable()
     sa_orm.joinedload = _Callable()
+    sa_orm.validates = _Callable()
 
     sa_pg.UUID = _Callable
     sa_pg.JSON = _Callable
@@ -186,6 +187,9 @@ async def test_invite_user_idempotent_on_re_invite():
     existing = MagicMock()
     existing.id = uuid.uuid4()
     existing.email = "existing@drinkx.tech"
+    existing.accepted_at = "2026-05-09T00:00:00Z"
+    existing.suggested_role = "manager"
+    existing.invited_by_user_id = uuid.uuid4()
 
     async def fake_get_invite_by_email(_session, **kwargs):
         return existing
@@ -219,6 +223,10 @@ async def test_invite_user_idempotent_on_re_invite():
     assert len(invite_calls) == 1
     assert len(create_calls) == 0
     assert result is existing
+    assert existing.accepted_at is None
+    assert existing.suggested_role == "manager"
+    assert existing.invited_by_user_id == ADMIN_ID
+    db.flush.assert_awaited_once()
 
 
 # ===========================================================================

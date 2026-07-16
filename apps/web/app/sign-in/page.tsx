@@ -19,7 +19,11 @@ function SignInForm() {
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(
-    errorParam === "auth_callback_failed" ? "Ошибка авторизации. Попробуй ещё раз." : null,
+    errorParam === "auth_callback_failed"
+      ? "Ошибка авторизации. Попробуй ещё раз."
+      : errorParam === "invite_required"
+        ? "Доступ в CRM возможен только по приглашению администратора."
+        : null,
   );
 
   // Redirect already-signed-in users
@@ -80,6 +84,7 @@ function SignInForm() {
       email,
       options: {
         emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextParam)}`,
+        shouldCreateUser: false,
       },
     });
     if (otpError) {
@@ -99,8 +104,8 @@ function SignInForm() {
         drinkx<span className="text-brand-accent">.</span>crm
       </h1>
       <p className="text-brand-muted text-sm mb-8 leading-relaxed">
-        Войди через Google — за 2 минуты настроим всё что нужно: профиль,
-        рабочие часы, каналы. AI начнёт помогать с первой карточки.
+        Вход доступен сотрудникам, которых пригласил администратор.
+        Используй ту же почту, на которую пришло приглашение.
       </p>
 
       {error && (
@@ -191,7 +196,7 @@ function SignInForm() {
       )}
 
       <p className="text-xs text-brand-muted mt-8 leading-relaxed text-center">
-        При входе создаётся профиль менеджера в workspace DrinkX.
+        Новый профиль создаётся только после приглашения администратора.
         <br />
         Используем только email и имя из Google · никакой почтовой переписки
         без явного согласия.
