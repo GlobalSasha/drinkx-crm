@@ -80,6 +80,16 @@ def test_lead_out_serializes_ai_data():
     assert dumped["ai_data"] == {"company_profile": "Coffee shop chain", "fit_score": 7.5}
 
 
+def test_deal_patch_rejects_unknown_commercial_model():
+    """Only sale/rental values may reach the database."""
+    from pydantic import ValidationError
+
+    from app.leads.schemas import DealPatchIn
+
+    with pytest.raises(ValidationError):
+        DealPatchIn(commercial_model="subscription")
+
+
 # ---------------------------------------------------------------------------
 # CRUD tests
 # ---------------------------------------------------------------------------
@@ -97,6 +107,29 @@ async def test_create_lead_assigns_to_creator(db, workspace, user):
     assert lead.assigned_to == user.id
     assert lead.workspace_id == workspace.id
     assert lead.assigned_at is not None
+
+
+@skip_no_pg
+async def test_patch_deal_saves_rental_model_and_monthly_amount(db, workspace, user):
+    """Commercial model and its amount are persisted together."""
+    from decimal import Decimal
+
+    from app.leads import services
+
+    lead = await _make_lead(db, workspace.id, company_name="Rental lead")
+    updated = await services.patch_deal_fields(
+        db,
+        workspace_id=workspace.id,
+        lead_id=lead.id,
+        fields_set={"commercial_model", "deal_amount"},
+        commercial_model="rental",
+        deal_amount=Decimal("45000"),
+        deal_quantity=None,
+        deal_equipment=None,
+    )
+
+    assert updated.commercial_model == "rental"
+    assert updated.deal_amount == Decimal("45000")
 
 
 @skip_no_pg

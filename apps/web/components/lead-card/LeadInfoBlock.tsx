@@ -17,7 +17,7 @@ import {
   Loader2,
   Pencil,
 } from "lucide-react";
-import type { LeadOut } from "@/lib/types";
+import type { CommercialModel, LeadOut } from "@/lib/types";
 import { useUpdateDealFields } from "@/lib/hooks/use-lead-v2";
 import { useUpdateLead } from "@/lib/hooks/use-lead";
 import { useMe } from "@/lib/hooks/use-me";
@@ -35,6 +35,10 @@ interface Props {
 }
 
 const PRIORITY_OPTIONS = ["A", "B", "C", "D"] as const;
+const COMMERCIAL_MODEL_LABELS: Record<CommercialModel, string> = {
+  sale: "Продажа",
+  rental: "Аренда",
+};
 
 function asList(v: unknown): string[] {
   if (!v) return [];
@@ -97,6 +101,11 @@ export function LeadInfoBlock({ lead }: Props) {
       deal_amount: v == null || v === "" ? null : Number(v),
     });
 
+  const onCommercialModel = async (v: string | null) =>
+    updateDeal.mutateAsync({
+      commercial_model: (v || null) as CommercialModel | null,
+    });
+
   const onDealQuantity = async (v: string | null) =>
     updateDeal.mutateAsync({
       deal_quantity: v == null || v === "" ? null : Number(v),
@@ -132,10 +141,40 @@ export function LeadInfoBlock({ lead }: Props) {
           a block-in-a-block. */}
       <div className="mt-4 divide-y divide-brand-border/70">
         <Row
+          icon={<Tag size={15} className={C.color.muted} />}
+          label="Модель сделки"
+          value={
+            lead.commercial_model
+              ? COMMERCIAL_MODEL_LABELS[lead.commercial_model]
+              : null
+          }
+          placeholder="Не выбрана"
+          onSave={onCommercialModel}
+          rawValue={lead.commercial_model}
+          inputType="select"
+          options={Object.keys(COMMERCIAL_MODEL_LABELS)}
+          optionLabel={(v) =>
+            COMMERCIAL_MODEL_LABELS[v as CommercialModel] ?? v
+          }
+        />
+        <Row
           icon={<CircleDollarSign size={15} className={C.color.muted} />}
-          label="Сумма"
+          label={
+            lead.commercial_model === "rental"
+              ? "Аренда в месяц"
+              : lead.commercial_model === "sale"
+                ? "Сумма продажи"
+                : "Сумма"
+          }
           value={lead.deal_amount != null ? formatRub(lead.deal_amount) : null}
           placeholder="Не указана"
+          hint={
+            lead.commercial_model === "rental"
+              ? "₽ в месяц"
+              : lead.commercial_model === "sale"
+                ? "полная сумма, ₽"
+                : "сначала выберите модель сделки"
+          }
           onSave={onDealAmount}
           inputType="number"
           inputProps={{ min: 0, step: "1", placeholder: "2400000" }}
@@ -159,7 +198,7 @@ export function LeadInfoBlock({ lead }: Props) {
         />
         <Row
           icon={<Tag size={15} className={C.color.muted} />}
-          label="Тип сделки"
+          label="Направление сделки"
           value={lead.deal_type ? dealTypeLabel(lead.deal_type) : null}
           placeholder="Не выбран"
           onSave={onLeadField("deal_type")}

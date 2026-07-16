@@ -8,6 +8,8 @@ export type DealType =
   | "private_small"
   | "service_repeat";
 
+export type CommercialModel = "sale" | "rental";
+
 export type ContactRoleType =
   | "economic_buyer"
   | "champion"
@@ -131,6 +133,7 @@ export interface LeadOut {
   open_followups_count: number;
   open_tasks_count: number;
   // Deal-value strip (Sprint Lead Card v2).
+  commercial_model: CommercialModel | null;
   deal_amount: number | string | null;
   deal_quantity: number | null;
   deal_equipment: string | null;
@@ -955,6 +958,7 @@ export interface ScoreBreakdownOut {
 }
 
 export interface DealPatchIn {
+  commercial_model?: CommercialModel | null;
   deal_amount?: number | null;
   deal_quantity?: number | null;
   deal_equipment?: string | null;

@@ -551,11 +551,12 @@ async def patch_deal_fields(
     workspace_id: uuid.UUID,
     lead_id: uuid.UUID,
     fields_set: set[str],
+    commercial_model: object,
     deal_amount: object,
     deal_quantity: object,
     deal_equipment: object,
 ) -> Lead:
-    """Partial update of `deal_amount / deal_quantity / deal_equipment`.
+    """Partial update of deal commercial model, amount, quantity and equipment.
 
     Only columns whose key is in `fields_set` get touched — that's how
     we tell «explicitly set to null» (clear the value) apart from
@@ -566,6 +567,8 @@ async def patch_deal_fields(
     if lead is None:
         raise LeadNotFound(lead_id)
 
+    if "commercial_model" in fields_set:
+        lead.commercial_model = commercial_model  # type: ignore[assignment]
     if "deal_amount" in fields_set:
         lead.deal_amount = deal_amount  # type: ignore[assignment]
     if "deal_quantity" in fields_set:

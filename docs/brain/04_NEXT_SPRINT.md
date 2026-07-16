@@ -1,10 +1,20 @@
 # Next Sprint — CEO Overview (role-based /today) + extensible lead sources
 
 **Status:** 🟢 ACTIVE — start at **Sprint CEO** below (the Odoo-reuse sprint G1–G5 is DONE,
-kept below as record). **Alembic head `0050`. Next free index `0051`.**
+kept below as record). **Alembic head `0056`. Next free index `0057`.**
 **Prev:** Odoo-reuse arc — 8 PRs (#102–#109) shipped. Full record in `00_CURRENT_STATE.md`
 (section «Odoo-reuse arc + test CI (2026-06-04)»). Sprint 3.5 (Production Polish v2)
 and Website Leads Intake are done; their record is in git history + `00_CURRENT_STATE.md`.
+
+---
+
+## Ad hoc — модель сделки «Продажа / Аренда»
+
+- [x] Добавить `leads.commercial_model` (`sale` / `rental`, nullable для старых лидов)
+      миграцией `0056`; сохранить прежний `deal_type` как отдельную классификацию.
+- [x] В карточке лида добавить «Модель сделки» и менять смысл подписи `deal_amount`:
+      полная сумма продажи либо аренда в месяц.
+- [x] Добавить API-валидацию и тест сохранения модели вместе с суммой.
 
 ---
 

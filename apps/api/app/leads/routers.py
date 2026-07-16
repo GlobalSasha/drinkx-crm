@@ -687,14 +687,15 @@ async def patch_deal(
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
     user: Annotated[User, Depends(current_user)] = ...,
 ) -> LeadOut:
-    """Partial update of the deal-value strip (sum / quantity /
-    equipment). Empty `deal_equipment` normalises to NULL."""
+    """Partial update of the deal-value strip (commercial model, sum,
+    quantity, equipment). Empty `deal_equipment` normalises to NULL."""
     try:
         lead = await services.patch_deal_fields(
             db,
             workspace_id=user.workspace_id,
             lead_id=lead_id,
             fields_set=payload.model_fields_set,
+            commercial_model=payload.commercial_model,
             deal_amount=payload.deal_amount,
             deal_quantity=payload.deal_quantity,
             deal_equipment=payload.deal_equipment,
