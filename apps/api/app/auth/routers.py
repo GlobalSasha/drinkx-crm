@@ -17,7 +17,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.get("/me", response_model=UserOut)
 async def get_me(user: Annotated[User, Depends(current_user)]) -> User:
-    """Returns the current user. On first call, also creates Workspace + default Pipeline."""
+    """Return the current invited workspace user."""
     return user
 
 

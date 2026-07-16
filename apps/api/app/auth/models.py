@@ -120,10 +120,9 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
 
 class UserInvite(Base, UUIDPrimaryKeyMixin):
     """Track team invitations issued via Supabase magic-link
-    (Sprint 2.4 G1). Source of truth for the admin UI; auth bootstrap
-    does NOT read this table on sign-in — the invitee just joins the
-    canonical workspace as `manager` per ADR-021, and the inviter
-    promotes them via PATCH /api/users/{id}/role afterwards."""
+    (Sprint 2.4 G1). Source of truth for the admin UI and the access
+    allow-list: a new identity cannot join the workspace without a
+    matching pending row."""
 
     __tablename__ = "user_invites"
 

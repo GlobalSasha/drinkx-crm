@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api-client";
+import { api, ApiError } from "@/lib/api-client";
 import type { MeOut } from "@/lib/types";
 
 /**
@@ -18,5 +18,7 @@ export function useMe() {
     queryFn: () => api.get<MeOut>("/auth/me"),
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
+    retry: (failureCount, error) =>
+      !(error instanceof ApiError && error.status === 403) && failureCount < 2,
   });
 }

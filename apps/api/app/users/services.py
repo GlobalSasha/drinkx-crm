@@ -120,6 +120,13 @@ async def invite_user(
         raise InviteSendFailed(str(exc)) from exc
 
     if existing is not None:
+        # Re-inviting must also restore access after a former member was
+        # deleted. The row is unique per workspace/email, so turn the
+        # historical acceptance back into a pending invitation.
+        existing.accepted_at = None
+        existing.invited_by_user_id = invited_by_user_id
+        existing.suggested_role = role
+        await session.flush()
         return existing
 
     return await repo.create_invite(
