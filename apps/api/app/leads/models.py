@@ -25,6 +25,11 @@ class DealType(str, Enum):
     service_repeat = "service_repeat"
 
 
+class CommercialModel(str, Enum):
+    sale = "sale"
+    rental = "rental"
+
+
 class Priority(str, Enum):
     A = "A"
     B = "B"
@@ -118,6 +123,9 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
 
     # Lead Card v2 sprint — deal-value strip (migration 0030).
     # Manager fills these manually; no AI write path.
+    # `commercial_model` defines how to interpret deal_amount:
+    # sale = one-off sale total, rental = monthly rental fee.
+    commercial_model: Mapped[str | None] = mapped_column(String(20), nullable=True)
     deal_amount: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     deal_quantity: Mapped[int | None] = mapped_column(Integer, nullable=True)
     deal_equipment: Mapped[str | None] = mapped_column(String(50), nullable=True)

@@ -7,7 +7,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.leads.models import AssignmentStatus, DealType, Priority  # noqa: F401 — imported for OpenAPI clarity
+from app.leads.models import (  # noqa: F401 — imported for OpenAPI clarity
+    AssignmentStatus,
+    CommercialModel,
+    DealType,
+    Priority,
+)
 
 
 class LeadBase(BaseModel):
@@ -110,6 +115,7 @@ class LeadOut(LeadBase):
     open_followups_count: int = 0
     open_tasks_count: int = 0
     # Deal-value strip (Lead Card v2, migration 0030)
+    commercial_model: CommercialModel | None = None
     deal_amount: Decimal | None = None
     deal_quantity: int | None = None
     deal_equipment: str | None = None
@@ -167,6 +173,7 @@ class LeadListItemOut(LeadBase):
     latest_utm: dict | None = None
     open_followups_count: int = 0
     open_tasks_count: int = 0
+    commercial_model: CommercialModel | None = None
     deal_amount: Decimal | None = None
     deal_quantity: int | None = None
     deal_equipment: str | None = None
@@ -217,9 +224,10 @@ class PrimaryContactIn(BaseModel):
 
 class DealPatchIn(BaseModel):
     """Body for PATCH /leads/{id}/deal — partial update of the
-    deal-value strip. Any subset of the three fields is accepted;
+    deal-value strip. Any subset of the four fields is accepted;
     omitted fields stay unchanged. Pass null to clear a single field."""
 
+    commercial_model: CommercialModel | None = None
     deal_amount: Decimal | None = None
     deal_quantity: int | None = None
     deal_equipment: str | None = None
