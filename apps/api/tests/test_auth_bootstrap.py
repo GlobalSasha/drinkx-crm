@@ -1,10 +1,8 @@
-"""Tests for app.auth.services.upsert_user_from_token —
-hotfix/single-workspace.
+"""Tests for app.auth.services.upsert_user_from_token.
 
 Single-workspace model: first user creates the shared workspace +
-bootstrap pipeline; every subsequent user JOINS the existing
-workspace as role='manager'. No invites; lead-level
-assignment_status handles per-user isolation.
+bootstrap pipeline; every subsequent new user needs an invitation
+to join it. Existing users continue to sign in normally.
 
 Mock-only. Stubs sqlalchemy at import time so the ORM imports don't
 drag the real declarative base in. Same pattern as
@@ -252,7 +250,11 @@ async def test_first_user_creates_workspace():
          patch.object(auth_svc, "Pipeline", _PipelineSpy), \
          patch.object(auth_svc, "Stage", _StageSpy), \
          patch.object(auth_svc, "User", _UserSpy), \
-         patch.object(auth_svc, "get_settings", return_value=fake_settings):
+         patch.object(auth_svc, "get_settings", return_value=fake_settings), \
+         patch(
+             "app.lead_sources.repositories.seed_defaults",
+             new=AsyncMock(return_value=5),
+         ):
         user = await auth_svc.upsert_user_from_token(db, claims)
 
     assert user is not None
@@ -271,16 +273,17 @@ async def test_first_user_creates_workspace():
 
 
 # ---------------------------------------------------------------------------
-# 2. Second user joins the existing workspace
+# 2. Invited second user joins the existing workspace
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_second_user_joins_existing_workspace():
+async def test_invited_second_user_joins_existing_workspace():
     """Second user signing in:
       - upsert finds no existing User
       - DOES find an existing Workspace (the canonical shared one)
       - DOES NOT create a new Workspace, Pipeline, or Stages
-      - creates the User as role='manager' against the existing
+      - finds a pending invitation for the same email
+      - creates the User with the invited role against the existing
         workspace's id
     """
     from app.auth import services as auth_svc
@@ -321,12 +324,22 @@ async def test_second_user_joins_existing_workspace():
     existing_workspace_id = uuid.uuid4()
     existing_workspace = MagicMock()
     existing_workspace.id = existing_workspace_id
+    pending_invite = MagicMock()
+    pending_invite.suggested_role = "head"
+    pending_invite.accepted_at = None
+    pending_invite.invited_by_user_id = uuid.uuid4()
+    pending_invite.workspace_id = existing_workspace_id
+    pending_invite.email = "newhire@drinkx.tech"
 
     # Execute order:
     #   1. SELECT user by supabase_user_id  → None
     #   2. SELECT user by email             → None
     #   3. SELECT workspace ORDER BY created_at → existing_workspace
-    db = _make_session_with_executes([None, None, existing_workspace])
+    #   4. SELECT pending invite             → pending_invite
+    #   5. accept-flow invite lookup         → pending_invite
+    db = _make_session_with_executes(
+        [None, None, existing_workspace, pending_invite, pending_invite]
+    )
     claims = _make_claims(email="newhire@drinkx.tech", name="New Hire")
 
     with patch.object(auth_svc, "Workspace", _WorkspaceSpy), \
@@ -345,13 +358,37 @@ async def test_second_user_joins_existing_workspace():
     )
     assert len(stages_created) == 0
     assert len(users_created) == 1
-    assert users_created[0]["role"] == "manager", (
-        "subsequent users join as manager, never admin"
+    assert users_created[0]["role"] == "head", (
+        "new users receive the role selected in their invitation"
     )
     assert users_created[0]["email"] == "newhire@drinkx.tech"
     assert users_created[0]["workspace_id"] == existing_workspace_id, (
         "second user must be attached to the existing workspace, not a new one"
     )
+    assert pending_invite.accepted_at is not None
+
+
+@pytest.mark.asyncio
+async def test_uninvited_new_user_is_rejected():
+    """A valid Supabase/Google identity is not enough to join CRM."""
+    from app.auth import services as auth_svc
+
+    class _UserSpy:
+        supabase_user_id = _SAField()
+        email = _SAField()
+
+    existing_workspace = MagicMock()
+    existing_workspace.id = uuid.uuid4()
+    db = _make_session_with_executes([None, None, existing_workspace, None])
+
+    with patch.object(auth_svc, "User", _UserSpy):
+        with pytest.raises(auth_svc.InviteRequired):
+            await auth_svc.upsert_user_from_token(
+                db,
+                _make_claims(email="stranger@example.com"),
+            )
+
+    assert db.add.call_count == 0
 
 
 # ---------------------------------------------------------------------------

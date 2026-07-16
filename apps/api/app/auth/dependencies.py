@@ -17,7 +17,7 @@ from sqlalchemy.orm import selectinload
 
 from app.auth.jwt import TokenClaims, verify_token
 from app.auth.models import User
-from app.auth.services import upsert_user_from_token
+from app.auth.services import InviteRequired, upsert_user_from_token
 from app.db import get_db
 
 
@@ -40,8 +40,18 @@ async def current_user(
     claims: Annotated[TokenClaims, Depends(get_token_claims)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> User:
-    """Return the active User row, creating Workspace + User on first sign-in."""
-    user = await upsert_user_from_token(session, claims)
+    """Return an active workspace user; reject uninvited new identities."""
+    try:
+        user = await upsert_user_from_token(session, claims)
+    except InviteRequired as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "invite_required",
+                "message": "Доступ в CRM возможен только по приглашению администратора.",
+            },
+        ) from exc
     await session.commit()
     # Refresh with workspace eager-loaded for downstream serialization
     await session.refresh(user, attribute_names=["workspace"])
