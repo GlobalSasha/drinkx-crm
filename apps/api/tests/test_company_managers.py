@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from sqlalchemy import text
 
 from tests.conftest import POSTGRES_AVAILABLE
 
@@ -140,6 +141,32 @@ async def test_managers_metrics_and_stuck_alert(db, workspace, user):
     assert out["totals"]["new_leads"] == 1
     assert out["totals"]["stuck"] == 1
     assert out["totals"]["kp_sent"] == 1
+
+
+@skip_no_pg
+async def test_manager_in_crm_now_is_not_reported_silent(db, workspace, user):
+    """Заходит в CRM, но давно не трогал лидов → «не заходил» звучать не должно.
+
+    Прод-случай 21.07.2026: последний вход — 20 минут назад, последнее
+    действие по лиду — 12 дней назад. Панель писала «не заходил 12 дней».
+    «Был активен» — это про присутствие в CRM, а не про работу с лидами.
+    """
+    await _setup_manager_scenario(db, workspace, user)
+
+    now = datetime.now(timezone.utc)
+    user.last_login_at = now - timedelta(minutes=20)
+    # Отодвигаем все действия менеджера на 12 дней назад.
+    await db.execute(
+        text("UPDATE activities SET created_at = :ts WHERE user_id = :uid"),
+        {"ts": now - timedelta(days=12), "uid": user.id},
+    )
+    await db.flush()
+
+    out = await svc.managers(db, workspace_id=workspace.id, period="week")
+
+    m = next(x for x in out["managers"] if x["user_id"] == user.id)
+    assert (now - m["last_active_at"]) < timedelta(hours=1)
+    assert [a for a in out["alerts"] if a["type"] == "silent"] == []
 
 
 @skip_no_pg
