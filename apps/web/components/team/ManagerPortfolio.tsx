@@ -82,7 +82,7 @@ export function ManagerPortfolio({ userId }: { userId: string | null }) {
     <div className="flex flex-col gap-6">
       {/* KPI tiles */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Kpi icon={<Wallet size={16} />} label="Активных сделок" value={fmtNum(p.kpi.active_count)} note={`потенциал ${fmtSum(p.kpi.total_amount)}`} />
+        <Kpi icon={<Wallet size={16} />} label="Активных сделок" value={fmtNum(p.kpi.active_count)} note={`потенциал ${fmtSum(p.kpi.total_amount)}${p.kpi.rental_mrr ? ` · аренда ${fmtSum(p.kpi.rental_mrr)}/мес` : ""}`} />
         <Kpi icon={<Package size={16} />} label="Потенциал, штук" value={fmtNum(p.kpi.total_quantity)} note={p.kpi.avg_amount ? `средний чек ${fmtSum(p.kpi.avg_amount)}` : "—"} />
         <Kpi icon={<Sparkles size={16} className="text-success" />} label="Новых за неделю" value={fmtNum(p.kpi.new_7d)} note={`${fmtNum(p.kpi.new_30d)} за месяц`} accent />
         <Kpi icon={<AlertTriangle size={16} className="text-rose" />} label="Под угрозой" value={fmtNum(p.kpi.at_risk_count)} note={fmtSum(p.kpi.at_risk_amount)} danger />

@@ -94,7 +94,8 @@ class WorkloadOut(BaseModel):
 
 class PortfolioKpiOut(BaseModel):
     active_count: int
-    total_amount: float
+    total_amount: float           # sale (one-off) total — plan 025
+    rental_mrr: float = 0         # rental monthly recurring — plan 025
     total_quantity: int
     avg_amount: float | None = None
     new_7d: int

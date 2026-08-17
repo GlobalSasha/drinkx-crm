@@ -136,7 +136,14 @@ async def pipeline_stage_aggregates(db, workspace_id, pipeline_id):
             Stage.id,
             Stage.name,
             func.count(Lead.id),
-            func.coalesce(func.sum(Lead.deal_amount), 0),
+            # Plan 025: sale-only (one-off). Rental deal_amount is a monthly
+            # fee — excluded so this total isn't a mix of incompatible units.
+            func.coalesce(
+                func.sum(Lead.deal_amount).filter(
+                    Lead.commercial_model.is_distinct_from("rental")
+                ),
+                0,
+            ),
             func.coalesce(func.sum(case((Lead.is_rotting_stage, 1), else_=0)), 0),
         )
         .select_from(Stage)
