@@ -282,3 +282,83 @@ workflow builder (revisit after 015/017 enrich the vocabulary); native MCP serve
 (roadmap bet); full metadata-driven per-object/field RBAC (over-engineering — the
 useful subset is 009/010's mutation guards). Saved views as first-class objects are
 genuinely valuable but L — do URL-synced filters (backlog) first as the cheap 80%.
+
+---
+
+# Audit round 4 — 2026-07-18: invite-only / external-API / presence delta (advisor: Opus 4.8, read-only)
+
+Lens: **new code since `9e93b16`** — invite-only signup (`493a962`),
+external read API + MCP + service keys (`external/`), presence tracking,
+CEO manager panel (`company/`), sale/rental commercial model (`b62ea04`),
+automation `http_request` action. Method: 4 parallel read-only subagents
+(security · backend correctness · frontend · debt/tests/deps); every finding
+re-verified in-code by the advisor. Old code was covered by rounds 1–3.
+Plans **018–027**.
+
+## Execution order & status (round 4)
+
+| Plan | Title | Cat | Prio | Effort | Depends on | Status |
+|------|-------|-----|------|--------|------------|--------|
+| 018 | CEO/company dashboard excludes soft-deleted (trashed) leads | bug | P1 | S | — | DONE (compile OK; DB test CI-pending) |
+| 019 | Block open-redirect via `next` param in auth flow | security | P1 | S | — | DONE (typecheck+15 tests+build green) |
+| 020 | Gate first-user admin bootstrap + fix concurrent-signup race | security | P1 | M | — | DONE (compile OK; DB test CI-pending) — needs `BOOTSTRAP_ADMIN_EMAILS` in prod env |
+| 021 | `http_request` action: defer past commit, no double-fire, pin IP | security+bug | P1 | M | coord. 015 | DONE (Fix A defer + Fix B idempotency-key; compile OK; DB test CI-pending). Fix C IP-pin DEFERRED (needs live CDN/SNI testing — comment in code) |
+| 022 | Gitignore untracked PII (`scripts/lpr_import/`) + tooling state | security+dx | P1 | S | — | DONE (check-ignore verified) |
+| 023 | Auth hardening — case-insensitive email + invite expiry | security+bug | P2 | S | coord. 020 | DONE (compile OK; migration 0057; DB test CI-pending) |
+| 024 | External API Redis rate limit + empty-signing-secret warning | security | P2 | M | — | DONE (compile OK; DB/Redis test CI-pending) |
+| 025 | Report rental (MRR) and sale (one-off) as two separate figures | bug | P2 | M | decision: **two figures** | DONE (all money SUMs sale-only; +rental_mrr on portfolio/UTM; frontend shows both; compile+typecheck+build green; DB test CI-pending) |
+| 026 | Server-side leads-pool filter/counts + claim/toast/401 fixes | bug | P2 | M | decision: **server-side** | PARTIAL — B/C/D DONE (claim rollback, toast keys, 401 recovery + truncation banner; build green). Fix A full server-side facets DEFERRED — a real feature needing DB/staging + pagination UX decision |
+| 027 | Deploy health check covers Celery worker/beat | dx | P2 | M | — | DONE (bash syntax OK; runs on next deploy) |
+
+Do the P1 block first: **018** (dashboard shows phantom leads), **019** (open
+redirect), **022** (PII one `git add` from history), **020**/**021** (auth
+bootstrap + webhook-in-transaction). **025** needs a product decision before
+coding; **026** fix A likewise.
+
+## Dependency notes (round 4)
+
+- **020 & 023** both edit `apps/api/app/auth/services.py`. Land one, then re-run
+  the other's drift check (line numbers shift). Suggest 020 first (higher prio).
+- **021** must coordinate with round-3 **015** (automation retry/backoff) so a
+  retry can't double-fire the webhook or feed a cascade loop (round-2 B4).
+- **025** and **026 fix A** are gated on a product decision — don't code blind.
+
+## Round-4 backlog — verified, not yet full plans
+
+- **CORRECT-07 / presence UTC day-buckets**: presence per-day charts and CEO
+  "today" windows bucket by UTC; an МСК team sees a ~3h-shifted day boundary.
+  Likely by-design (no workspace timezone exists) — introduce a workspace TZ
+  before "fixing". Effort M, needs product intent. (`presence/repositories.py:59`,
+  `company/services.py:27`.)
+- **DEP-01 / vitest 2→3**: `pnpm audit` shows 1 critical (vitest <3.2.6, only
+  exploitable with the Vitest UI server running — not used) + 5 high, all
+  dev/transitive. Refresh `undici`/`ws`/`vite` transitively (S, low risk);
+  schedule the `vitest 2→3` major as its own change (M, harness may shift).
+- **DEBT-01 / automation_builder god-file**: `services.py` is now 1681 lines
+  (+651 this round). Extract step-dispatch / evaluation / test-fire / rerun into
+  submodules behind the current API. L, MED risk — do it AFTER 021 lands so the
+  diffs don't collide.
+- **TEST-01/02/03**: endpoint-level tests for `POST /automations/{id}/test` and
+  `/runs/{id}/rerun` (authz boundary untested); `upsert_user_from_token` first-
+  login provisioning; new `company/` manager aggregation queries. S–M each.
+
+## Round-4 considered and rejected (recorded so nobody re-audits)
+
+- **External API not read-only / cross-workspace leak**: rejected — all routes
+  are `read:core` GETs, every repo query filters `workspace_id`, MCP tools all
+  read-only and self-authenticate per call, keys are sha256 + `hmac.compare_digest`
+  (hash-only storage, token shown once), revocation checked live per request.
+- **Presence spoofing**: rejected — user id comes from the token, not the body;
+  `record_ping` is `ON CONFLICT (user_id, minute) DO NOTHING` (idempotent).
+- **`/company/managers` role gating**: rejected — correctly `require_admin_or_head`.
+- **Stored XSS**: rejected — no `dangerouslySetInnerHTML` anywhere; `safeHref`
+  gates `^https?://`, `socialHref` restricts handles to `[A-Za-z0-9._-]`.
+- **Invite-gate data flash / redirect loop**: rejected — `AppAccessGate` shows a
+  spinner until `/auth/me` resolves, `useMe` doesn't retry 403, `/sign-in` is
+  public in middleware. No flash.
+- **Migration chain 0052→0056 unsafe on prod data**: rejected — linear single
+  head, new NOT NULL columns carry server defaults, no UNIQUE-on-dirty-data.
+- **Enrichment budget / LLM factory retry double-charge**: rejected — budget
+  fails closed on Redis error; usage recorded only on success.
+- **`issue_service_key.py` / `parse_cards.py` secrets or raw SQL**: rejected —
+  none found (pure stdlib parser; key issuer builds no string SQL).
