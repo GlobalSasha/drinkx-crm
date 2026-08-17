@@ -63,6 +63,17 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
         log.info("api.startup", env=s.app_env)
+        # Plan 024: warn once at startup when outbound webhooks would be signed
+        # with an empty HMAC key (signature provides no authenticity then).
+        if not (s.automation_http_signing_secret or "").strip():
+            log.warning(
+                "config.automation_http_signing_secret.empty",
+                detail=(
+                    "AUTOMATION_HTTP_SIGNING_SECRET is empty — outbound "
+                    "http_request webhook signatures are NOT authenticated. "
+                    "Set it in production .env."
+                ),
+            )
         # Sentry init (only if DSN set) — keep cheap on startup
         from app.observability import init_sentry_if_dsn
         init_sentry_if_dsn(s)

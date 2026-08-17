@@ -16,6 +16,7 @@ from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.db import get_db
 from app.external import keys
 from app.external.models import ServiceApiKey
@@ -24,6 +25,21 @@ log = structlog.get_logger()
 
 _RATE_LIMIT_RPS = 10
 _rate_state: dict[uuid.UUID, tuple[float, float]] = {}  # key_id -> (tokens, last_ts)
+
+# Lazy module-level Redis client for the cross-replica rate limiter (plan 024).
+# Reuses the same connection style as app.enrichment.sources.cache.
+_rl_redis = None
+
+
+def _get_rl_redis():
+    global _rl_redis
+    if _rl_redis is None:
+        import redis.asyncio as redis_asyncio
+
+        _rl_redis = redis_asyncio.from_url(
+            get_settings().redis_url, decode_responses=True
+        )
+    return _rl_redis
 
 
 @dataclass(frozen=True)
@@ -42,8 +58,9 @@ def _extract_bearer(authorization: str | None) -> str | None:
     return parts[1].strip() or None
 
 
-def _check_rate_limit(key_id: uuid.UUID) -> None:
-    """In-memory token bucket, 10 rps per key. Single-replica only."""
+def _check_rate_limit_inmem(key_id: uuid.UUID) -> None:
+    """In-memory token bucket, 10 rps per key. Per-process fallback used only
+    when Redis is unavailable (plan 024)."""
     now = time.monotonic()
     tokens, last = _rate_state.get(key_id, (float(_RATE_LIMIT_RPS), now))
     tokens = min(_RATE_LIMIT_RPS, tokens + (now - last) * _RATE_LIMIT_RPS)
@@ -52,6 +69,32 @@ def _check_rate_limit(key_id: uuid.UUID) -> None:
         log.info("external.auth.rate_limited", key_id=str(key_id))
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="rate limit exceeded")
     _rate_state[key_id] = (tokens - 1.0, now)
+
+
+async def _check_rate_limit(key_id: uuid.UUID) -> None:
+    """Redis fixed-window limiter, 10 rps per key, shared across replicas
+    (plan 024). On any Redis error, degrade to the in-memory bucket rather
+    than removing the limit entirely."""
+    window = int(time.time())
+    rkey = f"ext_rl:{key_id}:{window}"
+    try:
+        client = _get_rl_redis()
+        count = int(await client.incr(rkey))
+        if count == 1:
+            await client.expire(rkey, 2)
+    except Exception as exc:  # noqa: BLE001 — Redis outage → in-memory fallback
+        log.warning(
+            "external.auth.rate_limit_redis_error",
+            key_id=str(key_id),
+            error=str(exc)[:200],
+        )
+        _check_rate_limit_inmem(key_id)
+        return
+    if count > _RATE_LIMIT_RPS:
+        log.info("external.auth.rate_limited", key_id=str(key_id))
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="rate limit exceeded"
+        )
 
 
 async def resolve_service_key(
@@ -74,7 +117,7 @@ async def resolve_service_key(
     if scope not in row.scopes:
         log.warning("external.auth.missing_scope", key_id=str(row.id), scope=scope)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"scope {scope} required")
-    _check_rate_limit(row.id)
+    await _check_rate_limit(row.id)
     row.last_used_at = datetime.now(timezone.utc)
     await session.commit()
     log.info("external.auth.ok", key_id=str(row.id), workspace_id=str(row.workspace_id))
