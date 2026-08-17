@@ -144,7 +144,12 @@ def _make_session_with_executes(execute_results):
 
     call_index = {"i": 0}
 
-    async def fake_execute(*_args, **_kwargs):
+    async def fake_execute(*args, **_kwargs):
+        # Plan 020 fires a bare `SELECT pg_advisory_xact_lock(...)` before the
+        # workspace lookup. It returns nothing the service reads, so keep it
+        # out of the scripted result sequence.
+        if args and "pg_advisory_xact_lock" in str(args[0]):
+            return MagicMock()
         i = call_index["i"]
         call_index["i"] += 1
         result = MagicMock()
@@ -159,12 +164,24 @@ def _make_session_with_executes(execute_results):
 
     db.execute = fake_execute
     db.add = MagicMock()
+
+    # Plan 020 wraps the INSERT in a SAVEPOINT. AsyncMock would hand back a
+    # coroutine, which `async with` can't use — return a real async context
+    # manager (a fresh one per call, as SQLAlchemy does).
+    class _Savepoint:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_exc):
+            return False
+
+    db.begin_nested = MagicMock(side_effect=lambda: _Savepoint())
     return db
 
 
 @pytest.fixture(autouse=True)
 def _neutralize_select():
-    """Patch the service's module-level `select` to a no-op.
+    """Patch the service's module-level `select` and `text` to no-ops.
 
     These tests pass spy classes (not mapped ORM models) into the service. In a
     full CI run real sqlalchemy is already imported (the module-level stub is
@@ -174,7 +191,8 @@ def _neutralize_select():
     """
     from app.auth import services as auth_svc
 
-    with patch.object(auth_svc, "select", lambda *a, **k: MagicMock()):
+    with patch.object(auth_svc, "select", lambda *a, **k: MagicMock()), \
+         patch.object(auth_svc, "text", lambda sql, *a, **k: sql):
         yield
 
 

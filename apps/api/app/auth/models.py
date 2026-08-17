@@ -146,6 +146,10 @@ class UserInvite(Base, UUIDPrimaryKeyMixin):
     accepted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Plan 023: invites expire. NULL = never expires (legacy rows).
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     __table_args__ = (
         UniqueConstraint(

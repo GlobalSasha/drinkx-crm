@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -117,6 +118,8 @@ async def create_invite(
         invited_by_user_id=invited_by_user_id,
         email=email.lower().strip(),
         suggested_role=suggested_role,
+        # Plan 023: invites are valid for 14 days.
+        expires_at=datetime.now(timezone.utc) + timedelta(days=14),
     )
     db.add(invite)
     await db.flush()

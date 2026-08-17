@@ -25,6 +25,14 @@ class Settings(BaseSettings):
     # `WORKSPACE_NAME` env var.
     workspace_name: str = "DrinkX"
 
+    # Bootstrap allow-list (audit round 4, plan 020). Comma-separated emails
+    # permitted to create the first workspace as admin. In production, if this
+    # is empty or the first caller's email is not listed, bootstrap is REFUSED
+    # (fail-closed) so a stray sign-in can't seize admin of the shared
+    # workspace. In non-production it is ignored (local dev keeps
+    # first-caller-wins for convenience).
+    bootstrap_admin_emails: str = ""
+
     # Database
     database_url: str = Field(
         default="postgresql+asyncpg://drinkx:drinkx@localhost:5432/drinkx_crm",
@@ -168,6 +176,14 @@ class Settings(BaseSettings):
     # Empty in dev signs with an empty key (fine for local testing; set
     # a real value in production).
     automation_http_signing_secret: str = ""
+
+    def bootstrap_admin_emails_set(self) -> set[str]:
+        """Normalized set of allow-listed bootstrap-admin emails (plan 020)."""
+        return {
+            e.strip().lower()
+            for e in self.bootstrap_admin_emails.split(",")
+            if e.strip()
+        }
 
 
 @lru_cache

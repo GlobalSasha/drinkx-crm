@@ -22,7 +22,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.jwt import TokenClaims
@@ -59,12 +60,16 @@ async def _apply_pending_invite(
     column and stage the notification row; flush happens via the
     parent `upsert_user_from_token`.
     """
+    now = datetime.now(timezone.utc)
     res = await session.execute(
         select(UserInvite)
         .where(
             UserInvite.email == user.email,
             UserInvite.workspace_id == user.workspace_id,
             UserInvite.accepted_at.is_(None),
+            # Plan 023: an expired invite is no longer a valid grant. Legacy
+            # rows with NULL expires_at stay valid (never expire).
+            or_(UserInvite.expires_at.is_(None), UserInvite.expires_at > now),
         )
         .limit(1)
     )
@@ -112,8 +117,12 @@ async def upsert_user_from_token(session: AsyncSession, claims: TokenClaims) -> 
     user = result.scalar_one_or_none()
 
     if user is None:
-        # 2. Or by email (e.g. they signed in via different OAuth at the same address)
-        result = await session.execute(select(User).where(User.email == claims.email))
+        # 2. Or by email (e.g. they signed in via different OAuth at the same
+        #    address). Compare case-insensitively — stored emails are
+        #    lower-cased, but the IdP claim may carry mixed case (plan 023).
+        result = await session.execute(
+            select(User).where(func.lower(User.email) == claims.email.lower().strip())
+        )
         user = result.scalar_one_or_none()
 
     if user is not None:
@@ -136,6 +145,10 @@ async def upsert_user_from_token(session: AsyncSession, claims: TokenClaims) -> 
 
     # 3. New user — find the shared workspace if it exists.
     settings = get_settings()
+    # Plan 020: serialize workspace bootstrap so two concurrent first sign-ins
+    # can't each create a workspace (split-brain). Transaction-scoped advisory
+    # lock — released automatically at commit/rollback.
+    await session.execute(text("SELECT pg_advisory_xact_lock(4021)"))
     result = await session.execute(
         select(Workspace).order_by(Workspace.created_at.asc()).limit(1)
     )
@@ -143,6 +156,15 @@ async def upsert_user_from_token(session: AsyncSession, claims: TokenClaims) -> 
 
     if workspace is None:
         # First-ever user — create the shared workspace + bootstrap pipeline.
+        # Plan 020: in production, gate admin bootstrap behind an allow-list.
+        # Without this the first caller to authenticate seizes admin of the
+        # shared workspace with no invitation. Dev/staging keep the old
+        # first-caller-wins convenience.
+        normalized_email = claims.email.lower().strip()
+        if settings.app_env == "production":
+            allow = settings.bootstrap_admin_emails_set()
+            if not allow or normalized_email not in allow:
+                raise InviteRequired(normalized_email)
         workspace = Workspace(
             name=settings.workspace_name or "DrinkX",
             plan="free",
@@ -186,6 +208,12 @@ async def upsert_user_from_token(session: AsyncSession, claims: TokenClaims) -> 
                 UserInvite.workspace_id == workspace.id,
                 UserInvite.email == normalized_email,
                 UserInvite.accepted_at.is_(None),
+                # Plan 023: expired invites are not a valid grant; legacy
+                # NULL-expiry rows stay valid.
+                or_(
+                    UserInvite.expires_at.is_(None),
+                    UserInvite.expires_at > datetime.now(timezone.utc),
+                ),
             )
             .limit(1)
         )
@@ -207,8 +235,26 @@ async def upsert_user_from_token(session: AsyncSession, claims: TokenClaims) -> 
         supabase_user_id=claims.sub,
         last_login_at=datetime.now(timezone.utc),
     )
-    session.add(user)
-    await session.flush()
+    # Plan 020: guard against a concurrent duplicate insert (two token
+    # validations for the same brand-new identity racing). A unique-violation
+    # means the other transaction already created the row — re-select it
+    # instead of surfacing a 500. Wrapped in a SAVEPOINT so only the failed
+    # insert unwinds, not the caller's transaction.
+    try:
+        async with session.begin_nested():
+            session.add(user)
+            await session.flush()
+    except IntegrityError:
+        result = await session.execute(
+            select(User).where(User.supabase_user_id == claims.sub)
+        )
+        existing = result.scalar_one_or_none()
+        if existing is None:
+            result = await session.execute(
+                select(User).where(func.lower(User.email) == claims.email.lower().strip())
+            )
+            existing = result.scalar_one()
+        return existing
     # Sprint 2.5 G4: typical accept-flow path — first sign-in by a
     # user who got a magic-link invite. `_apply_pending_invite` flips
     # `accepted_at` and pings the inviter inside the same transaction.
