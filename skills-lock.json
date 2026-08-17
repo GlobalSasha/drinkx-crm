@@ -19,6 +19,12 @@
       "skillPath": "skills/taste-skill-v1/SKILL.md",
       "computedHash": "338a6f574f10fcdd6df0f1eae029c49ce075c7770c4217fcfe38ca9cf684bc7c"
     },
+    "fable5": {
+      "source": "vasilichnick/fable5",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "1d4fdc1f7ca22a8613264d211e2226e0c1b7a63e0a34eddcd0da2f8adbae8232"
+    },
     "full-output-enforcement": {
       "source": "Leonxlnx/taste-skill",
       "sourceType": "github",
@@ -66,6 +72,12 @@
       "sourceType": "github",
       "skillPath": "skills/brutalist-skill/SKILL.md",
       "computedHash": "8fc355c4aadb7d29c53ca28bc41be3cd6eea765d121e3737c4dc2d0f90a8effa"
+    },
+    "make-interfaces-feel-better": {
+      "source": "jakubkrehel/make-interfaces-feel-better",
+      "sourceType": "github",
+      "skillPath": "skills/make-interfaces-feel-better/SKILL.md",
+      "computedHash": "3007ff3c944f6283004e5fd2fd7e786cc31f09ef1b28c9ad8d32af1081ec00ee"
     },
     "minimalist-ui": {
       "source": "Leonxlnx/taste-skill",
