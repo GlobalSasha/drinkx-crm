@@ -61,12 +61,10 @@ apps/api/app/logs/__pycache__/
 scripts/lpr_import/
 
 # Local agent / tooling state (not part of the app).
-# NOTE: .claude/launch.json is tracked — ignore .claude/skills specifically,
-# not all of .claude/.
+# NOTE: skills stay tracked — `.agents/skills/` is the real source and
+# `skills-lock.json` records each one's origin + hash (see CLAUDE.md).
 .beads/
 .codex/
-.agents/skills/
-.claude/skills/
 CRM_AUDIT_REPORT.md
 
 # Misc
