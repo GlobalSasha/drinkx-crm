@@ -82,8 +82,11 @@ function LeadsPoolPageInner() {
     setNeedsReview(undefined);
   }
 
+  // Monotonic toast id — avoids React key collisions when two toasts are
+  // created within the same millisecond (plan 026). Date.now() could collide.
+  const toastSeqRef = useRef(0);
   const addToast = useCallback((message: string, type: "error" | "success" = "success") => {
-    const id = Date.now();
+    const id = toastSeqRef.current++;
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
   }, []);
@@ -296,6 +299,12 @@ function LeadsPoolPageInner() {
 
   const isLoading = poolQuery.isLoading;
   const isError = poolQuery.isError;
+  // Plan 026: the pool is fetched in one page; if the server has more leads
+  // than we received, the table + every chip count are based on a partial
+  // pool. Surface that instead of silently hiding leads. (Full server-side
+  // filtering + facet counts is the tracked follow-up.)
+  const serverTotal = poolQuery.data?.total ?? 0;
+  const poolTruncated = serverTotal > allItems.length;
 
   return (
     <>
@@ -312,6 +321,14 @@ function LeadsPoolPageInner() {
                 <span className="text-brand-muted"> / {allItems.length}</span>
               )}
             </span>
+            {poolTruncated && (
+              <span
+                className="text-xs font-medium text-warning bg-warning/10 border border-warning/20 rounded-full px-2.5 py-0.5"
+                title="Показана только часть пула. Уточните фильтры, чтобы увидеть нужные лиды."
+              >
+                показаны первые {allItems.length} из {serverTotal}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <button

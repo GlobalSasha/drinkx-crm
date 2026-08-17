@@ -18,7 +18,13 @@ export function useMe() {
     queryFn: () => api.get<MeOut>("/auth/me"),
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
+    // Don't retry auth-decisive statuses: 403 (invite required) and 401
+    // (session rejected) — the gate redirects on these, so retrying just
+    // delays it (plan 026).
     retry: (failureCount, error) =>
-      !(error instanceof ApiError && error.status === 403) && failureCount < 2,
+      !(
+        error instanceof ApiError &&
+        (error.status === 403 || error.status === 401)
+      ) && failureCount < 2,
   });
 }
