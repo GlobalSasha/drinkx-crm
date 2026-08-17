@@ -1,5 +1,37 @@
 import { describe, expect, it } from "vitest";
-import { safeHref, socialHref } from "./safe-url";
+import { safeHref, safeNextPath, socialHref } from "./safe-url";
+
+describe("safeNextPath", () => {
+  it("passes through internal paths (with query/hash)", () => {
+    expect(safeNextPath("/today")).toBe("/today");
+    expect(safeNextPath("/leads/123?tab=notes#top")).toBe("/leads/123?tab=notes#top");
+  });
+
+  it("rejects absolute URLs (open redirect)", () => {
+    expect(safeNextPath("https://evil.com")).toBe("/today");
+    expect(safeNextPath("http://evil.com/path")).toBe("/today");
+  });
+
+  it("rejects protocol-relative and backslash tricks", () => {
+    expect(safeNextPath("//evil.com")).toBe("/today");
+    expect(safeNextPath("/\\evil.com")).toBe("/today");
+  });
+
+  it("rejects relative (non-slash) paths", () => {
+    expect(safeNextPath("evil.com")).toBe("/today");
+    expect(safeNextPath("../secret")).toBe("/today");
+  });
+
+  it("falls back for empty / nullish input", () => {
+    expect(safeNextPath("")).toBe("/today");
+    expect(safeNextPath(null)).toBe("/today");
+    expect(safeNextPath(undefined)).toBe("/today");
+  });
+
+  it("honors a custom fallback", () => {
+    expect(safeNextPath("https://evil.com", "/sign-in")).toBe("/sign-in");
+  });
+});
 
 describe("safeHref", () => {
   it("passes through http and https URLs", () => {

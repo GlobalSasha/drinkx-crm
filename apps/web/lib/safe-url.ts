@@ -8,6 +8,22 @@ export function safeHref(u: string | null | undefined): string | undefined {
   return /^https?:\/\//i.test(s) ? s : undefined;
 }
 
+/**
+ * Returns `candidate` only if it is a safe same-origin internal path (starts
+ * with a single "/", not "//" and not "/\"). Otherwise returns `fallback`.
+ * Prevents open-redirect via an absolute or protocol-relative URL when a
+ * redirect target comes from user input (e.g. a `?next=` query param).
+ */
+export function safeNextPath(
+  candidate: string | null | undefined,
+  fallback = "/today",
+): string {
+  if (!candidate) return fallback;
+  if (!candidate.startsWith("/")) return fallback; // reject absolute (https://…) and relative
+  if (candidate.startsWith("//") || candidate.startsWith("/\\")) return fallback; // reject protocol-relative
+  return candidate;
+}
+
 /** Social platforms whose profile links we can build from a bare handle. */
 export type SocialPlatform = "telegram" | "linkedin" | "instagram" | "facebook";
 

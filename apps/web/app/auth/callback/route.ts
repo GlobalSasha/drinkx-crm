@@ -1,10 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { safeNextPath } from "@/lib/safe-url";
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const next = url.searchParams.get("next") ?? "/today";
+  // Guard against open redirect: only same-origin internal paths are allowed.
+  const next = safeNextPath(url.searchParams.get("next"));
 
   // Behind nginx the Next.js process binds to 0.0.0.0:3000, so request.url
   // resolves to https://0.0.0.0:3000 — useless for client-facing redirects.

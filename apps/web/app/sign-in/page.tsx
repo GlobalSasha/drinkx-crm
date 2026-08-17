@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { T } from "@/lib/design-system";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { safeNextPath } from "@/lib/safe-url";
 
 // Left unset in production, so the shortcut and its credentials never reach the prod bundle.
 const TEST_LOGIN_EMAIL = process.env.NEXT_PUBLIC_TEST_LOGIN_EMAIL;
@@ -12,7 +13,7 @@ const TEST_LOGIN_PASSWORD = process.env.NEXT_PUBLIC_TEST_LOGIN_PASSWORD;
 function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextParam = searchParams.get("next") ?? "/today";
+  const nextParam = safeNextPath(searchParams.get("next"));
   const errorParam = searchParams.get("error");
 
   const [email, setEmail] = useState("");
