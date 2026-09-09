@@ -618,13 +618,20 @@ async def assign_leads_by_ids(
     workspace_id: uuid.UUID,
     lead_ids: list[uuid.UUID],
     to_user_id: uuid.UUID,
+    *,
+    only_pool: bool = True,
 ) -> tuple[list[Lead], int]:
     """Выдать конкретные карточки менеджеру. Returns (assigned, skipped).
 
-    Занятую чужую карточку забираем, сохраняя прежнего владельца в
-    `transferred_from` — та же семантика, что у transfer_lead, чтобы
-    история передач не рвалась. Уже принадлежащие цели карточки
-    пропускаем (идемпотентность), удалённые — тоже.
+    Уже принадлежащие цели карточки пропускаем (идемпотентность),
+    удалённые — тоже.
+
+    При `only_pool=True` (по умолчанию) карточки не из пула тоже
+    пропускаем — режим «список id» из пула не должен молча вырывать
+    карточку у другого менеджера. При `only_pool=False` (явный
+    перехват) занятую чужую карточку забираем, сохраняя прежнего
+    владельца в `transferred_from` — та же семантика, что у
+    transfer_lead, чтобы история передач не рвалась.
 
     Блокируем строки FOR UPDATE в порядке возрастания id: два
     одновременных назначения на пересекающихся наборах сериализуются
@@ -649,6 +656,8 @@ async def assign_leads_by_ids(
     assigned: list[Lead] = []
     for lead in rows:
         if lead.assigned_to == to_user_id:
+            continue
+        if only_pool and lead.assignment_status != "pool":
             continue
         if lead.assigned_to is not None:
             lead.transferred_from = lead.assigned_to

@@ -217,6 +217,22 @@ async def test_the_lead_owner_can_close_a_task_the_head_created(db, workspace):
 
 @skip_no_pg
 @pytest.mark.asyncio
+async def test_a_managers_task_on_a_colleagues_lead_stays_on_the_manager(db, workspace):
+    """Менеджер без явного исполнителя ставит задачу себе, даже если
+    лид принадлежит коллеге — иначе задача уедет владельцу карточки в
+    обход правила «ставить другим может только руководитель»."""
+    manager = await _make_user(db, workspace.id, "manager", "Kirill")
+    peer = await _make_user(db, workspace.id, "manager", "Peer")
+    lead = await _make_lead(db, workspace.id, assigned_to=peer.id)
+
+    task = await _create_task(db, workspace, manager, lead_id=lead.id)
+
+    assert task.assignee_user_id == manager.id
+    assert await _my_tasks(db, workspace, peer) == []
+
+
+@skip_no_pg
+@pytest.mark.asyncio
 async def test_an_explicit_assignee_beats_the_lead_owner(db, workspace):
     """Задача на чужом лиде: делает тот, на кого её повесили, а не
     владелец карточки."""
@@ -453,3 +469,42 @@ async def test_a_task_from_another_workspace_reads_as_missing(db, workspace):
     head = await _make_user(db, workspace.id, "head", "Head")
     with pytest.raises(services.ActivityNotFound):
         await services.load_task_for_actor(db, workspace.id, task.id, head)
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_blank_text_is_rejected_on_update(db, workspace):
+    """Пробелы — не текст задачи. Иначе список пестрит пустыми строками."""
+    from app.activity import services
+
+    head = await _make_user(db, workspace.id, "head", "Head")
+    task = await _create_task(db, workspace, head, assignee_user_id=head.id)
+
+    with pytest.raises(ValueError):
+        await services.update_task_by_id(
+            db, workspace.id, task.id, head,
+            text="   ", task_due_at=None, assignee_user_id=None,
+        )
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_a_task_on_a_trashed_lead_is_not_created(db, workspace):
+    """Задачу на удалённый лид не заводим — _get_lead_or_raise отдаёт
+    лид даже с deleted_at, но create_task обязан это перепроверить."""
+    from app.activity import services
+    from app.leads import repositories as leads_repo
+    from app.leads.services import LeadNotFound
+
+    head = await _make_user(db, workspace.id, "head", "Head")
+    manager = await _make_user(db, workspace.id, "manager", "Kirill")
+    lead = await _make_lead(db, workspace.id, assigned_to=manager.id)
+    await leads_repo.soft_delete_lead(db, lead, head.id)
+    await db.flush()
+
+    with pytest.raises(LeadNotFound):
+        await services.create_task(
+            db, workspace.id, head,
+            text="Задача", task_due_at=TOMORROW,
+            assignee_user_id=manager.id, lead_id=lead.id,
+        )

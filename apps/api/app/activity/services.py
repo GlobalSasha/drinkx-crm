@@ -272,11 +272,19 @@ async def create_task(
     Формат строки тот же, что у задач из карточки лида (body + title в
     payload_json), чтобы оба источника читались одним кодом.
     """
+    # Менеджер без явного исполнителя ставит задачу себе — иначе на
+    # чужом лиде она уедет владельцу карточки в обход правила «ставить
+    # другим может только руководитель» (см. _resolve_assignee).
+    if actor.role == "manager" and assignee_user_id is None:
+        assignee_user_id = actor.id
+
     assignee_user_id = await _resolve_assignee(
         db, workspace_id=workspace_id, actor=actor, assignee_user_id=assignee_user_id
     )
     if lead_id is not None:
-        await _get_lead_or_raise(db, lead_id, workspace_id)
+        lead = await _get_lead_or_raise(db, lead_id, workspace_id)
+        if lead.deleted_at is not None:
+            raise LeadNotFound(lead_id)
 
     activity = Activity(
         lead_id=lead_id,
@@ -365,6 +373,11 @@ async def update_task_by_id(
     if text is None and task_due_at is None and assignee_user_id is None:
         raise ValueError("нечего менять")
 
+    if text is not None:
+        text = text.strip()
+        if not text:
+            raise ValueError("текст задачи не может быть пустым")
+
     activity, lead = await load_task_for_actor(db, workspace_id, task_id, actor)
 
     if text is not None:
@@ -431,6 +444,11 @@ async def create_activity(
     is_task = payload_dict.get("type") == ActivityType.task.value
     if is_task and not payload_dict.get("task_due_at"):
         raise ValueError("task_due_at is required for task activities")
+
+    # Та же поправка, что в create_task: менеджер без явного
+    # исполнителя ставит задачу себе, а не владельцу чужого лида.
+    if is_task and actor.role == "manager" and payload_dict.get("assignee_user_id") is None:
+        payload_dict = {**payload_dict, "assignee_user_id": actor.id}
 
     assignee_user_id = payload_dict.get("assignee_user_id")
     if assignee_user_id is not None and not is_task:

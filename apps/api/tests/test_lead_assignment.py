@@ -55,8 +55,16 @@ async def _make_lead(db, workspace_id, **kwargs):
 async def _assign(db, workspace, actor, target, **kwargs):
     from app.leads import services
 
+    lead_ids = kwargs.get("lead_ids", [])
     params = dict(
-        lead_ids=[], cities=[], segment=None, fit_min=None, limit=None, comment=None
+        mode="ids" if lead_ids else "filter",
+        only_pool=True,
+        lead_ids=[],
+        cities=[],
+        segment=None,
+        fit_min=None,
+        limit=None,
+        comment=None,
     )
     params.update(kwargs)
     return await services.assign_leads(
@@ -124,7 +132,9 @@ async def test_reassignment_keeps_the_previous_owner_in_history(db, workspace):
         db, workspace.id, assignment_status="assigned", assigned_to=old_owner.id
     )
 
-    assigned, _, _ = await _assign(db, workspace, head, new_owner, lead_ids=[lead.id])
+    assigned, _, _ = await _assign(
+        db, workspace, head, new_owner, lead_ids=[lead.id], only_pool=False
+    )
 
     assert len(assigned) == 1
     assert assigned[0].assigned_to == new_owner.id
@@ -232,7 +242,9 @@ async def test_filter_mode_falls_back_to_the_workspace_sprint_capacity(db, works
     head = await _make_user(db, workspace.id, "head", "Head")
     manager = await _make_user(db, workspace.id, "manager", "Kirill")
 
-    _, requested, _ = await _assign(db, workspace, head, manager)
+    _, requested, _ = await _assign(
+        db, workspace, head, manager, mode="filter", cities=["Москва"]
+    )
 
     assert requested == workspace.sprint_capacity_per_week
 
@@ -338,3 +350,72 @@ async def test_each_handed_out_lead_gets_a_feed_entry(db, workspace):
     ).scalars().all()
     assert len(rows) == 2
     assert {row.payload_json.get("source") for row in rows} == {"head_assign"}
+
+
+# ---------------------------------------------------------------------------
+# QA round: only_pool / self-assign / mode validation
+# ---------------------------------------------------------------------------
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_only_pool_skips_a_card_another_manager_already_took(db, workspace):
+    """Режим «список id» с only_pool=True (по умолчанию) не должен
+    вырывать карточку у другого менеджера — она просто пропускается."""
+    head = await _make_user(db, workspace.id, "head", "Head")
+    other = await _make_user(db, workspace.id, "manager", "Other")
+    target = await _make_user(db, workspace.id, "manager", "Target")
+    lead = await _make_lead(
+        db, workspace.id, assignment_status="assigned", assigned_to=other.id
+    )
+
+    assigned, requested, skipped = await _assign(
+        db, workspace, head, target, mode="ids", lead_ids=[lead.id], only_pool=True
+    )
+
+    assert assigned == []
+    assert requested == 1
+    assert skipped == 1
+    assert lead.assigned_to == other.id
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_handing_cards_to_yourself_sends_no_notification(db, workspace):
+    """Руководитель выдаёт лиды сам себе — уведомление не шлём, как и
+    в задачах: автор и получатель совпадают."""
+    from sqlalchemy import select
+
+    from app.notifications.models import Notification
+
+    head = await _make_user(db, workspace.id, "head", "Head")
+    leads = [await _make_lead(db, workspace.id) for _ in range(2)]
+
+    await _assign(db, workspace, head, head, lead_ids=[lead.id for lead in leads])
+
+    rows = (
+        await db.execute(
+            select(Notification).where(
+                Notification.user_id == head.id,
+                Notification.kind == "leads_assigned",
+            )
+        )
+    ).scalars().all()
+    assert rows == []
+
+
+@pytest.mark.asyncio
+async def test_lead_assign_in_rejects_ids_mode_without_ids():
+    """Чистая pydantic-проверка — Postgres не нужен."""
+    from uuid import uuid4
+
+    from pydantic import ValidationError
+
+    from app.leads.schemas import LeadAssignIn
+
+    with pytest.raises(ValidationError):
+        LeadAssignIn(to_user_id=uuid4(), mode="ids")
+
+    with pytest.raises(ValidationError):
+        LeadAssignIn(to_user_id=uuid4(), mode="filter")
+
+    LeadAssignIn(to_user_id=uuid4(), mode="filter", limit=5)

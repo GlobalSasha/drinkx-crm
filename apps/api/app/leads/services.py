@@ -442,6 +442,8 @@ async def assign_leads(
     actor_user_id: uuid.UUID,
     to_user_id: uuid.UUID,
     *,
+    mode: str,
+    only_pool: bool,
     lead_ids: list[uuid.UUID],
     cities: list[str],
     segment: str | None,
@@ -453,10 +455,13 @@ async def assign_leads(
 
     Роль проверяется в роутере (admin/head). Здесь — только то, что
     относится к данным: получатель обязан быть в этом же рабочем
-    пространстве.
+    пространстве. Режим выбирает `mode`, а не пустота `lead_ids` —
+    так «список id» с пустым списком не может случайно уехать в режим
+    фильтра.
 
     Одно уведомление на всю пачку, а не N штук: менеджеру важен факт
-    «вам выдали 20 карточек», а не двадцать одинаковых строк.
+    «вам выдали 20 карточек», а не двадцать одинаковых строк. Себе
+    выдачу руководитель уведомлением не помечает — как и в задачах.
     Вызывающий коммитит.
     """
     target = (
@@ -469,9 +474,9 @@ async def assign_leads(
     if target is None:
         raise TransferTargetInvalid(to_user_id)
 
-    if lead_ids:
+    if mode == "ids":
         assigned, skipped = await repo.assign_leads_by_ids(
-            db, workspace_id, lead_ids, to_user_id
+            db, workspace_id, lead_ids, to_user_id, only_pool=only_pool
         )
         requested = len(lead_ids)
         source = "head_assign"
@@ -502,18 +507,22 @@ async def assign_leads(
     for lead in assigned:
         _log_lead_assigned(db, lead_id=lead.id, user_id=to_user_id, source=source)
 
-    from app.notifications.services import safe_notify
-
     count = len(assigned)
-    await safe_notify(
-        db,
-        workspace_id=workspace_id,
-        user_id=to_user_id,
-        kind="leads_assigned",
-        title=f"Вам выдано карточек: {count}",
-        body=comment or "Руководитель выдал вам лиды из базы",
-        lead_id=assigned[0].id if count == 1 else None,
-    )
+
+    # Себе выдачу не уведомляем — как и в задачах, автор и получатель
+    # действия совпадают, писать не о чем.
+    if to_user_id != actor_user_id:
+        from app.notifications.services import safe_notify
+
+        await safe_notify(
+            db,
+            workspace_id=workspace_id,
+            user_id=to_user_id,
+            kind="leads_assigned",
+            title=f"Вам выдано карточек: {count}",
+            body=comment or "Руководитель выдал вам лиды из базы",
+            lead_id=assigned[0].id if count == 1 else None,
+        )
 
     from app.audit.audit import log as audit_log
 
@@ -527,7 +536,7 @@ async def assign_leads(
         delta={
             "to": str(to_user_id),
             "count": count,
-            "mode": "explicit" if lead_ids else "filter",
+            "mode": "explicit" if mode == "ids" else "filter",
             "lead_ids": [str(lead.id) for lead in assigned[:50]],
         },
     )

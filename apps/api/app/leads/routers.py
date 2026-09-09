@@ -189,6 +189,8 @@ async def assign_leads(
             user.workspace_id,
             user.id,
             payload.to_user_id,
+            mode=payload.mode,
+            only_pool=payload.only_pool,
             lead_ids=payload.lead_ids,
             cities=payload.cities,
             segment=payload.segment,
