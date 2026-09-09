@@ -4,12 +4,16 @@ import { useSearchParams } from "next/navigation";
 import { Loader2, Sparkles } from "lucide-react";
 import { usePoolLeads, useClaimLead } from "@/lib/hooks/use-leads";
 import { useForms } from "@/lib/hooks/use-forms";
+import { useMe } from "@/lib/hooks/use-me";
 import { Toast } from "@/components/ui/Toast";
 import { ExportPopover } from "@/components/export/ExportPopover";
 import { AIBulkUpdateModal } from "@/components/export/AIBulkUpdateModal";
 import { PoolRow } from "@/components/leads-pool/PoolRow";
 import { PoolFilterBar } from "@/components/leads-pool/PoolFilterBar";
+import { SelectionBar } from "@/components/leads-pool/SelectionBar";
+import { AssignLeadsModal } from "@/components/leads-pool/AssignLeadsModal";
 import { tierFromScore } from "@/lib/types";
+import type { LeadAssignOut } from "@/lib/types";
 import { SEGMENT_OPTIONS } from "@/lib/i18n";
 
 // ---- Toast state ----
@@ -41,6 +45,12 @@ function LeadsPoolPageInner() {
   // Track which lead IDs are currently being claimed (for optimistic UI)
   const [claimingIds, setClaimingIds] = useState<Set<string>>(new Set());
   const [aiUpdateOpen, setAiUpdateOpen] = useState(false);
+  // G2: выделение карточек руководителем для выдачи менеджеру.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [assignMode, setAssignMode] = useState<"selected" | "topN" | null>(null);
+
+  const meQuery = useMe();
+  const canAssign = meQuery.data?.role === "admin" || meQuery.data?.role === "head";
 
   // Pre-select form filter from ?form_id= URL param (set by Lead Card chip links).
   const didMountRef = useRef(false);
@@ -266,6 +276,75 @@ function LeadsPoolPageInner() {
     hasPhoneOnly,
   ]);
 
+  // Счётчик и отправка выделения используют только пересечение с видимым
+  // списком — руководитель не должен выдать то, чего сейчас не видит
+  // из-за фильтров. Один useMemo, без useEffect на все фильтры.
+  const visibleSelected = useMemo(
+    () => filtered.filter((l) => selectedIds.has(l.id)).map((l) => l.id),
+    [filtered, selectedIds],
+  );
+
+  // Вычищаем из выделения id карточек, которых больше нет в пуле —
+  // например, после выдачи или после того, как менеджер взял карточку.
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === 0) return prev;
+      const poolIds = new Set(allItems.map((l) => l.id));
+      let changed = false;
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (poolIds.has(id)) {
+          next.add(id);
+        } else {
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [allItems]);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const allFilteredSelected = filtered.length > 0 && filtered.every((l) => selectedIds.has(l.id));
+  const someFilteredSelected = !allFilteredSelected && filtered.some((l) => selectedIds.has(l.id));
+  const selectAllRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (selectAllRef.current) selectAllRef.current.indeterminate = someFilteredSelected;
+  }, [someFilteredSelected]);
+
+  function toggleSelectAll() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allFilteredSelected) {
+        for (const l of filtered) next.delete(l.id);
+      } else {
+        for (const l of filtered) next.add(l.id);
+      }
+      return next;
+    });
+  }
+
+  function handleAssignDone(result: LeadAssignOut, recipientName: string) {
+    if (result.assigned_count === result.requested) {
+      addToast(`Выдано карточек: ${result.assigned_count} · ${recipientName}`, "success");
+    } else if (result.assigned_count > 0) {
+      addToast(
+        `Выдано ${result.assigned_count} из ${result.requested} · ${recipientName}. Остальные уже разобрали`,
+        "success",
+      );
+    } else {
+      addToast("Не выдано ни одной карточки: подходящих в пуле не осталось", "error");
+    }
+    setSelectedIds(new Set());
+  }
+
   function handleClaim(id: string) {
     // Optimistic: gray row immediately
     setClaimingIds((prev) => new Set(prev).add(id));
@@ -322,6 +401,16 @@ function LeadsPoolPageInner() {
               <Sparkles size={14} />
               AI Обновление
             </button>
+            {canAssign && !isLoading && !isError && (
+              <button
+                onClick={() => setAssignMode("topN")}
+                disabled={filtered.length === 0}
+                className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition hover:bg-brand-panel active:scale-[0.96] disabled:opacity-40"
+                aria-label="Выдать N по фильтру"
+              >
+                Выдать {filtered.length} по фильтру
+              </button>
+            )}
             <ExportPopover
               filters={{
                 city: cityFilters.length === 1 ? cityFilters[0] : undefined,
@@ -420,6 +509,17 @@ function LeadsPoolPageInner() {
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-brand-border">
+                  {canAssign && (
+                    <th className="px-3 py-2.5">
+                      <input
+                        ref={selectAllRef}
+                        type="checkbox"
+                        checked={allFilteredSelected}
+                        onChange={toggleSelectAll}
+                        aria-label="Выбрать все в списке"
+                      />
+                    </th>
+                  )}
                   {/* Город/Сегмент/Fit/Статус уходят под md: на телефоне они
                       показываются подстрокой в первой ячейке PoolRow. */}
                   {[
@@ -447,13 +547,35 @@ function LeadsPoolPageInner() {
                     lead={lead}
                     onClaim={handleClaim}
                     claiming={claimingIds.has(lead.id)}
+                    selectable={canAssign}
+                    selected={selectedIds.has(lead.id)}
+                    onToggleSelect={toggleSelect}
                   />
                 ))}
               </tbody>
             </table>
+            {canAssign && visibleSelected.length > 0 && (
+              <SelectionBar
+                count={visibleSelected.length}
+                onAssign={() => setAssignMode("selected")}
+                onClear={() => setSelectedIds(new Set())}
+              />
+            )}
           </div>
         )}
       </div>
+
+      {canAssign && assignMode && (
+        <AssignLeadsModal
+          open
+          onClose={() => setAssignMode(null)}
+          mode={assignMode}
+          selectedIds={visibleSelected}
+          visibleIds={filtered.map((l) => l.id)}
+          refetchPool={poolQuery.refetch}
+          onDone={handleAssignDone}
+        />
+      )}
 
       {/* Toast stack */}
       <div className="fixed bottom-6 right-6 flex flex-col gap-2 z-50 pointer-events-none">
