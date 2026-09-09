@@ -18,6 +18,8 @@ from app.activity.schemas import (
     FeedItemOut,
     FeedListOut,
     MyTaskOut,
+    TaskCreateIn,
+    TaskPatchIn,
     TaskUpdateIn,
 )
 from app.auth.dependencies import current_user
@@ -186,10 +188,20 @@ async def create_activity(
 ) -> ActivityOut:
     try:
         activity = await services.create_activity(
-            db, user.workspace_id, lead_id, user.id, payload.model_dump()
+            db, user.workspace_id, lead_id, user, payload.model_dump()
         )
     except LeadNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+    except services.ActivityForbidden:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Ставить задачи другим может только руководитель или админ",
+        )
+    except services.TaskAssigneeInvalid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Исполнитель не найден в этом рабочем пространстве",
+        )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     await db.commit()
@@ -390,3 +402,152 @@ async def restore_activity(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     await db.commit()
     return activity  # type: ignore[return-value]
+
+
+# ---------------------------------------------------------------------------
+# Задачи вне контекста лида — страница «Задачи» и постановка задач команде.
+# Живут в этом же домене: задача — это строка activities(type=task).
+# ---------------------------------------------------------------------------
+
+tasks_router = APIRouter(prefix="/tasks", tags=["tasks"])
+
+
+def _forbidden_assignee() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Ставить задачи другим может только руководитель или админ",
+    )
+
+
+def _unknown_assignee() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Исполнитель не найден в этом рабочем пространстве",
+    )
+
+
+@tasks_router.get("", response_model=list[MyTaskOut])
+async def list_tasks(
+    assignee_user_id: UUID | None = Query(None),
+    author_user_id: UUID | None = Query(None),
+    status_filter: str = Query("all", alias="status", pattern="^(all|open|done|overdue)$"),
+    limit: int = Query(500, ge=1, le=1000),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> list[MyTaskOut]:
+    """Список задач. Руководитель и админ видят всю команду и могут
+    фильтровать по исполнителю; менеджер — только свои и поставленные им."""
+    rows = await services.list_tasks(
+        db,
+        workspace_id=user.workspace_id,
+        actor=user,
+        assignee_user_id=assignee_user_id,
+        author_user_id=author_user_id,
+        status=status_filter,
+        limit=limit,
+    )
+    return [MyTaskOut.model_validate(r) for r in rows]
+
+
+@tasks_router.post("", response_model=MyTaskOut, status_code=status.HTTP_201_CREATED)
+async def create_task(
+    payload: TaskCreateIn,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> MyTaskOut:
+    """Создать задачу — себе или (руководителю) менеджеру, с лидом или без."""
+    try:
+        activity = await services.create_task(
+            db,
+            user.workspace_id,
+            user,
+            text=payload.text,
+            task_due_at=payload.task_due_at,
+            assignee_user_id=payload.assignee_user_id,
+            lead_id=payload.lead_id,
+        )
+    except LeadNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Лид не найден")
+    except services.ActivityForbidden:
+        raise _forbidden_assignee()
+    except services.TaskAssigneeInvalid:
+        raise _unknown_assignee()
+    await db.commit()
+    return await _task_out(db, user, activity.id)
+
+
+@tasks_router.patch("/{task_id}", response_model=MyTaskOut)
+async def update_task(
+    task_id: UUID,
+    payload: TaskPatchIn,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> MyTaskOut:
+    try:
+        await services.update_task_by_id(
+            db,
+            user.workspace_id,
+            task_id,
+            user,
+            text=payload.text,
+            task_due_at=payload.task_due_at,
+            assignee_user_id=payload.assignee_user_id,
+        )
+    except services.ActivityNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Задача не найдена")
+    except services.ActivityForbidden:
+        raise _forbidden_assignee()
+    except services.TaskAssigneeInvalid:
+        raise _unknown_assignee()
+    except services.ActivityWrongType:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Это не задача")
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    await db.commit()
+    return await _task_out(db, user, task_id)
+
+
+@tasks_router.post("/{task_id}/complete", response_model=MyTaskOut)
+async def complete_task_by_id(
+    task_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> MyTaskOut:
+    return await _set_done(db, user, task_id, done=True)
+
+
+@tasks_router.post("/{task_id}/reopen", response_model=MyTaskOut)
+async def reopen_task_by_id(
+    task_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> MyTaskOut:
+    return await _set_done(db, user, task_id, done=False)
+
+
+async def _set_done(db, user: User, task_id: UUID, *, done: bool) -> MyTaskOut:
+    try:
+        await services.set_task_done_by_id(
+            db, user.workspace_id, task_id, user, done=done
+        )
+    except services.ActivityNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Задача не найдена")
+    except services.ActivityForbidden:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Закрыть задачу может её исполнитель, автор или руководитель",
+        )
+    except services.ActivityWrongType:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Это не задача")
+    await db.commit()
+    return await _task_out(db, user, task_id)
+
+
+async def _task_out(db, user: User, task_id: UUID) -> MyTaskOut:
+    """Перечитать задачу после записи и отдать в форме списка."""
+    row = await services.get_task_out(
+        db, workspace_id=user.workspace_id, task_id=task_id
+    )
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Задача не найдена")
+    return MyTaskOut.model_validate(row)

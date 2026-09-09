@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 from enum import Enum
 
+import sqlalchemy as sa
 from sqlalchemy import Boolean, DateTime, ForeignKey, JSON, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -40,10 +41,24 @@ class ActivityType(str, Enum):
 class Activity(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     __tablename__ = "activities"
 
-    lead_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("leads.id", ondelete="CASCADE"), nullable=False, index=True
+    # Nullable since 0058: задача может жить без лида («сдать отчёт за
+    # неделю»). У всех остальных типов лид есть всегда — это лента лида.
+    lead_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("leads.id", ondelete="CASCADE"), nullable=True, index=True
     )
+    # Рабочее пространство. Для строк с лидом остаётся пустым — его даёт
+    # сам лид, и заполнять 24 места создания активностей ради этого не
+    # нужно. Обязателен ровно тогда, когда лида нет (CHECK ниже).
+    workspace_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=True
+    )
+    # Автор строки.
     user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    # Исполнитель задачи. Пусто = «кто владеет лидом, тот и делает» —
+    # так задачи вели себя до 0058, и старые строки читаются по-старому.
+    assignee_user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     type: Mapped[str] = mapped_column(String(30), nullable=False)
@@ -70,4 +85,12 @@ class Activity(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     from_identifier: Mapped[str | None] = mapped_column(String(300), nullable=True)
     to_identifier: Mapped[str | None] = mapped_column(String(300), nullable=True)
 
-    lead: Mapped["Lead"] = relationship(back_populates="activities")  # type: ignore[name-defined]
+    lead: Mapped["Lead | None"] = relationship(back_populates="activities")  # type: ignore[name-defined]
+
+    __table_args__ = (
+        sa.CheckConstraint(
+            "lead_id IS NOT NULL OR workspace_id IS NOT NULL",
+            name="ck_activities_scope",
+        ),
+        sa.Index("ix_activities_assignee_due", "assignee_user_id", "task_due_at"),
+    )
