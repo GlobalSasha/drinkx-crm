@@ -58,23 +58,32 @@ def upgrade() -> None:
         ondelete="CASCADE",
     )
     op.alter_column("activities", "lead_id", existing_type=sa.dialects.postgresql.UUID(as_uuid=True), nullable=True)
-    op.create_check_constraint(
-        "ck_activities_scope",
-        "activities",
-        "lead_id IS NOT NULL OR workspace_id IS NOT NULL",
+
+    # NOT VALID + отдельная валидация: обычный ADD CONSTRAINT сканирует всю
+    # таблицу под ACCESS EXCLUSIVE, а `activities` на проде большая — письма,
+    # комментарии, события агента. Контейнер API стартует через
+    # `alembic upgrade head`, и на время скана он бы не поднялся.
+    op.execute(
+        "ALTER TABLE activities ADD CONSTRAINT ck_activities_scope "
+        "CHECK (lead_id IS NOT NULL OR workspace_id IS NOT NULL) NOT VALID"
     )
-    op.create_index(
-        "ix_activities_assignee_due",
-        "activities",
-        ["assignee_user_id", "task_due_at"],
-    )
+    op.execute("ALTER TABLE activities VALIDATE CONSTRAINT ck_activities_scope")
+
+    # CONCURRENTLY не работает внутри транзакции — выходим из неё на время
+    # построения индекса.
+    with op.get_context().autocommit_block():
+        op.execute(
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_activities_assignee_due "
+            "ON activities (assignee_user_id, task_due_at)"
+        )
 
 
 def downgrade() -> None:
     # Строки без лида не переживают откат — удаляем их, иначе NOT NULL
     # на lead_id не встанет.
     op.execute("DELETE FROM activities WHERE lead_id IS NULL")
-    op.drop_index("ix_activities_assignee_due", table_name="activities")
+    with op.get_context().autocommit_block():
+        op.execute("DROP INDEX CONCURRENTLY IF EXISTS ix_activities_assignee_due")
     op.drop_constraint("ck_activities_scope", "activities", type_="check")
     op.alter_column("activities", "lead_id", existing_type=sa.dialects.postgresql.UUID(as_uuid=True), nullable=False)
     op.drop_constraint("fk_activities_workspace_id", "activities", type_="foreignkey")
