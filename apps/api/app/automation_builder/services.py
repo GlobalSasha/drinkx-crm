@@ -654,6 +654,13 @@ async def _evaluate_trigger_inner(
         # boundary too.
         step0 = chain[0]
         is_step0_delay = step0.get("type") == "delay_hours"
+        # Plan 021: an `http_request` step makes a live outbound network call.
+        # It must NOT run inside the trigger's transaction — it would fire the
+        # webhook before the parent commits (delivering an event for a lead
+        # state that may roll back) and block the user request for up to the
+        # HTTP timeout. Defer it to the beat scheduler (like steps 1+), even
+        # when authored as step 0, so the call happens post-commit.
+        is_step0_http = step0.get("type") == "http_request"
 
         # Sprint 2.6 G1 stability fix #2 — wrap each per-automation
         # step 0 in a SAVEPOINT. A SQLAlchemy error inside one
@@ -673,10 +680,10 @@ async def _evaluate_trigger_inner(
         step0_skipped_reason: str | None = None
         try:
             async with db.begin_nested():
-                if is_step0_delay:
-                    # Defensive — leading delay is invalid but if it
-                    # somehow slipped through, treat step 0 as a no-op
-                    # and let the scheduler drive subsequent steps.
+                if is_step0_delay or is_step0_http:
+                    # delay_hours: leading delay is a no-op gate.
+                    # http_request (plan 021): deferred to the scheduler
+                    # below — never fire its network call in-transaction.
                     pass
                 else:
                     await _dispatch_step(
@@ -719,27 +726,44 @@ async def _evaluate_trigger_inner(
         # Per-step audit row for step 0 — always written so the
         # RunsDrawer per-step grid is populated even for legacy
         # single-action automations.
-        step0_status = (
-            "failed" if step0_failed_error
-            else "skipped" if step0_skipped_reason
-            else "success"
-        )
-        await repo.create_step_run(
-            db,
-            automation_run_id=run.id,
-            lead_id=lead.id,
-            step_index=0,
-            step_json=step0,
-            scheduled_at=now,
-            executed_at=now,
-            status=step0_status,
-            error=step0_failed_error or step0_skipped_reason,
-        )
+        if is_step0_http:
+            # Plan 021: step 0 http_request was NOT dispatched inline. Record
+            # it as a pending step row (executed_at=None) so the beat scheduler
+            # fires it post-commit, outside the trigger transaction. It can't
+            # have failed/skipped here since no dispatch ran.
+            await repo.create_step_run(
+                db,
+                automation_run_id=run.id,
+                lead_id=lead.id,
+                step_index=0,
+                step_json=step0,
+                scheduled_at=now,
+                executed_at=None,
+                status="pending",
+                error=None,
+            )
+        else:
+            step0_status = (
+                "failed" if step0_failed_error
+                else "skipped" if step0_skipped_reason
+                else "success"
+            )
+            await repo.create_step_run(
+                db,
+                automation_run_id=run.id,
+                lead_id=lead.id,
+                step_index=0,
+                step_json=step0,
+                scheduled_at=now,
+                executed_at=now,
+                status=step0_status,
+                error=step0_failed_error or step0_skipped_reason,
+            )
 
-        if step0_failed_error:
-            # Chain stops on step 0 failure. Steps 1+ stay
-            # unscheduled — operator must rerun manually.
-            continue
+            if step0_failed_error:
+                # Chain stops on step 0 failure. Steps 1+ stay
+                # unscheduled — operator must rerun manually.
+                continue
 
         # Schedule steps 1+ for the beat scheduler to pick up. Skip
         # delay_hours steps themselves — they have no side-effect to
@@ -865,6 +889,7 @@ async def _dispatch_step(
             lead=lead,
             config=config,
             automation_id_str=automation_id_str,
+            idempotency_key=step.get("_idempotency_key", ""),
         )
     elif step_type == "delay_hours":
         # Pure gate — handled by `_compute_schedule_offsets`; no work here.
@@ -1161,6 +1186,7 @@ async def _http_request_action(
     lead: Lead,
     config: dict,
     automation_id_str: str,
+    idempotency_key: str = "",
 ) -> None:
     """Build the signed payload, validate the URL (and every redirect
     hop) against the SSRF guard, and POST (or the configured method)
@@ -1182,6 +1208,12 @@ async def _http_request_action(
     body_template = config.get("body_template")
     extra_headers = config.get("headers") or {}
 
+    # NOTE (plan 021, Fix C — deferred): `is_safe_fetch_url` resolves + checks
+    # the host here, but httpx re-resolves at connect time, leaving a narrow
+    # DNS-rebinding TOCTOU window. True IP-pinning (connect to the validated IP
+    # with Host/SNI preserved) needs live testing against CDN-fronted hosts to
+    # avoid breaking legitimate webhooks, so it is tracked as a follow-up. The
+    # redirect re-validation below still guards every subsequent hop.
     if not is_safe_fetch_url(url):
         log.warning(
             "automation.http_request.blocked_ssrf",
@@ -1197,6 +1229,9 @@ async def _http_request_action(
         "event": "automation.http_request",
         "occurred_at": datetime.now(tz=timezone.utc).isoformat(),
         "workspace_id": str(lead.workspace_id),
+        # Plan 021 (Fix B): stable per-fire id so a receiver can dedupe a
+        # webhook that gets re-delivered after a commit-phase retry.
+        "idempotency_key": idempotency_key,
         "data": {
             "lead_id": str(lead.id),
             "automation_id": automation_id_str,
@@ -1209,6 +1244,7 @@ async def _http_request_action(
     headers = {
         "Content-Type": "application/json",
         "X-DrinkX-Signature": signature,
+        "X-DrinkX-Idempotency-Key": idempotency_key,
         **{str(k): str(v) for k, v in extra_headers.items()},
     }
 
@@ -1321,6 +1357,11 @@ async def execute_due_step_runs(
         # can read it without a separate repo call.
         step_payload = dict(step_run.step_json or {})
         step_payload["_automation_id"] = automation_id_str
+        # Plan 021 (Fix B): a stable idempotency key derived from the step-run
+        # id. It survives across retries of the SAME row, so if an http_request
+        # was already delivered but the commit failed and the row is retried,
+        # the receiver can dedupe the second delivery.
+        step_payload["_idempotency_key"] = str(step_run.id)
 
         # Each step gets its own collector + savepoint so failures
         # don't poison the next iteration's session. The collector is

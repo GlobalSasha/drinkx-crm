@@ -328,7 +328,8 @@ export interface UtmSourceStat {
   source: string | null;
   leads: number;
   won: number;
-  won_sum: number;
+  won_sum: number; // sale (one-off) revenue — plan 025
+  won_rental_mrr?: number; // rental monthly recurring — plan 025
 }
 
 /** One row of «Где застревают сделки» — dwell stats for one active stage.
@@ -351,7 +352,8 @@ export interface ManagerPortfolio {
   email: string;
   kpi: {
     active_count: number;
-    total_amount: number;
+    total_amount: number; // sale (one-off) potential — plan 025
+    rental_mrr?: number; // rental monthly recurring — plan 025
     total_quantity: number;
     avg_amount: number | null;
     new_7d: number;

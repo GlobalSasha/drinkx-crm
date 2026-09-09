@@ -277,6 +277,11 @@ export default function ForecastPage() {
                         </td>
                         <td className="py-2.5 pl-3 text-right tabular-nums type-body text-brand-primary font-semibold whitespace-nowrap">
                           {fmtMoney(Number(row.won_sum))}
+                          {row.won_rental_mrr ? (
+                            <span className="block type-caption text-brand-muted font-normal">
+                              + аренда {fmtMoney(Number(row.won_rental_mrr))}/мес
+                            </span>
+                          ) : null}
                         </td>
                       </tr>
                     );

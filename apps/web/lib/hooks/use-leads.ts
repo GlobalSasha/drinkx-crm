@@ -233,11 +233,12 @@ export function useClaimLead() {
       return { snapshots };
     },
 
-    onError: (_err, _leadId, context) => {
-      const ctx = context as { snapshots: [unknown[], LeadListOut | undefined][] } | undefined;
-      ctx?.snapshots.forEach(([key, data]) => {
-        qc.setQueryData(key as unknown[], data);
-      });
+    onError: (_err, _leadId, _context) => {
+      // Plan 026: do NOT restore a whole pre-mutation snapshot — with two
+      // overlapping claims, restoring a stale snapshot can resurrect a lead
+      // the other claim already removed. Just invalidate and let the refetch
+      // (onSettled) reconcile to the true server state.
+      qc.invalidateQueries({ queryKey: ["leads-pool"] });
     },
 
     onSuccess: () => {

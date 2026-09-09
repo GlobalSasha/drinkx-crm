@@ -57,6 +57,16 @@ apps/api/app/logs/__pycache__/
 .worktrees/
 .claude/worktrees/
 
+# Local LPR import artifacts — generated PII output, must never be committed
+scripts/lpr_import/
+
+# Local agent / tooling state (not part of the app).
+# NOTE: skills stay tracked — `.agents/skills/` is the real source and
+# `skills-lock.json` records each one's origin + hash (see CLAUDE.md).
+.beads/
+.codex/
+CRM_AUDIT_REPORT.md
+
 # Misc
 .DS_Store
 

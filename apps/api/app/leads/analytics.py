@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import case, func, select, text
+from sqlalchemy import and_, case, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.leads.models import Lead
@@ -23,14 +23,22 @@ from app.utm.models import UtmSource
 async def utm_source_stats(db: AsyncSession, workspace_id: uuid.UUID) -> list[dict]:
     """Per-UTM-source rollup for a workspace, ordered by lead count desc."""
     won = Lead.won_at.isnot(None)
+    # Plan 025: `deal_amount` is a one-off total for a sale but a MONTHLY fee
+    # for a rental — never sum them into one number. `won_sum` is sale-only
+    # (one-off) revenue; `won_rental_mrr` is the monthly recurring figure.
+    won_sale = and_(won, Lead.commercial_model.is_distinct_from("rental"))
+    won_rental = and_(won, Lead.commercial_model == "rental")
     stmt = (
         select(
             UtmSource.name.label("source"),
             func.count(Lead.id).label("leads"),
             func.count(Lead.id).filter(won).label("won"),
             func.coalesce(
-                func.sum(case((won, Lead.deal_amount), else_=0)), 0
+                func.sum(case((won_sale, Lead.deal_amount), else_=0)), 0
             ).label("won_sum"),
+            func.coalesce(
+                func.sum(case((won_rental, Lead.deal_amount), else_=0)), 0
+            ).label("won_rental_mrr"),
         )
         .select_from(Lead)
         .outerjoin(UtmSource, UtmSource.id == Lead.utm_source_id)
@@ -40,7 +48,13 @@ async def utm_source_stats(db: AsyncSession, workspace_id: uuid.UUID) -> list[di
     )
     rows = (await db.execute(stmt)).all()
     return [
-        {"source": r.source, "leads": r.leads, "won": r.won, "won_sum": r.won_sum}
+        {
+            "source": r.source,
+            "leads": r.leads,
+            "won": r.won,
+            "won_sum": r.won_sum,
+            "won_rental_mrr": r.won_rental_mrr,
+        }
         for r in rows
     ]
 

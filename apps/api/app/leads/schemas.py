@@ -369,4 +369,5 @@ class UtmSourceStatOut(BaseModel):
     source: str | None
     leads: int
     won: int
-    won_sum: Decimal
+    won_sum: Decimal          # sale (one-off) revenue — plan 025
+    won_rental_mrr: Decimal = Decimal(0)  # rental monthly recurring — plan 025

@@ -250,7 +250,10 @@ async def workload_rows(
         SELECT assigned_to,
                stage_id,
                count(*)                                   AS cnt,
-               COALESCE(sum(deal_amount), 0)              AS sum_amount,
+               -- Plan 025: sale-only (one-off). Rental deal_amount is a
+               -- MONTHLY fee — never add it into a one-off total.
+               COALESCE(sum(deal_amount) FILTER (
+                   WHERE commercial_model IS DISTINCT FROM 'rental'), 0) AS sum_amount,
                sum(CASE WHEN is_rotting_stage OR is_rotting_next_step
                         THEN 1 ELSE 0 END)                AS stuck
         FROM leads
@@ -307,13 +310,21 @@ async def portfolio_kpi(db: AsyncSession, *, workspace_id, user_id) -> dict:
     sql = text(f"""
         SELECT
           count(*)                                          AS active_count,
-          COALESCE(sum(l.deal_amount), 0)                   AS total_amount,
+          -- Plan 025: sale figures are one-off; rental is a separate MONTHLY
+          -- (MRR) figure. Never sum the two into one number.
+          COALESCE(sum(l.deal_amount) FILTER (
+              WHERE l.commercial_model IS DISTINCT FROM 'rental'), 0) AS total_amount,
+          COALESCE(sum(l.deal_amount) FILTER (
+              WHERE l.commercial_model = 'rental'), 0)      AS rental_mrr,
           COALESCE(sum(l.deal_quantity), 0)                 AS total_quantity,
-          AVG(l.deal_amount)                                AS avg_amount,
+          AVG(l.deal_amount) FILTER (
+              WHERE l.commercial_model IS DISTINCT FROM 'rental') AS avg_amount,
           count(*) FILTER (WHERE l.created_at >= now() - interval '7 days')  AS new_7d,
           count(*) FILTER (WHERE l.created_at >= now() - interval '30 days') AS new_30d,
           count(*) FILTER (WHERE l.is_rotting_stage OR l.is_rotting_next_step) AS at_risk_count,
-          COALESCE(sum(l.deal_amount) FILTER (WHERE l.is_rotting_stage OR l.is_rotting_next_step), 0) AS at_risk_amount
+          COALESCE(sum(l.deal_amount) FILTER (
+              WHERE (l.is_rotting_stage OR l.is_rotting_next_step)
+                AND l.commercial_model IS DISTINCT FROM 'rental'), 0) AS at_risk_amount
         {_PORTFOLIO_BASE}
     """)
     r = (await db.execute(sql, {"wid": str(workspace_id), "uid": str(user_id)})).mappings().one()
@@ -324,7 +335,9 @@ async def portfolio_by_segment(db: AsyncSession, *, workspace_id, user_id) -> li
     sql = text(f"""
         SELECT COALESCE(l.segment, '—') AS segment,
                count(*) AS cnt,
-               COALESCE(sum(l.deal_amount), 0)   AS amount,
+               -- Plan 025: sale-only (rental is a separate monthly figure).
+               COALESCE(sum(l.deal_amount) FILTER (
+                   WHERE l.commercial_model IS DISTINCT FROM 'rental'), 0) AS amount,
                COALESCE(sum(l.deal_quantity), 0) AS quantity
         {_PORTFOLIO_BASE}
         GROUP BY COALESCE(l.segment, '—')
@@ -336,7 +349,10 @@ async def portfolio_by_segment(db: AsyncSession, *, workspace_id, user_id) -> li
 async def portfolio_by_stage(db: AsyncSession, *, workspace_id, user_id) -> list[dict]:
     sql = text(f"""
         SELECT s.id::text AS stage_id, s.name AS stage_name, s.position,
-               count(*) AS cnt, COALESCE(sum(l.deal_amount), 0) AS amount
+               count(*) AS cnt,
+               -- Plan 025: sale-only (rental counted separately as MRR).
+               COALESCE(sum(l.deal_amount) FILTER (
+                   WHERE l.commercial_model IS DISTINCT FROM 'rental'), 0) AS amount
         {_PORTFOLIO_BASE}
         GROUP BY s.id, s.name, s.position
         ORDER BY s.position
@@ -347,7 +363,10 @@ async def portfolio_by_stage(db: AsyncSession, *, workspace_id, user_id) -> list
 async def portfolio_by_priority(db: AsyncSession, *, workspace_id, user_id) -> list[dict]:
     sql = text(f"""
         SELECT COALESCE(l.priority, '—') AS priority,
-               count(*) AS cnt, COALESCE(sum(l.deal_amount), 0) AS amount
+               count(*) AS cnt,
+               -- Plan 025: sale-only (rental counted separately as MRR).
+               COALESCE(sum(l.deal_amount) FILTER (
+                   WHERE l.commercial_model IS DISTINCT FROM 'rental'), 0) AS amount
         {_PORTFOLIO_BASE}
         GROUP BY COALESCE(l.priority, '—')
         ORDER BY priority

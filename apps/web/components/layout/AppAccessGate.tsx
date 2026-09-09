@@ -20,21 +20,32 @@ function isInviteRequired(error: unknown): boolean {
   );
 }
 
+// Plan 026: a persistent 401 means the backend rejected the session (JWT
+// expired/rotated while middleware still sees a cookie). Route back to
+// sign-in instead of stranding the user on the retry card.
+function isUnauthorized(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 401;
+}
+
 export function AppAccessGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const me = useMe();
   const denied = isInviteRequired(me.error);
+  const unauthorized = isUnauthorized(me.error);
 
   useEffect(() => {
-    if (!denied) return;
+    if (!denied && !unauthorized) return;
 
     const supabase = getSupabaseBrowserClient();
+    const dest = denied
+      ? "/sign-in?error=invite_required"
+      : "/sign-in";
     void supabase.auth.signOut().finally(() => {
-      router.replace("/sign-in?error=invite_required");
+      router.replace(dest);
     });
-  }, [denied, router]);
+  }, [denied, unauthorized, router]);
 
-  if (me.isPending || denied) {
+  if (me.isPending || denied || unauthorized) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-brand-bg">
         <div className="flex items-center gap-3 text-sm text-brand-muted">

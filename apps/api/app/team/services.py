@@ -227,6 +227,7 @@ async def manager_portfolio(
         "kpi": {
             "active_count": int(kpi["active_count"]),
             "total_amount": kpi["total_amount"],
+            "rental_mrr": kpi["rental_mrr"],
             "total_quantity": int(kpi["total_quantity"]),
             "avg_amount": (round(float(avg), 2) if avg is not None else None),
             "new_7d": int(kpi["new_7d"]),

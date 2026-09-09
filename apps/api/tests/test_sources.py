@@ -328,6 +328,7 @@ async def test_web_fetch_strips_html_to_text(monkeypatch):
     handler = _web_handler()
     _patch_httpx(monkeypatch, handler, wf_mod)
     _no_cache(monkeypatch, wf_mod)
+    monkeypatch.setattr("app.enrichment.sources.web_fetch.is_safe_fetch_url", lambda url: True)
 
     result = await WebFetch().fetch("https://example.com")
 
@@ -348,6 +349,7 @@ async def test_web_fetch_extracts_title(monkeypatch):
     handler = _web_handler()
     _patch_httpx(monkeypatch, handler, wf_mod)
     _no_cache(monkeypatch, wf_mod)
+    monkeypatch.setattr("app.enrichment.sources.web_fetch.is_safe_fetch_url", lambda url: True)
 
     result = await WebFetch().fetch("https://example.com")
 
@@ -364,6 +366,7 @@ async def test_web_fetch_caps_size_at_max_bytes(monkeypatch):
     handler = _web_handler(body=big_body)
     _patch_httpx(monkeypatch, handler, wf_mod)
     _no_cache(monkeypatch, wf_mod)
+    monkeypatch.setattr("app.enrichment.sources.web_fetch.is_safe_fetch_url", lambda url: True)
 
     result = await WebFetch().fetch("https://example.com")
 
