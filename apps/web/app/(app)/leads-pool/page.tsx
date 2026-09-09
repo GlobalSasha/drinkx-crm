@@ -4,12 +4,16 @@ import { useSearchParams } from "next/navigation";
 import { Loader2, Sparkles } from "lucide-react";
 import { usePoolLeads, useClaimLead } from "@/lib/hooks/use-leads";
 import { useForms } from "@/lib/hooks/use-forms";
+import { useMe } from "@/lib/hooks/use-me";
 import { Toast } from "@/components/ui/Toast";
 import { ExportPopover } from "@/components/export/ExportPopover";
 import { AIBulkUpdateModal } from "@/components/export/AIBulkUpdateModal";
 import { PoolRow } from "@/components/leads-pool/PoolRow";
 import { PoolFilterBar } from "@/components/leads-pool/PoolFilterBar";
+import { SelectionBar } from "@/components/leads-pool/SelectionBar";
+import { AssignLeadsModal } from "@/components/leads-pool/AssignLeadsModal";
 import { tierFromScore } from "@/lib/types";
+import type { LeadAssignOut } from "@/lib/types";
 import { SEGMENT_OPTIONS } from "@/lib/i18n";
 
 // ---- Toast state ----
@@ -41,6 +45,12 @@ function LeadsPoolPageInner() {
   // Track which lead IDs are currently being claimed (for optimistic UI)
   const [claimingIds, setClaimingIds] = useState<Set<string>>(new Set());
   const [aiUpdateOpen, setAiUpdateOpen] = useState(false);
+  // G2: выделение карточек руководителем для выдачи менеджеру.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [assignMode, setAssignMode] = useState<"selected" | "topN" | null>(null);
+
+  const meQuery = useMe();
+  const canAssign = meQuery.data?.role === "admin" || meQuery.data?.role === "head";
 
   // Pre-select form filter from ?form_id= URL param (set by Lead Card chip links).
   const didMountRef = useRef(false);
@@ -96,7 +106,7 @@ function LeadsPoolPageInner() {
   // form_id is server-side filtered because it scopes the whole pool
   // to a specific landing source.
   const poolQuery = usePoolLeads({ page_size: 500, form_id: formId, needs_review: needsReview });
-  const claimMutation = useClaimLead();
+  const { mutate: claimLead } = useClaimLead();
 
   const formsQuery = useForms();
   const forms = formsQuery.data?.items ?? [];
@@ -266,11 +276,80 @@ function LeadsPoolPageInner() {
     hasPhoneOnly,
   ]);
 
-  function handleClaim(id: string) {
+  // Счётчик и отправка выделения используют только пересечение с видимым
+  // списком — руководитель не должен выдать то, чего сейчас не видит
+  // из-за фильтров. Один useMemo, без useEffect на все фильтры.
+  const visibleSelected = useMemo(
+    () => filtered.filter((l) => selectedIds.has(l.id)).map((l) => l.id),
+    [filtered, selectedIds],
+  );
+
+  // Вычищаем из выделения id карточек, которых больше нет в пуле —
+  // например, после выдачи или после того, как менеджер взял карточку.
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === 0) return prev;
+      const poolIds = new Set(allItems.map((l) => l.id));
+      let changed = false;
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (poolIds.has(id)) {
+          next.add(id);
+        } else {
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [allItems]);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const allFilteredSelected = filtered.length > 0 && filtered.every((l) => selectedIds.has(l.id));
+  const someFilteredSelected = !allFilteredSelected && filtered.some((l) => selectedIds.has(l.id));
+  const selectAllRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (selectAllRef.current) selectAllRef.current.indeterminate = someFilteredSelected;
+  }, [someFilteredSelected]);
+
+  function toggleSelectAll() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allFilteredSelected) {
+        for (const l of filtered) next.delete(l.id);
+      } else {
+        for (const l of filtered) next.add(l.id);
+      }
+      return next;
+    });
+  }
+
+  function handleAssignDone(result: LeadAssignOut, recipientName: string) {
+    if (result.assigned_count === result.requested) {
+      addToast(`Выдано карточек: ${result.assigned_count} · ${recipientName}`, "success");
+    } else if (result.assigned_count > 0) {
+      addToast(
+        `Выдано ${result.assigned_count} из ${result.requested} · ${recipientName}. Остальные уже разобрали`,
+        "success",
+      );
+    } else {
+      addToast("Не выдано ни одной карточки: подходящих в пуле не осталось", "error");
+    }
+    setSelectedIds(new Set());
+  }
+
+  const handleClaim = useCallback((id: string) => {
     // Optimistic: gray row immediately
     setClaimingIds((prev) => new Set(prev).add(id));
 
-    claimMutation.mutate(id, {
+    claimLead(id, {
       onSuccess: () => {
         setClaimingIds((prev) => {
           const next = new Set(prev);
@@ -292,7 +371,7 @@ function LeadsPoolPageInner() {
         addToast(message, "error");
       },
     });
-  }
+  }, [addToast, claimLead]);
 
   const isLoading = poolQuery.isLoading;
   const isError = poolQuery.isError;
@@ -301,7 +380,7 @@ function LeadsPoolPageInner() {
     <>
       {/* Sticky header */}
       <div className="sticky top-0 z-10 bg-white border-b border-brand-border px-6 py-4">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-baseline gap-2">
             <h1 className="type-page-title">База лидов</h1>
             {/* Compact total — shown small next to title, the loud counts
@@ -313,7 +392,7 @@ function LeadsPoolPageInner() {
               )}
             </span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => setAiUpdateOpen(true)}
               className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition hover:bg-brand-panel active:scale-[0.96]"
@@ -322,6 +401,15 @@ function LeadsPoolPageInner() {
               <Sparkles size={14} />
               AI Обновление
             </button>
+            {canAssign && !isLoading && !isError && (
+              <button
+                onClick={() => setAssignMode("topN")}
+                disabled={filtered.length === 0}
+                className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition hover:bg-brand-panel active:scale-[0.96] disabled:opacity-40"
+              >
+                Выдать по фильтру
+              </button>
+            )}
             <ExportPopover
               filters={{
                 city: cityFilters.length === 1 ? cityFilters[0] : undefined,
@@ -416,44 +504,79 @@ function LeadsPoolPageInner() {
         )}
 
         {!isLoading && !isError && filtered.length > 0 && (
-          <div className="overflow-x-auto rounded-xl border border-brand-border bg-white">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-brand-border">
-                  {/* Город/Сегмент/Fit/Статус уходят под md: на телефоне они
-                      показываются подстрокой в первой ячейке PoolRow. */}
-                  {[
-                    { h: "Компания", cls: "" },
-                    { h: "Город", cls: "hidden md:table-cell" },
-                    { h: "Сегмент", cls: "hidden md:table-cell" },
-                    { h: "Tier", cls: "" },
-                    { h: "Fit Score", cls: "hidden md:table-cell" },
-                    { h: "Статус", cls: "hidden md:table-cell" },
-                    { h: "", cls: "" },
-                  ].map(({ h, cls }) => (
-                    <th
-                      key={h}
-                      className={`px-4 py-2.5 type-table-header text-brand-muted whitespace-nowrap ${cls}`}
-                    >
-                      {h}
-                    </th>
+          <>
+            <div className="overflow-x-auto rounded-xl border border-brand-border bg-white">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-brand-border">
+                    {canAssign && (
+                      <th className="px-3 py-2.5">
+                        <input
+                          ref={selectAllRef}
+                          type="checkbox"
+                          checked={allFilteredSelected}
+                          onChange={toggleSelectAll}
+                          aria-label="Выбрать все в списке"
+                          className="h-4 w-4 accent-brand-accent"
+                        />
+                      </th>
+                    )}
+                    {/* Город/Сегмент/Fit/Статус уходят под md: на телефоне они
+                        показываются подстрокой в первой ячейке PoolRow. */}
+                    {[
+                      { h: "Компания", cls: "" },
+                      { h: "Город", cls: "hidden md:table-cell" },
+                      { h: "Сегмент", cls: "hidden md:table-cell" },
+                      { h: "Tier", cls: "" },
+                      { h: "Fit Score", cls: "hidden md:table-cell" },
+                      { h: "Статус", cls: "hidden md:table-cell" },
+                      { h: "", cls: "" },
+                    ].map(({ h, cls }) => (
+                      <th
+                        key={h}
+                        className={`px-4 py-2.5 type-table-header text-brand-muted whitespace-nowrap ${cls}`}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((lead) => (
+                    <PoolRow
+                      key={lead.id}
+                      lead={lead}
+                      onClaim={handleClaim}
+                      claiming={claimingIds.has(lead.id)}
+                      selectable={canAssign}
+                      selected={selectedIds.has(lead.id)}
+                      onToggleSelect={toggleSelect}
+                    />
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((lead) => (
-                  <PoolRow
-                    key={lead.id}
-                    lead={lead}
-                    onClaim={handleClaim}
-                    claiming={claimingIds.has(lead.id)}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </tbody>
+              </table>
+            </div>
+            {canAssign && visibleSelected.length > 0 && (
+              <SelectionBar
+                count={visibleSelected.length}
+                onAssign={() => setAssignMode("selected")}
+                onClear={() => setSelectedIds(new Set())}
+              />
+            )}
+          </>
         )}
       </div>
+
+      {canAssign && assignMode && (
+        <AssignLeadsModal
+          open
+          onClose={() => setAssignMode(null)}
+          mode={assignMode}
+          selectedIds={visibleSelected}
+          visibleIds={filtered.map((l) => l.id)}
+          onDone={handleAssignDone}
+        />
+      )}
 
       {/* Toast stack */}
       <div className="fixed bottom-6 right-6 flex flex-col gap-2 z-50 pointer-events-none">
@@ -473,4 +596,3 @@ export default function LeadsPoolPage() {
     </Suspense>
   );
 }
-

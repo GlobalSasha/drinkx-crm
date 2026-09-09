@@ -32,7 +32,9 @@ dependencies = [
     "feedparser>=6.0",
     "pypdf>=5.0",
     "phonenumbers>=8.13.0",
-    "mcp>=1.2.0",
+    # Верхняя граница: в mcp 2.x FastMCP переименован в MCPServer, а
+    # app/external/mcp_server.py написан под v1. Снимать вместе с миграцией на 2.x.
+    "mcp>=1.2.0,<2",
 ]
 
 [dependency-groups]

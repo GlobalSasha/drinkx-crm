@@ -11,6 +11,8 @@ import type {
   SprintCreateIn,
   SprintCreateOut,
   MoveStageIn,
+  LeadAssignIn,
+  LeadAssignOut,
 } from "@/lib/types";
 import { Priority } from "@/lib/types";
 
@@ -245,6 +247,23 @@ export function useClaimLead() {
 
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["leads-pool"] });
+    },
+  });
+}
+
+/**
+ * POST /leads/assign — руководитель/админ выдаёт карточки из базы менеджеру.
+ * Без optimistic update — результат зависит от того, что реально осталось
+ * в пуле на сервере (см. `only_pool`).
+ */
+export function useAssignLeads() {
+  const qc = useQueryClient();
+  return useMutation<LeadAssignOut, ApiError, LeadAssignIn>({
+    mutationFn: (body) => api.post<LeadAssignOut>("/leads/assign", body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["leads-pool"] });
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      qc.invalidateQueries({ queryKey: ["team-stats"] });
     },
   });
 }

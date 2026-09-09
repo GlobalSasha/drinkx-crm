@@ -14,18 +14,21 @@ export function useMyTasks() {
   });
 }
 
-/** Complete a task. The endpoint is lead-scoped, so we need the
- *  lead id alongside the activity id. Invalidates the cross-lead list
- *  plus that lead's feed/tasks caches. */
+/** Complete a task. Задача может быть без лида, поэтому идём по id
+ *  задачи, а не через lead-scoped маршрут. Инвалидирует общий список
+ *  всегда, а ленту/задачи лида — только если лид есть. */
 export function useCompleteMyTask() {
   const qc = useQueryClient();
-  return useMutation<unknown, ApiError, { leadId: string; taskId: string }>({
-    mutationFn: ({ leadId, taskId }) =>
-      api.post(`/leads/${leadId}/activities/${taskId}/complete-task`),
+  return useMutation<unknown, ApiError, { leadId: string | null; taskId: string }>({
+    mutationFn: ({ taskId }) => api.post(`/tasks/${taskId}/complete`),
     onSuccess: (_data, { leadId }) => {
       qc.invalidateQueries({ queryKey: ["my-tasks"] });
-      qc.invalidateQueries({ queryKey: ["feed", leadId] });
-      qc.invalidateQueries({ queryKey: ["activities", leadId, "task"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["daily-plan", "today"] });
+      if (leadId) {
+        qc.invalidateQueries({ queryKey: ["feed", leadId] });
+        qc.invalidateQueries({ queryKey: ["activities", leadId, "task"] });
+      }
     },
   });
 }
@@ -33,14 +36,16 @@ export function useCompleteMyTask() {
 /** Reopen a completed task — mirror of useCompleteMyTask. */
 export function useReopenMyTask() {
   const qc = useQueryClient();
-  return useMutation<unknown, ApiError, { leadId: string; taskId: string }>({
-    mutationFn: ({ leadId, taskId }) =>
-      api.post(`/leads/${leadId}/activities/${taskId}/reopen-task`),
+  return useMutation<unknown, ApiError, { leadId: string | null; taskId: string }>({
+    mutationFn: ({ taskId }) => api.post(`/tasks/${taskId}/reopen`),
     onSuccess: (_data, { leadId }) => {
       qc.invalidateQueries({ queryKey: ["my-tasks"] });
-      qc.invalidateQueries({ queryKey: ["feed", leadId] });
-      qc.invalidateQueries({ queryKey: ["activities", leadId, "task"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
       qc.invalidateQueries({ queryKey: ["daily-plan", "today"] });
+      if (leadId) {
+        qc.invalidateQueries({ queryKey: ["feed", leadId] });
+        qc.invalidateQueries({ queryKey: ["activities", leadId, "task"] });
+      }
     },
   });
 }

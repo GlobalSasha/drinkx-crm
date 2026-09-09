@@ -1,4 +1,23 @@
 {
   "version": "0.0.1",
-  "configurations": []
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/aleksandrhvastunov/Desktop/drinkx-crm/apps/api && export SUPABASE_URL=$(grep '^NEXT_PUBLIC_SUPABASE_URL=' /Users/aleksandrhvastunov/Desktop/drinkx-crm/apps/web/.env.local | cut -d= -f2-) && DATABASE_URL=postgresql+asyncpg://drinkx:dev@localhost:5432/drinkx_dev APP_ENV=development exec ./.venv/bin/uvicorn app.main:app --reload --port 8000"
+      ],
+      "port": 8000
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/aleksandrhvastunov/Desktop/drinkx-crm/apps/web && NEXT_PUBLIC_API_URL=http://localhost:8000 exec pnpm dev --port 3000"
+      ],
+      "port": 3000
+    }
+  ]
 }

@@ -69,7 +69,7 @@ export function TaskReminders() {
 
   function handleOpen(task: MyTaskOut) {
     handleClose(task);
-    router.push(`/leads/${task.lead_id}?tab=tasks`);
+    router.push(task.lead_id ? `/leads/${task.lead_id}?tab=tasks` : "/tasks");
   }
 
   return (

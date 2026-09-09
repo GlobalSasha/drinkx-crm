@@ -436,6 +436,113 @@ async def transfer_lead(
     return transferred
 
 
+async def assign_leads(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    actor_user_id: uuid.UUID,
+    to_user_id: uuid.UUID,
+    *,
+    mode: str,
+    only_pool: bool,
+    lead_ids: list[uuid.UUID],
+    cities: list[str],
+    segment: str | None,
+    fit_min: float | None,
+    limit: int | None,
+    comment: str | None,
+) -> tuple[list[Lead], int, int]:
+    """Руководитель выдаёт лиды менеджеру. Returns (assigned, requested, skipped).
+
+    Роль проверяется в роутере (admin/head). Здесь — только то, что
+    относится к данным: получатель обязан быть в этом же рабочем
+    пространстве. Режим выбирает `mode`, а не пустота `lead_ids` —
+    так «список id» с пустым списком не может случайно уехать в режим
+    фильтра.
+
+    Одно уведомление на всю пачку, а не N штук: менеджеру важен факт
+    «вам выдали 20 карточек», а не двадцать одинаковых строк. Себе
+    выдачу руководитель уведомлением не помечает — как и в задачах.
+    Вызывающий коммитит.
+    """
+    target = (
+        await db.execute(
+            select(User).where(
+                User.id == to_user_id, User.workspace_id == workspace_id
+            )
+        )
+    ).scalar_one_or_none()
+    if target is None:
+        raise TransferTargetInvalid(to_user_id)
+
+    if mode == "ids":
+        assigned, skipped = await repo.assign_leads_by_ids(
+            db, workspace_id, lead_ids, to_user_id, only_pool=only_pool
+        )
+        requested = len(lead_ids)
+        source = "head_assign"
+    else:
+        if limit is None:
+            workspace = (
+                await db.execute(select(Workspace).where(Workspace.id == workspace_id))
+            ).scalar_one_or_none()
+            if workspace is None:
+                raise ValueError(f"Workspace {workspace_id} not found")
+            limit = workspace.sprint_capacity_per_week
+        assigned = await repo.assign_pool_by_filter(
+            db,
+            workspace_id,
+            to_user_id,
+            cities=cities,
+            segment=segment,
+            fit_min=fit_min,
+            limit=limit,
+        )
+        requested = limit
+        skipped = requested - len(assigned)
+        source = "head_assign_filter"
+
+    if not assigned:
+        return [], requested, skipped
+
+    for lead in assigned:
+        _log_lead_assigned(db, lead_id=lead.id, user_id=to_user_id, source=source)
+
+    count = len(assigned)
+
+    # Себе выдачу не уведомляем — как и в задачах, автор и получатель
+    # действия совпадают, писать не о чем.
+    if to_user_id != actor_user_id:
+        from app.notifications.services import safe_notify
+
+        await safe_notify(
+            db,
+            workspace_id=workspace_id,
+            user_id=to_user_id,
+            kind="leads_assigned",
+            title=f"Вам выдано карточек: {count}",
+            body=comment or "Руководитель выдал вам лиды из базы",
+            lead_id=assigned[0].id if count == 1 else None,
+        )
+
+    from app.audit.audit import log as audit_log
+
+    await audit_log(
+        db,
+        action="lead.assign_batch",
+        workspace_id=workspace_id,
+        user_id=actor_user_id,
+        entity_type="lead",
+        entity_id=assigned[0].id,
+        delta={
+            "to": str(to_user_id),
+            "count": count,
+            "mode": "explicit" if mode == "ids" else "filter",
+            "lead_ids": [str(lead.id) for lead in assigned[:50]],
+        },
+    )
+    return assigned, requested, skipped
+
+
 async def move_lead_stage(
     db: AsyncSession,
     workspace_id: uuid.UUID,

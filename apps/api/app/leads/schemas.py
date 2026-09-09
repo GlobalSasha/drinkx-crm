@@ -3,9 +3,10 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.leads.models import (  # noqa: F401 — imported for OpenAPI clarity
     AssignmentStatus,
@@ -201,6 +202,57 @@ class SprintCreateIn(BaseModel):
 class SprintCreateOut(BaseModel):
     claimed_count: int
     requested: int
+    items: list[LeadOut]
+
+
+class LeadAssignIn(BaseModel):
+    """Body for POST /leads/assign — руководитель выдаёт лиды менеджеру.
+
+    Режим задаётся явно полем `mode`, а не пустотой `lead_ids`:
+      - mode="ids": выдать именно карточки из `lead_ids` (непустой).
+        При `only_pool=False` можно перехватить и уже занятую кем-то
+        карточку — прежний владелец пишется в `transferred_from`, как
+        при передаче. `only_pool=True` (по умолчанию) такие карточки
+        пропускает.
+      - mode="filter": взять до `limit` карточек ИЗ ПУЛА по фильтру
+        (нужен хотя бы один из cities/segment/fit_min/limit), тем же
+        порядком, что и /leads/pool. Занятые чужие карточки в этом
+        режиме не трогаются.
+    """
+
+    to_user_id: UUID
+    mode: Literal["ids", "filter"]
+    only_pool: bool = True
+    lead_ids: list[UUID] = Field(default_factory=list, max_length=500)
+    # filter mode only
+    cities: list[str] = Field(default_factory=list)
+    segment: str | None = None
+    fit_min: float | None = None
+    limit: int | None = Field(None, ge=1, le=500)
+    comment: str | None = Field(None, max_length=500)
+
+    @model_validator(mode="after")
+    def _check_mode_matches_payload(self) -> "LeadAssignIn":
+        if self.mode == "ids" and not self.lead_ids:
+            raise ValueError("mode=ids требует непустой lead_ids")
+        if (
+            self.mode == "filter"
+            and not self.cities
+            and self.segment is None
+            and self.fit_min is None
+            and self.limit is None
+        ):
+            raise ValueError("mode=filter требует хотя бы один фильтр или limit")
+        return self
+
+
+class LeadAssignOut(BaseModel):
+    """`skipped` — сколько из запрошенных карточек не досталось:
+    удалены, не найдены или уже принадлежат этому же менеджеру."""
+
+    assigned_count: int
+    requested: int
+    skipped: int
     items: list[LeadOut]
 
 

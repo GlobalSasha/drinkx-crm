@@ -12,6 +12,10 @@ class ActivityBase(BaseModel):
     type: str
     payload_json: dict = Field(default_factory=dict)
     task_due_at: datetime | None = None
+    # Исполнитель задачи. Пусто = «делает владелец лида» — так задачи
+    # вели себя до появления поля. Назначить задачу другому человеку
+    # может только руководитель или админ (проверка в сервисе).
+    assignee_user_id: UUID | None = None
     reminder_trigger_at: datetime | None = None
     file_url: str | None = None
     file_kind: str | None = None
@@ -85,18 +89,43 @@ class FeedListOut(BaseModel):
 
 
 class MyTaskOut(BaseModel):
-    """A single manager-created task (Activity type=task) for the
-    cross-lead task list (`GET /me/tasks`). No AI fields — tasks are
-    purely manager-entered."""
+    """Одна задача, заведённая руками (Activity type=task), для списков
+    `GET /me/tasks` и `GET /tasks`. Без AI-полей — задачи только ручные.
+
+    `lead_id` может быть пустым: задача не обязана относиться к лиду.
+    `assignee_*` — уже разрешённый исполнитель: явный, иначе владелец
+    лида, иначе автор.
+    """
 
     id: UUID
-    lead_id: UUID
+    lead_id: UUID | None = None
     lead_company_name: str | None = None
     text: str
     task_due_at: datetime | None = None
     task_done: bool
     task_completed_at: datetime | None = None
     created_at: datetime
+    assignee_user_id: UUID | None = None
+    assignee_name: str | None = None
+    author_user_id: UUID | None = None
+    author_name: str | None = None
+
+
+class TaskCreateIn(BaseModel):
+    """Body for POST /tasks — задача с исполнителем и, по желанию, лидом."""
+
+    text: str = Field(min_length=1, max_length=2000)
+    task_due_at: datetime | None = None
+    assignee_user_id: UUID | None = None
+    lead_id: UUID | None = None
+
+
+class TaskPatchIn(BaseModel):
+    """Body for PATCH /tasks/{id}. Передавайте только меняемые поля."""
+
+    text: str | None = Field(None, min_length=1, max_length=2000)
+    task_due_at: datetime | None = None
+    assignee_user_id: UUID | None = None
 
 
 class AskBlakeIn(BaseModel):
