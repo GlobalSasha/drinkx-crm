@@ -3,14 +3,22 @@
 import { useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
-import { useUpdateLeadTask } from "@/lib/hooks/use-lead-tasks";
+import { useUpdateTask } from "@/lib/hooks/use-tasks";
+import { useMe } from "@/lib/hooks/use-me";
+import { useUsers } from "@/lib/hooks/use-users";
+import { UserSelect } from "@/components/ui/UserSelect";
+import { apiErrorDetail } from "@/lib/api-error";
 import { C } from "@/lib/design-system";
+import type { TaskPatchIn } from "@/lib/types";
 
 interface Props {
-  leadId: string;
+  /** Пусто у задач без лида. */
+  leadId: string | null;
   taskId: string;
   initialTitle: string;
   initialDueIso: string | null;
+  /** Текущий исполнитель — селект показываем только head/admin. */
+  initialAssigneeId?: string | null;
   onClose: () => void;
   onSaved?: () => void;
 }
@@ -29,29 +37,55 @@ export function TaskEditModal({
   taskId,
   initialTitle,
   initialDueIso,
+  initialAssigneeId = null,
   onClose,
   onSaved,
 }: Props) {
-  const update = useUpdateLeadTask(leadId);
+  const update = useUpdateTask();
+  const { data: me } = useMe();
+  const { data: usersData } = useUsers();
+  const canReassign = me?.role === "admin" || me?.role === "head";
+
   const [title, setTitle] = useState(initialTitle);
   const [due, setDue] = useState(() => isoToLocalInput(initialDueIso));
+  const [assigneeId, setAssigneeId] = useState<string | null>(initialAssigneeId);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSave() {
     const trimmed = title.trim();
     if (!trimmed) return;
     setError(null);
-    let iso: string | null = null;
-    if (due) {
-      const d = new Date(due); // datetime-local parsed in local time
-      if (!Number.isNaN(d.getTime())) iso = d.toISOString();
+
+    // Шлём только реально изменившиеся поля — бэкенд отвечает 400
+    // «нечего менять» на пустой PATCH.
+    const body: TaskPatchIn = {};
+    if (trimmed !== initialTitle) body.text = trimmed;
+
+    const initialDueLocal = isoToLocalInput(initialDueIso);
+    if (due !== initialDueLocal) {
+      let iso: string | null = null;
+      if (due) {
+        const d = new Date(due); // datetime-local parsed in local time
+        if (!Number.isNaN(d.getTime())) iso = d.toISOString();
+      }
+      body.task_due_at = iso;
     }
+
+    if (canReassign && assigneeId !== initialAssigneeId) {
+      body.assignee_user_id = assigneeId;
+    }
+
+    if (Object.keys(body).length === 0) {
+      onClose();
+      return;
+    }
+
     try {
-      await update.mutateAsync({ activityId: taskId, body: trimmed, task_due_at: iso });
+      await update.mutateAsync({ taskId, leadId, body });
       onSaved?.();
       onClose();
-    } catch {
-      setError("Не удалось сохранить задачу.");
+    } catch (err) {
+      setError(apiErrorDetail(err, "Не удалось сохранить задачу."));
     }
   }
 
@@ -108,6 +142,22 @@ export function TaskEditModal({
               </button>
             )}
           </div>
+
+          {canReassign && (
+            <div>
+              <label className="text-xs font-mono uppercase tracking-wide text-brand-muted">
+                Исполнитель
+              </label>
+              <UserSelect
+                value={assigneeId}
+                onChange={setAssigneeId}
+                users={usersData?.items ?? []}
+                meId={me?.id}
+                aria-label="Исполнитель"
+                className="mt-1"
+              />
+            </div>
+          )}
 
           {error && <p className="text-xs text-rose">{error}</p>}
 

@@ -1,18 +1,15 @@
 "use client";
 
-// /tasks — full task list, opened from the ↗ on the Today widget.
-//
-// Manager-entered tasks only (no AI). Fed by GET /me/tasks — all
-// Activity(type=task) across the user's leads, with their own due dates.
+// /tasks — full task list: «Мои» / «Поставлено мной» / «Команда» (только
+// head/admin). Опирается на GET /tasks с фильтрами по исполнителю/автору;
+// бэкенд сам сужает выборку менеджеру. Статус/срок/поиск — клиентские чипы.
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ListChecks, Check, ArrowUpRight, Pencil } from "lucide-react";
-import {
-  useMyTasks,
-  useCompleteMyTask,
-  useReopenMyTask,
-} from "@/lib/hooks/use-my-tasks";
+import { ListChecks, Check, ArrowUpRight, Pencil, Plus } from "lucide-react";
+import { useTasks, useSetTaskDone, type TaskFilters } from "@/lib/hooks/use-tasks";
+import { useMe } from "@/lib/hooks/use-me";
+import { useUsers } from "@/lib/hooks/use-users";
 import {
   myTaskToRow,
   isOverdue,
@@ -21,12 +18,18 @@ import {
   formatDueDateTime,
   type TaskRow,
 } from "@/lib/tasks";
+import { apiErrorDetail } from "@/lib/api-error";
+import type { MyTaskOut } from "@/lib/types";
 import { C } from "@/lib/design-system";
 import { pageContainerVariants } from "@/components/ui/PageContainer";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { DataTable, type ColumnDef } from "@/components/ui/DataTable";
 import { Badge } from "@/components/ui/Badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs";
+import { UserSelect } from "@/components/ui/UserSelect";
+import { Toast } from "@/components/ui/Toast";
 import { TaskEditModal } from "@/components/tasks/TaskEditModal";
+import { TaskCreateModal } from "@/components/tasks/TaskCreateModal";
 import {
   Empty,
   EmptyHeader,
@@ -35,8 +38,44 @@ import {
   EmptyDescription,
 } from "@/components/ui/Empty";
 
-type StatusFilter = "open" | "done" | "overdue";
+type TabKey = "mine" | "authored" | "team";
+type StatusFilter = "all" | "open" | "done" | "overdue";
 type DateFilter = "today" | "week" | "all";
+
+interface ToastState {
+  id: number;
+  message: string;
+  type: "error" | "success";
+}
+
+function buildFilters(
+  tab: TabKey,
+  meId: string | undefined,
+  assigneeFilter: string | null,
+): TaskFilters {
+  if (tab === "mine") return { assigneeUserId: meId };
+  if (tab === "authored") return { authorUserId: meId };
+  return { assigneeUserId: assigneeFilter ?? undefined };
+}
+
+function emptyStateFor(tab: TabKey, hasAnyRows: boolean) {
+  if (hasAnyRows) {
+    return { title: "Нет задач под фильтр", description: "Смените статус или срок" };
+  }
+  if (tab === "authored") {
+    return {
+      title: "Вы ещё не ставили задач",
+      description: "Нажмите «Новая задача», чтобы поставить первую",
+    };
+  }
+  if (tab === "team") {
+    return { title: "У команды нет задач", description: "Поставьте первую задачу" };
+  }
+  return {
+    title: "Задач нет",
+    description: "Когда менеджер поставит задачу — она появится в этом списке.",
+  };
+}
 
 function Chip({
   active,
@@ -73,6 +112,7 @@ function buildColumns(
   onToggle: (row: TaskRow) => void,
   onEdit: (row: TaskRow) => void,
   isMutating: boolean,
+  showAuthorSubtitle: boolean,
 ): ColumnDef<TaskRow, unknown>[] {
   return [
     // 1. Checkbox — toggles complete / reopen
@@ -110,13 +150,18 @@ function buildColumns(
       cell: ({ row }) => {
         const r = row.original;
         return (
-          <span
-            className={`type-body ${
-              r.done ? "line-through text-brand-muted" : "text-brand-primary"
-            }`}
-          >
-            {r.name}
-          </span>
+          <div className="flex flex-col">
+            <span
+              className={`type-body ${
+                r.done ? "line-through text-brand-muted" : "text-brand-primary"
+              }`}
+            >
+              {r.name}
+            </span>
+            {showAuthorSubtitle && r.authorId !== r.assigneeId && r.authorName && (
+              <span className="type-caption text-brand-muted">от {r.authorName}</span>
+            )}
+          </div>
         );
       },
     },
@@ -130,7 +175,21 @@ function buildColumns(
         </span>
       ),
     },
-    // 4. Срок
+    // 4. Кому
+    {
+      id: "assignee",
+      header: "Кому",
+      meta: {
+        headerClassName: "hidden md:table-cell",
+        cellClassName: "hidden md:table-cell",
+      },
+      cell: ({ row }) => (
+        <span className="type-caption text-brand-muted-strong">
+          {row.original.assigneeName ?? "—"}
+        </span>
+      ),
+    },
+    // 5. Срок
     {
       id: "due",
       header: "Срок",
@@ -150,51 +209,74 @@ function buildColumns(
         );
       },
     },
-    // 5. Тип
+    // 6. Тип
     {
       id: "type",
       header: "Тип",
       cell: ({ row }) => <TypeBadge row={row.original} />,
     },
-    // 6. Actions — edit (modal) + open-lead arrow
+    // 7. Actions — edit (modal) + open-lead arrow (только если есть лид)
     {
       id: "action",
       header: "",
       meta: { width: "4.5rem", align: "right", cellClassName: "px-1 py-2.5 align-top text-right", headerClassName: "px-1" },
-      cell: ({ row }) => (
-        <div className="inline-flex items-center gap-1">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(row.original);
-            }}
-            aria-label="Редактировать задачу"
-            title="Редактировать задачу"
-            className="p-1.5 rounded-full text-brand-muted hover:text-brand-primary hover:bg-brand-panel transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
-          >
-            <Pencil size={14} />
-          </button>
-          <ArrowUpRight
-            size={15}
-            className="text-brand-muted opacity-0 coarse:opacity-100 group-hover:opacity-100 transition-opacity inline-block"
-          />
-        </div>
-      ),
+      cell: ({ row }) => {
+        const r = row.original;
+        return (
+          <div className="inline-flex items-center gap-1">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(r);
+              }}
+              aria-label="Редактировать задачу"
+              title="Редактировать задачу"
+              className="p-1.5 rounded-full text-brand-muted hover:text-brand-primary hover:bg-brand-panel transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+            >
+              <Pencil size={14} />
+            </button>
+            {r.leadId && (
+              <ArrowUpRight
+                size={15}
+                className="text-brand-muted opacity-0 coarse:opacity-100 group-hover:opacity-100 transition-opacity inline-block"
+              />
+            )}
+          </div>
+        );
+      },
     },
   ];
 }
 
 export default function TasksPage() {
   const router = useRouter();
-  const { data, isLoading, isError } = useMyTasks();
-  const completeTask = useCompleteMyTask();
-  const reopenTask = useReopenMyTask();
+  const { data: me } = useMe();
+  const { data: usersData } = useUsers();
+  const canSeeTeam = me?.role === "admin" || me?.role === "head";
 
+  const [tab, setTab] = useState<TabKey>("mine");
+  const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
   const [status, setStatus] = useState<StatusFilter>("open");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [search, setSearch] = useState("");
   const [editingRow, setEditingRow] = useState<TaskRow | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [toasts, setToasts] = useState<ToastState[]>([]);
+
+  function addToast(message: string, type: "error" | "success" = "success") {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
+  }
+
+  const filters = useMemo(
+    () => buildFilters(tab, me?.id, assigneeFilter),
+    [tab, me?.id, assigneeFilter],
+  );
+
+  const { data, isPending, isError } = useTasks(filters, { enabled: !!me });
+  const setDone = useSetTaskDone();
 
   const allRows: TaskRow[] = useMemo(
     () => (data ?? []).map(myTaskToRow),
@@ -209,29 +291,80 @@ export default function TasksPage() {
       if (status === "overdue" && !isOverdue(r)) return false;
       if (dateFilter === "today" && !isToday(r.due)) return false;
       if (dateFilter === "week" && !withinThisWeek(r.due)) return false;
-      if (q && !(r.company ?? "").toLowerCase().includes(q)) return false;
+      if (
+        q &&
+        !(r.company ?? "").toLowerCase().includes(q) &&
+        !r.name.toLowerCase().includes(q)
+      ) {
+        return false;
+      }
       return true;
     });
   }, [allRows, status, dateFilter, search]);
 
-  const isMutating = completeTask.isPending || reopenTask.isPending;
+  const isMutating = setDone.isPending;
 
   function handleToggle(row: TaskRow) {
     if (isMutating) return;
-    if (row.done) reopenTask.mutate({ leadId: row.leadId, taskId: row.id });
-    else completeTask.mutate({ leadId: row.leadId, taskId: row.id });
+    setDone.mutate(
+      { taskId: row.id, done: !row.done, leadId: row.leadId },
+      {
+        onError: (err) => {
+          addToast(apiErrorDetail(err, "Не удалось обновить задачу"), "error");
+        },
+      },
+    );
+  }
+
+  function handleCreated(task: MyTaskOut) {
+    const assignedToMe = task.assignee_user_id === me?.id;
+    let message = assignedToMe ? "Задача создана" : `Задача поставлена: ${task.assignee_name}`;
+    if (!assignedToMe && tab === "mine") {
+      message += " — смотрите во вкладке «Поставлено мной»";
+    }
+    addToast(message, "success");
   }
 
   const columns = useMemo(
-    () => buildColumns(handleToggle, setEditingRow, isMutating),
+    () => buildColumns(handleToggle, setEditingRow, isMutating, tab === "team"),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isMutating],
+    [isMutating, tab],
   );
+
+  const empty = emptyStateFor(tab, allRows.length > 0);
+  const loading = isPending && !data;
 
   return (
     <>
       <div className={pageContainerVariants({ surface: "data" })}>
-        <PageHeader icon={<ListChecks size={20} />} title="Задачи" />
+        <PageHeader
+          icon={<ListChecks size={20} />}
+          title="Задачи"
+          actions={
+            <button
+              type="button"
+              onClick={() => setCreateOpen(true)}
+              className={`${C.button.primary} type-button px-4 py-2 inline-flex items-center gap-1.5`}
+            >
+              <Plus size={15} />
+              Новая задача
+            </button>
+          }
+        />
+
+        <Tabs
+          value={tab}
+          onValueChange={(v) => {
+            setTab(v as TabKey);
+            setAssigneeFilter(null);
+          }}
+        >
+          <TabsList className="mb-4">
+            <TabsTrigger value="mine">Мои</TabsTrigger>
+            <TabsTrigger value="authored">Поставлено мной</TabsTrigger>
+            {canSeeTeam && <TabsTrigger value="team">Команда</TabsTrigger>}
+          </TabsList>
+        </Tabs>
 
         {/* Filter bar */}
         <div className="bg-white border border-brand-border rounded-card p-4 sm:p-5 mb-4 flex flex-col gap-3">
@@ -246,6 +379,9 @@ export default function TasksPage() {
             <Chip active={status === "overdue"} onClick={() => setStatus("overdue")}>
               Просрочено
             </Chip>
+            <Chip active={status === "all"} onClick={() => setStatus("all")}>
+              Все
+            </Chip>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="type-caption text-brand-muted w-16 shrink-0">Срок</span>
@@ -259,34 +395,55 @@ export default function TasksPage() {
               Все
             </Chip>
           </div>
+          {tab === "team" && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="type-caption text-brand-muted w-16 shrink-0">Исполнитель</span>
+              <UserSelect
+                value={assigneeFilter}
+                onChange={setAssigneeFilter}
+                users={usersData?.items ?? []}
+                meId={me?.id}
+                allowEmpty
+                emptyLabel="Все"
+                aria-label="Исполнитель"
+                className="sm:max-w-xs"
+              />
+            </div>
+          )}
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Поиск по клиенту…"
+            placeholder="Поиск по клиенту или задаче…"
             className={`${C.form.field} sm:max-w-xs`}
           />
         </div>
 
         {/* Table */}
         <div className="bg-white border border-brand-border rounded-card p-4 sm:p-6">
-          {isLoading && (
+          {loading && (
             <p className={`type-body ${C.color.mutedLight} py-6 text-center`}>
               Загрузка…
             </p>
           )}
-          {!isLoading && isError && (
+          {!loading && isError && (
             <p className="type-body text-rose py-6 text-center">
               Не удалось загрузить задачи
             </p>
           )}
-          {!isLoading && !isError && (
+          {!loading && !isError && (
             <DataTable
               columns={columns}
               data={rows}
               onRowClick={(row) =>
-                router.push(`/leads/${row.leadId}?tab=tasks`)
+                row.leadId
+                  ? router.push(`/leads/${row.leadId}?tab=tasks`)
+                  : setEditingRow(row)
               }
-              rowLabel={(row) => `Открыть лид: ${row.company ?? row.name}`}
+              rowLabel={(row) =>
+                row.leadId
+                  ? `Открыть лид: ${row.company ?? row.name}`
+                  : `Редактировать задачу: ${row.name}`
+              }
               rowKey={(row) => row.id}
               emptyState={
                 <Empty>
@@ -294,10 +451,8 @@ export default function TasksPage() {
                     <EmptyMedia variant="icon">
                       <ListChecks />
                     </EmptyMedia>
-                    <EmptyTitle>Задач нет</EmptyTitle>
-                    <EmptyDescription>
-                      Когда менеджер поставит задачу — она появится в этом списке.
-                    </EmptyDescription>
+                    <EmptyTitle>{empty.title}</EmptyTitle>
+                    <EmptyDescription>{empty.description}</EmptyDescription>
                   </EmptyHeader>
                 </Empty>
               }
@@ -312,9 +467,23 @@ export default function TasksPage() {
           taskId={editingRow.id}
           initialTitle={editingRow.name}
           initialDueIso={editingRow.due}
+          initialAssigneeId={editingRow.assigneeId}
           onClose={() => setEditingRow(null)}
         />
       )}
+
+      <TaskCreateModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={handleCreated}
+      />
+
+      {/* Toast stack */}
+      <div className="fixed bottom-6 right-6 flex flex-col gap-2 z-50 pointer-events-none">
+        {toasts.map((t) => (
+          <Toast key={t.id} message={t.message} type={t.type} />
+        ))}
+      </div>
     </>
   );
 }
