@@ -15,6 +15,8 @@ from app.leads import services
 from app.leads.schemas import (
     DealPatchIn,
     GateViolationOut,
+    LeadAssignIn,
+    LeadAssignOut,
     LeadCreate,
     LeadListOut,
     LeadOut,
@@ -168,6 +170,44 @@ async def list_pool(
     filters = dict(city=city, segment=segment, fit_min=fit_min, form_id=form_id, needs_review=needs_review, page=page, page_size=page_size)
     items, total = await services.list_pool(db, user.workspace_id, filters)
     return LeadListOut(items=items, total=total, page=page, page_size=page_size)
+
+
+@router.post("/assign", response_model=LeadAssignOut)
+async def assign_leads(
+    payload: LeadAssignIn,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(require_admin_or_head)] = ...,
+) -> LeadAssignOut:
+    """Выдать лиды менеджеру — пачкой по списку id или по фильтру из пула.
+
+    Только руководитель и админ. Менеджер по-прежнему берёт карточки
+    себе через /claim и /sprint.
+    """
+    try:
+        items, requested, skipped = await services.assign_leads(
+            db,
+            user.workspace_id,
+            user.id,
+            payload.to_user_id,
+            lead_ids=payload.lead_ids,
+            cities=payload.cities,
+            segment=payload.segment,
+            fit_min=payload.fit_min,
+            limit=payload.limit,
+            comment=payload.comment,
+        )
+    except TransferTargetInvalid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Получатель не найден в этом рабочем пространстве",
+        )
+    await db.commit()
+    return LeadAssignOut(
+        assigned_count=len(items),
+        requested=requested,
+        skipped=skipped,
+        items=items,  # type: ignore[arg-type]
+    )
 
 
 @router.post("/sprint", response_model=SprintCreateOut)

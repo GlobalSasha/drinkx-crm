@@ -204,6 +204,38 @@ class SprintCreateOut(BaseModel):
     items: list[LeadOut]
 
 
+class LeadAssignIn(BaseModel):
+    """Body for POST /leads/assign — руководитель выдаёт лиды менеджеру.
+
+    Two modes, mutually exclusive:
+      - explicit: `lead_ids` non-empty → выдать именно эти карточки
+        (в том числе уже занятые кем-то — прежний владелец пишется
+        в `transferred_from`, как при передаче).
+      - filter: `lead_ids` пустой → взять до `limit` карточек ИЗ ПУЛА
+        по фильтру, тем же порядком, что и /leads/pool. Занятые
+        чужие карточки в этом режиме не трогаются.
+    """
+
+    to_user_id: UUID
+    lead_ids: list[UUID] = Field(default_factory=list, max_length=500)
+    # filter mode only
+    cities: list[str] = Field(default_factory=list)
+    segment: str | None = None
+    fit_min: float | None = None
+    limit: int | None = Field(None, ge=1, le=500)
+    comment: str | None = Field(None, max_length=500)
+
+
+class LeadAssignOut(BaseModel):
+    """`skipped` — сколько из запрошенных карточек не досталось:
+    удалены, не найдены или уже принадлежат этому же менеджеру."""
+
+    assigned_count: int
+    requested: int
+    skipped: int
+    items: list[LeadOut]
+
+
 class TransferIn(BaseModel):
     to_user_id: UUID
     comment: str | None = None
