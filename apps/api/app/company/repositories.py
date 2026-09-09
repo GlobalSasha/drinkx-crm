@@ -278,6 +278,7 @@ async def tasks_overdue_per_user(
             AND a.task_done = false
             AND a.task_due_at < now()
             AND a.archived_at IS NULL
+            AND (a.lead_id IS NULL OR (l.archived_at IS NULL AND l.deleted_at IS NULL))
         )
         SELECT user_id, count(*) AS n
         FROM overdue_tasks

@@ -249,6 +249,56 @@ async def test_an_explicit_assignee_beats_the_lead_owner(db, workspace):
     assert await _my_tasks(db, workspace, owner) == []
 
 
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_a_task_on_a_pool_lead_falls_back_to_the_head_author(db, workspace):
+    """У лида из пула нет владельца: задача без явного
+    исполнителя остаётся у автора в обоих списках."""
+    from app.activity import services
+
+    head = await _make_user(db, workspace.id, "head", "Head")
+    lead = await _make_lead(
+        db, workspace.id, assignment_status="pool", assigned_to=None
+    )
+    task = await services.create_activity(
+        db,
+        workspace.id,
+        lead.id,
+        head,
+        {"type": "task", "body": "Разобрать лид", "task_due_at": TOMORROW},
+    )
+
+    my_rows = await _my_tasks(db, workspace, head)
+    filtered_rows = await services.list_tasks(
+        db, workspace_id=workspace.id, actor=head, assignee_user_id=head.id
+    )
+
+    assert [row["id"] for row in my_rows] == [task.id]
+    assert [row["id"] for row in filtered_rows] == [task.id]
+    assert my_rows[0]["assignee_user_id"] == head.id
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_a_legacy_task_on_an_owned_lead_stays_with_the_owner(db, workspace):
+    """Если у лида есть владелец, автор задачи не становится
+    её исполнителем."""
+    from app.activity import repositories as activity_repo
+
+    head = await _make_user(db, workspace.id, "head", "Head")
+    owner = await _make_user(db, workspace.id, "manager", "Owner")
+    lead = await _make_lead(db, workspace.id, assigned_to=owner.id)
+    task = await activity_repo.create(
+        db,
+        lead.id,
+        head.id,
+        dict(type="task", payload_json={"title": "Старая задача"}, task_due_at=TOMORROW),
+    )
+
+    assert [row["id"] for row in await _my_tasks(db, workspace, owner)] == [task.id]
+    assert await _my_tasks(db, workspace, head) == []
+
+
 # ---------------------------------------------------------------------------
 # Списки и фильтры
 # ---------------------------------------------------------------------------
@@ -586,6 +636,60 @@ async def test_overdue_metric_keeps_legacy_lead_owner_fallback(db, workspace):
     )
 
     assert result == {manager.id: 1}
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_overdue_metric_matches_pool_task_author_fallback(db, workspace):
+    from app.activity import services
+    from app.company import repositories as company_repo
+
+    head = await _make_user(db, workspace.id, "head", "Head")
+    lead = await _make_lead(
+        db, workspace.id, assignment_status="pool", assigned_to=None
+    )
+    task = await services.create_activity(
+        db,
+        workspace.id,
+        lead.id,
+        head,
+        {"type": "task", "body": "Разобрать лид", "task_due_at": YESTERDAY},
+    )
+
+    rows = await _my_tasks(db, workspace, head)
+    result = await company_repo.tasks_overdue_per_user(
+        db, workspace_id=workspace.id, user_ids=[head.id]
+    )
+
+    assert [row["id"] for row in rows] == [task.id]
+    assert result == {head.id: 1}
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_overdue_metric_skips_tasks_on_trashed_leads(db, workspace):
+    from app.company import repositories as company_repo
+    from app.leads import repositories as leads_repo
+
+    head = await _make_user(db, workspace.id, "head", "Head")
+    manager = await _make_user(db, workspace.id, "manager", "Kirill")
+    lead = await _make_lead(db, workspace.id, assigned_to=manager.id)
+    await _create_task(
+        db,
+        workspace,
+        head,
+        lead_id=lead.id,
+        task_due_at=YESTERDAY,
+        assignee_user_id=manager.id,
+    )
+    await leads_repo.soft_delete_lead(db, lead, head.id)
+    await db.flush()
+
+    result = await company_repo.tasks_overdue_per_user(
+        db, workspace_id=workspace.id, user_ids=[manager.id]
+    )
+
+    assert result == {}
 
 
 @skip_no_pg

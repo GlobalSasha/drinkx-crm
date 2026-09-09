@@ -98,7 +98,7 @@ def _tasks_query(workspace_id: uuid.UUID):
 
 def _assigned_to_clause(Lead, user_id: uuid.UUID):
     """«Задача на этом человеке»: явный исполнитель, либо — если его нет —
-    владелец лида, либо автор задачи без лида."""
+    владелец лида, либо автор, если лида или его владельца нет."""
     from sqlalchemy import and_, or_
 
     return or_(
@@ -106,7 +106,7 @@ def _assigned_to_clause(Lead, user_id: uuid.UUID):
         and_(Activity.assignee_user_id.is_(None), Lead.assigned_to == user_id),
         and_(
             Activity.assignee_user_id.is_(None),
-            Activity.lead_id.is_(None),
+            or_(Activity.lead_id.is_(None), Lead.assigned_to.is_(None)),
             Activity.user_id == user_id,
         ),
     )

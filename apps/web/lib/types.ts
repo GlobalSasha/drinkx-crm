@@ -458,6 +458,7 @@ export interface ActivityOut {
   id: string;
   lead_id: string;
   user_id: string | null;
+  assignee_user_id: string | null;
   type: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload_json: Record<string, any>;

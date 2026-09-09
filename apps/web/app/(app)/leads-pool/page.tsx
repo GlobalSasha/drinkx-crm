@@ -106,7 +106,7 @@ function LeadsPoolPageInner() {
   // form_id is server-side filtered because it scopes the whole pool
   // to a specific landing source.
   const poolQuery = usePoolLeads({ page_size: 500, form_id: formId, needs_review: needsReview });
-  const claimMutation = useClaimLead();
+  const { mutate: claimLead } = useClaimLead();
 
   const formsQuery = useForms();
   const forms = formsQuery.data?.items ?? [];
@@ -345,11 +345,11 @@ function LeadsPoolPageInner() {
     setSelectedIds(new Set());
   }
 
-  function handleClaim(id: string) {
+  const handleClaim = useCallback((id: string) => {
     // Optimistic: gray row immediately
     setClaimingIds((prev) => new Set(prev).add(id));
 
-    claimMutation.mutate(id, {
+    claimLead(id, {
       onSuccess: () => {
         setClaimingIds((prev) => {
           const next = new Set(prev);
@@ -371,7 +371,7 @@ function LeadsPoolPageInner() {
         addToast(message, "error");
       },
     });
-  }
+  }, [addToast, claimLead]);
 
   const isLoading = poolQuery.isLoading;
   const isError = poolQuery.isError;
