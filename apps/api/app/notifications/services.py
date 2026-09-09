@@ -45,6 +45,11 @@ log = structlog.get_logger()
 # Add new entries here in lock-step with the producing code path.
 DEDUP_EXEMPT_KINDS: frozenset[str] = frozenset({
     "lead.urgent_signal",
+    # Раздача лидов и постановка задач: руководитель может выдать
+    # вторую пачку через десять минут после первой, и менеджер
+    # обязан узнать про обе — часовое окно тут глушит нужное.
+    "leads_assigned",
+    "task_assigned",
 })
 
 DEDUP_WINDOW = timedelta(hours=1)

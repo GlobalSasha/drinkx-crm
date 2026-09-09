@@ -160,7 +160,15 @@ async def managers(db: AsyncSession, *, workspace_id: uuid.UUID, period: str) ->
         nl = new_leads.get(uid, 0)
         act = actions.get(uid, 0)
         kp = kp_sent.get(uid, 0)
-        last_active_at = last_active.get(uid) or r["last_login_at"]
+        # «Был активен» — про присутствие в CRM, а не про работу с лидами,
+        # поэтому берём самый свежий сигнал, а не первый непустой. Раньше тут
+        # стоял `or`: любое действие по лиду полностью перекрывало дату входа,
+        # и менеджер, который сидит в CRM каждый день, но давно не трогал
+        # лидов, попадал в алерт «не заходил N дней». last_login_at обновляется
+        # на каждом запросе, включая пинг трекера активного времени, — он и
+        # есть самая надёжная отметка присутствия.
+        seen = [t for t in (last_active.get(uid), r["last_login_at"]) if t is not None]
+        last_active_at = max(seen) if seen else None
         active_daily = await presence_repo.active_daily(
             db, workspace_id=workspace_id, user_id=uid, from_=daily_from, to=now
         )

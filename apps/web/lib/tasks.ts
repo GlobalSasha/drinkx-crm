@@ -2,18 +2,24 @@
 // the /tasks page.
 //
 // Tasks are MANAGER-ENTERED ONLY — no AI anywhere. The data source is
-// GET /me/tasks (manual Activity(type=task) across the user's leads),
-// NOT the AI daily plan. Due dates are the manager's own values.
+// GET /me/tasks (задачи, которые числятся за человеком) или GET /tasks
+// (список с фильтрами для руководителя), NOT the AI daily plan.
+// Due dates are the manager's own values.
 
 import type { MyTaskOut } from "@/lib/types";
 
 export interface TaskRow {
   id: string;
-  leadId: string;
+  /** Пусто у задач без лида. */
+  leadId: string | null;
   name: string;
   company: string | null;
   due: string | null; // real task_due_at, manager-set
   done: boolean;
+  assigneeId: string | null;
+  assigneeName: string | null;
+  authorId: string | null;
+  authorName: string | null;
 }
 
 export function myTaskToRow(t: MyTaskOut): TaskRow {
@@ -24,6 +30,10 @@ export function myTaskToRow(t: MyTaskOut): TaskRow {
     company: t.lead_company_name,
     due: t.task_due_at,
     done: t.task_done,
+    assigneeId: t.assignee_user_id,
+    assigneeName: t.assignee_name,
+    authorId: t.author_user_id,
+    authorName: t.author_name,
   };
 }
 

@@ -613,6 +613,125 @@ async def claim_sprint(
     return claimed
 
 
+async def assign_leads_by_ids(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    lead_ids: list[uuid.UUID],
+    to_user_id: uuid.UUID,
+    *,
+    only_pool: bool = True,
+) -> tuple[list[Lead], int]:
+    """Выдать конкретные карточки менеджеру. Returns (assigned, skipped).
+
+    Уже принадлежащие цели карточки пропускаем (идемпотентность),
+    удалённые — тоже.
+
+    При `only_pool=True` (по умолчанию) карточки не из пула тоже
+    пропускаем — режим «список id» из пула не должен молча вырывать
+    карточку у другого менеджера. При `only_pool=False` (явный
+    перехват) занятую чужую карточку забираем, сохраняя прежнего
+    владельца в `transferred_from` — та же семантика, что у
+    transfer_lead, чтобы история передач не рвалась.
+
+    Блокируем строки FOR UPDATE в порядке возрастания id: два
+    одновременных назначения на пересекающихся наборах сериализуются
+    без взаимной блокировки.
+    """
+    if not lead_ids:
+        return [], 0
+
+    locked = await db.execute(
+        select(Lead)
+        .where(
+            Lead.id.in_(lead_ids),
+            Lead.workspace_id == workspace_id,
+            Lead.deleted_at.is_(None),
+        )
+        .order_by(Lead.id)
+        .with_for_update()
+    )
+    rows = list(locked.scalars().all())
+
+    now = datetime.now(timezone.utc)
+    assigned: list[Lead] = []
+    for lead in rows:
+        if lead.assigned_to == to_user_id:
+            continue
+        if only_pool and lead.assignment_status != "pool":
+            continue
+        if lead.assigned_to is not None:
+            lead.transferred_from = lead.assigned_to
+            lead.transferred_at = now
+        lead.assigned_to = to_user_id
+        lead.assigned_at = now
+        lead.assignment_status = "assigned"
+        assigned.append(lead)
+
+    await db.flush()
+    return assigned, len(lead_ids) - len(assigned)
+
+
+async def assign_pool_by_filter(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    to_user_id: uuid.UUID,
+    *,
+    cities: list[str],
+    segment: str | None,
+    fit_min: float | None,
+    limit: int,
+) -> list[Lead]:
+    """Выдать до `limit` карточек ИЗ ПУЛА по фильтру.
+
+    Тот же приём, что в claim_sprint: FOR UPDATE SKIP LOCKED на выборе
+    кандидатов, затем адресный UPDATE с повторной проверкой
+    `assignment_status = 'pool'` — параллельный «взять в работу»
+    менеджера не может быть перезаписан.
+    """
+    where_parts = [
+        "workspace_id = :workspace_id",
+        "assignment_status = 'pool'",
+        "deleted_at IS NULL",
+    ]
+    params: dict[str, Any] = {"workspace_id": workspace_id, "limit": limit}
+
+    if cities:
+        where_parts.append("city = ANY(:cities)")
+        params["cities"] = cities
+    if segment is not None:
+        where_parts.append("segment = :segment")
+        params["segment"] = segment
+    if fit_min is not None:
+        where_parts.append("fit_score >= :fit_min")
+        params["fit_min"] = fit_min
+
+    sql = text(
+        f"SELECT id FROM leads WHERE {' AND '.join(where_parts)} "
+        "ORDER BY fit_score DESC NULLS LAST, created_at ASC "
+        "LIMIT :limit FOR UPDATE SKIP LOCKED"
+    )
+    candidate_ids = [row[0] for row in (await db.execute(sql, params)).fetchall()]
+
+    assigned: list[Lead] = []
+    for lead_id in candidate_ids:
+        stmt = (
+            update(Lead)
+            .where(Lead.id == lead_id, Lead.assignment_status == "pool")
+            .values(
+                assigned_to=to_user_id,
+                assigned_at=func.now(),
+                assignment_status="assigned",
+            )
+            .returning(Lead)
+        )
+        lead = (await db.execute(stmt)).scalar_one_or_none()
+        if lead is not None:
+            assigned.append(lead)
+
+    await db.flush()
+    return assigned
+
+
 async def transfer_lead(
     db: AsyncSession,
     lead: Lead,

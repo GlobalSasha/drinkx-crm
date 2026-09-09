@@ -69,3 +69,19 @@ CRM_AUDIT_REPORT.md
 
 # Misc
 .DS_Store
+
+# Local LPR import artifacts — generated PII output, must never be committed
+scripts/lpr_import/
+
+# Local agent / tooling state (not part of the app).
+# NOTE: .claude/launch.json is tracked — ignore .claude/skills specifically,
+# not all of .claude/.
+.beads/
+.codex/
+.agents/skills/
+.claude/skills/
+CRM_AUDIT_REPORT.md
+
+# iCloud duplicate artifacts («… 2.ext»)
+* 2.*
+* 2/

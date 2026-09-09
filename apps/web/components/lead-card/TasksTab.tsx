@@ -311,6 +311,7 @@ export function TasksTab({ leadId }: Props) {
           taskId={editingTask.id}
           initialTitle={taskTitle(editingTask)}
           initialDueIso={editingTask.task_due_at}
+          initialAssigneeId={editingTask.assignee_user_id}
           onClose={() => setEditingTask(null)}
         />
       )}

@@ -89,30 +89,6 @@ export function useReopenLeadTask(leadId: string) {
   });
 }
 
-export interface UpdateLeadTaskIn {
-  activityId: string;
-  body?: string;
-  task_due_at?: string | null;
-}
-
-/** PATCH /leads/{id}/activities/{activityId} — update task title and/or due date. */
-export function useUpdateLeadTask(leadId: string) {
-  const qc = useQueryClient();
-  return useMutation<ActivityOut, ApiError, UpdateLeadTaskIn>({
-    mutationFn: ({ activityId, body, task_due_at }) =>
-      api.patch<ActivityOut>(`/leads/${leadId}/activities/${activityId}`, {
-        body,
-        task_due_at,
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: TASKS_KEY(leadId) });
-      qc.invalidateQueries({ queryKey: ["feed", leadId] });
-      qc.invalidateQueries({ queryKey: ["my-tasks"] });
-      qc.invalidateQueries({ queryKey: ["daily-plan", "today"] });
-    },
-  });
-}
-
 /** DELETE /leads/{id}/activities/{activityId} — archive a task (soft-delete).
  *  The backend sets archived_at and returns the updated row. */
 export function useArchiveLeadTask(leadId: string) {

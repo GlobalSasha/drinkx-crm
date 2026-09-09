@@ -71,7 +71,11 @@ async def team_stats(
 
     managers = []
     for u in users:
-        last_act = last_active.get(u.id) or u.last_login_at
+        # Самый свежий сигнал присутствия, а не первый непустой — иначе
+        # старое действие по лиду перекрывает свежий вход. См. тот же расчёт
+        # в app/company/services.py.
+        seen = [t for t in (last_active.get(u.id), u.last_login_at) if t is not None]
+        last_act = max(seen) if seen else None
         managers.append({
             "user_id": u.id,
             "name": u.name or u.email,

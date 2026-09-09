@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Globe } from "lucide-react";
 import { NeedsReviewRow } from "@/components/leads-pool/NeedsReviewRow";
@@ -12,11 +13,15 @@ interface Props {
   lead: LeadOut;
   onClaim: (id: string) => void;
   claiming: boolean;
+  /** G2: показывать чекбокс выделения (только head/admin). */
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
 // ---- Row component ----
 
-export function PoolRow({ lead, onClaim, claiming }: Props) {
+function PoolRowInner({ lead, onClaim, claiming, selectable, selected, onToggleSelect }: Props) {
   const router = useRouter();
   const tier = tierFromScore(lead.score);
   const TIER_STYLE: Record<string, string> = {
@@ -43,6 +48,12 @@ export function PoolRow({ lead, onClaim, claiming }: Props) {
     }
   }
 
+  function stopRowActivation(e: React.SyntheticEvent) {
+    // Чекбокс живёт внутри строки-ссылки — клик/Space по нему не должны
+    // открывать карточку лида.
+    e.stopPropagation();
+  }
+
   return (
     <tr
       role="link"
@@ -50,8 +61,26 @@ export function PoolRow({ lead, onClaim, claiming }: Props) {
       aria-label={`Открыть лид ${lead.company_name}`}
       onClick={openLead}
       onKeyDown={handleKey}
-      className={`border-b border-brand-border transition-opacity duration-300 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-inset ${claiming ? "opacity-40" : "hover:bg-brand-bg"}`}
+      className={`border-b border-brand-border transition-opacity duration-300 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-inset ${claiming ? "opacity-40" : "hover:bg-brand-bg"} ${selectable && selected ? "bg-brand-soft/40" : ""}`}
     >
+      {selectable && (
+        <td className="px-3 py-3">
+          <label
+            className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center"
+            onClick={stopRowActivation}
+          >
+            <input
+              type="checkbox"
+              checked={!!selected}
+              onChange={() => onToggleSelect?.(lead.id)}
+              onClick={stopRowActivation}
+              onKeyDown={stopRowActivation}
+              aria-label={`Выбрать ${lead.company_name}`}
+              className="h-4 w-4 accent-brand-accent"
+            />
+          </label>
+        </td>
+      )}
       <td className="px-4 py-3">
         <p className="font-semibold text-sm text-brand-primary">{lead.company_name}</p>
         {(lead.city || lead.segment) && (
@@ -106,3 +135,6 @@ export function PoolRow({ lead, onClaim, claiming }: Props) {
     </tr>
   );
 }
+
+// 500-строчный пул + клик по чекбоксу на каждой — мемоизируем строку.
+export const PoolRow = memo(PoolRowInner);

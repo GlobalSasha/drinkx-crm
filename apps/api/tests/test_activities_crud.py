@@ -51,7 +51,7 @@ async def test_create_comment_activity(db, workspace, user):
     from app.activity import services
 
     activity = await services.create_activity(
-        db, workspace.id, lead.id, user.id,
+        db, workspace.id, lead.id, user,
         {"type": "comment", "payload_json": {"text": "Hello"}, "body": "Hello"},
     )
     assert activity.type == "comment"
@@ -67,7 +67,7 @@ async def test_create_task_activity(db, workspace, user):
     from app.activity import services
 
     activity = await services.create_activity(
-        db, workspace.id, lead.id, user.id,
+        db, workspace.id, lead.id, user,
         {"type": "task", "payload_json": {}, "task_due_at": due},
     )
     assert activity.type == "task"
@@ -82,7 +82,7 @@ async def test_create_task_without_due_at_raises(db, workspace, user):
 
     with pytest.raises(ValueError, match="task_due_at"):
         await services.create_activity(
-            db, workspace.id, lead.id, user.id,
+            db, workspace.id, lead.id, user,
             {"type": "task", "payload_json": {}},
         )
 
@@ -94,7 +94,7 @@ async def test_create_reminder_activity(db, workspace, user):
     from app.activity import services
 
     activity = await services.create_activity(
-        db, workspace.id, lead.id, user.id,
+        db, workspace.id, lead.id, user,
         {"type": "reminder", "payload_json": {}, "reminder_trigger_at": trigger},
     )
     assert activity.type == "reminder"
@@ -106,7 +106,7 @@ async def test_create_file_activity(db, workspace, user):
     from app.activity import services
 
     activity = await services.create_activity(
-        db, workspace.id, lead.id, user.id,
+        db, workspace.id, lead.id, user,
         {"type": "file", "payload_json": {}, "file_url": "https://s3/file.pdf", "file_kind": "pdf"},
     )
     assert activity.type == "file"
@@ -119,7 +119,7 @@ async def test_create_system_activity(db, workspace, user):
     from app.activity import services
 
     activity = await services.create_activity(
-        db, workspace.id, lead.id, user.id,
+        db, workspace.id, lead.id, user,
         {"type": "system", "payload_json": {"event": "lead_created"}},
     )
     assert activity.type == "system"
@@ -133,7 +133,7 @@ async def test_invalid_activity_type_raises(db, workspace, user):
 
     with pytest.raises(ValueError, match="Invalid activity type"):
         await services.create_activity(
-            db, workspace.id, lead.id, user.id,
+            db, workspace.id, lead.id, user,
             {"type": "not_a_type", "payload_json": {}},
         )
 

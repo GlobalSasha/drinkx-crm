@@ -1,7 +1,12 @@
 """Add expires_at to user_invites (plan 023 — invite expiry).
 
 Revision ID: 0057_user_invite_expires_at
-Revises: 0056_lead_commercial_model
+Revises: 0058_task_assignee_and_standalone
+
+Цепляется за 0058, а не за 0056: ветка «руководитель отдела продаж»
+влилась в main первой (PR #171). Два потомка одного родителя дали бы
+две головы Alembic, и `alembic upgrade head` при старте контейнера
+остановился бы, не зная, какую ревизию применять.
 Create Date: 2026-07-18
 """
 from __future__ import annotations
@@ -12,7 +17,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0057_user_invite_expires_at"
-down_revision: Union[str, None] = "0056_lead_commercial_model"
+down_revision: Union[str, None] = "0058_task_assignee_and_standalone"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
