@@ -46,6 +46,11 @@ export function UserSelect({
       className={`${C.form.field}${className ? ` ${className}` : ""}`}
     >
       {allowEmpty && <option value="">{emptyLabel}</option>}
+      {!allowEmpty && value == null && (
+        <option value="" disabled hidden>
+          — выберите —
+        </option>
+      )}
       {users.map((user) => (
         <option key={user.id} value={user.id}>
           {(user.name || user.email) + " · " + (ROLE_LABEL[user.role] ?? user.role)}

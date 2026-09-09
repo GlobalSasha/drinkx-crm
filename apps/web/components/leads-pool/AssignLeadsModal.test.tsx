@@ -40,14 +40,12 @@ function renderModal(overrides: Partial<React.ComponentProps<typeof AssignLeadsM
   const qc = new QueryClient();
   const onClose = vi.fn();
   const onDone = vi.fn();
-  const refetchPool = vi.fn().mockResolvedValue(undefined);
   const props: React.ComponentProps<typeof AssignLeadsModal> = {
     open: true,
     onClose,
     mode: "selected",
     selectedIds: ["l1", "l2"],
     visibleIds: ["l1", "l2", "l3", "l4"],
-    refetchPool,
     onDone,
     ...overrides,
   };
@@ -56,7 +54,7 @@ function renderModal(overrides: Partial<React.ComponentProps<typeof AssignLeadsM
       <AssignLeadsModal {...props} />
     </QueryClientProvider>,
   );
-  return { onClose, onDone, refetchPool, props };
+  return { onClose, onDone, props };
 }
 
 describe("AssignLeadsModal", () => {
@@ -72,13 +70,12 @@ describe("AssignLeadsModal", () => {
 
   it("режим selected шлёт mode:ids, only_pool:true, lead_ids: selectedIds и вызывает onDone", async () => {
     apiPost.mockResolvedValue({ assigned_count: 2, requested: 2, skipped: 0, items: [] });
-    const { onDone, onClose, refetchPool } = renderModal({ mode: "selected" });
+    const { onDone, onClose } = renderModal({ mode: "selected" });
 
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Менеджер" }), "u1");
     await userEvent.click(screen.getByRole("button", { name: "Выдать" }));
 
     await waitFor(() => expect(onDone).toHaveBeenCalled());
-    expect(refetchPool).toHaveBeenCalled();
     expect(apiPost).toHaveBeenCalledWith("/leads/assign", {
       to_user_id: "u1",
       mode: "ids",
@@ -106,6 +103,21 @@ describe("AssignLeadsModal", () => {
         lead_ids: ["a", "b"],
       }),
     );
+  });
+
+  it("режим topN объясняет невалидное количество", async () => {
+    renderModal({ mode: "topN", visibleIds: ["a", "b", "c", "d"] });
+
+    const nInput = screen.getByLabelText("Сколько выдать");
+    await userEvent.clear(nInput);
+    expect(screen.getByText("Введите число от 1 до 4")).toBeInTheDocument();
+
+    await userEvent.type(nInput, "5");
+    expect(screen.getByText("Введите число от 1 до 4")).toBeInTheDocument();
+
+    await userEvent.clear(nInput);
+    await userEvent.type(nInput, "2");
+    expect(screen.queryByText("Введите число от 1 до 4")).not.toBeInTheDocument();
   });
 
   it("ошибка API с detail показана и onClose не вызван", async () => {

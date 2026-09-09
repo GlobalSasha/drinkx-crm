@@ -54,7 +54,10 @@ describe("PoolRow", () => {
         onToggleSelect={onToggleSelect}
       />,
     );
-    await userEvent.click(screen.getByRole("checkbox", { name: "Выбрать Acme" }));
+    const checkbox = screen.getByRole("checkbox", { name: "Выбрать Acme" });
+    const tapTarget = checkbox.closest("label");
+    expect(tapTarget).not.toBeNull();
+    await userEvent.click(tapTarget!);
     expect(onToggleSelect).toHaveBeenCalledWith("lead-1");
     expect(push).not.toHaveBeenCalled();
   });

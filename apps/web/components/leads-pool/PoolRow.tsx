@@ -64,15 +64,21 @@ function PoolRowInner({ lead, onClaim, claiming, selectable, selected, onToggleS
       className={`border-b border-brand-border transition-opacity duration-300 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-inset ${claiming ? "opacity-40" : "hover:bg-brand-bg"} ${selectable && selected ? "bg-brand-soft/40" : ""}`}
     >
       {selectable && (
-        <td className="px-3 py-3" onClick={stopRowActivation} onKeyDown={stopRowActivation}>
-          <input
-            type="checkbox"
-            checked={!!selected}
-            onChange={() => onToggleSelect?.(lead.id)}
+        <td className="px-3 py-3">
+          <label
+            className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center"
             onClick={stopRowActivation}
-            onKeyDown={stopRowActivation}
-            aria-label={`Выбрать ${lead.company_name}`}
-          />
+          >
+            <input
+              type="checkbox"
+              checked={!!selected}
+              onChange={() => onToggleSelect?.(lead.id)}
+              onClick={stopRowActivation}
+              onKeyDown={stopRowActivation}
+              aria-label={`Выбрать ${lead.company_name}`}
+              className="h-4 w-4 accent-brand-accent"
+            />
+          </label>
         </td>
       )}
       <td className="px-4 py-3">

@@ -12,6 +12,16 @@ const users: UserListItemOut[] = [
 ];
 
 describe("UserSelect", () => {
+  it("без allowEmpty показывает плейсхолдер при пустом value", () => {
+    render(<UserSelect value={null} onChange={vi.fn()} users={users} />);
+
+    const select = screen.getByRole("combobox");
+    const placeholder = select.querySelector<HTMLOptionElement>('option[value=""]');
+    expect(select).toHaveValue("");
+    expect(placeholder).toBeDisabled();
+    expect(placeholder).toHaveAttribute("hidden");
+  });
+
   it("рендерит пользователей с подписями ролей и «(вы)»", () => {
     render(
       <UserSelect value={null} onChange={vi.fn()} users={users} meId="u2" />,

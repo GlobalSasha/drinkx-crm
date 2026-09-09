@@ -18,7 +18,6 @@ interface Props {
   selectedIds: string[];
   /** id всех строк текущего `filtered` в порядке отображения. */
   visibleIds: string[];
-  refetchPool: () => Promise<unknown>;
   onDone: (result: LeadAssignOut, recipientName: string) => void;
 }
 
@@ -28,7 +27,6 @@ export function AssignLeadsModal({
   mode,
   selectedIds,
   visibleIds,
-  refetchPool,
   onDone,
 }: Props) {
   const usersQuery = useUsers();
@@ -37,12 +35,18 @@ export function AssignLeadsModal({
   const users = usersQuery.data?.items ?? [];
 
   const [managerId, setManagerId] = useState<string | null>(null);
-  const [topN, setTopN] = useState<number>(() => Math.min(20, visibleIds.length));
+  const [topN, setTopN] = useState(() => String(Math.min(20, visibleIds.length)));
   const [error, setError] = useState<string | null>(null);
 
   const isPending = assignMutation.isPending;
 
-  const nInvalid = mode === "topN" && (topN < 1 || topN > visibleIds.length || !Number.isFinite(topN));
+  const parsedTopN = Number(topN);
+  const nInvalid =
+    mode === "topN" &&
+    (topN.trim() === "" ||
+      !Number.isInteger(parsedTopN) ||
+      parsedTopN < 1 ||
+      parsedTopN > visibleIds.length);
   const idsEmpty = mode === "selected" ? selectedIds.length === 0 : visibleIds.length === 0;
   const canSubmit = !!managerId && !nInvalid && !idsEmpty && !isPending;
 
@@ -55,12 +59,12 @@ export function AssignLeadsModal({
     if (!canSubmit || !managerId) return;
     setError(null);
     try {
-      // Перечитываем пул перед отправкой — иначе можно выдать то, что
-      // менеджер только что взял себе.
-      await refetchPool();
-      const leadIds = mode === "selected" ? selectedIds : visibleIds.slice(0, topN);
+      const leadIds =
+        mode === "selected" ? selectedIds : visibleIds.slice(0, parsedTopN);
       const recipient = users.find((u) => u.id === managerId);
       const recipientName = recipient?.name || recipient?.email || "";
+      // Занятые карточки отсекает бэкенд по `only_pool` — расхождение
+      // менеджер увидит в тосте «Выдано N из M».
       const result = await assignMutation.mutateAsync({
         to_user_id: managerId,
         mode: "ids",
@@ -113,9 +117,15 @@ export function AssignLeadsModal({
                 min={1}
                 max={visibleIds.length}
                 value={topN}
-                onChange={(e) => setTopN(Number(e.target.value))}
+                onChange={(e) => setTopN(e.target.value)}
+                aria-invalid={nInvalid}
                 className={`mt-1 ${C.form.field}`}
               />
+              {nInvalid && (
+                <p className="mt-1 text-xs text-rose">
+                  Введите число от 1 до {visibleIds.length}
+                </p>
+              )}
               <p className="mt-1 text-xs text-brand-muted">
                 Сейчас под фильтр подходит: {visibleIds.length}
               </p>

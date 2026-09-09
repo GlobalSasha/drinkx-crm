@@ -47,7 +47,7 @@ export function TaskCreateModal({ open, onClose, onCreated }: Props) {
     return () => clearTimeout(t);
   }, [leadQuery]);
 
-  const { data: leadsData } = useLeads({
+  const { data: leadsData, isFetching: isFetchingLeads } = useLeads({
     q: debouncedQuery || undefined,
     workspace_search: true,
     page_size: 12,
@@ -194,6 +194,16 @@ export function TaskCreateModal({ open, onClose, onCreated }: Props) {
                   placeholder="Найти лид по компании…"
                   className={`mt-1 ${C.form.field}`}
                 />
+                {debouncedQuery.length >= 2 && isFetchingLeads && (
+                  <p className="mt-1 type-caption text-brand-muted">Ищем…</p>
+                )}
+                {debouncedQuery.length >= 2 &&
+                  !isFetchingLeads &&
+                  leadResults.length === 0 && (
+                    <p className="mt-1 type-caption text-brand-muted">
+                      Не нашли. Задачу можно поставить без лида
+                    </p>
+                  )}
                 {leadResults.length > 0 && (
                   <div className="mt-1 max-h-40 overflow-y-auto flex flex-col gap-0.5 border border-brand-border rounded-xl p-1">
                     {leadResults.map((lead) => (

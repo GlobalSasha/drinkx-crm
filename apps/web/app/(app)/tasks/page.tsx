@@ -112,7 +112,7 @@ function buildColumns(
   onToggle: (row: TaskRow) => void,
   onEdit: (row: TaskRow) => void,
   isMutating: boolean,
-  showAuthorSubtitle: boolean,
+  showTeamDetails: boolean,
 ): ColumnDef<TaskRow, unknown>[] {
   return [
     // 1. Checkbox — toggles complete / reopen
@@ -158,8 +158,13 @@ function buildColumns(
             >
               {r.name}
             </span>
-            {showAuthorSubtitle && r.authorId !== r.assigneeId && r.authorName && (
+            {showTeamDetails && r.authorId !== r.assigneeId && r.authorName && (
               <span className="type-caption text-brand-muted">от {r.authorName}</span>
+            )}
+            {showTeamDetails && r.assigneeName && (
+              <p className="md:hidden type-caption text-brand-muted">
+                → {r.assigneeName}
+              </p>
             )}
           </div>
         );
@@ -309,6 +314,9 @@ export default function TasksPage() {
     setDone.mutate(
       { taskId: row.id, done: !row.done, leadId: row.leadId },
       {
+        onSuccess: () => {
+          if (!row.done) addToast("Задача выполнена", "success");
+        },
         onError: (err) => {
           addToast(apiErrorDetail(err, "Не удалось обновить задачу"), "error");
         },
@@ -318,7 +326,9 @@ export default function TasksPage() {
 
   function handleCreated(task: MyTaskOut) {
     const assignedToMe = task.assignee_user_id === me?.id;
-    let message = assignedToMe ? "Задача создана" : `Задача поставлена: ${task.assignee_name}`;
+    let message = assignedToMe
+      ? "Задача создана"
+      : `Задача поставлена: ${task.assignee_name ?? "исполнителю"}`;
     if (!assignedToMe && tab === "mine") {
       message += " — смотрите во вкладке «Поставлено мной»";
     }

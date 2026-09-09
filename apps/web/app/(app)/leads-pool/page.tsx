@@ -380,7 +380,7 @@ function LeadsPoolPageInner() {
     <>
       {/* Sticky header */}
       <div className="sticky top-0 z-10 bg-white border-b border-brand-border px-6 py-4">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-baseline gap-2">
             <h1 className="type-page-title">База лидов</h1>
             {/* Compact total — shown small next to title, the loud counts
@@ -392,7 +392,7 @@ function LeadsPoolPageInner() {
               )}
             </span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => setAiUpdateOpen(true)}
               className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition hover:bg-brand-panel active:scale-[0.96]"
@@ -406,9 +406,8 @@ function LeadsPoolPageInner() {
                 onClick={() => setAssignMode("topN")}
                 disabled={filtered.length === 0}
                 className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition hover:bg-brand-panel active:scale-[0.96] disabled:opacity-40"
-                aria-label="Выдать N по фильтру"
               >
-                Выдать {filtered.length} по фильтру
+                Выдать по фильтру
               </button>
             )}
             <ExportPopover
@@ -505,55 +504,58 @@ function LeadsPoolPageInner() {
         )}
 
         {!isLoading && !isError && filtered.length > 0 && (
-          <div className="overflow-x-auto rounded-xl border border-brand-border bg-white">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-brand-border">
-                  {canAssign && (
-                    <th className="px-3 py-2.5">
-                      <input
-                        ref={selectAllRef}
-                        type="checkbox"
-                        checked={allFilteredSelected}
-                        onChange={toggleSelectAll}
-                        aria-label="Выбрать все в списке"
-                      />
-                    </th>
-                  )}
-                  {/* Город/Сегмент/Fit/Статус уходят под md: на телефоне они
-                      показываются подстрокой в первой ячейке PoolRow. */}
-                  {[
-                    { h: "Компания", cls: "" },
-                    { h: "Город", cls: "hidden md:table-cell" },
-                    { h: "Сегмент", cls: "hidden md:table-cell" },
-                    { h: "Tier", cls: "" },
-                    { h: "Fit Score", cls: "hidden md:table-cell" },
-                    { h: "Статус", cls: "hidden md:table-cell" },
-                    { h: "", cls: "" },
-                  ].map(({ h, cls }) => (
-                    <th
-                      key={h}
-                      className={`px-4 py-2.5 type-table-header text-brand-muted whitespace-nowrap ${cls}`}
-                    >
-                      {h}
-                    </th>
+          <>
+            <div className="overflow-x-auto rounded-xl border border-brand-border bg-white">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-brand-border">
+                    {canAssign && (
+                      <th className="px-3 py-2.5">
+                        <input
+                          ref={selectAllRef}
+                          type="checkbox"
+                          checked={allFilteredSelected}
+                          onChange={toggleSelectAll}
+                          aria-label="Выбрать все в списке"
+                          className="h-4 w-4 accent-brand-accent"
+                        />
+                      </th>
+                    )}
+                    {/* Город/Сегмент/Fit/Статус уходят под md: на телефоне они
+                        показываются подстрокой в первой ячейке PoolRow. */}
+                    {[
+                      { h: "Компания", cls: "" },
+                      { h: "Город", cls: "hidden md:table-cell" },
+                      { h: "Сегмент", cls: "hidden md:table-cell" },
+                      { h: "Tier", cls: "" },
+                      { h: "Fit Score", cls: "hidden md:table-cell" },
+                      { h: "Статус", cls: "hidden md:table-cell" },
+                      { h: "", cls: "" },
+                    ].map(({ h, cls }) => (
+                      <th
+                        key={h}
+                        className={`px-4 py-2.5 type-table-header text-brand-muted whitespace-nowrap ${cls}`}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((lead) => (
+                    <PoolRow
+                      key={lead.id}
+                      lead={lead}
+                      onClaim={handleClaim}
+                      claiming={claimingIds.has(lead.id)}
+                      selectable={canAssign}
+                      selected={selectedIds.has(lead.id)}
+                      onToggleSelect={toggleSelect}
+                    />
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((lead) => (
-                  <PoolRow
-                    key={lead.id}
-                    lead={lead}
-                    onClaim={handleClaim}
-                    claiming={claimingIds.has(lead.id)}
-                    selectable={canAssign}
-                    selected={selectedIds.has(lead.id)}
-                    onToggleSelect={toggleSelect}
-                  />
-                ))}
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
             {canAssign && visibleSelected.length > 0 && (
               <SelectionBar
                 count={visibleSelected.length}
@@ -561,7 +563,7 @@ function LeadsPoolPageInner() {
                 onClear={() => setSelectedIds(new Set())}
               />
             )}
-          </div>
+          </>
         )}
       </div>
 
@@ -572,7 +574,6 @@ function LeadsPoolPageInner() {
           mode={assignMode}
           selectedIds={visibleSelected}
           visibleIds={filtered.map((l) => l.id)}
-          refetchPool={poolQuery.refetch}
           onDone={handleAssignDone}
         />
       )}
@@ -595,4 +596,3 @@ export default function LeadsPoolPage() {
     </Suspense>
   );
 }
-

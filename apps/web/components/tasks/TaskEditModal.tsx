@@ -85,7 +85,7 @@ export function TaskEditModal({
       onSaved?.();
       onClose();
     } catch (err) {
-      setError(apiErrorDetail(err, "Не удалось сохранить задачу."));
+      setError(apiErrorDetail(err, "Не удалось сохранить задачу"));
     }
   }
 
