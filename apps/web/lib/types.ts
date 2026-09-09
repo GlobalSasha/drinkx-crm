@@ -503,13 +503,57 @@ export interface ActivityListOut {
 
 export interface MyTaskOut {
   id: string;
-  lead_id: string;
+  /** Задача может не относиться к лиду («сдать отчёт за неделю»). */
+  lead_id: string | null;
   lead_company_name: string | null;
   text: string;
   task_due_at: string | null;
   task_done: boolean;
   task_completed_at: string | null;
   created_at: string;
+  /** Уже разрешённый исполнитель: явный, иначе владелец лида, иначе автор. */
+  assignee_user_id: string | null;
+  assignee_name: string | null;
+  author_user_id: string | null;
+  author_name: string | null;
+}
+
+export interface TaskCreateIn {
+  text: string;
+  task_due_at?: string | null;
+  assignee_user_id?: string | null;
+  lead_id?: string | null;
+}
+
+export interface TaskPatchIn {
+  text?: string;
+  task_due_at?: string | null;
+  assignee_user_id?: string | null;
+}
+
+export type TaskStatusFilter = "all" | "open" | "done" | "overdue";
+
+// ---- Раздача лидов из базы (POST /leads/assign) ----
+
+export interface LeadAssignIn {
+  to_user_id: string;
+  /** Явный режим: `ids` требует непустой `lead_ids`, `filter` — хотя бы один фильтр или limit. */
+  mode: "ids" | "filter";
+  /** В режиме `ids` пропускать карточки, которые уже кто-то взял (по умолчанию true). */
+  only_pool?: boolean;
+  lead_ids?: string[];
+  cities?: string[];
+  segment?: string | null;
+  fit_min?: number | null;
+  limit?: number | null;
+  comment?: string | null;
+}
+
+export interface LeadAssignOut {
+  assigned_count: number;
+  requested: number;
+  skipped: number;
+  items: LeadOut[];
 }
 
 // ---- Lead notes ----
