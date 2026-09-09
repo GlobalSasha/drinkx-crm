@@ -264,19 +264,25 @@ async def tasks_overdue_per_user(
     workspace_id: uuid.UUID,
     user_ids: list[uuid.UUID],
 ) -> dict[uuid.UUID, int]:
-    """Point-in-time overdue task count on leads assigned to each user."""
+    """Просроченные задачи по эффективному исполнителю:
+    явный исполнитель, владелец лида или автор."""
     if not user_ids:
         return {}
     sql = text("""
-        SELECT l.assigned_to AS user_id, count(*) AS n
-        FROM activities a
-        JOIN leads l ON l.id = a.lead_id
-        WHERE l.workspace_id = :wid
-          AND l.assigned_to = ANY(:uids)
-          AND a.type = 'task'
-          AND a.task_done = false
-          AND a.task_due_at < now()
-        GROUP BY l.assigned_to
+        WITH overdue_tasks AS (
+          SELECT COALESCE(a.assignee_user_id, l.assigned_to, a.user_id) AS user_id
+          FROM activities a
+          LEFT JOIN leads l ON l.id = a.lead_id
+          WHERE COALESCE(l.workspace_id, a.workspace_id) = :wid
+            AND a.type = 'task'
+            AND a.task_done = false
+            AND a.task_due_at < now()
+            AND a.archived_at IS NULL
+        )
+        SELECT user_id, count(*) AS n
+        FROM overdue_tasks
+        WHERE user_id = ANY(:uids)
+        GROUP BY user_id
     """)
     rows = (await db.execute(sql, {"wid": workspace_id, "uids": user_ids})).all()
     return {r.user_id: int(r.n) for r in rows}

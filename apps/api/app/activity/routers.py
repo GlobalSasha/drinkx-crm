@@ -283,6 +283,10 @@ async def update_activity(
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
     user: Annotated[User, Depends(current_user)] = ...,
 ) -> ActivityOut:
+    clear_due = (
+        "task_due_at" in payload.model_fields_set
+        and payload.task_due_at is None
+    )
     try:
         activity = await services.update_task(
             db,
@@ -292,6 +296,7 @@ async def update_activity(
             actor=user,
             body=payload.body,
             task_due_at=payload.task_due_at,
+            clear_due=clear_due,
         )
     except LeadNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="lead not found")
@@ -483,6 +488,10 @@ async def update_task(
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
     user: Annotated[User, Depends(current_user)] = ...,
 ) -> MyTaskOut:
+    clear_due = (
+        "task_due_at" in payload.model_fields_set
+        and payload.task_due_at is None
+    )
     try:
         await services.update_task_by_id(
             db,
@@ -492,6 +501,7 @@ async def update_task(
             text=payload.text,
             task_due_at=payload.task_due_at,
             assignee_user_id=payload.assignee_user_id,
+            clear_due=clear_due,
         )
     except services.ActivityNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Задача не найдена")

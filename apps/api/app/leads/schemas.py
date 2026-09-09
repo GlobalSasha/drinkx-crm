@@ -235,8 +235,12 @@ class LeadAssignIn(BaseModel):
     def _check_mode_matches_payload(self) -> "LeadAssignIn":
         if self.mode == "ids" and not self.lead_ids:
             raise ValueError("mode=ids требует непустой lead_ids")
-        if self.mode == "filter" and not (
-            self.cities or self.segment or self.fit_min or self.limit
+        if (
+            self.mode == "filter"
+            and not self.cities
+            and self.segment is None
+            and self.fit_min is None
+            and self.limit is None
         ):
             raise ValueError("mode=filter требует хотя бы один фильтр или limit")
         return self

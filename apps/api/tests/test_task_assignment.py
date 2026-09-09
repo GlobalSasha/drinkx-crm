@@ -508,3 +508,263 @@ async def test_a_task_on_a_trashed_lead_is_not_created(db, workspace):
             text="Задача", task_due_at=TOMORROW,
             assignee_user_id=manager.id, lead_id=lead.id,
         )
+
+
+# ---------------------------------------------------------------------------
+# Метрика просроченных задач руководителя
+# ---------------------------------------------------------------------------
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_overdue_metric_counts_a_standalone_task_for_its_assignee(db, workspace):
+    from app.company import repositories as company_repo
+
+    head = await _make_user(db, workspace.id, "head", "Head")
+    manager = await _make_user(db, workspace.id, "manager", "Kirill")
+    await _create_task(
+        db,
+        workspace,
+        head,
+        task_due_at=YESTERDAY,
+        assignee_user_id=manager.id,
+    )
+
+    result = await company_repo.tasks_overdue_per_user(
+        db, workspace_id=workspace.id, user_ids=[manager.id]
+    )
+
+    assert result == {manager.id: 1}
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_overdue_metric_prefers_explicit_assignee_over_lead_owner(db, workspace):
+    from app.company import repositories as company_repo
+
+    head = await _make_user(db, workspace.id, "head", "Head")
+    owner = await _make_user(db, workspace.id, "manager", "Owner")
+    manager = await _make_user(db, workspace.id, "manager", "Kirill")
+    lead = await _make_lead(db, workspace.id, assigned_to=owner.id)
+    await _create_task(
+        db,
+        workspace,
+        head,
+        lead_id=lead.id,
+        task_due_at=YESTERDAY,
+        assignee_user_id=manager.id,
+    )
+
+    result = await company_repo.tasks_overdue_per_user(
+        db, workspace_id=workspace.id, user_ids=[owner.id, manager.id]
+    )
+
+    assert result == {manager.id: 1}
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_overdue_metric_keeps_legacy_lead_owner_fallback(db, workspace):
+    from app.activity import repositories as activity_repo
+    from app.company import repositories as company_repo
+
+    head = await _make_user(db, workspace.id, "head", "Head")
+    manager = await _make_user(db, workspace.id, "manager", "Kirill")
+    lead = await _make_lead(db, workspace.id, assigned_to=manager.id)
+    await activity_repo.create(
+        db,
+        lead.id,
+        head.id,
+        dict(
+            type="task",
+            payload_json={"title": "Старая задача"},
+            task_due_at=YESTERDAY,
+        ),
+    )
+
+    result = await company_repo.tasks_overdue_per_user(
+        db, workspace_id=workspace.id, user_ids=[manager.id]
+    )
+
+    assert result == {manager.id: 1}
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_overdue_metric_skips_archived_tasks(db, workspace):
+    from app.company import repositories as company_repo
+
+    head = await _make_user(db, workspace.id, "head", "Head")
+    manager = await _make_user(db, workspace.id, "manager", "Kirill")
+    task = await _create_task(
+        db,
+        workspace,
+        head,
+        task_due_at=YESTERDAY,
+        assignee_user_id=manager.id,
+    )
+    task.archived_at = datetime.now(timezone.utc)
+    await db.flush()
+
+    result = await company_repo.tasks_overdue_per_user(
+        db, workspace_id=workspace.id, user_ids=[manager.id]
+    )
+
+    assert result == {}
+
+
+# ---------------------------------------------------------------------------
+# Очистка срока задачи
+# ---------------------------------------------------------------------------
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_update_task_by_id_clears_due_date(db, workspace):
+    from app.activity import services
+
+    head = await _make_user(db, workspace.id, "head", "Head")
+    task = await _create_task(db, workspace, head, assignee_user_id=head.id)
+
+    updated = await services.update_task_by_id(
+        db,
+        workspace.id,
+        task.id,
+        head,
+        text=None,
+        task_due_at=None,
+        assignee_user_id=None,
+        clear_due=True,
+    )
+
+    assert updated.task_due_at is None
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_update_task_by_id_keeps_due_date_when_field_is_omitted(db, workspace):
+    from app.activity import services
+
+    head = await _make_user(db, workspace.id, "head", "Head")
+    task = await _create_task(db, workspace, head, assignee_user_id=head.id)
+    original_due = task.task_due_at
+
+    updated = await services.update_task_by_id(
+        db,
+        workspace.id,
+        task.id,
+        head,
+        text="Новый текст",
+        task_due_at=None,
+        assignee_user_id=None,
+    )
+
+    assert updated.task_due_at == original_due
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_lead_scoped_update_clears_due_date(db, workspace):
+    from app.activity import services
+
+    manager = await _make_user(db, workspace.id, "manager", "Kirill")
+    lead = await _make_lead(db, workspace.id, assigned_to=manager.id)
+    task = await _create_task(db, workspace, manager, lead_id=lead.id)
+
+    updated = await services.update_task(
+        db,
+        workspace_id=workspace.id,
+        lead_id=lead.id,
+        activity_id=task.id,
+        actor=manager,
+        body=None,
+        task_due_at=None,
+        clear_due=True,
+    )
+
+    assert updated.task_due_at is None
+
+
+# ---------------------------------------------------------------------------
+# Создание активности через карточку лида
+# ---------------------------------------------------------------------------
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_create_activity_assigns_a_managers_task_to_himself(db, workspace):
+    from app.activity import services
+
+    manager = await _make_user(db, workspace.id, "manager", "Kirill")
+    owner = await _make_user(db, workspace.id, "manager", "Owner")
+    lead = await _make_lead(db, workspace.id, assigned_to=owner.id)
+
+    activity = await services.create_activity(
+        db,
+        workspace.id,
+        lead.id,
+        manager,
+        {"type": "task", "body": "Позвонить", "task_due_at": TOMORROW},
+    )
+
+    assert activity.assignee_user_id == manager.id
+    assert all(row["id"] != activity.id for row in await _my_tasks(db, workspace, owner))
+    assert any(row["id"] == activity.id for row in await _my_tasks(db, workspace, manager))
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_create_activity_rejects_a_colleague_as_managers_assignee(db, workspace):
+    from app.activity import services
+
+    manager = await _make_user(db, workspace.id, "manager", "Kirill")
+    peer = await _make_user(db, workspace.id, "manager", "Peer")
+    lead = await _make_lead(db, workspace.id, assigned_to=manager.id)
+
+    with pytest.raises(services.ActivityForbidden):
+        await services.create_activity(
+            db,
+            workspace.id,
+            lead.id,
+            manager,
+            {
+                "type": "task",
+                "body": "Позвонить",
+                "task_due_at": TOMORROW,
+                "assignee_user_id": peer.id,
+            },
+        )
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_create_activity_drops_assignee_from_comment(db, workspace):
+    from app.activity import services
+
+    manager = await _make_user(db, workspace.id, "manager", "Kirill")
+    lead = await _make_lead(db, workspace.id, assigned_to=manager.id)
+
+    activity = await services.create_activity(
+        db,
+        workspace.id,
+        lead.id,
+        manager,
+        {
+            "type": "comment",
+            "body": "Комментарий",
+            "assignee_user_id": uuid.uuid4(),
+        },
+    )
+
+    assert activity.assignee_user_id is None
+
+
+# ---------------------------------------------------------------------------
+# Валидация пакетной выдачи лидов
+# ---------------------------------------------------------------------------
+
+def test_lead_assign_filter_accepts_zero_fit_min():
+    from app.leads.schemas import LeadAssignIn
+
+    payload = LeadAssignIn(
+        to_user_id=uuid.uuid4(), mode="filter", fit_min=0.0
+    )
+
+    assert payload.fit_min == 0.0

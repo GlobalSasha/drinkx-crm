@@ -368,9 +368,15 @@ async def update_task_by_id(
     text: str | None,
     task_due_at: datetime | None,
     assignee_user_id: uuid.UUID | None,
+    clear_due: bool = False,
 ) -> Activity:
     """Правка задачи по её id. Смена исполнителя шлёт ему уведомление."""
-    if text is None and task_due_at is None and assignee_user_id is None:
+    if (
+        text is None
+        and task_due_at is None
+        and assignee_user_id is None
+        and not clear_due
+    ):
         raise ValueError("нечего менять")
 
     if text is not None:
@@ -383,7 +389,9 @@ async def update_task_by_id(
     if text is not None:
         activity.body = text
         activity.payload_json = {**(activity.payload_json or {}), "title": text}
-    if task_due_at is not None:
+    if clear_due:
+        activity.task_due_at = None
+    elif task_due_at is not None:
         activity.task_due_at = task_due_at
     if assignee_user_id is not None and assignee_user_id != activity.assignee_user_id:
         activity.assignee_user_id = await _resolve_assignee(
@@ -518,10 +526,11 @@ async def update_task(
     actor: User,
     body: str | None,
     task_due_at: datetime | None,
+    clear_due: bool = False,
 ) -> Activity:
     """Update body and/or task_due_at on a task-Activity. Raises
     LeadNotFound / ActivityNotFound / ActivityForbidden / ValueError if not a task."""
-    if body is None and task_due_at is None:
+    if body is None and task_due_at is None and not clear_due:
         raise ValueError("at least one of body or task_due_at must be provided")
     lead = await _get_lead_or_raise(db, lead_id, workspace_id)
     activity = await repo.get_by_id(db, activity_id, lead_id)
@@ -538,7 +547,9 @@ async def update_task(
         if activity.payload_json is None:
             activity.payload_json = {}
         activity.payload_json = {**activity.payload_json, "title": cleaned}
-    if task_due_at is not None:
+    if clear_due:
+        activity.task_due_at = None
+    elif task_due_at is not None:
         activity.task_due_at = task_due_at
     await db.flush()
     await db.refresh(activity)
