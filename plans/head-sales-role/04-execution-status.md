@@ -10,8 +10,8 @@ APPROVE PLAN получен 2026-09-09 («да по всем» чекбокса�
 |---|---|---|---|---|---|
 | B1 | in_progress | fast-worker | `apps/api/app/leads/{schemas,services,repositories,routers}.py`, `activity/services.py`, tests | полный `pytest` на Postgres | `mode`, `only_pool`, assignee=actor для manager, strip, лид из корзины, без self-notify |
 | C0 | validated | оркестратор | `apps/web/lib/types.ts`, `lib/tasks.ts`, `lib/hooks/use-tasks.ts` | `npx tsc --noEmit` = 4 известные ошибки | `mode`/`only_pool` в типах, `keepPreviousData`, `enabled` |
-| W0 | in_progress | fast-worker | `components/ui/UserSelect.tsx`, `lib/api-error.ts` + тесты | `vitest run`, `tsc` | после C0 |
-| F0 | in_progress | fast-worker | `use-my-tasks.ts`, `TaskTable.tsx`, `TaskReminders.tsx` | `tsc` → 3 ошибки только в `tasks/page.tsx` | после C0 |
+| W0 | validated | fast-worker | `components/ui/UserSelect.tsx`, `lib/api-error.ts` + тесты | `vitest run`, `tsc` | после C0 |
+| F0 | validated | fast-worker | `use-my-tasks.ts`, `TaskTable.tsx`, `TaskReminders.tsx` | `tsc` → 3 ошибки только в `tasks/page.tsx` | после C0 |
 
 ## Волна W2 — G2 ∥ G4
 pending.

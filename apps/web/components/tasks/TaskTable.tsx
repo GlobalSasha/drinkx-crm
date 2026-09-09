@@ -56,20 +56,31 @@ export function TaskTable({ rows, onComplete, isCompleting, emptyText }: Props) 
         <tbody>
           {rows.map((row) => {
             const overdue = isOverdue(row);
+            const hasLead = row.leadId !== null;
             return (
               <tr
                 key={row.id}
-                role="link"
-                tabIndex={0}
-                aria-label={`Открыть лид: ${row.company ?? row.name}`}
-                onClick={() => router.push(`/leads/${row.leadId}?tab=tasks`)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    router.push(`/leads/${row.leadId}?tab=tasks`);
-                  }
-                }}
-                className="group border-t border-brand-border cursor-pointer hover:bg-brand-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-inset"
+                role={hasLead ? "link" : undefined}
+                tabIndex={hasLead ? 0 : undefined}
+                aria-label={
+                  hasLead ? `Открыть лид: ${row.company ?? row.name}` : `Задача: ${row.name}`
+                }
+                onClick={
+                  hasLead ? () => router.push(`/leads/${row.leadId}?tab=tasks`) : undefined
+                }
+                onKeyDown={
+                  hasLead
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          router.push(`/leads/${row.leadId}?tab=tasks`);
+                        }
+                      }
+                    : undefined
+                }
+                className={`group border-t border-brand-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-inset ${
+                  hasLead ? "cursor-pointer hover:bg-brand-bg" : ""
+                }`}
               >
                 {/* Checkbox */}
                 <td className="px-1 py-2.5 align-top">
@@ -130,10 +141,12 @@ export function TaskTable({ rows, onComplete, isCompleting, emptyText }: Props) 
 
                 {/* Action */}
                 <td className="px-1 py-2.5 align-top text-right">
-                  <ArrowUpRight
-                    size={15}
-                    className="text-brand-muted opacity-0 coarse:opacity-100 group-hover:opacity-100 transition-opacity inline-block"
-                  />
+                  {hasLead && (
+                    <ArrowUpRight
+                      size={15}
+                      className="text-brand-muted opacity-0 coarse:opacity-100 group-hover:opacity-100 transition-opacity inline-block"
+                    />
+                  )}
                 </td>
               </tr>
             );
