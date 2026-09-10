@@ -3,7 +3,7 @@
 Surface:
   GET    /api/users                — list workspace users (all roles)
   GET    /api/users/invites        — list workspace invites (all roles)
-  POST   /api/users/invite         — send invite (admin only)
+  POST   /api/users/invite         — send invite (admin + head)
   PATCH  /api/users/{id}/role      — change role (admin only)
 
 The per-action role check happens via FastAPI dependencies. Read
@@ -19,7 +19,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.audit.audit import log as log_audit_event
-from app.auth.dependencies import current_user, require_admin
+from app.auth.dependencies import (
+    current_user,
+    require_admin,
+    require_admin_or_head,
+)
 from app.auth.models import User
 from app.db import get_db
 from app.users import services as svc
@@ -63,13 +67,14 @@ async def list_invites(
 async def invite_user_endpoint(
     payload: UserInviteIn,
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
-    user: Annotated[User, Depends(require_admin)] = ...,
+    user: Annotated[User, Depends(require_admin_or_head)] = ...,
 ) -> UserInviteOut:
     try:
         invite = await svc.invite_user(
             db,
             workspace_id=user.workspace_id,
             invited_by_user_id=user.id,
+            actor_role=user.role,
             email=payload.email,
             role=payload.role,
         )
@@ -77,6 +82,16 @@ async def invite_user_endpoint(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"invalid role: {exc}",
+        ) from exc
+    except svc.RoleEscalation as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "role_escalation",
+                "message": (
+                    "Роль «Админ» может выдавать только администратор."
+                ),
+            },
         ) from exc
     except svc.InviteSendFailed as exc:
         # Supabase upstream failure — surface 502 so the UI can

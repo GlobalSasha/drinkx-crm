@@ -2,7 +2,8 @@
 
 Three operations live here:
   - list workspace users (read by any role)
-  - invite a new team member by email (admin-only at the router)
+  - invite a new team member by email (admin + head at the router;
+    head may not hand out the admin role)
   - change a user's role (admin-only at the router) — defensive
     against demoting the last admin to keep the workspace
     bootstrappable.
@@ -50,6 +51,14 @@ class InviteSendFailed(Exception):
     invite stays in `user_invites` table; admin can retry."""
 
 
+class RoleEscalation(Exception):
+    """403 — the actor tried to hand out a role above their own.
+    A head can bring in managers and other heads, but minting an
+    admin stays with the admins: admin owns billing, the audit log
+    and the last-admin guard, so an invite must not be a back door
+    into it."""
+
+
 class CannotDeleteSelf(Exception):
     """400 — admin can't delete their own user row."""
 
@@ -93,6 +102,7 @@ async def invite_user(
     *,
     workspace_id: uuid.UUID,
     invited_by_user_id: uuid.UUID,
+    actor_role: str,
     email: str,
     role: str,
 ) -> UserInvite:
@@ -100,13 +110,20 @@ async def invite_user(
 
     Idempotent: if an invite for this (workspace, email) pair
     already exists, return the existing row (re-send the magic-link
-    too — admin's intent is «invite this person», whether or not
-    we've tried before).
+    too — the inviter's intent is «invite this person», whether or
+    not we've tried before).
+
+    `actor_role` is the inviter's own role. Only an admin may invite
+    someone as admin — a head inviting an admin raises RoleEscalation
+    rather than quietly downgrading the request.
 
     Caller commits.
     """
     if role not in VALID_ROLES:
         raise InvalidRole(role)
+
+    if actor_role != "admin" and role == "admin":
+        raise RoleEscalation(role)
 
     existing = await repo.get_invite_by_email(
         session, workspace_id=workspace_id, email=email
