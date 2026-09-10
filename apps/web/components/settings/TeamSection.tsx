@@ -3,11 +3,14 @@ import Link from "next/link";
 // TeamSection — Sprint 2.4 G1.
 //
 // Renders the workspace's users + pending invites as a single table.
-// All roles can read; admin-only sees the «+ Пригласить» CTA, the
-// inline role dropdown, and (eventually) the «Удалить» action. Friendly
+// All roles can read. Admin + head see the «+ Пригласить» CTA — a head
+// hires their own team, but only an admin may hand out the admin role
+// (the backend refuses it either way, this just hides the dead option).
+// The inline role dropdown and «Удалить» stay admin-only. Friendly
 // modals consume the backend's structured errors:
 //   - 502 {code: invite_send_failed}  → «retry later»
-//   - 409 {code: last_admin}         → «promote someone else first»
+//   - 409 {code: last_admin}          → «promote someone else first»
+//   - 403 {code: role_escalation}     → «only an admin grants admin»
 import { useState } from "react";
 import { Loader2, Mail, Plus, Shield, Trash2, UserCircle2, X } from "lucide-react";
 
@@ -111,8 +114,8 @@ export function TeamSection() {
         <div>
           <h2 className="type-card-title">Команда</h2>
           <p className="text-xs text-brand-muted mt-0.5">
-            Все пользователи общего workspace. Админ может приглашать
-            новых членов и менять роли.
+            Все пользователи общего workspace. Приглашать новых
+            сотрудников может админ и руководитель; менять роли — админ.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -125,7 +128,7 @@ export function TeamSection() {
               Дашборд →
             </Link>
           )}
-          {isAdmin && (
+          {isAdminOrHead && (
             <button
               onClick={() => setInviteOpen(true)}
               className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-brand-accent/90 active:scale-[0.98] transition duration-300"
@@ -236,7 +239,11 @@ export function TeamSection() {
         </div>
       )}
 
-      <InviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
+      <InviteModal
+        open={inviteOpen}
+        canGrantAdmin={isAdmin}
+        onClose={() => setInviteOpen(false)}
+      />
       {deleteTarget && (
         <DeleteUserModal
           name={deleteTarget.name || deleteTarget.email}
@@ -442,14 +449,20 @@ function DeleteUserModal({
 
 function InviteModal({
   open,
+  canGrantAdmin,
   onClose,
 }: {
   open: boolean;
+  /** Only an admin may invite someone as admin (enforced server-side). */
+  canGrantAdmin: boolean;
   onClose: () => void;
 }) {
   const [email, setEmail] = useState("");
   const [role, setRole] =
     useState<"admin" | "head" | "manager">("manager");
+  const roleOptions = canGrantAdmin
+    ? ROLE_OPTIONS
+    : ROLE_OPTIONS.filter((r) => r !== "admin");
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
 
@@ -479,11 +492,12 @@ function InviteModal({
         if (
           detail &&
           typeof detail === "object" &&
-          "code" in (detail as object) &&
-          (detail as { code: string }).code === "invite_send_failed"
+          "code" in (detail as object)
         ) {
+          // invite_send_failed (502) and role_escalation (403) both
+          // arrive as {code, message} — show the backend's wording.
           setError(
-            (detail as { message: string }).message ??
+            (detail as { message?: string }).message ??
               "Не удалось отправить приглашение. Попробуйте позже.",
           );
         } else {
@@ -547,9 +561,9 @@ function InviteModal({
                   Приглашение отправлено
                 </p>
                 <p className="text-xs text-brand-muted mt-1">
-                  Пользователь получит письмо со ссылкой для входа. После
-                  первого входа он появится в списке команды как
-                  «Менеджер» — измените роль здесь.
+                  Пользователь получит письмо со ссылкой для входа и войдёт
+                  с выбранной ролью. Ссылка живёт 14 дней — если не успел,
+                  пригласите ещё раз.
                 </p>
               </div>
             ) : (
@@ -577,7 +591,7 @@ function InviteModal({
                     }
                     className="w-full px-3 py-2 text-sm bg-white border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 transition-colors"
                   >
-                    {ROLE_OPTIONS.map((r) => (
+                    {roleOptions.map((r) => (
                       <option key={r} value={r}>
                         {ROLE_LABEL[r]}
                       </option>
@@ -585,7 +599,8 @@ function InviteModal({
                   </select>
                   <p className="text-xs text-brand-muted mt-1 leading-tight">
                     После принятия приглашения пользователь сразу получит
-                    выбранную роль. Позже её можно изменить в списке команды.
+                    выбранную роль. Позже её можно изменить в списке команды
+                    {canGrantAdmin ? "." : " — это может сделать админ."}
                   </p>
                 </div>
               </>

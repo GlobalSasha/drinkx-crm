@@ -157,6 +157,7 @@ async def test_invite_user_persists_and_sends_email():
             db,
             workspace_id=WS,
             invited_by_user_id=ADMIN_ID,
+            actor_role="admin",
             email="newhire@drinkx.tech",
             role="manager",
         )
@@ -215,6 +216,7 @@ async def test_invite_user_idempotent_on_re_invite():
             db,
             workspace_id=WS,
             invited_by_user_id=ADMIN_ID,
+            actor_role="admin",
             email="existing@drinkx.tech",
             role="manager",
         )
@@ -268,6 +270,7 @@ async def test_invite_user_aborts_on_supabase_error():
                 db,
                 workspace_id=WS,
                 invited_by_user_id=ADMIN_ID,
+                actor_role="admin",
                 email="upstream@drinkx.tech",
                 role="manager",
             )
@@ -424,9 +427,123 @@ async def test_invite_user_rejects_invalid_role():
             db,
             workspace_id=WS,
             invited_by_user_id=ADMIN_ID,
+            actor_role="admin",
             email="x@y.io",
             role="god",
         )
+
+
+# ===========================================================================
+# 9. head may invite, but not as admin
+# ===========================================================================
+
+@pytest.mark.asyncio
+async def test_head_cannot_invite_an_admin():
+    """A head handing out the admin role is refused outright — not
+    silently downgraded to manager, which would hide the mistake."""
+    db = AsyncMock()
+    sent: list[str] = []
+
+    async def fake_send(*, email):
+        sent.append(email)
+
+    with patch("app.users.services.send_invite_email", new=fake_send):
+        with pytest.raises(svc.RoleEscalation):
+            await svc.invite_user(
+                db,
+                workspace_id=WS,
+                invited_by_user_id=uuid.uuid4(),
+                actor_role="head",
+                email="newadmin@drinkx.tech",
+                role="admin",
+            )
+
+    assert sent == [], "no email may go out on a refused invite"
+
+
+@pytest.mark.asyncio
+async def test_head_can_invite_a_manager():
+    """The point of the change: a head brings in their own people."""
+    db = AsyncMock()
+    create_calls: list[dict] = []
+
+    async def fake_get_invite_by_email(_session, **kwargs):
+        return None
+
+    async def fake_create_invite(_session, **kwargs):
+        create_calls.append(kwargs)
+        out = MagicMock()
+        out.id = uuid.uuid4()
+        for k, v in kwargs.items():
+            setattr(out, k, v)
+        return out
+
+    async def fake_send(*, email):
+        pass
+
+    with patch(
+        "app.users.repositories.get_invite_by_email",
+        new=fake_get_invite_by_email,
+    ), patch(
+        "app.users.repositories.create_invite",
+        new=fake_create_invite,
+    ), patch(
+        "app.users.services.send_invite_email",
+        new=fake_send,
+    ):
+        result = await svc.invite_user(
+            db,
+            workspace_id=WS,
+            invited_by_user_id=uuid.uuid4(),
+            actor_role="head",
+            email="newhire@drinkx.tech",
+            role="manager",
+        )
+
+    assert result is not None
+    assert create_calls[0]["suggested_role"] == "manager"
+
+
+@pytest.mark.asyncio
+async def test_head_can_invite_another_head():
+    """Peers are fine — the ceiling is the actor's own role, not below it."""
+    db = AsyncMock()
+    create_calls: list[dict] = []
+
+    async def fake_get_invite_by_email(_session, **kwargs):
+        return None
+
+    async def fake_create_invite(_session, **kwargs):
+        create_calls.append(kwargs)
+        out = MagicMock()
+        out.id = uuid.uuid4()
+        for k, v in kwargs.items():
+            setattr(out, k, v)
+        return out
+
+    async def fake_send(*, email):
+        pass
+
+    with patch(
+        "app.users.repositories.get_invite_by_email",
+        new=fake_get_invite_by_email,
+    ), patch(
+        "app.users.repositories.create_invite",
+        new=fake_create_invite,
+    ), patch(
+        "app.users.services.send_invite_email",
+        new=fake_send,
+    ):
+        await svc.invite_user(
+            db,
+            workspace_id=WS,
+            invited_by_user_id=uuid.uuid4(),
+            actor_role="head",
+            email="secondhead@drinkx.tech",
+            role="head",
+        )
+
+    assert create_calls[0]["suggested_role"] == "head"
 
 
 # ===========================================================================
