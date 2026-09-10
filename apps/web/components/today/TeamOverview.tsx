@@ -49,6 +49,18 @@ function pluralRu(n: number, one: string, few: string, many: string): string {
   return many;
 }
 
+// Подпись под именем. Панель показывает и менеджеров, и руководителей —
+// «Менеджер по продажам» под руководителем отдела читался бы как ошибка.
+const ROLE_CAPTION: Record<string, string> = {
+  manager: "Менеджер по продажам",
+  head: "Руководитель отдела",
+  admin: "Администратор",
+};
+
+function roleCaption(role: string): string {
+  return ROLE_CAPTION[role] ?? "Менеджер по продажам";
+}
+
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   return (parts[0]?.[0] ?? "?").toUpperCase();
@@ -205,7 +217,7 @@ function Spotlight({ m, period }: { m: ManagerRow; period: ManagerPeriod }) {
         </span>
         <div className="min-w-0">
           <div className="type-card-title text-brand-primary truncate">{m.name}</div>
-          <div className="type-hint not-italic text-brand-muted">Менеджер по продажам</div>
+          <div className="type-hint not-italic text-brand-muted">{roleCaption(m.role)}</div>
         </div>
         <div className="ml-auto text-right shrink-0">
           <div className="type-caption text-brand-muted">был активен</div>
@@ -396,7 +408,9 @@ function ManagerTable({ managers }: { managers: ManagerRow[] }) {
                         <span className="type-body font-semibold text-brand-primary group-hover:underline block truncate">
                           {m.name}
                         </span>
-                        <span className="type-hint not-italic text-brand-muted block">Менеджер</span>
+                        <span className="type-hint not-italic text-brand-muted block">
+                          {roleCaption(m.role)}
+                        </span>
                       </span>
                     </Link>
                   </td>

@@ -203,3 +203,38 @@ async def test_managers_includes_idle_manager_with_zeros(db, workspace, user):
     assert idle_row["stuck"] == 0
     assert idle_row["oldest_stuck_days"] == 0
     assert idle_row["active_daily"] == []
+
+
+@skip_no_pg
+async def test_roster_keeps_head_and_skips_admin(db, workspace, user):
+    """Повышение менеджера до руководителя не должно выкидывать его из
+    панели: руководитель отдела продаж ведёт сделки сам. Прод-случай —
+    Кирилла повысили, и он исчез с /today. Админ в панель не попадает:
+    это владелец аккаунта, который на неё и смотрит."""
+    from app.auth.models import User
+
+    await _setup_manager_scenario(db, workspace, user)
+
+    head = User(
+        workspace_id=workspace.id,
+        email=f"head-{uuid.uuid4().hex[:8]}@test.com",
+        name="AAA Head",
+        role="head",
+    )
+    admin = User(
+        workspace_id=workspace.id,
+        email=f"admin-{uuid.uuid4().hex[:8]}@test.com",
+        name="AAB Admin",
+        role="admin",
+    )
+    db.add_all([head, admin])
+    await db.flush()
+
+    out = await svc.managers(db, workspace_id=workspace.id, period="week")
+    by_id = {m["user_id"]: m for m in out["managers"]}
+
+    assert head.id in by_id, "руководитель обязан остаться в панели"
+    assert by_id[head.id]["role"] == "head"
+    assert admin.id not in by_id, "админ в панель работы не попадает"
+    assert user.id in by_id
+    assert len(out["managers"]) == 2

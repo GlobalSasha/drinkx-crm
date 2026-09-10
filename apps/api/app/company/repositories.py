@@ -180,16 +180,26 @@ async def manager_load(db: AsyncSession, *, workspace_id: uuid.UUID) -> list[dic
 # ---------------------------------------------------------------------------
 
 
+# Кто попадает в панель работы: все, кто ведёт сделки. Раньше стоял
+# `role = 'manager'`, и повышение менеджера до руководителя выкидывало его
+# из панели — руководитель отдела продаж продаёт и сам, его нагрузку видеть
+# надо. Админ не в списке: это владелец аккаунта, который на эту панель и
+# смотрит. Тот же набор ролей ждёт `/team` (там фильтра по роли нет вовсе).
+ROSTER_ROLES = ("manager", "head")
+
+
 async def manager_roster(db: AsyncSession, *, workspace_id: uuid.UUID) -> list[dict]:
-    """All managers in the workspace, ordered by name."""
+    """Everyone in the workspace who carries a sales portfolio, by name."""
     sql = text("""
         SELECT u.id AS user_id, u.name AS name, u.role AS role,
                u.last_login_at AS last_login_at
         FROM users u
-        WHERE u.workspace_id = :wid AND u.role = 'manager'
+        WHERE u.workspace_id = :wid AND u.role = ANY(:roles)
         ORDER BY u.name
     """)
-    rows = (await db.execute(sql, {"wid": workspace_id})).all()
+    rows = (
+        await db.execute(sql, {"wid": workspace_id, "roles": list(ROSTER_ROLES)})
+    ).all()
     return [
         {
             "user_id": r.user_id,
