@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import sys
 import uuid
+from datetime import datetime, timedelta, timezone
 from types import ModuleType
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -142,6 +143,7 @@ async def test_invite_user_persists_and_sends_email():
 
     async def fake_send(*, email):
         invite_calls.append({"email": email})
+        return svc.InviteOutcome.INVITED
 
     with patch(
         "app.users.repositories.get_invite_by_email",
@@ -153,7 +155,7 @@ async def test_invite_user_persists_and_sends_email():
         "app.users.services.send_invite_email",
         new=fake_send,
     ):
-        result = await svc.invite_user(
+        result, outcome = await svc.invite_user(
             db,
             workspace_id=WS,
             invited_by_user_id=ADMIN_ID,
@@ -169,6 +171,7 @@ async def test_invite_user_persists_and_sends_email():
     assert create_calls[0]["email"] == "newhire@drinkx.tech"
     assert create_calls[0]["suggested_role"] == "manager"
     assert result is not None
+    assert outcome is svc.InviteOutcome.INVITED
 
 
 # ===========================================================================
@@ -191,6 +194,9 @@ async def test_invite_user_idempotent_on_re_invite():
     existing.accepted_at = "2026-05-09T00:00:00Z"
     existing.suggested_role = "manager"
     existing.invited_by_user_id = uuid.uuid4()
+    # Просроченный срок — прод-случай: пригласили, человек не успел за
+    # 14 дней. Повторное приглашение обязано вернуть его к жизни.
+    existing.expires_at = datetime.now(timezone.utc) - timedelta(days=1)
 
     async def fake_get_invite_by_email(_session, **kwargs):
         return existing
@@ -201,6 +207,7 @@ async def test_invite_user_idempotent_on_re_invite():
 
     async def fake_send(*, email):
         invite_calls.append({"email": email})
+        return svc.InviteOutcome.INVITED
 
     with patch(
         "app.users.repositories.get_invite_by_email",
@@ -212,7 +219,7 @@ async def test_invite_user_idempotent_on_re_invite():
         "app.users.services.send_invite_email",
         new=fake_send,
     ):
-        result = await svc.invite_user(
+        result, _ = await svc.invite_user(
             db,
             workspace_id=WS,
             invited_by_user_id=ADMIN_ID,
@@ -228,6 +235,10 @@ async def test_invite_user_idempotent_on_re_invite():
     assert existing.accepted_at is None
     assert existing.suggested_role == "manager"
     assert existing.invited_by_user_id == ADMIN_ID
+    # Регрессия: без этой строки просроченное приглашение остаётся
+    # просроченным навсегда — повтор выглядит успешным (201), но
+    # auth/services.py всё равно отдаёт 403 InviteRequired.
+    assert existing.expires_at > datetime.now(timezone.utc)
     db.flush.assert_awaited_once()
 
 
@@ -479,7 +490,7 @@ async def test_head_can_invite_a_manager():
         return out
 
     async def fake_send(*, email):
-        pass
+        return svc.InviteOutcome.INVITED
 
     with patch(
         "app.users.repositories.get_invite_by_email",
@@ -491,7 +502,7 @@ async def test_head_can_invite_a_manager():
         "app.users.services.send_invite_email",
         new=fake_send,
     ):
-        result = await svc.invite_user(
+        result, _ = await svc.invite_user(
             db,
             workspace_id=WS,
             invited_by_user_id=uuid.uuid4(),
@@ -522,7 +533,7 @@ async def test_head_can_invite_another_head():
         return out
 
     async def fake_send(*, email):
-        pass
+        return svc.InviteOutcome.INVITED
 
     with patch(
         "app.users.repositories.get_invite_by_email",

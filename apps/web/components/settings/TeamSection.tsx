@@ -27,6 +27,7 @@ import {
 } from "@/lib/hooks/use-users";
 import type {
   UserInviteIn,
+  UserInviteOut,
   UserListItemOut,
 } from "@/lib/types";
 
@@ -464,7 +465,7 @@ function InviteModal({
     ? ROLE_OPTIONS
     : ROLE_OPTIONS.filter((r) => r !== "admin");
   const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState(false);
+  const [sent, setSent] = useState<UserInviteOut["email_outcome"] | false>(false);
 
   const invite = useInviteUser();
   const busy = invite.isPending;
@@ -480,8 +481,8 @@ function InviteModal({
     }
     const body: UserInviteIn = { email: trimmed, role };
     invite.mutate(body, {
-      onSuccess: () => {
-        setSent(true);
+      onSuccess: (created) => {
+        setSent(created.email_outcome ?? "invited");
         setEmail("");
       },
       onError: (err: ApiError) => {
@@ -558,12 +559,15 @@ function InviteModal({
               <div className="text-center py-4">
                 <Mail size={28} className="mx-auto text-brand-accent mb-2" />
                 <p className="text-sm font-semibold text-brand-primary">
-                  Приглашение отправлено
+                  {sent === "not_sent" ? "Доступ открыт" : "Письмо отправлено"}
                 </p>
                 <p className="text-xs text-brand-muted mt-1">
-                  Пользователь получит письмо со ссылкой для входа и войдёт
-                  с выбранной ролью. Ссылка живёт 14 дней — если не успел,
-                  пригласите ещё раз.
+                  {sent === "invited" &&
+                    "Пользователь получит письмо со ссылкой для входа и войдёт с выбранной ролью. Ссылка живёт 14 дней — если не успел, пригласите ещё раз."}
+                  {sent === "sign_in_link" &&
+                    "У этого человека уже был аккаунт — он пробовал войти раньше. Приглашение мы записали, а ему отправили ссылку для входа. Роль получит выбранную."}
+                  {sent === "not_sent" &&
+                    "У этого человека уже был аккаунт, и письмо отправить не вышло. Доступ всё равно открыт: пусть просто зайдёт на сайт и войдёт со своей почты — получит выбранную роль."}
                 </p>
               </div>
             ) : (

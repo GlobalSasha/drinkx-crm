@@ -7,7 +7,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 // Роль «Админ» в списке видит только админ (сервер откажет в любом случае,
 // селект просто не предлагает заведомо мёртвый вариант).
 
-const { meMock } = vi.hoisted(() => ({ meMock: vi.fn() }));
+const { meMock, inviteMock } = vi.hoisted(() => ({
+  meMock: vi.fn(),
+  inviteMock: vi.fn(),
+}));
 vi.mock("@/lib/hooks/use-me", () => ({
   useMe: () => meMock(),
 }));
@@ -28,7 +31,7 @@ vi.mock("@/lib/hooks/use-users", () => ({
     },
   }),
   useUserInvites: () => ({ data: [] }),
-  useInviteUser: () => ({ mutate: vi.fn(), isPending: false }),
+  useInviteUser: () => ({ mutate: inviteMock, isPending: false }),
   useDeleteUser: () => ({ mutate: vi.fn(), isPending: false }),
   useChangeUserRole: () => ({ mutate: vi.fn(), isPending: false }),
 }));
@@ -49,6 +52,7 @@ const inviteButton = () => screen.queryByRole("button", { name: /Приглас�
 describe("TeamSection — кто может приглашать", () => {
   afterEach(() => {
     meMock.mockReset();
+    inviteMock.mockReset();
   });
 
   it("руководитель видит кнопку «Пригласить»", () => {
@@ -91,5 +95,27 @@ describe("TeamSection — кто может приглашать", () => {
       (o) => o.textContent,
     );
     expect(options).toEqual(["Админ", "Руководитель", "Менеджер"]);
+  });
+
+  it("говорит про уже существующий аккаунт, а не про обычное приглашение", async () => {
+    // Человек пробовал войти до приглашения — аккаунт в Supabase уже есть.
+    // Это не отказ: доступ открыт, ему ушла ссылка для входа.
+    meMock.mockReturnValue({ data: { id: "me-1", role: "admin" } });
+    inviteMock.mockImplementation((_body, opts) =>
+      opts.onSuccess({ id: "i1", email_outcome: "sign_in_link" }),
+    );
+    renderSection();
+
+    await userEvent.click(inviteButton()!);
+    await userEvent.type(
+      screen.getByPlaceholderText("manager@drinkx.tech"),
+      "kirill@drinkx.tech",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Отправить приглашение" }),
+    );
+
+    expect(screen.getByText("Письмо отправлено")).toBeInTheDocument();
+    expect(screen.getByText(/уже был аккаунт/)).toBeInTheDocument();
   });
 });

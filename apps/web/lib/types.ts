@@ -1397,6 +1397,13 @@ export interface UserInviteOut {
   invited_by_user_id: string | null;
   created_at: string;
   accepted_at: string | null;
+  /**
+   * Что произошло с письмом. Приходит только с POST /users/invite:
+   * "invited" — ушло приглашение; "sign_in_link" — аккаунт уже был,
+   * ушла ссылка для входа; "not_sent" — аккаунт уже был, письмо не ушло.
+   * Доступ открыт во всех трёх случаях.
+   */
+  email_outcome?: "invited" | "sign_in_link" | "not_sent" | null;
 }
 
 export interface UserRoleUpdateIn {

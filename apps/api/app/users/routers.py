@@ -70,7 +70,7 @@ async def invite_user_endpoint(
     user: Annotated[User, Depends(require_admin_or_head)] = ...,
 ) -> UserInviteOut:
     try:
-        invite = await svc.invite_user(
+        invite, outcome = await svc.invite_user(
             db,
             workspace_id=user.workspace_id,
             invited_by_user_id=user.id,
@@ -112,10 +112,16 @@ async def invite_user_endpoint(
         action="user.invite",
         entity_type="user_invite",
         entity_id=invite.id,
-        delta={"email": invite.email, "suggested_role": invite.suggested_role},
+        delta={
+            "email": invite.email,
+            "suggested_role": invite.suggested_role,
+            "email_outcome": outcome.value,
+        },
     )
     await db.commit()
-    return UserInviteOut.model_validate(invite)
+    out = UserInviteOut.model_validate(invite)
+    out.email_outcome = outcome.value
+    return out
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
