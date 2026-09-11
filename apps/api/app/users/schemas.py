@@ -47,6 +47,12 @@ class UserInviteOut(BaseModel):
     invited_by_user_id: uuid.UUID | None
     created_at: datetime
     accepted_at: datetime | None
+    # Что произошло с письмом: "invited" — ушло приглашение;
+    # "sign_in_link" — аккаунт уже был, ушла ссылка для входа;
+    # "not_sent" — аккаунт уже был, письмо отправить не вышло, человеку
+    # надо просто зайти самому. Доступ во всех трёх случаях открыт.
+    # None на строках из листинга — там мы про письмо ничего не знаем.
+    email_outcome: str | None = None
 
 
 class UserRoleUpdateIn(BaseModel):

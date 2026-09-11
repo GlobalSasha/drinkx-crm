@@ -11,6 +11,7 @@ Three operations live here:
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Iterable
 
 import structlog
@@ -19,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.models import User, UserInvite
 from app.users import repositories as repo
 from app.users.supabase_admin import (
+    InviteOutcome,
     SupabaseInviteError,
     send_invite_email,
 )
@@ -105,7 +107,7 @@ async def invite_user(
     actor_role: str,
     email: str,
     role: str,
-) -> UserInvite:
+) -> tuple[UserInvite, InviteOutcome]:
     """Send the magic-link via Supabase + persist a UserInvite row.
 
     Idempotent: if an invite for this (workspace, email) pair
@@ -116,6 +118,9 @@ async def invite_user(
     `actor_role` is the inviter's own role. Only an admin may invite
     someone as admin — a head inviting an admin raises RoleEscalation
     rather than quietly downgrading the request.
+
+    Returns the row plus what happened to the email, so the caller can
+    tell the inviter whether anything actually landed in the inbox.
 
     Caller commits.
     """
@@ -130,9 +135,10 @@ async def invite_user(
     )
 
     # Re-send the magic-link first; if Supabase chokes we don't
-    # want to have created a row that's a lie.
+    # want to have created a row that's a lie. «Аккаунт уже есть» —
+    # не отказ: доступ даёт строка ниже, а не письмо.
     try:
-        await send_invite_email(email=email)
+        outcome = await send_invite_email(email=email)
     except SupabaseInviteError as exc:
         raise InviteSendFailed(str(exc)) from exc
 
@@ -140,19 +146,29 @@ async def invite_user(
         # Re-inviting must also restore access after a former member was
         # deleted. The row is unique per workspace/email, so turn the
         # historical acceptance back into a pending invitation.
+        #
+        # `expires_at` MUST be reset here too. Without it, re-inviting
+        # someone whose original invite already expired (14 days is easy
+        # to miss) looks like success — 201, "письмо отправлено" — but the
+        # gate in auth/services.py still sees a stale `expires_at` and
+        # keeps rejecting them with InviteRequired forever, no matter how
+        # many times the admin re-invites. Found by workflow review before
+        # this path ever ran in prod (send_invite_email used to 404 first).
         existing.accepted_at = None
         existing.invited_by_user_id = invited_by_user_id
         existing.suggested_role = role
+        existing.expires_at = datetime.now(timezone.utc) + timedelta(days=14)
         await session.flush()
-        return existing
+        return existing, outcome
 
-    return await repo.create_invite(
+    created = await repo.create_invite(
         session,
         workspace_id=workspace_id,
         invited_by_user_id=invited_by_user_id,
         email=email,
         suggested_role=role,
     )
+    return created, outcome
 
 
 async def change_role(
