@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import current_user, require_admin_or_head
@@ -43,8 +43,6 @@ from app.leads.services import (
     TransferTargetInvalid,
 )
 
-router = APIRouter(prefix="/leads", tags=["leads"])
-
 
 def _resolve_assignee_scope(
     *,
@@ -60,25 +58,25 @@ def _resolve_assignee_scope(
     `GET /leads` powers the pipeline kanban, /today widgets, and the
     message-to-lead picker. Scoping rules:
 
-      - Text search (`q`) → whole workspace (None): the picker must find
-        any colleague's lead by name. EXCEPTION: an admin/head who has
-        explicitly picked a manager keeps that scope — the q text filter
-        still applies on top, giving a manager-scoped search rather than
-        workspace-wide.
-      - admin/head + all_assignees → whole workspace (None) — the «Все» option.
-      - admin/head + explicit id → that manager.
-      - admin/head + nothing → self.
-      - regular user → whole workspace by default (B2: all managers may
-        see/edit ALL workspace leads). An explicit ?assigned_to=<id> still
-        narrows to that user ('just mine' / a colleague's book);
-        all_assignees is irrelevant since the default is already workspace-wide.
+      - admin/head — full workspace access:
+          * text search (`q`) → whole workspace (None), unless they
+            explicitly picked a manager (explicit id) — then the q text
+            filter still applies on top, giving a manager-scoped search
+            rather than workspace-wide.
+          * all_assignees → whole workspace (None) — the «Все» option.
+          * explicit id → that manager.
+          * nothing → self.
+      - manager (any other role) — sees and edits ONLY leads assigned
+        to himself. `explicit`, `all_assignees`, `q` and `workspace_search`
+        can no longer widen or redirect the scope.
     """
     # Privileged role set mirrors app/auth/models.py USER_ROLES ("admin","head","manager").
     privileged = role in ("admin", "head")
-    # Whole-workspace text search: the message-to-lead picker opts in explicitly
-    # via workspace_search; privileged users also get it. A regular user's q on
-    # the kanban (no opt-in) stays self-scoped — closes the q scope leak.
-    # Never overrides a privileged user's explicit manager selection.
+    if not privileged:
+        # Managers are always locked to their own book.
+        return user_id
+    # Whole-workspace text search: privileged users get it. Never overrides an
+    # explicit manager selection.
     if q and (workspace_search or privileged) and not (privileged and explicit is not None):
         return None
     if privileged:
@@ -87,12 +85,41 @@ def _resolve_assignee_scope(
         if explicit is not None:
             return explicit
         return user_id
-    # B2 — open lead-list access (product decision): regular managers may
-    # see/edit ALL workspace leads. Default (explicit=None) → None → no
-    # assignee filter → whole workspace. An explicit ?assigned_to=<id> is
-    # honored so a manager can still narrow to 'just mine' (or a colleague).
-    # workspace_id scoping in repositories.list_leads is the only boundary.
-    return explicit
+
+
+async def _lead_access_guard(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> None:
+    """Router-wide guard: every current and future `/{lead_id}` endpoint is
+    covered by construction, so a manager cannot open a colleague's lead even
+    by direct link (404, not 403)."""
+    lead_id = request.path_params.get("lead_id")
+    if lead_id is None:
+        return
+    if user.role in ("admin", "head"):
+        return
+    from app.leads.repositories import get_by_id
+
+    try:
+        lead_uuid = UUID(str(lead_id))
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found"
+        )
+    lead = await get_by_id(db, lead_uuid, user.workspace_id)
+    if lead is None or lead.assigned_to != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found"
+        )
+
+
+router = APIRouter(
+    prefix="/leads",
+    tags=["leads"],
+    dependencies=[Depends(_lead_access_guard)],
+)
 
 
 @router.get("", response_model=LeadListOut)
@@ -165,7 +192,8 @@ async def list_pool(
     # filtering when the workspace pool exceeds this.
     page_size: int = Query(50, ge=1, le=500),
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
-    user: Annotated[User, Depends(current_user)] = ...,
+    # Unassigned pool is management-only after the 2026-09-14 policy change.
+    user: Annotated[User, Depends(require_admin_or_head)] = ...,
 ) -> LeadListOut:
     filters = dict(city=city, segment=segment, fit_min=fit_min, form_id=form_id, needs_review=needs_review, page=page, page_size=page_size)
     items, total = await services.list_pool(db, user.workspace_id, filters)
@@ -180,8 +208,8 @@ async def assign_leads(
 ) -> LeadAssignOut:
     """Выдать лиды менеджеру — пачкой по списку id или по фильтру из пула.
 
-    Только руководитель и админ. Менеджер по-прежнему берёт карточки
-    себе через /claim и /sprint.
+    Только руководитель и админ. Менеджер больше не может брать карточки
+    из пула сам.
     """
     try:
         items, requested, skipped = await services.assign_leads(
@@ -216,7 +244,8 @@ async def assign_leads(
 async def create_sprint(
     payload: SprintCreateIn,
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
-    user: Annotated[User, Depends(current_user)] = ...,
+    # A manager may no longer pull leads out of the pool himself.
+    user: Annotated[User, Depends(require_admin_or_head)] = ...,
 ) -> SprintCreateOut:
     items, requested = await services.claim_sprint(
         db,
@@ -273,7 +302,11 @@ async def list_trash(
 ) -> LeadListOut:
     """Soft-deleted leads only — the Trash view. Declared before
     `/{lead_id}` so the literal path wins."""
-    filters = dict(page=page, page_size=page_size)
+    filters = dict(
+        page=page,
+        page_size=page_size,
+        assigned_to=None if user.role in ("admin", "head") else user.id,
+    )
     items, total = await services.list_trash(db, user.workspace_id, filters)
     return LeadListOut(items=items, total=total, page=page, page_size=page_size)
 

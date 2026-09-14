@@ -72,10 +72,11 @@ export function SidebarNavContainer({
         badge: incomingCount,
         ariaLabel: `Входящие заявки${incomingCount > 0 ? ` (${incomingCount} новых)` : ""}`,
       },
-      { id: "leads-pool", label: "База лидов", href: "/leads-pool", icon: <Target size={18} /> },
       { id: "triage",     label: "Мессенджеры", href: "/triage",    icon: <MessageCircle size={18} /> },
     ];
     if (isAdminOrHead) {
+      // «База лидов» — только для руководства: доступ ограничен с 2026-09-14.
+      base.push({ id: "leads-pool", label: "База лидов", href: "/leads-pool", icon: <Target size={18} /> });
       base.push({ id: "forms",       label: "Формы",         href: "/forms",       icon: <ClipboardList size={18} /> });
       base.push({ id: "automations", label: "Автоматизации", href: "/automations", icon: <Workflow size={18} /> });
     }
