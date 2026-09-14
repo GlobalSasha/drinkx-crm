@@ -7,6 +7,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const { back, push } = vi.hoisted(() => ({ back: vi.fn(), push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ back, push }) }));
 
+// Шапка резолвит имя владельца через /api/users. Тесту не нужен настоящий
+// QueryClient — отдаём пустой список: чип упадёт на запасной вариант.
+vi.mock("@/lib/hooks/use-users", () => ({
+  useUsers: () => ({ data: { items: [] } }),
+}));
+
 import { LeadCardHeader } from "./LeadCardHeader";
 import type { LeadOut, Stage } from "@/lib/types";
 
