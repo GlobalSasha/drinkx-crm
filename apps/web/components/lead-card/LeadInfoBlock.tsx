@@ -321,7 +321,7 @@ function DescriptionField({
         }}
         disabled={busy}
         placeholder="Кто этот клиент, чем занимается, масштаб…"
-        className="w-full type-caption leading-relaxed bg-brand-bg border border-brand-accent/40 rounded-xl px-3 py-2 focus:outline-none focus:border-brand-accent resize-y"
+        className="w-full type-body leading-relaxed bg-brand-bg border border-brand-accent/40 rounded-xl px-3 py-2 focus:outline-none focus:border-brand-accent resize-y"
       />
     );
   }
@@ -332,7 +332,7 @@ function DescriptionField({
       className="group cursor-text rounded-xl -mx-2 px-2 py-1.5 hover:bg-brand-bg transition-colors"
     >
       <div className="flex items-start gap-2">
-        <p className={`flex-1 type-caption leading-relaxed ${value ? C.color.text : C.color.muted}`}>
+        <p className={`flex-1 type-body leading-relaxed break-words ${value ? C.color.text : C.color.muted}`}>
           {value || "Описание не задано — нажмите, чтобы добавить"}
         </p>
         <Pencil
@@ -341,7 +341,7 @@ function DescriptionField({
         />
       </div>
       {subtitle && (
-        <p className={`type-caption ${C.color.muted} mt-1`}>{subtitle}</p>
+        <p className={`type-hint ${C.color.muted} mt-1`}>{subtitle}</p>
       )}
     </div>
   );
@@ -402,7 +402,7 @@ function Row({
   return (
     <div
       onClick={editing ? undefined : startEdit}
-      className={`grid grid-cols-[7.5rem_1fr] sm:grid-cols-[9rem_1fr] items-start gap-3 px-1 py-2 group ${
+      className={`grid grid-cols-1 sm:grid-cols-[9rem_minmax(0,1fr)] gap-1 sm:gap-3 items-start px-1 py-2 group ${
         editable && !editing
           ? "cursor-text hover:bg-brand-bg transition-colors"
           : ""
@@ -411,7 +411,7 @@ function Row({
       {/* Property name — flat label, no filled cell / vertical divider */}
       <div className="flex items-center gap-2 min-w-0 pt-px">
         <span className="shrink-0">{icon}</span>
-        <span className={`type-caption ${C.color.muted} truncate`}>{label}</span>
+        <span className={`type-caption ${C.color.muted}`}>{label}</span>
       </div>
 
       {/* Value */}
@@ -428,7 +428,7 @@ function Row({
                 if (e.key === "Enter") void commit();
               }}
               disabled={busy}
-              className="w-full type-body bg-brand-bg border border-brand-accent/40 rounded-lg px-2 py-1 focus:outline-none focus:border-brand-accent"
+              className="w-full min-w-0 type-body bg-brand-bg border border-brand-accent/40 rounded-lg px-2 py-1 focus:outline-none focus:border-brand-accent"
             >
               <option value="">— очистить —</option>
               {(options ?? []).map((opt) => (
@@ -450,17 +450,17 @@ function Row({
               }}
               disabled={busy}
               {...inputProps}
-              className="w-full type-body bg-brand-bg border border-brand-accent/40 rounded-lg px-2 py-1 focus:outline-none focus:border-brand-accent"
+              className="w-full min-w-0 type-body bg-brand-bg border border-brand-accent/40 rounded-lg px-2 py-1 focus:outline-none focus:border-brand-accent"
             />
           )
         ) : (
           <>
             <div className="min-w-0 flex-1">
-              <span className={`type-body tabular-nums ${value ? C.color.text : C.color.muted}`}>
+              <span className={`block type-body tabular-nums break-words [overflow-wrap:anywhere] ${value ? C.color.text : C.color.muted}`}>
                 {value ?? placeholder}
               </span>
               {hint && (
-                <span className={`block type-caption ${C.color.muted} mt-0.5`}>
+                <span className={`block type-hint ${C.color.muted} mt-0.5`}>
                   {hint}
                 </span>
               )}
