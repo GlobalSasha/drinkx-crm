@@ -906,3 +906,102 @@ async def get_stage_durations(
             }
         )
     return out
+
+
+class PipelineNotFound(Exception):
+    """Целевая воронка не найдена в этом рабочем пространстве."""
+
+    def __init__(self, pipeline_id: uuid.UUID) -> None:
+        self.pipeline_id = pipeline_id
+        super().__init__(f"Pipeline {pipeline_id} not found")
+
+
+async def change_pipeline(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    user_id: uuid.UUID,
+    lead_id: uuid.UUID,
+    pipeline_id: uuid.UUID,
+    stage_id: uuid.UUID | None = None,
+) -> Lead:
+    """Перенести лида в другую воронку.
+
+    Если `stage_id` не указан, лид встаёт на первый этап (position == 0) целевой
+    воронки. `lead.pipeline_id` выставляется ДО вызова движка переходов: гейт
+    `check_pipeline_match` сверяет воронку лида с воронкой целевого этапа и иначе
+    отклонит переход.
+    """
+    from app.audit.audit import log as audit_log
+    from app.pipelines import repositories as pipelines_repo
+
+    lead = await repo.get_by_id(db, lead_id, workspace_id)
+    if lead is None or lead.deleted_at is not None:
+        raise LeadNotFound(lead_id)
+
+    pipeline = await pipelines_repo.get_by_id(
+        db, pipeline_id=pipeline_id, workspace_id=workspace_id
+    )
+    if pipeline is None:
+        raise PipelineNotFound(pipeline_id)
+
+    if stage_id is not None:
+        belongs = await pipelines_repo.stage_belongs_to_pipeline(
+            db, stage_id=stage_id, pipeline_id=pipeline_id
+        )
+        if not belongs:
+            raise StageNotFound(stage_id)
+        result = await db.execute(select(Stage).where(Stage.id == stage_id))
+        to_stage = result.scalar_one_or_none()
+        if to_stage is None:
+            raise StageNotFound(stage_id)
+    else:
+        result = await db.execute(
+            select(Stage).where(
+                Stage.pipeline_id == pipeline_id,
+                Stage.position == 0,
+            )
+        )
+        to_stage = result.scalar_one_or_none()
+        if to_stage is None:
+            raise StageNotFound(pipeline_id)
+
+    # No-op: не пишем историю, если лид уже там, куда его переносят.
+    if lead.pipeline_id == pipeline_id and lead.stage_id == to_stage.id:
+        return lead
+
+    from_pipeline_id = lead.pipeline_id
+    from_stage_id = lead.stage_id
+
+    # Сначала меняем воронку у лида: гейт check_pipeline_match в движке переходов
+    # сверяет pipeline_id лида с pipeline_id целевого этапа и иначе отклонит переход.
+    lead.pipeline_id = pipeline_id
+    await db.flush()
+
+    # gate_skipped=True: административный перенос не должен блокироваться гейтами
+    # СТАРОЙ воронки (обязательные поля, права на этап и т.п.) — иначе лид навсегда
+    # застрянет в исходной воронке.
+    moved = await automation_move_stage(
+        db,
+        lead,
+        to_stage,
+        user_id,
+        gate_skipped=True,
+        skip_reason="смена воронки",
+    )
+
+    await audit_log(
+        db,
+        action="lead.change_pipeline",
+        workspace_id=workspace_id,
+        user_id=user_id,
+        entity_type="lead",
+        entity_id=lead.id,
+        delta={
+            "from_pipeline": str(from_pipeline_id) if from_pipeline_id is not None else None,
+            "to_pipeline": str(pipeline_id),
+            "from_stage": str(from_stage_id) if from_stage_id is not None else None,
+            "to_stage": str(to_stage.id),
+        },
+    )
+
+    return moved

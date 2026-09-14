@@ -371,3 +371,14 @@ class UtmSourceStatOut(BaseModel):
     won: int
     won_sum: Decimal          # sale (one-off) revenue — plan 025
     won_rental_mrr: Decimal = Decimal(0)  # rental monthly recurring — plan 025
+
+
+class LeadPipelineChangeIn(BaseModel):
+    """Перенос лида в другую воронку.
+
+    `stage_id` необязателен: если он не указан, лид встаёт на первый этап
+    (position == 0) целевой воронки.
+    """
+
+    pipeline_id: UUID
+    stage_id: UUID | None = None
