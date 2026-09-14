@@ -475,13 +475,17 @@ async def list_trash(
     *,
     page: int = 1,
     page_size: int = 50,
+    assigned_to: uuid.UUID | None = None,
 ) -> tuple[list[Lead], int]:
     """Return (rows, total) of soft-deleted leads only, most recently
-    deleted first."""
+    deleted first. `assigned_to` narrows the view to one owner — a manager
+    only sees his own deleted leads."""
     base = select(Lead).where(
         Lead.workspace_id == workspace_id,
         Lead.deleted_at.isnot(None),
     )
+    if assigned_to is not None:
+        base = base.where(Lead.assigned_to == assigned_to)
 
     count_result = await db.execute(select(func.count()).select_from(base.subquery()))
     total: int = count_result.scalar_one()

@@ -40,57 +40,46 @@ def test_scope_admin_default_returns_self():
     ) == me
 
 
-def test_scope_regular_explicit_id_is_honored():
-    # B2: ?assigned_to=<id> from a regular manager is now honored so they
-    # can view a single user's book ('just mine' or a colleague's), instead
-    # of being forced back to self.
-    from app.leads.routers import _resolve_assignee_scope
-    me, other = uuid.uuid4(), uuid.uuid4()
-    assert _resolve_assignee_scope(
-        explicit=other, all_assignees=True, q=None, user_id=me, role="manager"
-    ) == other
-
-
-def test_scope_regular_default_is_whole_workspace():
-    # B2: a regular manager with no ?assigned_to now sees ALL workspace
-    # leads (None = no assignee filter), not just their own.
+def test_scope_manager_default_is_self():
     from app.leads.routers import _resolve_assignee_scope
     me = uuid.uuid4()
+    # Policy: a manager is locked to his own leads, so with no explicit
+    # assignee the scope is always his own user_id.
     assert _resolve_assignee_scope(
         explicit=None, all_assignees=False, q=None, user_id=me, role="manager"
-    ) is None
+    ) == me
 
 
-def test_scope_picker_optin_is_whole_workspace():
+def test_scope_manager_explicit_id_is_ignored():
     from app.leads.routers import _resolve_assignee_scope
-    me = uuid.uuid4()
-    # the message-to-lead picker opts in via workspace_search → whole workspace
+    me, other = uuid.uuid4(), uuid.uuid4()
+    # A manager cannot widen or shift his scope: a colleague's id in
+    # ?assigned_to (even with all_assignees) is ignored, leaving self.
     assert _resolve_assignee_scope(
-        explicit=None, all_assignees=False, q="кофейня", user_id=me, role="manager",
-        workspace_search=True,
-    ) is None
+        explicit=other, all_assignees=True, q=None, user_id=me, role="manager"
+    ) == me
 
 
-def test_scope_regular_q_without_optin_is_whole_workspace():
+def test_scope_manager_q_is_self():
     from app.leads.routers import _resolve_assignee_scope
     me = uuid.uuid4()
-    # B2: with the open default, a manager's kanban search (no
-    # workspace_search opt-in, no explicit ?assigned_to) is whole-workspace
-    # too — the q carve-out no longer matters because the default is None.
+    # Search does not widen a manager's scope: a kanban q without the
+    # picker opt-in stays locked to his own leads.
     assert _resolve_assignee_scope(
         explicit=None, all_assignees=False, q="кофейня", user_id=me, role="manager",
         workspace_search=False,
-    ) is None
+    ) == me
 
 
-def test_scope_regular_q_with_optin_is_whole_workspace():
+def test_scope_manager_picker_optin_is_still_self():
     from app.leads.routers import _resolve_assignee_scope
     me = uuid.uuid4()
-    # the picker opts in → whole-workspace search, as before
+    # The message-to-lead picker opts in via workspace_search, but a
+    # manager is still locked to his own book — the opt-in cannot escape it.
     assert _resolve_assignee_scope(
         explicit=None, all_assignees=False, q="кофейня", user_id=me, role="manager",
         workspace_search=True,
-    ) is None
+    ) == me
 
 
 def test_scope_admin_q_with_explicit_keeps_manager():

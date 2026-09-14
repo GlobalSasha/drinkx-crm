@@ -1,4 +1,5 @@
 "use client";
+import { useMe } from "@/lib/hooks/use-me";
 import { useMemo } from "react";
 import { Search, Plus, CalendarRange, Upload } from "lucide-react";
 import { usePipelineStore } from "@/lib/store/pipeline-store";
@@ -16,6 +17,8 @@ interface Props {
 }
 
 export function PipelineHeader({ leads, totalCount }: Props) {
+  const { data: me } = useMe();
+  const isAdminOrHead = me?.role === "admin" || me?.role === "head";
   const {
     filters,
     setSegments,
@@ -109,6 +112,7 @@ export function PipelineHeader({ leads, totalCount }: Props) {
             }}
             leadCount={totalCount}
           />
+        {isAdminOrHead && (
           <Button
             variant="ghost"
             onClick={openSprintModal}
@@ -118,6 +122,7 @@ export function PipelineHeader({ leads, totalCount }: Props) {
             <span className="hidden sm:inline">Сформировать план на неделю</span>
             <span className="sm:hidden">План на неделю</span>
           </Button>
+        )}
         </div>
       </div>
 

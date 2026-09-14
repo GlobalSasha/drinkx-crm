@@ -22,8 +22,14 @@ async def search(
     q: str = Query("", description="Query text. 1-2 chars → ILIKE only; 3+ → trigram."),
     limit: int = Query(20, ge=1, le=50),
 ) -> SearchResponse:
+    # Менеджер ищет только по своим лидам: с 2026-09-14 он не видит чужие
+    # карточки нигде, включая глобальный поиск. Руководитель и админ — по всем.
     rows, mode = await search_repo.search(
-        db, workspace_id=user.workspace_id, q=q, limit=limit
+        db,
+        workspace_id=user.workspace_id,
+        q=q,
+        limit=limit,
+        owner_id=None if user.role in ("admin", "head") else user.id,
     )
     items = [
         SearchHit(

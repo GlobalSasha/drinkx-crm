@@ -19,6 +19,7 @@ import {
   Calendar,
   Activity as ActivityIcon,
   Users,
+  UserRound,
   GitMerge,
 } from "lucide-react";
 import {
@@ -29,6 +30,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/DropdownMenu";
 import { Button } from "@/components/ui/Button";
+import { useUsers } from "@/lib/hooks/use-users";
 import { C } from "@/lib/design-system";
 import type { LeadOut, Stage } from "@/lib/types";
 import { STAGE_COLOR_FALLBACK } from "@/components/ui/Chart";
@@ -126,6 +128,7 @@ export function LeadCardHeader({
   onStageSelect,
   onRename,
 }: Props) {
+  const usersQuery = useUsers();
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
   const [stageDropdownOpen, setStageDropdownOpen] = useState(false);
@@ -289,33 +292,54 @@ export function LeadCardHeader({
         </div>
       </div>
 
-      {/* Row 2: meta — primary LPR + key dates. Hidden if nothing to show so
-          the header collapses gracefully on bare leads. */}
-      {(lead.primary_contact_name || lead.assigned_at || lead.last_activity_at) && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 ml-9 type-caption text-brand-muted">
-          {lead.primary_contact_name && (
-            <span className="inline-flex items-center gap-1">
-              <Star size={11} fill="currentColor" className="text-brand-accent" />
-              <span className="text-brand-primary font-semibold">
-                {lead.primary_contact_name}
-              </span>
+      {/* Row 2: meta — owner chip + primary LPR + key dates. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 ml-9 type-caption text-brand-muted">
+        {(() => {
+          const owner = usersQuery.data?.items.find((u) => u.id === lead.assigned_to);
+          const isNobody = lead.assigned_to == null;
+          const isMine = !isNobody && lead.assigned_to === meId;
+          const label = isNobody
+            ? "Ничей — свободен"
+            : isMine
+              ? "Ваш лид"
+              : owner
+                ? owner.name || owner.email
+                : (lead.assigned_to ?? '').slice(0, 8);
+          const tone = isNobody
+            ? "bg-brand-bg text-brand-muted border border-dashed border-brand-border"
+            : isMine
+              ? "bg-brand-soft text-brand-accent"
+              : "bg-brand-bg text-brand-primary border border-brand-border";
+          return (
+            <span
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold max-w-[14rem] truncate ${tone}`}
+            >
+              <UserRound size={11} />
+              <span className="truncate">{label}</span>
             </span>
-          )}
-          {(lead.assigned_at || lead.created_at) && (
-            <span className="inline-flex items-center gap-1">
-              <Calendar size={11} />
-              в работе с {formatRelativeShort(lead.assigned_at ?? lead.created_at)}
+          );
+        })()}
+        {lead.primary_contact_name && (
+          <span className="inline-flex items-center gap-1">
+            <Star size={11} fill="currentColor" className="text-brand-accent" />
+            <span className="text-brand-primary font-semibold">
+              {lead.primary_contact_name}
             </span>
-          )}
-          {lead.last_activity_at && (
-            <span className="inline-flex items-center gap-1">
-              <ActivityIcon size={11} className="text-success" />
-              активность {formatRelativeShort(lead.last_activity_at)}
-            </span>
-          )}
-        </div>
-      )}
-
+          </span>
+        )}
+        {(lead.assigned_at || lead.created_at) && (
+          <span className="inline-flex items-center gap-1">
+            <Calendar size={11} />
+            в работе с {formatRelativeShort(lead.assigned_at ?? lead.created_at)}
+          </span>
+        )}
+        {lead.last_activity_at && (
+          <span className="inline-flex items-center gap-1">
+            <ActivityIcon size={11} className="text-success" />
+            активность {formatRelativeShort(lead.last_activity_at)}
+          </span>
+        )}
+      </div>
       {/* Row 3: stage / priority / segment pills */}
       <div className="flex flex-wrap items-center gap-2 mt-2 ml-9">
         <DropdownMenu open={stageDropdownOpen} onOpenChange={setStageDropdownOpen}>

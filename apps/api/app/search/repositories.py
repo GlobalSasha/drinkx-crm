@@ -17,12 +17,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 async def _search_ilike(
-    db: AsyncSession, *, workspace_id: UUID, q: str, limit: int
+    db: AsyncSession, *, workspace_id: UUID, q: str, limit: int, owner_id: UUID | None = None
 ) -> list[dict[str, Any]]:
     """Short query (1-2 chars): exact ILIKE only, no fuzzy.
 
     Each UNION arm is parenthesised so its per-arm LIMIT is legal — an
     unparenthesised `SELECT … LIMIT n UNION ALL …` is a Postgres syntax error.
+    owner_id narrows the result to one manager's book.
     """
     pattern = f"%{q}%"
     rows = (
@@ -38,6 +39,7 @@ async def _search_ilike(
                 FROM companies c
                 WHERE c.workspace_id = :wid AND c.is_archived = false
                   AND (c.name ILIKE :pat OR c.inn ILIKE :pat OR c.email ILIKE :pat OR c.phone ILIKE :pat)
+                  AND (CAST(:owner AS uuid) IS NULL OR EXISTS (SELECT 1 FROM leads l3 WHERE l3.company_id = c.id AND l3.assigned_to = CAST(:owner AS uuid)))
                 LIMIT :lim)
 
                 UNION ALL
@@ -52,6 +54,7 @@ async def _search_ilike(
                 LEFT JOIN stages s ON s.id = l.stage_id
                 WHERE l.workspace_id = :wid
                   AND (l.company_name ILIKE :pat OR l.email ILIKE :pat OR l.phone ILIKE :pat OR l.inn ILIKE :pat)
+                  AND (CAST(:owner AS uuid) IS NULL OR l.assigned_to = CAST(:owner AS uuid))
                 LIMIT :lim)
 
                 UNION ALL
@@ -69,6 +72,7 @@ async def _search_ilike(
                 FROM contacts ct
                 WHERE ct.workspace_id = :wid
                   AND (ct.name ILIKE :pat OR ct.email ILIKE :pat OR ct.phone ILIKE :pat)
+                  AND (CAST(:owner AS uuid) IS NULL OR EXISTS (SELECT 1 FROM leads l2 WHERE l2.id = ct.lead_id AND l2.assigned_to = CAST(:owner AS uuid)))
                 LIMIT :lim)
 
                 UNION ALL
@@ -84,21 +88,22 @@ async def _search_ilike(
                 WHERE l.workspace_id = :wid AND a.type = 'file'
                   AND (a.payload_json->>'file_name' ILIKE :pat
                        OR a.payload_json->>'extracted_text' ILIKE :pat)
+                  AND (CAST(:owner AS uuid) IS NULL OR l.assigned_to = CAST(:owner AS uuid))
                 LIMIT :lim)
                 """
             ),
-            {"wid": str(workspace_id), "pat": pattern, "lim": limit},
+            {"wid": str(workspace_id), "pat": pattern, "lim": limit, "owner": str(owner_id) if owner_id else None},
         )
     ).mappings().all()
     return [dict(r) for r in rows]
 
 
 async def _search_trgm(
-    db: AsyncSession, *, workspace_id: UUID, q: str, limit: int
+    db: AsyncSession, *, workspace_id: UUID, q: str, limit: int, owner_id: UUID | None = None
 ) -> list[dict[str, Any]]:
     """≥3 chars: trigram similarity ranked across companies + leads +
     contacts. The CTE pre-computes `q` and `q_like` so each UNION arm
-    references them once."""
+    references them once. owner_id narrows the result to one manager's book."""
     rows = (
         await db.execute(
             text(
@@ -106,7 +111,8 @@ async def _search_trgm(
                 WITH query AS (
                   SELECT CAST(:wid AS uuid) AS workspace_id,
                          trim(:q) AS q,
-                         '%' || trim(:q) || '%' AS q_like
+                         '%' || trim(:q) || '%' AS q_like,
+                         CAST(:owner AS uuid) AS owner_id
                 )
                 SELECT * FROM (
 
@@ -122,6 +128,7 @@ async def _search_trgm(
                   FROM companies c, query q
                   WHERE c.workspace_id = q.workspace_id AND c.is_archived = false
                     AND (c.name % q.q OR c.inn ILIKE q.q_like OR c.website ILIKE q.q_like)
+                    AND (q.owner_id IS NULL OR EXISTS (SELECT 1 FROM leads l3 WHERE l3.company_id = c.id AND l3.assigned_to = q.owner_id))
 
                   UNION ALL
 
@@ -135,6 +142,7 @@ async def _search_trgm(
                   LEFT JOIN stages s ON s.id = l.stage_id, query q
                   WHERE l.workspace_id = q.workspace_id
                     AND (l.company_name % q.q OR l.email ILIKE q.q_like OR l.phone ILIKE q.q_like)
+                    AND (q.owner_id IS NULL OR l.assigned_to = q.owner_id)
 
                   UNION ALL
 
@@ -155,6 +163,7 @@ async def _search_trgm(
                   FROM contacts ct, query q
                   WHERE ct.workspace_id = q.workspace_id
                     AND (ct.name % q.q OR ct.email ILIKE q.q_like OR ct.phone ILIKE q.q_like)
+                    AND (q.owner_id IS NULL OR EXISTS (SELECT 1 FROM leads l2 WHERE l2.id = ct.lead_id AND l2.assigned_to = q.owner_id))
 
                   UNION ALL
 
@@ -173,29 +182,31 @@ async def _search_trgm(
                   WHERE l.workspace_id = q.workspace_id AND a.type = 'file'
                     AND (a.payload_json->>'file_name' ILIKE q.q_like
                          OR a.payload_json->>'extracted_text' ILIKE q.q_like)
+                    AND (q.owner_id IS NULL OR l.assigned_to = q.owner_id)
 
                 ) results
                 ORDER BY rank DESC NULLS LAST
                 LIMIT :lim
                 """
             ),
-            {"wid": str(workspace_id), "q": q, "lim": limit},
+            {"wid": str(workspace_id), "q": q, "lim": limit, "owner": str(owner_id) if owner_id else None},
         )
     ).mappings().all()
     return [dict(r) for r in rows]
 
 
 async def search(
-    db: AsyncSession, *, workspace_id: UUID, q: str, limit: int = 20
+    db: AsyncSession, *, workspace_id: UUID, q: str, limit: int = 20, owner_id: UUID | None = None
 ) -> tuple[list[dict[str, Any]], str]:
-    """Returns (rows, mode) — mode is 'ilike' | 'trgm' | 'empty'."""
+    """Returns (rows, mode) — mode is 'ilike' | 'trgm' | 'empty'.
+    owner_id narrows the result to one manager's book."""
     q = (q or "").strip()
     if not q:
         return [], "empty"
     if len(q) < 3:
         return await _search_ilike(
-            db, workspace_id=workspace_id, q=q, limit=limit
+            db, workspace_id=workspace_id, q=q, limit=limit, owner_id=owner_id
         ), "ilike"
     return await _search_trgm(
-        db, workspace_id=workspace_id, q=q, limit=limit
+        db, workspace_id=workspace_id, q=q, limit=limit, owner_id=owner_id
     ), "trgm"
