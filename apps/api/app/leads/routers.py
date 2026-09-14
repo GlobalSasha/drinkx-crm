@@ -21,6 +21,7 @@ from app.leads.schemas import (
     LeadListOut,
     LeadOut,
     LeadUpdate,
+    LeadPipelineChangeIn,
     MergeLeadsIn,
     MoveStageBlockedDetail,
     MoveStageIn,
@@ -38,6 +39,7 @@ from app.leads.services import (
     LeadAlreadyClaimed,
     LeadNotFound,
     LeadNotOwnedByUser,
+    PipelineNotFound,
     PrimaryContactInvalid,
     StageNotFound,
     TransferTargetInvalid,
@@ -844,3 +846,36 @@ async def get_stage_durations(
     except LeadNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
     return [StageDurationOut.model_validate(r) for r in rows]
+
+
+@router.post("/{lead_id}/pipeline", response_model=LeadOut)
+async def change_lead_pipeline(
+    lead_id: UUID,
+    payload: LeadPipelineChangeIn,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> LeadOut:
+    """Перенос лида в другую воронку; лид встаёт на первый этап, если этап не указан."""
+    try:
+        lead = await services.change_pipeline(
+            db,
+            workspace_id=user.workspace_id,
+            user_id=user.id,
+            lead_id=lead_id,
+            pipeline_id=payload.pipeline_id,
+            stage_id=payload.stage_id,
+        )
+    except LeadNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+    except PipelineNotFound:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Воронка не найдена в этом рабочем пространстве",
+        )
+    except StageNotFound:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="В выбранной воронке нет этапов",
+        )
+    await db.commit()
+    return lead  # type: ignore[return-value]

@@ -16,11 +16,16 @@ import {
   User,
   Loader2,
   Pencil,
+  GitBranch,
 } from "lucide-react";
 import type { CommercialModel, LeadOut } from "@/lib/types";
-import { useUpdateDealFields } from "@/lib/hooks/use-lead-v2";
+import {
+  useChangeLeadPipeline,
+  useUpdateDealFields,
+} from "@/lib/hooks/use-lead-v2";
 import { useUpdateLead } from "@/lib/hooks/use-lead";
 import { useMe } from "@/lib/hooks/use-me";
+import { usePipelines } from "@/lib/hooks/use-pipelines";
 import { useUsers } from "@/lib/hooks/use-users";
 import {
   SEGMENT_OPTIONS,
@@ -71,7 +76,9 @@ export function LeadInfoBlock({ lead }: Props) {
   const updateDeal = useUpdateDealFields(lead.id);
   const { data: me } = useMe();
   const usersQuery = useUsers();
-  const isPending = updateLead.isPending || updateDeal.isPending;
+  const changePipeline = useChangeLeadPipeline(lead.id);
+  const isPending =
+    updateLead.isPending || updateDeal.isPending || changePipeline.isPending;
 
   const ai = (lead.ai_data ?? {}) as Record<string, unknown>;
   const description = asText(ai.company_profile) || asText(ai.company_overview);
@@ -117,6 +124,15 @@ export function LeadInfoBlock({ lead }: Props) {
   const onDescription = async (v: string | null) =>
     updateLead.mutateAsync({ company_profile: v ?? "" });
 
+  const pipelinesQuery = usePipelines();
+  const pipelines = pipelinesQuery.data ?? [];
+  const currentPipeline = pipelines.find((p) => p.id === lead.pipeline_id);
+
+  const onPipeline = async (v: string | null) => {
+    if (!v || v === lead.pipeline_id) return;
+    await changePipeline.mutateAsync({ pipeline_id: v });
+  };
+
   const dealTypeOptions = Object.keys(DEAL_TYPE_LABELS);
   const segmentOptions = [...SEGMENT_OPTIONS];
 
@@ -140,6 +156,17 @@ export function LeadInfoBlock({ lead }: Props) {
           border/squircle), so it reads as part of «Информация» rather than
           a block-in-a-block. */}
       <div className="mt-4 divide-y divide-brand-border/70">
+        <Row
+          icon={<GitBranch size={15} className={C.color.muted} />}
+          label="Воронка"
+          value={currentPipeline?.name ?? null}
+          placeholder="Не выбрана"
+          onSave={onPipeline}
+          rawValue={lead.pipeline_id}
+          inputType="select"
+          options={pipelines.map((p) => p.id)}
+          optionLabel={(v) => pipelines.find((p) => p.id === v)?.name ?? v}
+        />
         <Row
           icon={<Tag size={15} className={C.color.muted} />}
           label="Модель сделки"

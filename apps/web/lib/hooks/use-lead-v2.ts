@@ -72,3 +72,16 @@ export function useUpdateScoreDetails(leadId: string) {
     },
   });
 }
+
+/** POST /leads/{id}/pipeline — переносит лид в другую воронку. Без stage_id лид попадает на первую стадию. */
+export function useChangeLeadPipeline(leadId: string) {
+  const qc = useQueryClient();
+  return useMutation<LeadOut, ApiError, { pipeline_id: string; stage_id?: string | null }>({
+    mutationFn: (body) => api.post<LeadOut>(`/leads/${leadId}/pipeline`, body),
+    onSuccess: (lead) => {
+      qc.setQueryData(["lead", leadId], lead);
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      qc.invalidateQueries({ queryKey: ["stage-durations", leadId] });
+    },
+  });
+}
