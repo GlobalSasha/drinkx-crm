@@ -2,8 +2,11 @@
 import { useState } from "react";
 import { X, ArrowRight, AlertTriangle } from "lucide-react";
 import { useTransferLead } from "@/lib/hooks/use-leads";
-import { ApiError } from "@/lib/api-client";
+import { useUsers } from "@/lib/hooks/use-users";
+import { useMe } from "@/lib/hooks/use-me";
+import { apiErrorDetail } from "@/lib/api-error";
 import { Modal } from "@/components/ui/Modal";
+import { UserSelect } from "@/components/ui/UserSelect";
 
 interface Props {
   leadId: string;
@@ -12,52 +15,46 @@ interface Props {
   onSuccess: () => void;
 }
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /**
  * Передача лида другому менеджеру.
  *
- * NOTE: there is no `/api/users` listing endpoint yet, so the manager
- * pastes the recipient's UUID directly. The backend already validates
- * that the user exists in the same workspace and returns 400 if not —
- * this modal surfaces that error inline. A user-picker can replace the
- * raw UUID input once a workspace-users endpoint lands.
+ * Получатель выбирается из списка пользователей рабочего пространства
+ * (`GET /api/users`, открыт для всех ролей) через общий `UserSelect`.
+ * Бэкенд по-прежнему проверяет, что получатель состоит в том же
+ * рабочем пространстве, и возвращает 400, если это не так — ошибка
+ * показывается прямо в модалке.
  */
 export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }: Props) {
   const transfer = useTransferLead();
-  const [toUserId, setToUserId] = useState("");
+  const usersQuery = useUsers();
+  const meQuery = useMe();
+
+  const [toUserId, setToUserId] = useState<string | null>(null);
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const trimmed = toUserId.trim();
-  const isValidUuid = UUID_RE.test(trimmed);
-  const isSameUser = !!currentAssignedTo && trimmed === currentAssignedTo;
-  const canSubmit = isValidUuid && !isSameUser && !transfer.isPending;
+  const users = usersQuery.data?.items ?? [];
+  const options = users.filter((u) => u.id !== currentAssignedTo);
+
+  const canSubmit = !!toUserId && !transfer.isPending;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (!canSubmit) {
-      if (!isValidUuid) setError("Введите валидный UUID получателя");
-      else if (isSameUser) setError("Лид уже принадлежит этому пользователю");
+      if (!toUserId) setError("Выберите, кому передать лид");
       return;
     }
 
     transfer.mutate(
-      { leadId, to_user_id: trimmed, comment: comment.trim() || null },
+      { leadId, to_user_id: toUserId, comment: comment.trim() || null },
       {
         onSuccess: () => {
           onSuccess();
           onClose();
         },
         onError: (err) => {
-          if (err instanceof ApiError) {
-            const detail = err.body as { detail?: string } | undefined;
-            setError(detail?.detail ?? `Ошибка ${err.status}`);
-          } else {
-            setError("Не удалось передать лид");
-          }
+          setError(apiErrorDetail(err, "Не удалось передать лид"));
         },
       },
     );
@@ -86,29 +83,32 @@ export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }:
             </button>
           </div>
 
-          {/* Recipient UUID */}
+          {/* Recipient */}
           <div className="mb-3">
             <label
               htmlFor="transfer-to-user"
               className="block font-mono text-2xs uppercase tracking-[0.12em] text-brand-muted mb-1.5"
             >
-              UUID получателя
+              Кому передать
             </label>
-            <input
-              id="transfer-to-user"
-              type="text"
-              value={toUserId}
-              onChange={(e) => setToUserId(e.target.value)}
-              placeholder="00000000-0000-0000-0000-000000000000"
-              autoComplete="off"
-              autoFocus
-              spellCheck={false}
-              className="w-full px-3 py-2 text-sm font-mono bg-brand-bg border border-brand-border rounded-xl outline-none focus:border-brand-accent/40 focus:bg-white transition"
-            />
-            <p className="text-xs text-brand-muted mt-1">
-              Спросите получателя в Settings → Profile (или у админа). Список
-              пользователей появится в Phase 2.
-            </p>
+            {usersQuery.isLoading ? (
+              <p className="text-xs text-brand-muted">Загружаем список…</p>
+            ) : options.length === 0 ? (
+              <p className="text-xs text-brand-muted">
+                В рабочем пространстве нет других пользователей.
+              </p>
+            ) : (
+              <UserSelect
+                id="transfer-to-user"
+                value={toUserId}
+                onChange={setToUserId}
+                users={options}
+                meId={meQuery.data?.id}
+                allowEmpty
+                emptyLabel="Выберите пользователя"
+                className="w-full"
+              />
+            )}
           </div>
 
           {/* Optional comment */}
