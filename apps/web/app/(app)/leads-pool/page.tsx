@@ -1,7 +1,8 @@
 "use client";
 import { useState, useMemo, useCallback, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { Loader2, ShieldAlert, Sparkles } from "lucide-react";
 import { usePoolLeads, useClaimLead } from "@/lib/hooks/use-leads";
 import { useForms } from "@/lib/hooks/use-forms";
 import { useMe } from "@/lib/hooks/use-me";
@@ -15,6 +16,15 @@ import { AssignLeadsModal } from "@/components/leads-pool/AssignLeadsModal";
 import { tierFromScore } from "@/lib/types";
 import type { LeadAssignOut } from "@/lib/types";
 import { SEGMENT_OPTIONS } from "@/lib/i18n";
+import { pageContainerVariants } from "@/components/ui/PageContainer";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+  EmptyContent,
+} from "@/components/ui/Empty";
 
 // ---- Toast state ----
 
@@ -384,6 +394,41 @@ function LeadsPoolPageInner() {
   // filtering + facet counts is the tracked follow-up.)
   const serverTotal = poolQuery.data?.total ?? 0;
   const poolTruncated = serverTotal > allItems.length;
+
+  // Пул — только руководителю и админу (доступ урезан 2026-09-14). Пункт меню
+  // у менеджера скрыт, но по прямой ссылке страница открывалась и валилась
+  // ошибкой API — вместо неё объясняющий экран.
+  if (meQuery.isLoading || !meQuery.data) {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <Loader2 size={20} className="animate-spin text-brand-muted" />
+      </div>
+    );
+  }
+  if (meQuery.data.role !== "admin" && meQuery.data.role !== "head") {
+    return (
+      <div className={pageContainerVariants({ surface: "reading" })}>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon"><ShieldAlert /></EmptyMedia>
+            <EmptyTitle>Раздел «База лидов»</EmptyTitle>
+            <EmptyDescription>
+              Базу лидов раздаёт руководитель: новые карточки придут к вам сами
+              и будут ждать в разделе «Сегодня».
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Link
+              href="/today"
+              className="inline-flex items-center gap-2 text-sm font-medium text-brand-accent-text hover:underline"
+            >
+              ← Вернуться на «Сегодня»
+            </Link>
+          </EmptyContent>
+        </Empty>
+      </div>
+    );
+  }
 
   return (
     <>

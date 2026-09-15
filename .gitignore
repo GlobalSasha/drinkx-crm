@@ -82,6 +82,8 @@ scripts/lpr_import/
 .claude/skills/
 CRM_AUDIT_REPORT.md
 
-# iCloud duplicate artifacts («… 2.ext»)
-* 2.*
-* 2/
+# iCloud duplicate artifacts («… 2.ext», «… 3.ext» и далее).
+# Правило «* 2.*» ловило только вторые копии — 14.09.2026 в репозитории
+# нашлись и «… 3.py», поэтому диапазон цифр.
+* [0-9].*
+* [0-9]/
