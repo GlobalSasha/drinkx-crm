@@ -96,6 +96,9 @@ _SEGMENT_SLUG_TO_LABEL = {
     "coffee_equipment_distributors":  "Дистрибьюторы оборудования",
     "raw_materials":                  "Зерно обжарка экстракт",
     "vending":                        "Вендинг",
+    "business_centers":               "Бизнес-центры и управляющие компании",
+    "office_buildings":               "Бизнес-центры и управляющие компании",
+    "property_management":            "Бизнес-центры и управляющие компании",
     "other":                          "Другое",
 }
 
