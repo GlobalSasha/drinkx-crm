@@ -19,10 +19,7 @@ import {
   GitBranch,
 } from "lucide-react";
 import type { CommercialModel, LeadOut } from "@/lib/types";
-import {
-  useChangeLeadPipeline,
-  useUpdateDealFields,
-} from "@/lib/hooks/use-lead-v2";
+import { useUpdateDealFields } from "@/lib/hooks/use-lead-v2";
 import { useUpdateLead } from "@/lib/hooks/use-lead";
 import { useMe } from "@/lib/hooks/use-me";
 import { usePipelines } from "@/lib/hooks/use-pipelines";
@@ -34,6 +31,7 @@ import {
 } from "@/lib/i18n";
 import { C } from "@/lib/design-system";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
+import { PipelineMoveModal } from "@/components/lead-card/PipelineMoveModal";
 
 interface Props {
   lead: LeadOut;
@@ -76,9 +74,7 @@ export function LeadInfoBlock({ lead }: Props) {
   const updateDeal = useUpdateDealFields(lead.id);
   const { data: me } = useMe();
   const usersQuery = useUsers();
-  const changePipeline = useChangeLeadPipeline(lead.id);
-  const isPending =
-    updateLead.isPending || updateDeal.isPending || changePipeline.isPending;
+  const isPending = updateLead.isPending || updateDeal.isPending;
 
   const ai = (lead.ai_data ?? {}) as Record<string, unknown>;
   const description = asText(ai.company_profile) || asText(ai.company_overview);
@@ -128,10 +124,10 @@ export function LeadInfoBlock({ lead }: Props) {
   const pipelines = pipelinesQuery.data ?? [];
   const currentPipeline = pipelines.find((p) => p.id === lead.pipeline_id);
 
-  const onPipeline = async (v: string | null) => {
-    if (!v || v === lead.pipeline_id) return;
-    await changePipeline.mutateAsync({ pipeline_id: v });
-  };
+  const currentStage = currentPipeline?.stages.find(
+    (st) => st.id === lead.stage_id,
+  );
+  const [pipelineMoveOpen, setPipelineMoveOpen] = useState(false);
 
   const dealTypeOptions = Object.keys(DEAL_TYPE_LABELS);
   const segmentOptions = [...SEGMENT_OPTIONS];
@@ -161,11 +157,8 @@ export function LeadInfoBlock({ lead }: Props) {
           label="Воронка"
           value={currentPipeline?.name ?? null}
           placeholder="Не выбрана"
-          onSave={onPipeline}
-          rawValue={lead.pipeline_id}
-          inputType="select"
-          options={pipelines.map((p) => p.id)}
-          optionLabel={(v) => pipelines.find((p) => p.id === v)?.name ?? v}
+          hint={currentStage ? `Этап: ${currentStage.name}` : undefined}
+          onOpen={() => setPipelineMoveOpen(true)}
         />
         <Row
           icon={<Tag size={15} className={C.color.muted} />}
@@ -303,6 +296,15 @@ export function LeadInfoBlock({ lead }: Props) {
           hint={lead.assigned_to ? "Изменяется через «Передать»" : undefined}
         />
       </div>
+
+      {pipelineMoveOpen && (
+        <PipelineMoveModal
+          leadId={lead.id}
+          currentPipelineId={lead.pipeline_id}
+          currentStageId={lead.stage_id}
+          onClose={() => setPipelineMoveOpen(false)}
+        />
+      )}
     </Card>
   );
 }
@@ -387,6 +389,8 @@ interface RowProps {
   inputProps?: React.InputHTMLAttributes<HTMLInputElement>;
   options?: string[];
   optionLabel?: (v: string) => string;
+  /** Строка не правится на месте, а открывает своё окно — как «Воронка». */
+  onOpen?: () => void;
 }
 
 function Row({
@@ -402,15 +406,20 @@ function Row({
   inputProps,
   options,
   optionLabel,
+  onOpen,
 }: RowProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<string>("");
   const [busy, setBusy] = useState(false);
 
-  const editable = !readOnly && !!onSave;
+  const editable = !readOnly && (!!onSave || !!onOpen);
 
   function startEdit() {
     if (!editable) return;
+    if (onOpen) {
+      onOpen();
+      return;
+    }
     setDraft(rawValue ?? value ?? "");
     setEditing(true);
   }
