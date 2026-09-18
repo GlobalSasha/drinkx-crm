@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckSquare, Square, Plus, Calendar, X, Loader2, Paperclip, Search, ChevronDown, Pencil, ListChecks, Trash2 } from "lucide-react";
+import { CheckSquare, Square, Plus, Calendar, X, Loader2, Paperclip, Search, ChevronDown, Pencil, ListChecks, Trash2, UserRound } from "lucide-react";
 import { InlineConfirm } from "@/components/ui/InlineConfirm";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/Empty";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -17,6 +17,9 @@ import {
   useReopenLeadTask,
   useArchiveLeadTask,
 } from "@/lib/hooks/use-lead-tasks";
+import { UserSelect } from "@/components/ui/UserSelect";
+import { useMe } from "@/lib/hooks/use-me";
+import { useUsers } from "@/lib/hooks/use-users";
 import { C } from "@/lib/design-system";
 import type { ActivityOut } from "@/lib/types";
 
@@ -46,12 +49,26 @@ export function TasksTab({ leadId }: Props) {
   const reopenTask = useReopenLeadTask(leadId);
   const archiveTask = useArchiveLeadTask(leadId);
 
+  const { data: me } = useMe();
+  const { data: usersData } = useUsers();
+  const users = usersData?.items ?? [];
+  // Поручить задачу другому человеку может только руководитель или админ —
+  // тот же порядок, что на бэкенде.
+  const canAssign = me?.role === "admin" || me?.role === "head";
+
   const [adding, setAdding] = useState(false);
+  const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [due, setDue] = useState(""); // datetime-local: yyyy-mm-ddTHH:mm
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [editingTask, setEditingTask] = useState<ActivityOut | null>(null);
+
+  function assigneeName(id: string): string {
+    if (id === me?.id) return "вам";
+    const u = users.find((x) => x.id === id);
+    return u?.name || u?.email || id.slice(0, 8);
+  }
 
   // Open first, then by due date ascending (nulls last).
   const rows = useMemo(() => {
@@ -79,11 +96,16 @@ export function TasksTab({ leadId }: Props) {
       if (!Number.isNaN(d.getTime())) iso = d.toISOString();
     }
     createTask.mutate(
-      { text: t, task_due_at: iso },
+      {
+        text: t,
+        task_due_at: iso,
+        assignee_user_id: canAssign ? assigneeId : undefined,
+      },
       {
         onSuccess: () => {
           setText("");
           setDue("");
+          setAssigneeId(null);
           setAdding(false);
         },
       },
@@ -137,6 +159,19 @@ export function TasksTab({ leadId }: Props) {
             aria-label="Срок и время"
             className={`${C.form.field} sm:w-56`}
           />
+          {canAssign && (
+            <UserSelect
+              value={assigneeId}
+              onChange={setAssigneeId}
+              users={users}
+              meId={me?.id}
+              allowEmpty
+              emptyLabel="Владелец лида"
+              disabled={createTask.isPending}
+              aria-label="Исполнитель задачи"
+              className="sm:w-56"
+            />
+          )}
           <div className="flex gap-2">
             <button
               type="button"
@@ -235,6 +270,11 @@ export function TasksTab({ leadId }: Props) {
                     {dueLabel && (
                       <span className="inline-flex items-center gap-1 type-caption text-brand-muted mt-0.5">
                         <Calendar size={11} /> до {dueLabel}
+                      </span>
+                    )}
+                    {a.assignee_user_id && (
+                      <span className="inline-flex items-center gap-1 type-caption text-brand-muted mt-0.5">
+                        <UserRound size={11} /> поручено: {assigneeName(a.assignee_user_id)}
                       </span>
                     )}
                   </ItemContent>
