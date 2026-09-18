@@ -32,6 +32,8 @@ export function useLeadTasks(leadId: string) {
 export interface CreateLeadTaskIn {
   text: string;
   task_due_at?: string | null;
+  /** Пусто = задачу делает владелец лида — так это работает на бэкенде. */
+  assignee_user_id?: string | null;
 }
 
 /** POST /leads/{id}/activities (type=task). Mirrors FeedComposer's
@@ -39,17 +41,20 @@ export interface CreateLeadTaskIn {
 export function useCreateLeadTask(leadId: string) {
   const qc = useQueryClient();
   return useMutation<ActivityOut, ApiError, CreateLeadTaskIn>({
-    mutationFn: ({ text, task_due_at }) =>
+    mutationFn: ({ text, task_due_at, assignee_user_id }) =>
       api.post<ActivityOut>(`/leads/${leadId}/activities`, {
         type: "task",
         body: text,
         task_due_at: task_due_at ?? null,
+        assignee_user_id: assignee_user_id ?? null,
         payload_json: { title: text, source: "tasks_tab" },
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: TASKS_KEY(leadId) });
       qc.invalidateQueries({ queryKey: ["feed", leadId] });
       qc.invalidateQueries({ queryKey: ["daily-plan", "today"] });
+      // Делегированная задача должна сразу появиться в общем списке задач.
+      qc.invalidateQueries({ queryKey: ["my-tasks"] });
     },
   });
 }
