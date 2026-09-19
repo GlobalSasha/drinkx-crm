@@ -20,6 +20,7 @@ import {
 import { UserSelect } from "@/components/ui/UserSelect";
 import { useMe } from "@/lib/hooks/use-me";
 import { useUsers } from "@/lib/hooks/use-users";
+import { useUpdateTask } from "@/lib/hooks/use-tasks";
 import { C } from "@/lib/design-system";
 import type { ActivityOut } from "@/lib/types";
 
@@ -55,6 +56,15 @@ export function TasksTab({ leadId }: Props) {
   // Поручить задачу другому человеку может только руководитель или админ —
   // тот же порядок, что на бэкенде.
   const canAssign = me?.role === "admin" || me?.role === "head";
+
+  const update = useUpdateTask();
+  const [delegatingId, setDelegatingId] = useState<string | null>(null);
+
+  const handleDelegate = (taskId: string, v: string | null) => {
+    // Пусто — задачу оставляем владельцу лида.
+    update.mutate({ taskId, body: { assignee_user_id: v }, leadId });
+    setDelegatingId(null);
+  };
 
   const [adding, setAdding] = useState(false);
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
@@ -277,8 +287,34 @@ export function TasksTab({ leadId }: Props) {
                         <UserRound size={11} /> поручено: {assigneeName(a.assignee_user_id)}
                       </span>
                     )}
+                    {delegatingId === a.id && (
+                      <div className="mt-2 max-w-xs">
+                        <UserSelect
+                          value={a.assignee_user_id}
+                          onChange={(v) => handleDelegate(a.id, v)}
+                          users={users}
+                          meId={me?.id}
+                          allowEmpty
+                          emptyLabel="Владелец лида"
+                          disabled={update.isPending}
+                          aria-label="Кому поручить задачу"
+                        />
+                      </div>
+                    )}
                   </ItemContent>
                   <ItemActions>
+                    {canAssign && (
+                      <button
+                        type="button"
+                        onClick={() => setDelegatingId(delegatingId === a.id ? null : a.id)}
+                        aria-expanded={delegatingId === a.id}
+                        title="Поручить задачу сотруднику"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-caption font-semibold bg-white border border-brand-border text-brand-muted hover:text-brand-primary hover:border-brand-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                      >
+                        <UserRound size={13} />
+                        <span className="hidden sm:inline">Поручить</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setEditingTask(a)}
