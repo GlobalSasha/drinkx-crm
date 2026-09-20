@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.dependencies import current_user
 from app.auth.models import User
 from app.db import get_db
+from app.leads.access import lead_access_guard
 from app.followups import services
 from app.followups.schemas import (
     FollowupCreate,
@@ -21,7 +22,15 @@ from app.followups.schemas import (
 )
 from app.leads.services import LeadNotFound
 
-router = APIRouter(prefix="/leads/{lead_id}/followups", tags=["followups"])
+# Страж доступа к лиду — тот же, что на роутере `/leads`. Этот роутер
+# подключается отдельно, поэтому зависимость надо назвать явно: без неё
+# менеджер, знающий UUID чужого лида, работал с ним через этот префикс
+# (аудит SEC-01).
+router = APIRouter(
+    prefix="/leads/{lead_id}/followups",
+    tags=["followups"],
+    dependencies=[Depends(lead_access_guard)],
+)
 
 # Separate router for /me/* paths — they don't share the lead-scoped
 # prefix, so they can't sit on `router` above. Both get registered in

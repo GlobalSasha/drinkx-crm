@@ -18,9 +18,8 @@ from app.activity.services import _get_lead_or_raise
 from app.auth.dependencies import current_user
 from app.auth.models import User
 from app.db import get_db
+from app.leads.access import lead_access_guard
 from app.leads.models import Lead
-
-router = APIRouter(tags=["activity-files"])
 
 
 class TaskFileOut(BaseModel):
@@ -72,6 +71,51 @@ async def _get_file_activity_workspace_scoped(
         )
     )
     return (await db.execute(stmt)).scalar_one_or_none()
+
+
+async def activity_file_access_guard(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> None:
+    """Право на файл — это право на лид, к которому он прикреплён.
+
+    У скачивания и удаления в пути только `activity_id`, поэтому страж по
+    `lead_id` до них не достаёт, а сами обработчики сверяли лишь рабочее
+    пространство (аудит SEC-01-J). Проверка стоит зависимостью роутера, то
+    есть до обработчика: при отказе подписанная ссылка не выдаётся и в
+    хранилище ничего не удаляется.
+
+    Файлов без лида на этом пути не бывает: выборка соединяется с `leads`
+    внутренним join. Поэтому отдельной политики для standalone-задач здесь
+    не нужно — их файлы сюда просто не попадают.
+    """
+    from app.leads.access import ensure_lead_access
+
+    activity_id = request.path_params.get("activity_id")
+    if activity_id is None:
+        return
+    try:
+        activity_uuid = uuid.UUID(str(activity_id))
+    except ValueError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="file not found")
+    activity = await _get_file_activity_workspace_scoped(
+        db, activity_id=activity_uuid, workspace_id=user.workspace_id
+    )
+    if activity is None:
+        # Обработчик ответит своим 404 — здесь не раскрываем, есть ли файл.
+        return
+    await ensure_lead_access(db, lead_id=activity.lead_id, user=user)
+
+
+# Страж доступа к лиду — тот же, что на роутере `/leads`. Этот роутер
+# подключается отдельно, поэтому зависимость надо назвать явно: без неё
+# менеджер, знающий UUID чужого лида, работал с ним через этот префикс
+# (аудит SEC-01).
+router = APIRouter(
+    tags=["activity-files"],
+    dependencies=[Depends(lead_access_guard), Depends(activity_file_access_guard)],
+)
 
 
 @router.post(

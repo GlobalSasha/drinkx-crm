@@ -147,7 +147,14 @@ async def list_lead_tasks(
 # Separate router mounted at /leads/{lead_id}/feed — the unified
 # activity feed (Sprint «Unified Activity Feed»). Lives in the same
 # module because it shares the same service/repository layer.
-feed_router = APIRouter(prefix="/leads/{lead_id}/feed", tags=["feed"])
+# Лента — та же работа по лиду, что и карточка, и закрыта тем же стражем.
+# Роутер подключается отдельно от `/leads`, поэтому зависимость названа
+# явно: без неё менеджер читал ленту чужого лида, зная UUID (SEC-01-D).
+feed_router = APIRouter(
+    prefix="/leads/{lead_id}/feed",
+    tags=["feed"],
+    dependencies=[Depends(lead_access_guard)],
+)
 
 
 def _to_feed_item(activity, author_name: str | None) -> FeedItemOut:
