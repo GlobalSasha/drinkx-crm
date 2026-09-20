@@ -360,6 +360,145 @@ async def test_auth03_empty_secret_in_production_must_refuse_not_use_constant():
 
 
 # ---------------------------------------------------------------------------
+# QA follow-up (2026-09-21) -- implementer's actual fix (210d5ba) deviates
+# from the contract's suggested shape: instead of gating the ephemeral
+# fallback on an explicit dev/test flag, it gates it on `app_env ==
+# "production"` being FALSE -- i.e. every non-production app_env (dev,
+# test, staging, anything else) gets a per-process RANDOM key with a
+# warning log, not the old hardcoded constant. These tests pin down that
+# actual behavior end-to-end (connect-gmail HTTP shape + callback) so a
+# regression back to the hardcoded constant, or a regression that makes
+# prod fall through to the ephemeral path, is caught.
+# ---------------------------------------------------------------------------
+
+async def _connect_gmail(user, settings_obj):
+    """Call the connect-gmail endpoint function directly (bypasses the
+    `current_user` FastAPI dependency -- same pattern the callback helper
+    uses for `get_settings`), with `get_settings` patched in both modules
+    the route touches: `app.inbox.routers` (google_client_id/secret gate)
+    and `app.inbox.oauth` (the signing-key gate)."""
+    from app.inbox import routers as inbox_routers
+
+    orig_routers_settings = inbox_routers.get_settings
+    orig_oauth_settings = oauth_helpers.get_settings
+    inbox_routers.get_settings = lambda: settings_obj
+    oauth_helpers.get_settings = lambda: settings_obj
+    try:
+        return await inbox_routers.connect_gmail(user=user)
+    finally:
+        inbox_routers.get_settings = orig_routers_settings
+        oauth_helpers.get_settings = orig_oauth_settings
+
+
+def _settings_with_google(**overrides) -> Settings:
+    return Settings(
+        google_client_id="fake-client-id",
+        google_client_secret="fake-client-secret",
+        **overrides,
+    )
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_auth03_production_empty_secret_connect_gmail_returns_503(db, workspace):
+    """connect-gmail must refuse (503), not hand back a state signed with
+    anything an attacker could reproduce, when app_env=production and no
+    secret is configured."""
+    from fastapi import HTTPException
+
+    user = await _make_user(db, workspace.id, email_prefix="prod-connect")
+    await db.flush()
+    settings_prod_empty = _settings_with_google(app_env="production", supabase_jwt_secret="")
+
+    with pytest.raises(HTTPException) as exc_info:
+        await _connect_gmail(user, settings_prod_empty)
+    assert exc_info.value.status_code == 503
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_auth03_production_empty_secret_callback_refuses_without_writing(db, workspace):
+    """Even if an attacker forges *some* state (they cannot know the
+    production secret, but this pins the fail-closed callback side too):
+    with app_env=production and an empty secret, the callback must reject
+    and the victim's ChannelConnection count must not grow."""
+    victim = await _make_user(db, workspace.id, email_prefix="prod-victim")
+    await db.flush()
+    settings_prod_empty = Settings(
+        app_env="production",
+        supabase_jwt_secret="",
+        google_client_id="fake-client-id",
+        google_client_secret="fake-client-secret",
+    )
+    forged_state = _forge_state(victim.id, secret=DEV_FALLBACK_CONSTANT)
+
+    before = await _connection_for(db, victim.id)
+    assert before is None
+
+    resp = await _callback(db, settings_prod_empty, code="attacker-code", state=forged_state)
+    after = await _connection_for(db, victim.id)
+
+    assert "invalid_state" in resp.headers.get("location", "") or resp.status_code >= 400
+    assert after is None, "ChannelConnection count grew despite production + empty secret"
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_dev_env_empty_secret_consent_to_callback_succeeds_in_one_process(db, workspace):
+    """Contract deviation check: implementer chose a random per-process
+    key (not the old hardcoded constant) for the non-production fallback.
+    Within ONE process, consent (connect-gmail, via sign_state) followed
+    by callback (verify_state) must still succeed -- the random key is
+    stable for the process lifetime."""
+    user = await _make_user(db, workspace.id, email_prefix="dev-consent")
+    await db.flush()
+    settings_dev_empty = _settings_with_google(app_env="development", supabase_jwt_secret="")
+
+    result = await _connect_gmail(user, settings_dev_empty)
+    assert "redirect_url" in result
+    from urllib.parse import parse_qs, urlparse
+
+    qs = parse_qs(urlparse(result["redirect_url"]).query)
+    state = qs["state"][0]
+
+    try:
+        resp = await _callback(db, settings_dev_empty, code="legit-code", state=state)
+        conn = await _connection_for(db, user.id)
+
+        assert "status=ok" in resp.headers.get("location", "")
+        assert conn is not None
+        assert conn.user_id == user.id
+    finally:
+        await _cleanup_workspace(db, workspace.id)
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_dev_env_empty_secret_rejects_state_signed_with_old_hardcoded_constant(db, workspace):
+    """The fix's whole point: even in dev, with an empty secret, a state
+    forged with the OLD hardcoded constant `drinkx-dev-state-key` must be
+    rejected -- the actual key is now a random per-process value the
+    constant cannot predict. This is the AUTH-01/AUTH-03 forgery leg
+    re-run against the (now non-production) dev/test path specifically,
+    since the implementer's fallback applies there too."""
+    victim = await _make_user(db, workspace.id, email_prefix="dev-victim")
+    await db.flush()
+    settings_dev_empty = Settings(
+        app_env="development",
+        supabase_jwt_secret="",
+        google_client_id="fake-client-id",
+        google_client_secret="fake-client-secret",
+    )
+    forged_state = _forge_state(victim.id, secret=DEV_FALLBACK_CONSTANT)
+
+    resp = await _callback(db, settings_dev_empty, code="attacker-code", state=forged_state)
+    conn = await _connection_for(db, victim.id)
+
+    assert "invalid_state" in resp.headers.get("location", "") or resp.status_code >= 400
+    assert conn is None
+
+
+# ---------------------------------------------------------------------------
 # AUTH-04 -- user role change/removal after linking
 # ---------------------------------------------------------------------------
 
