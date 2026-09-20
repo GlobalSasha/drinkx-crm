@@ -16,6 +16,7 @@
 #
 #   incoming/<sha>.tar.gz     transfer staging, removed once unpacked
 #   releases/<sha>/           the build context — exactly the tree of <sha>
+#   releases/.markers/<sha>   digest of the archive that tree came from
 #   current -> releases/<sha> flipped by deploy.sh, only after verification
 #   shared/.env               secrets, never inside a release tree
 #
@@ -56,14 +57,17 @@ TARGET="$RELEASES/$SHA"
 # --- integrity ----------------------------------------------------------
 # The archive crossed a network. Verify it against the checksum CI computed
 # before deciding it is the tree of this commit.
+# The digest is computed either way: besides the integrity check it is the
+# identity of this archive, recorded beside the published tree so a repeat
+# preparation of the same SHA can recognise its own work (see "publish").
+if command -v sha256sum > /dev/null 2>&1; then
+  ARCHIVE_SHA="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
+else
+  ARCHIVE_SHA="$(shasum -a 256 "$ARCHIVE" | awk '{print $1}')"
+fi
 if [ -f "$ARCHIVE.sha256" ]; then
-  if command -v sha256sum > /dev/null 2>&1; then
-    got="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
-  else
-    got="$(shasum -a 256 "$ARCHIVE" | awk '{print $1}')"
-  fi
   want="$(tr -d ' \t\r\n' < "$ARCHIVE.sha256")"
-  [ "$got" = "$want" ] || die "archive checksum mismatch: got $got, expected $want"
+  [ "$ARCHIVE_SHA" = "$want" ] || die "archive checksum mismatch: got $ARCHIVE_SHA, expected $want"
   echo "✓ archive checksum verified"
 else
   echo "⚠ no checksum beside $ARCHIVE — unpacking without an integrity check"
@@ -112,17 +116,59 @@ done
 echo "✓ environment file: $ENV_FILE"
 
 # --- publish ------------------------------------------------------------
-# Re-releasing the same SHA must get a clean tree, not a merge over whatever
-# the previous attempt left. The old directory goes away first.
-# The published tree is made read-only so nothing can quietly accumulate in a
-# build context after the fact; undo that before replacing it.
+# Re-releasing the same SHA must end with a clean tree, not a merge over
+# whatever the previous attempt left. It used to get there by `rm -rf` on the
+# old directory followed by `mv` — but after a successful deploy of that SHA
+# `current -> releases/<sha>` points *into* the directory being removed, so
+# between the two commands the pointer an operator follows dangles, and a
+# failing `mv` leaves it dangling for good (REL-LOCAL-01).
+#
+# `git archive <sha>` piped through `gzip -n` is byte-for-byte reproducible,
+# so the normal repeat preparation carries the archive that produced the tree
+# already on disk. When that is the case there is nothing to replace: the
+# directory is reused untouched and `current` never stops resolving. The
+# archive's digest is recorded in releases/.markers/<sha> for that comparison;
+# it lives outside the release directory because a build context must stay
+# exactly the tree of its commit, and `ls` does not show it to the pruner.
+MARKERS="$RELEASES/.markers"
+mkdir -p "$MARKERS"
+MARKER="$MARKERS/$SHA"
+
+REUSE=0
 if [ -e "$TARGET" ]; then
-  chmod -R u+w "$TARGET" 2>/dev/null || true
-  rm -rf "$TARGET"
+  if [ -f "$MARKER" ] && [ "$(tr -d ' \t\r\n' < "$MARKER")" = "$ARCHIVE_SHA" ]; then
+    REUSE=1
+    echo "✓ releases/$SHA was prepared from this exact archive — reusing it untouched"
+  elif diff -r -q "$TARGET" "$STAGING" > /dev/null 2>&1; then
+    # No marker: a tree prepared before this check existed, or by hand.
+    # Comparing the content answers the same question, just slower.
+    REUSE=1
+    echo "✓ releases/$SHA already holds this exact tree — reusing it untouched"
+  elif [ -L "$DEPLOY_ROOT/current" ] \
+       && [ "$(cd "$DEPLOY_ROOT/current" 2>/dev/null && pwd -P || echo "")" \
+            = "$(cd "$TARGET" && pwd -P)" ]; then
+    # Same SHA, different tree, and it is the release serving traffic. That
+    # cannot happen from `git archive` and is not worth guessing about:
+    # replacing it would destroy the rollback target of a running release.
+    die "releases/$SHA holds a different tree and 'current' points at it — refusing to replace the release that is serving traffic; move 'current' aside first if this is really what you want"
+  fi
 fi
-mv "$STAGING" "$TARGET"
-trap - EXIT
-chmod -R a-w "$TARGET" 2>/dev/null || true
+
+if [ "$REUSE" -eq 1 ]; then
+  # $STAGING is removed by the EXIT trap. Nothing under releases/ is touched.
+  :
+else
+  # The published tree is made read-only so nothing can quietly accumulate in
+  # a build context after the fact; undo that before replacing it.
+  if [ -e "$TARGET" ]; then
+    chmod -R u+w "$TARGET" 2>/dev/null || true
+    rm -rf "$TARGET"
+  fi
+  mv "$STAGING" "$TARGET"
+  trap - EXIT
+  chmod -R a-w "$TARGET" 2>/dev/null || true
+fi
+printf '%s\n' "$ARCHIVE_SHA" > "$MARKER"
 
 rm -f "$ARCHIVE" "$ARCHIVE.sha256"
 
@@ -140,6 +186,7 @@ for old in $(ls -1t "$RELEASES" 2>/dev/null | tail -n +"$((KEEP_RELEASES + 1))")
   esac
   chmod -R u+w "$RELEASES/$old" 2>/dev/null || true
   rm -rf "$RELEASES/$old"
+  rm -f "$MARKERS/$old"
   echo "  pruned old release $old"
 done
 
