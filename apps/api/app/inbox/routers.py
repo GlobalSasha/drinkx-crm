@@ -58,7 +58,14 @@ async def connect_gmail(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="google_oauth_not_configured",
         )
-    state = oauth_helpers.sign_state(user.id)
+    try:
+        state = oauth_helpers.sign_state(user.id)
+    except oauth_helpers.OAuthStateKeyError as exc:
+        log.error("inbox.connect_gmail.state_key_missing", error=str(exc)[:200])
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="oauth_state_key_not_configured",
+        ) from exc
     consent_url = oauth_helpers.build_consent_url(state)
     return {"redirect_url": consent_url}
 
