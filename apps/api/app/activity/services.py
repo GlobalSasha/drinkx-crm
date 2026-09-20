@@ -369,13 +369,24 @@ async def update_task_by_id(
     task_due_at: datetime | None,
     assignee_user_id: uuid.UUID | None,
     clear_due: bool = False,
+    assignee_provided: bool = False,
 ) -> Activity:
-    """Правка задачи по её id. Смена исполнителя шлёт ему уведомление."""
+    """Правка задачи по её id. Смена исполнителя шлёт ему уведомление.
+
+    У `assignee_user_id` три состояния, и раньше различались только два:
+    `None` означало одновременно «поле не прислали» и «снять исполнителя»,
+    поэтому запрос с одним лишь сбросом отвергался как «нечего менять», а
+    сброс вместе с новым текстом молча сохранял прежнего исполнителя
+    (BUG-02). Факт наличия поля приходит отдельным флагом от роутера, как
+    это уже сделано для срока через `clear_due`.
+    """
+    clear_assignee = assignee_provided and assignee_user_id is None
     if (
         text is None
         and task_due_at is None
         and assignee_user_id is None
         and not clear_due
+        and not clear_assignee
     ):
         raise ValueError("нечего менять")
 
@@ -393,7 +404,28 @@ async def update_task_by_id(
         activity.task_due_at = None
     elif task_due_at is not None:
         activity.task_due_at = task_due_at
-    if assignee_user_id is not None and assignee_user_id != activity.assignee_user_id:
+    if clear_assignee:
+        # Снятие явного исполнителя возвращает задачу владельцу лида, а у
+        # задачи без лида — автору (см. effective_assignee_id). На лиде это
+        # значит «передать другому человеку», поэтому право то же, что и у
+        # обычного назначения: только руководитель или админ. Иначе `null`
+        # стал бы для менеджера обходным путём делегирования.
+        if actor.role not in ("admin", "head"):
+            raise ActivityForbidden(None)
+        previous_effective = effective_assignee_id(activity, lead)
+        activity.assignee_user_id = None
+        new_effective = effective_assignee_id(activity, lead)
+        # Уведомляем только если работа действительно сменила хозяина.
+        if new_effective != previous_effective:
+            await _notify_assignee(
+                db,
+                workspace_id=workspace_id,
+                actor=actor,
+                assignee_user_id=new_effective,
+                text=activity.body or "Задача",
+                lead_id=activity.lead_id,
+            )
+    elif assignee_user_id is not None and assignee_user_id != activity.assignee_user_id:
         activity.assignee_user_id = await _resolve_assignee(
             db,
             workspace_id=workspace_id,
@@ -450,8 +482,14 @@ async def create_activity(
     await _get_lead_or_raise(db, lead_id, workspace_id)
     _validate_type(payload_dict.get("type", ""))
     is_task = payload_dict.get("type") == ActivityType.task.value
-    if is_task and not payload_dict.get("task_due_at"):
-        raise ValueError("task_due_at is required for task activities")
+    if is_task:
+        # Срок необязателен. Он требовался только здесь, и та же задача,
+        # заведённая через POST /tasks, сохранялась без срока — один и тот
+        # же объект жил по разным правилам в зависимости от экрана
+        # (BUG-03). Текст по-прежнему обязателен: необязательный срок не
+        # означает необязательное всё.
+        if not (payload_dict.get("body") or "").strip():
+            raise ValueError("текст задачи не может быть пустым")
 
     # Та же поправка, что в create_task: менеджер без явного
     # исполнителя ставит задачу себе, а не владельцу чужого лида.

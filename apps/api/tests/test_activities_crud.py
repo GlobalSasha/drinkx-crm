@@ -61,29 +61,42 @@ async def test_create_comment_activity(db, workspace, user):
 
 @skip_no_pg
 async def test_create_task_activity(db, workspace, user):
-    """Creating a task activity requires task_due_at."""
+    """A task with a due date is created as before."""
     lead = await _make_lead(db, workspace.id)
     due = datetime.now(timezone.utc) + timedelta(days=1)
     from app.activity import services
 
     activity = await services.create_activity(
         db, workspace.id, lead.id, user,
-        {"type": "task", "payload_json": {}, "task_due_at": due},
+        {"type": "task", "body": "Позвонить", "payload_json": {"title": "Позвонить"},
+         "task_due_at": due},
     )
     assert activity.type == "task"
     assert activity.task_done is False
 
 
 @skip_no_pg
-async def test_create_task_without_due_at_raises(db, workspace, user):
-    """Creating a task without task_due_at raises ValueError."""
+async def test_create_task_without_due_at_is_allowed(db, workspace, user):
+    """Contract change in G3: the due date is optional here too.
+
+    This used to raise. The same task created through POST /tasks saved
+    happily without a date, so one entity obeyed two rules depending on which
+    screen made it (BUG-03). The text is still required — see
+    tests/test_task_contract.py for the whole contract.
+    """
     lead = await _make_lead(db, workspace.id)
     from app.activity import services
 
-    with pytest.raises(ValueError, match="task_due_at"):
+    activity = await services.create_activity(
+        db, workspace.id, lead.id, user,
+        {"type": "task", "body": "Без срока", "payload_json": {"title": "Без срока"}},
+    )
+    assert activity.task_due_at is None
+
+    with pytest.raises(ValueError):
         await services.create_activity(
             db, workspace.id, lead.id, user,
-            {"type": "task", "payload_json": {}},
+            {"type": "task", "body": "  ", "payload_json": {}},
         )
 
 

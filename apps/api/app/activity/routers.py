@@ -492,6 +492,9 @@ async def update_task(
         "task_due_at" in payload.model_fields_set
         and payload.task_due_at is None
     )
+    # Отсутствие поля и явный null — разные намерения, и по значению их не
+    # различить. Передаём факт наличия отдельно (BUG-02).
+    assignee_provided = "assignee_user_id" in payload.model_fields_set
     try:
         await services.update_task_by_id(
             db,
@@ -502,6 +505,7 @@ async def update_task(
             task_due_at=payload.task_due_at,
             assignee_user_id=payload.assignee_user_id,
             clear_due=clear_due,
+            assignee_provided=assignee_provided,
         )
     except services.ActivityNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Задача не найдена")
