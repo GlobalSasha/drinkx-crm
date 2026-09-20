@@ -259,3 +259,96 @@ describe("TASK-ROW-03 — успешная делегация и блокиро�
     resolvePatch(task("t1", "Позвонить клиенту", "mgr-1"));
   });
 });
+
+describe("TASK-ROW-02b — общий mutation-объект: race между двумя строками", () => {
+  it("успех задачи 1, пришедший после того как открыта и выбрана задача 2, не должен закрывать/сбрасывать ещё not-resolved состояние задачи 2", async () => {
+    leadTasksState.items = [
+      task("t1", "Позвонить клиенту"),
+      task("t2", "Отправить КП"),
+    ];
+    const resolvers: Array<(v: MyTaskOut) => void> = [];
+    apiPatch.mockImplementation(
+      () =>
+        new Promise<MyTaskOut>((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+
+    const user = userEvent.setup();
+    renderTab();
+
+    // Задача 1: открыть и выбрать — запрос 1 висит.
+    await user.click(screen.getAllByTitle("Поручить задачу сотруднику")[0]);
+    const select1 = await screen.findByLabelText("Кому поручить задачу");
+    await user.selectOptions(select1, "mgr-1");
+    expect(apiPatch).toHaveBeenCalledTimes(1);
+
+    // Задача 2: открыть (закрывает UI задачи 1, т.к. delegatingId один) и
+    // выбрать — запрос 2 висит одновременно с запросом 1, на одном and
+    // том же useMutation()-объекте.
+    await user.click(screen.getAllByTitle("Поручить задачу сотруднику")[1]);
+    const select2 = await screen.findByLabelText("Кому поручить задачу");
+    await user.selectOptions(select2, "mgr-2");
+    expect(apiPatch).toHaveBeenCalledTimes(2);
+    expect(select2).toBeDisabled();
+
+    // Запрос 1 (задача 1) резолвится ПОСЛЕ того, как выбор сделан по
+    // задаче 2, и её запрос ещё не завершился.
+    resolvers[0](task("t1", "Позвонить клиенту", "mgr-1"));
+
+    await waitFor(() => {
+      // Ожидаемый контракт (TASK-ROW-02): успех задачи 1 не должен
+      // трогать состояние задачи 2, чей запрос ещё висит — селектор
+      // задачи 2 должен остаться открытым и задизейбленным.
+      const stillOpen = screen.queryByLabelText("Кому поручить задачу");
+      expect(stillOpen).not.toBeNull();
+    });
+
+    resolvers[1](task("t2", "Отправить КП", "mgr-2"));
+  });
+});
+
+describe("TASK-ROW-02c — общий mutation-объект: ошибка задачи 1 теряется, если задачу 2 успели тронуть раньше", () => {
+  it("отказ по задаче 1, пришедший после того как выбор сделан по задаче 2, нигде не показывается", async () => {
+    leadTasksState.items = [
+      task("t1", "Позвонить клиенту"),
+      task("t2", "Отправить КП"),
+    ];
+    const handlers: Array<{
+      resolve: (v: MyTaskOut) => void;
+      reject: (e: unknown) => void;
+    }> = [];
+    apiPatch.mockImplementation(
+      () =>
+        new Promise<MyTaskOut>((resolve, reject) => {
+          handlers.push({ resolve, reject });
+        }),
+    );
+
+    const user = userEvent.setup();
+    renderTab();
+
+    await user.click(screen.getAllByTitle("Поручить задачу сотруднику")[0]);
+    const select1 = await screen.findByLabelText("Кому поручить задачу");
+    await user.selectOptions(select1, "mgr-1"); // запрос 1 в пути
+
+    await user.click(screen.getAllByTitle("Поручить задачу сотруднику")[1]);
+    const select2 = await screen.findByLabelText("Кому поручить задачу");
+    await user.selectOptions(select2, "mgr-2"); // запрос 2 в пути, владение перешло к задаче 2
+
+    // Запрос 1 отказывает уже после того, как активной стала задача 2.
+    handlers[0].reject(
+      new ApiError(403, { detail: "Ставить задачи другим может только руководитель или админ" }),
+    );
+
+    // Общий update.isError отслеживает только ПОСЛЕДНИЙ вызванный mutate
+    // (задачу 2), поэтому отказ задачи 1 нигде не появляется — ни как
+    // чужая ошибка у задачи 2 (это и есть цель контракта), ни как
+    // собственная ошибка у задачи 1 (это остаточный риск: обратная связь
+    // по первой задаче молча теряется).
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    handlers[1].resolve(task("t2", "Отправить КП", "mgr-2"));
+  });
+});
