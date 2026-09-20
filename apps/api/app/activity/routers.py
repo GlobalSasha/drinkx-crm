@@ -30,7 +30,17 @@ from app.db import get_db
 from app.leads.access import lead_access_guard
 from app.leads.services import LeadNotFound
 
-router = APIRouter(prefix="/leads/{lead_id}/activities", tags=["activities"])
+# Тот же страж, что на роутере `/leads` и на задачах лида. Лента и всё, что
+# под ней — чтение, создание, правка, удаление, восстановление, — это работа
+# по конкретному лиду, и право на неё ровно одно: руководитель и админ видят
+# любой лид своего пространства, менеджер — только закреплённый за ним. Роутер
+# подключается отдельно от `/leads`, поэтому страж надо назвать явно; иначе
+# менеджер, знающий UUID, читает и правит ленту чужого лида.
+router = APIRouter(
+    prefix="/leads/{lead_id}/activities",
+    tags=["activities"],
+    dependencies=[Depends(lead_access_guard)],
+)
 
 # Cross-lead aggregate for the manager's own tasks (Today widget +
 # /tasks page). Not lead-scoped, so it sits on its own router.
