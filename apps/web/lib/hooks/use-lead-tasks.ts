@@ -1,11 +1,8 @@
 "use client";
 
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api-client";
+import { useTaskCacheReset } from "@/lib/hooks/use-task-cache";
 import type { ActivityListOut, ActivityOut } from "@/lib/types";
 
 // Hooks for the LeadCard «Задачи» tab. Tasks are Activity rows of
@@ -39,7 +36,7 @@ export interface CreateLeadTaskIn {
 /** POST /leads/{id}/activities (type=task). Mirrors FeedComposer's
  *  payload so a task created here renders identically in the feed. */
 export function useCreateLeadTask(leadId: string) {
-  const qc = useQueryClient();
+  const resetTaskCache = useTaskCacheReset();
   return useMutation<ActivityOut, ApiError, CreateLeadTaskIn>({
     mutationFn: ({ text, task_due_at, assignee_user_id }) =>
       api.post<ActivityOut>(`/leads/${leadId}/activities`, {
@@ -49,81 +46,54 @@ export function useCreateLeadTask(leadId: string) {
         assignee_user_id: assignee_user_id ?? null,
         payload_json: { title: text, source: "tasks_tab" },
       }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: TASKS_KEY(leadId) });
-      qc.invalidateQueries({ queryKey: ["feed", leadId] });
-      qc.invalidateQueries({ queryKey: ["daily-plan", "today"] });
-      // Делегированная задача должна сразу появиться в общем списке задач.
-      qc.invalidateQueries({ queryKey: ["my-tasks"] });
-    },
+    onSuccess: () => resetTaskCache(leadId),
   });
 }
 
 /** POST /leads/{id}/activities/{id}/complete-task — reuses the same
  *  endpoint as the feed, but invalidates the tasks-tab cache too. */
 export function useCompleteLeadTask(leadId: string) {
-  const qc = useQueryClient();
+  const resetTaskCache = useTaskCacheReset();
   return useMutation<ActivityOut, ApiError, string>({
     mutationFn: (activityId) =>
       api.post<ActivityOut>(
         `/leads/${leadId}/activities/${activityId}/complete-task`,
       ),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: TASKS_KEY(leadId) });
-      qc.invalidateQueries({ queryKey: ["feed", leadId] });
-      qc.invalidateQueries({ queryKey: ["daily-plan", "today"] });
-    },
+    onSuccess: () => resetTaskCache(leadId),
   });
 }
 
 /** POST /leads/{id}/activities/{id}/reopen-task — bring a completed task
  *  back to the active list. Mirrors the complete hook's invalidations. */
 export function useReopenLeadTask(leadId: string) {
-  const qc = useQueryClient();
+  const resetTaskCache = useTaskCacheReset();
   return useMutation<ActivityOut, ApiError, string>({
     mutationFn: (activityId) =>
       api.post<ActivityOut>(
         `/leads/${leadId}/activities/${activityId}/reopen-task`,
       ),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: TASKS_KEY(leadId) });
-      qc.invalidateQueries({ queryKey: ["feed", leadId] });
-      qc.invalidateQueries({ queryKey: ["my-tasks"] });
-      qc.invalidateQueries({ queryKey: ["daily-plan", "today"] });
-    },
+    onSuccess: () => resetTaskCache(leadId),
   });
 }
 
 /** DELETE /leads/{id}/activities/{activityId} — archive a task (soft-delete).
  *  The backend sets archived_at and returns the updated row. */
 export function useArchiveLeadTask(leadId: string) {
-  const qc = useQueryClient();
+  const resetTaskCache = useTaskCacheReset();
   return useMutation<ActivityOut, ApiError, string>({
     mutationFn: (activityId) =>
       api.delete<ActivityOut>(`/leads/${leadId}/activities/${activityId}`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: TASKS_KEY(leadId) });
-      qc.invalidateQueries({ queryKey: ["feed", leadId] });
-      qc.invalidateQueries({ queryKey: ["my-tasks"] });
-      qc.invalidateQueries({ queryKey: ["daily-plan", "today"] });
-      qc.invalidateQueries({ queryKey: ["lead-archive", leadId] });
-    },
+    onSuccess: () => resetTaskCache(leadId),
   });
 }
 
 /** POST /leads/{id}/activities/{activityId}/restore — restore an archived task. */
 export function useRestoreLeadTask(leadId: string) {
-  const qc = useQueryClient();
+  const resetTaskCache = useTaskCacheReset();
   return useMutation<ActivityOut, ApiError, string>({
     mutationFn: (activityId) =>
       api.post<ActivityOut>(`/leads/${leadId}/activities/${activityId}/restore`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: TASKS_KEY(leadId) });
-      qc.invalidateQueries({ queryKey: ["lead-archive", leadId] });
-      qc.invalidateQueries({ queryKey: ["feed", leadId] });
-      qc.invalidateQueries({ queryKey: ["my-tasks"] });
-      qc.invalidateQueries({ queryKey: ["daily-plan", "today"] });
-    },
+    onSuccess: () => resetTaskCache(leadId),
   });
 }
 

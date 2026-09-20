@@ -11,9 +11,9 @@ import {
   keepPreviousData,
   useMutation,
   useQuery,
-  useQueryClient,
 } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api-client";
+import { useTaskCacheReset } from "@/lib/hooks/use-task-cache";
 import type {
   MyTaskOut,
   TaskCreateIn,
@@ -49,20 +49,6 @@ export function useTasks(
     // Пока /me не ответил, «Мои» у руководителя показали бы всю команду.
     enabled: options.enabled ?? true,
   });
-}
-
-/** Инвалидация всего, что показывает задачи: списки, лента лида и план дня. */
-function useTaskCacheReset() {
-  const qc = useQueryClient();
-  return (leadId?: string | null) => {
-    qc.invalidateQueries({ queryKey: ["tasks"] });
-    qc.invalidateQueries({ queryKey: ["my-tasks"] });
-    qc.invalidateQueries({ queryKey: ["daily-plan", "today"] });
-    if (leadId) {
-      qc.invalidateQueries({ queryKey: ["feed", leadId] });
-      qc.invalidateQueries({ queryKey: ["activities", leadId, "task"] });
-    }
-  };
 }
 
 export function useCreateTask() {

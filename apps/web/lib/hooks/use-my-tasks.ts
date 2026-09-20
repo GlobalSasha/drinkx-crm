@@ -1,7 +1,8 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api-client";
+import { useTaskCacheReset } from "@/lib/hooks/use-task-cache";
 import type { MyTaskOut } from "@/lib/types";
 
 // Cross-lead list of the manager's own tasks (no AI). Fed by
@@ -18,34 +19,18 @@ export function useMyTasks() {
  *  задачи, а не через lead-scoped маршрут. Инвалидирует общий список
  *  всегда, а ленту/задачи лида — только если лид есть. */
 export function useCompleteMyTask() {
-  const qc = useQueryClient();
+  const resetTaskCache = useTaskCacheReset();
   return useMutation<unknown, ApiError, { leadId: string | null; taskId: string }>({
     mutationFn: ({ taskId }) => api.post(`/tasks/${taskId}/complete`),
-    onSuccess: (_data, { leadId }) => {
-      qc.invalidateQueries({ queryKey: ["my-tasks"] });
-      qc.invalidateQueries({ queryKey: ["tasks"] });
-      qc.invalidateQueries({ queryKey: ["daily-plan", "today"] });
-      if (leadId) {
-        qc.invalidateQueries({ queryKey: ["feed", leadId] });
-        qc.invalidateQueries({ queryKey: ["activities", leadId, "task"] });
-      }
-    },
+    onSuccess: (_data, { leadId }) => resetTaskCache(leadId),
   });
 }
 
 /** Reopen a completed task — mirror of useCompleteMyTask. */
 export function useReopenMyTask() {
-  const qc = useQueryClient();
+  const resetTaskCache = useTaskCacheReset();
   return useMutation<unknown, ApiError, { leadId: string | null; taskId: string }>({
     mutationFn: ({ taskId }) => api.post(`/tasks/${taskId}/reopen`),
-    onSuccess: (_data, { leadId }) => {
-      qc.invalidateQueries({ queryKey: ["my-tasks"] });
-      qc.invalidateQueries({ queryKey: ["tasks"] });
-      qc.invalidateQueries({ queryKey: ["daily-plan", "today"] });
-      if (leadId) {
-        qc.invalidateQueries({ queryKey: ["feed", leadId] });
-        qc.invalidateQueries({ queryKey: ["activities", leadId, "task"] });
-      }
-    },
+    onSuccess: (_data, { leadId }) => resetTaskCache(leadId),
   });
 }

@@ -21,6 +21,7 @@ import { UserSelect } from "@/components/ui/UserSelect";
 import { useMe } from "@/lib/hooks/use-me";
 import { useUsers } from "@/lib/hooks/use-users";
 import { useUpdateTask } from "@/lib/hooks/use-tasks";
+import { apiErrorDetail } from "@/lib/api-error";
 import { C } from "@/lib/design-system";
 import type { ActivityOut } from "@/lib/types";
 
@@ -59,11 +60,23 @@ export function TasksTab({ leadId }: Props) {
 
   const update = useUpdateTask();
   const [delegatingId, setDelegatingId] = useState<string | null>(null);
+  // Что человек выбрал, пока запрос в пути. На ошибке селектор остаётся
+  // открытым с этим значением — раньше он закрывался сразу после mutate, и
+  // при отказе выбор пропадал вместе с объяснением.
+  const [pendingAssignee, setPendingAssignee] = useState<string | null>(null);
 
   const handleDelegate = (taskId: string, v: string | null) => {
-    // Пусто — задачу оставляем владельцу лида.
-    update.mutate({ taskId, body: { assignee_user_id: v }, leadId });
-    setDelegatingId(null);
+    // Пусто — снять явного исполнителя, задачу делает владелец лида.
+    setPendingAssignee(v);
+    update.mutate(
+      { taskId, body: { assignee_user_id: v }, leadId },
+      {
+        onSuccess: () => {
+          setDelegatingId(null);
+          setPendingAssignee(null);
+        },
+      },
+    );
   };
 
   const [adding, setAdding] = useState(false);
@@ -73,6 +86,17 @@ export function TasksTab({ leadId }: Props) {
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [editingTask, setEditingTask] = useState<ActivityOut | null>(null);
+
+  // Отметка «сделано», переоткрытие и архивация раньше молча ничего не
+  // делали при ошибке: у строки нет своего места под сообщение, поэтому
+  // показываем его над списком.
+  const rowActionError = completeTask.isError
+    ? apiErrorDetail(completeTask.error, "Не удалось закрыть задачу")
+    : reopenTask.isError
+      ? apiErrorDetail(reopenTask.error, "Не удалось вернуть задачу в работу")
+      : archiveTask.isError
+        ? apiErrorDetail(archiveTask.error, "Не удалось архивировать задачу")
+        : null;
 
   function assigneeName(id: string): string {
     if (id === me?.id) return "вам";
@@ -208,6 +232,11 @@ export function TasksTab({ leadId }: Props) {
               <X size={14} />
             </button>
           </div>
+          {createTask.isError && (
+            <p role="alert" className="text-xs text-rose">
+              {apiErrorDetail(createTask.error, "Не удалось сохранить задачу")}
+            </p>
+          )}
         </div>
       )}
 
@@ -220,6 +249,12 @@ export function TasksTab({ leadId }: Props) {
 
       {!isLoading && isError && (
         <p className="type-caption text-rose py-4">Не удалось загрузить задачи</p>
+      )}
+
+      {rowActionError && (
+        <p role="alert" className="type-caption text-rose pb-2">
+          {rowActionError}
+        </p>
       )}
 
       {!isLoading && !isError && rows.length === 0 && (
@@ -290,7 +325,11 @@ export function TasksTab({ leadId }: Props) {
                     {delegatingId === a.id && (
                       <div className="mt-2 max-w-xs">
                         <UserSelect
-                          value={a.assignee_user_id}
+                          value={
+                            update.isError || update.isPending
+                              ? pendingAssignee
+                              : a.assignee_user_id
+                          }
                           onChange={(v) => handleDelegate(a.id, v)}
                           users={users}
                           meId={me?.id}
@@ -299,6 +338,11 @@ export function TasksTab({ leadId }: Props) {
                           disabled={update.isPending}
                           aria-label="Кому поручить задачу"
                         />
+                        {update.isError && (
+                          <p role="alert" className="mt-1 type-caption text-brand-danger">
+                            {apiErrorDetail(update.error, "Не удалось поручить задачу")}
+                          </p>
+                        )}
                       </div>
                     )}
                   </ItemContent>
