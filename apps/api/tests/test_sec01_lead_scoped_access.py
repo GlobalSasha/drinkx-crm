@@ -292,12 +292,12 @@ async def test_own_lead_with_a_foreign_child_id_is_refused(db, scene, workspace)
         res = await call(db, peer, method, path, body)
         assert res.status_code == 404, (method, path, res.status_code)
 
-    # Список файлов по чужой задаче под своим лидом отвечает 200, но пустым:
-    # выборка сужена по lead_id внутри запроса. Проверяем именно это, а не
-    # код ответа — 200 сам по себе здесь ничего не нарушает.
+    # Список файлов по чужой задаче под своим лидом: раньше отвечал 200 и
+    # пустым списком (выборка сужена по lead_id внутри запроса), теперь —
+    # 404: задача сверяется с лидом из пути (SEC-05-2). Чужого содержимого
+    # не было ни тогда, ни теперь.
     files = await call(db, peer, "GET", f"/leads/{M}/tasks/{s['task'].id}/files")
-    assert files.status_code == 200
-    assert files.json() == []
+    assert files.status_code == 404, files.status_code
     assert "секрет.pdf" not in files.text
 
     await db.refresh(s["contact"])

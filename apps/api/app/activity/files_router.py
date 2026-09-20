@@ -22,6 +22,26 @@ from app.leads.access import lead_access_guard
 from app.leads.models import Lead
 
 
+async def _get_task_or_raise(db: AsyncSession, task_id: uuid.UUID, lead_id: uuid.UUID) -> None:
+    """Задача из пути должна принадлежать лиду из того же пути.
+
+    Без этой сверки принимался любой UUID: файл ложился в каталог своего
+    лида, но привязывался к чужой задаче и всплывал в её панели. Право
+    на лид проверено выше, поэтому здесь речь о согласованности пути.
+    """
+    exists = (
+        await db.execute(
+            select(Activity.id).where(
+                Activity.id == task_id,
+                Activity.lead_id == lead_id,
+                Activity.type == ActivityType.task.value,
+            )
+        )
+    ).scalar_one_or_none()
+    if exists is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="task not found")
+
+
 class TaskFileOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -204,6 +224,7 @@ async def upload(
     caption: Annotated[str | None, Form()] = None,
 ) -> TaskFileOut:
     await _get_lead_or_raise(db, lead_id, user.workspace_id)
+    await _get_task_or_raise(db, task_id, lead_id)
 
     # Cheap early-bail before Starlette buffers the multipart body to disk/memory.
     # Nginx caps externally at 25MB; this is defense-in-depth for internal callers.
@@ -278,6 +299,7 @@ async def list_files(
     q: str | None = None,
 ) -> list[TaskFileOut]:
     await _get_lead_or_raise(db, lead_id, user.workspace_id)
+    await _get_task_or_raise(db, task_id, lead_id)
     rows = await find_files_by_parent_task(
         db, lead_id=lead_id, task_id=task_id, q=q
     )

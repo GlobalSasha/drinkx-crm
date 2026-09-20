@@ -511,20 +511,60 @@ async def test_size_limit_applies_before_storage(db, scene, storage, monkeypatch
 
 @skip_no_pg
 @pytest.mark.asyncio
-async def test_parent_task_id_is_not_verified_against_the_lead(db, scene, storage):
-    """Фактическое поведение: `task_id` в пути не проверяется.
+async def test_parent_task_must_belong_to_the_lead(db, scene, storage):
+    """Регрессия SEC-05-2: `task_id` сверяется с лидом из пути.
 
-    Право даёт лид, поэтому чужие данные это не затрагивает: файл
-    оседает в каталоге СВОЕГО лида и виден только в списке, где
-    совпадают и лид, и задача. Но произвольный `task_id` принимается.
+    Было: принимался любой UUID. Право даёт лид, поэтому чужих данных
+    это не затрагивало — файл оседал в каталоге своего лида, — но
+    привязка шла к несуществующей или чужой задаче.
+
+    Стало: 404 на неизвестную задачу и на задачу другого лида; ничего не
+    записано в базу и не отправлено в хранилище. Разрешённый контроль —
+    настоящая задача этого лида — проходит.
     """
+    from sqlalchemy import func, select
+
+    from app.activity.models import Activity
+
     s = scene
-    foreign_task = uuid.uuid4()
+    other_lead = await _lead(db, s["a"].id, s["owner"].id, "Другой лид")
+    task_here = await _task(db, s["a"].id, s["lead"].id, s["owner"].id)
+    task_elsewhere = await _task(db, s["a"].id, other_lead.id, s["owner"].id)
+    await db.commit()
+
+    before = (await db.execute(select(func.count(Activity.id)))).scalar_one()
+
+    for bad in (uuid.uuid4(), task_elsewhere.id):
+        r = await call(
+            db, s["owner"], "POST",
+            f"/leads/{s['lead'].id}/tasks/{bad}/files",
+            files={"file": ("акт.png", PNG, "application/octet-stream")},
+            raise_errors=False,
+        )
+        assert r.status_code == 404, (bad, r.status_code)
+
+    assert storage.uploaded == [], "в хранилище всё-таки записано"
+    after = (await db.execute(select(func.count(Activity.id)))).scalar_one()
+    assert after == before, "в базе появилась строка"
+
+    # Список файлов той же задачи закрыт по тому же правилу.
+    r = await call(db, s["owner"], "GET",
+                   f"/leads/{s['lead'].id}/tasks/{task_elsewhere.id}/files",
+                   raise_errors=False)
+    assert r.status_code == 404, r.status_code
+
+    # Разрешённый контроль: своя задача — файл записан и виден в списке.
     r = await call(
         db, s["owner"], "POST",
-        f"/leads/{s['lead'].id}/tasks/{foreign_task}/files",
+        f"/leads/{s['lead'].id}/tasks/{task_here.id}/files",
         files={"file": ("акт.png", PNG, "application/octet-stream")},
     )
     assert r.status_code == 201, r.text
-    assert r.json()["parent_task_id"] == str(foreign_task)
+    assert r.json()["parent_task_id"] == str(task_here.id)
     assert storage.uploaded[-1][0].startswith(f"{s['a'].id}/{s['lead'].id}/")
+
+    r = await call(db, s["owner"], "GET",
+                   f"/leads/{s['lead'].id}/tasks/{task_here.id}/files")
+    assert r.status_code == 200, r.text
+    assert [f["id"] for f in r.json()] != []
+
