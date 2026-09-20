@@ -202,6 +202,59 @@ def _after_task_cursor(cursor: str):
     return or_(Activity.task_done.is_(True), same_bucket)
 
 
+def _task_text_expr():
+    """Текст задачи так, как его видит пользователь: payload_json.title,
+    а если его нет — body (та же лестница, что в `_task_row_to_dict`).
+
+    `payload_json` объявлен как `JSON`, поэтому ключ передаётся отдельным
+    строковым литералом: иначе SQLAlchemy вывел бы тип параметра из левой
+    части и отправил в базу `"title"` вместе с кавычками.
+    """
+    from sqlalchemy import String, func, literal
+
+    return func.coalesce(
+        Activity.payload_json.op("->>", return_type=String)(literal("title", String)),
+        Activity.body,
+    )
+
+
+def _apply_task_search(query, Lead, q: str | None):
+    """Поиск по тексту задачи и названию компании лида — в базе, до среза
+    страницы и до счётчиков.
+
+    `%` и `_` — обычные символы: экранируются тем же `_like_escape`, что и
+    поиск по базе лидов, чтобы «100%» не превратился в «что угодно после 100».
+    """
+    if q is None or not q.strip():
+        return query
+
+    from sqlalchemy import or_
+
+    from app.leads.selection import _like_escape
+
+    needle = f"%{_like_escape(q.strip())}%"
+    return query.where(
+        or_(
+            _task_text_expr().ilike(needle, escape="\\"),
+            Lead.company_name.ilike(needle, escape="\\"),
+        )
+    )
+
+
+def _apply_due_range(query, due_from: datetime | None, due_to: datetime | None):
+    """Полуоткрытый интервал по сроку: `[due_from, due_to)`.
+
+    Календарные границы «сегодня» и «эта неделя» считает клиент в своём
+    часовом поясе и присылает готовыми — сервер их только сравнивает.
+    Задача без срока не попадает ни в один диапазон.
+    """
+    if due_from is not None:
+        query = query.where(Activity.task_due_at >= due_from)
+    if due_to is not None:
+        query = query.where(Activity.task_due_at < due_to)
+    return query
+
+
 def _apply_status(query, status: str):
     """open / done / overdue, in SQL — never after the limit."""
     if status == "open":
@@ -336,6 +389,9 @@ async def list_tasks(
     actor: User,
     assignee_user_id: uuid.UUID | None = None,
     author_user_id: uuid.UUID | None = None,
+    q: str | None = None,
+    due_from: datetime | None = None,
+    due_to: datetime | None = None,
     status: str = "all",
     cursor: str | None = None,
     limit: int = 50,
@@ -364,6 +420,11 @@ async def list_tasks(
             query = query.where(Activity.user_id == author_user_id)
         if assignee_user_id is not None:
             query = query.where(_assigned_to_clause(Lead, actor.id))
+
+    # Поиск и срок — такой же AND к уже суженной по правам выборке, как
+    # исполнитель и автор, и в том же месте: до счётчиков и до среза страницы.
+    query = _apply_task_search(query, Lead, q)
+    query = _apply_due_range(query, due_from, due_to)
 
     return await _page(db, query, status=status, cursor=cursor, limit=limit)
 
