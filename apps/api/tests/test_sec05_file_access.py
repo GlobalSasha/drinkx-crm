@@ -196,16 +196,18 @@ async def test_owner_upload_writes_the_object_under_its_own_folder(db, scene, st
 
 @skip_no_pg
 @pytest.mark.asyncio
-async def test_upload_loses_the_storage_key_and_breaks_download(db, scene, storage):
-    """Найдено разведкой: `file_url` не доходит до базы.
+async def test_upload_saves_the_storage_key_and_the_file_downloads(db, scene, storage):
+    """Регрессия SEC-05-1: ключ хранилища доходит до базы.
 
-    `upload_lead_file` присваивает ключ уже после `flush`, а следом
-    вызывает `db.refresh(activity)` — тот перечитывает строку и
-    отбрасывает неотправленное присваивание. В базе остаётся NULL.
+    Было: `upload_lead_file` присваивал `file_url` уже после `flush`, а
+    следом `db.refresh(activity)` перечитывал строку и отбрасывал
+    неотправленное присваивание. В базе оставался NULL: объект в
+    хранилище есть, скачать нельзя, удаление сносит строку и оставляет
+    сироту.
 
-    Последствия: объект в хранилище есть, а скачать его нельзя —
-    `signed_download_url` отвечает ошибкой; удаление сносит строку, но
-    объект остаётся сиротой до еженедельной чистки.
+    Стало: присваивание отправляется в базу своим `flush` до `refresh`.
+    Проверяется не ответ ручки, а состояние базы и то, что подпись
+    запрашивается ровно на том ключе, по которому объект записан.
 
     Прежние тесты этого не ловили: там сессия подменена заглушкой, у
     которой `refresh` ничего не делает.
@@ -218,16 +220,16 @@ async def test_upload_loses_the_storage_key_and_breaks_download(db, scene, stora
     r = await upload(db, s["owner"], s["lead"].id, "договор.png")
     activity_id = uuid.UUID(r.json()["id"])
     assert storage.uploaded, "объект в хранилище не записан"
+    stored_key = storage.uploaded[-1][0]
 
     file_url = (
         await db.execute(select(Activity.file_url).where(Activity.id == activity_id))
     ).scalar_one()
-    assert file_url is None, "ключ всё-таки сохранён — дефект исправлен, проверку обновить"
+    assert file_url == stored_key, "ключ хранилища не сохранён в базе"
 
-    r = await call(db, s["owner"], "GET", f"/activities/{activity_id}/download",
-                   raise_errors=False)
-    assert r.status_code == 500, r.status_code
-    assert storage.signed == []
+    r = await call(db, s["owner"], "GET", f"/activities/{activity_id}/download")
+    assert r.status_code == 200, r.text
+    assert storage.signed[-1] == (stored_key, 300)
 
 
 @skip_no_pg
