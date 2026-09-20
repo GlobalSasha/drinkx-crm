@@ -92,6 +92,30 @@ def redact(dsn: str) -> str:
     return f"{scheme}://{authority}/{database}{tail}"
 
 
+DEFAULT_PORT = 5432
+
+
+def resolved_target(dsn: str) -> tuple[str, int, str]:
+    """`(host, port, database)` as the driver will actually see them.
+
+    One database can be written several ways — with the port left implicit,
+    with different credentials — and those spellings must not look like
+    different resources. Anything keyed on the raw string gets that wrong:
+    review finding F2 found two advisory lock keys for one database, so two
+    runs failed to exclude each other.
+
+    Only meaningful after `assert_disposable`: it is the closed DSN contract,
+    with no query allowed, that makes this triple match what the driver
+    resolves.
+    """
+    parts = urlsplit(dsn)
+    try:
+        port = parts.port
+    except ValueError:
+        port = None
+    return (parts.hostname or "localhost").lower(), int(port or DEFAULT_PORT), parts.path.lstrip("/")
+
+
 def assert_disposable(dsn: str, *, purpose: str) -> None:
     """Raise UnsafeDatabaseTarget unless `dsn` names a throwaway database.
 

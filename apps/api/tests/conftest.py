@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import os
 import uuid
 
@@ -32,6 +31,8 @@ TEST_DB_URL = os.environ.get(
 # it to "postgres unavailable, skipping".
 from scripts.db_safety import assert_disposable  # noqa: E402
 from scripts.db_safety import redact as redact_dsn  # noqa: E402
+from scripts.db_safety import resolved_target  # noqa: E402
+from scripts.db_test_resources import advisory_key  # noqa: E402
 
 assert_disposable(TEST_DB_URL, purpose="API test fixtures")
 
@@ -175,9 +176,11 @@ if POSTGRES_AVAILABLE and PYTEST_ASYNCIO_AVAILABLE:
     # exist" hundreds of tests in. Observed exactly that way while generating
     # review evidence alongside a full run. A PostgreSQL advisory lock makes
     # the collision a clear, immediate error instead (review finding R3).
-    _SCHEMA_LOCK_KEY = (
-        int.from_bytes(hashlib.sha256(TEST_DB_URL.encode()).digest()[:8], "big")
-        % (2**63)
+    # Keyed on the resolved target, not on the DSN string. The same database
+    # written with and without its default port produced two different keys,
+    # so two runs did not exclude each other after all (review finding F2).
+    _SCHEMA_LOCK_KEY = advisory_key(
+        *resolved_target(TEST_DB_URL), purpose="drinkx:test-schema"
     )
 
     @pytest_asyncio.fixture(scope="session", loop_scope="session", autouse=True)

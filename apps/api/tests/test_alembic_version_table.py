@@ -31,7 +31,14 @@ from scripts.alembic_version_table import (
     ensure_version_table_width,
     inspect_version_column,
 )
-from scripts.db_safety import assert_disposable
+from scripts.db_test_resources import (
+    HeldAdvisoryLock,
+    ProbePlan,
+    UnsafeTestResource,
+    asyncpg_dsn,
+    plan_probe_database,
+    recreate_probe_database,
+)
 
 from tests.conftest import POSTGRES_AVAILABLE, TEST_DB_URL
 
@@ -141,39 +148,30 @@ def test_every_branch_leaves_no_open_transaction():
 
 # Not drinkx_test: the session fixture there runs DROP SCHEMA public CASCADE,
 # and two destructive users on one database is how tests corrupt each other.
-PROBE_DB = os.environ.get("ALEMBIC_PROBE_DB", "drinkx_ci")
+PROBE_PURPOSE = "drinkx:alembic-probe"
 
 pg = pytest.mark.skipif(not POSTGRES_AVAILABLE, reason="no PostgreSQL available")
 
 
-def _probe_url() -> str:
-    base = TEST_DB_URL.rsplit("/", 1)[0]
-    url = f"{base}/{PROBE_DB}"
-    # Same guard the fixtures use, on this test's own target.
-    assert_disposable(url, purpose="alembic version table probe")
-    assert not url.endswith(f"/{TEST_DB_URL.rsplit('/', 1)[1]}"), (
-        "the probe database must not be the one the rest of the suite drops schemas in"
+def probe_plan() -> ProbePlan:
+    """Decide and validate every target this fixture may touch.
+
+    Called before anything connects. The probe name is read from the
+    environment here and nowhere else: re-reading it after validation is how a
+    checked value turns back into an unchecked one (review finding F1).
+    """
+    return plan_probe_database(
+        TEST_DB_URL,
+        os.environ.get("ALEMBIC_PROBE_DB", "drinkx_ci"),
+        purpose=PROBE_PURPOSE,
     )
-    return url
 
 
-async def _recreate_probe_database() -> None:
-    import asyncpg
-
-    admin = TEST_DB_URL.rsplit("/", 1)[0].replace("postgresql+asyncpg://", "postgresql://")
-    conn = await asyncpg.connect(f"{admin}/postgres", timeout=5)
-    try:
-        await conn.execute(f'DROP DATABASE IF EXISTS "{PROBE_DB}"')
-        await conn.execute(f'CREATE DATABASE "{PROBE_DB}"')
-    finally:
-        await conn.close()
-
-
-async def _run(fn):
+async def _run(fn, plan: ProbePlan):
     from sqlalchemy.ext.asyncio import create_async_engine
     from sqlalchemy.pool import NullPool
 
-    engine = create_async_engine(_probe_url(), poolclass=NullPool)
+    engine = create_async_engine(plan.probe_url, poolclass=NullPool)
     try:
         async with engine.connect() as conn:
             return await conn.run_sync(fn)
@@ -183,11 +181,26 @@ async def _run(fn):
 
 @pytest.fixture
 def probe_db():
-    """A dedicated, freshly created disposable database for one test."""
-    asyncio.run(_recreate_probe_database())
-    yield
-    # Left in place on purpose: dropping it here would race a parallel run, and
-    # the next test recreates it anyway.
+    """A dedicated disposable database, validated and locked for one test.
+
+    Order matters and is the whole point of F1: plan and validate, then take
+    the lock, only then issue DDL. The lock is held on the admin database for
+    the fixture's whole lifetime — a connection inside the probe database
+    would block the DROP it is meant to guard — and `try/finally` covers setup
+    and teardown, not just the yield.
+    """
+    plan = probe_plan()
+    lock = HeldAdvisoryLock(asyncpg_dsn(plan.admin_url), plan.lock_key)
+    if not lock.acquire():
+        raise UnsafeTestResource(
+            f"another run holds the probe database {plan.database!r}. It gets "
+            "dropped and recreated, so the runs must not overlap."
+        )
+    try:
+        asyncio.run(recreate_probe_database(plan))
+        yield plan
+    finally:
+        lock.release()
 
 
 @pg
@@ -206,7 +219,7 @@ def test_an_existing_narrow_table_is_widened_and_keeps_its_revision(probe_db):
         conn.commit()
         return inspect_version_column(conn)
 
-    assert asyncio.run(_run(setup)) == (LIMITED, 32)
+    assert asyncio.run(_run(setup, probe_db)) == (LIMITED, 32)
 
     def widen(conn):
         action = ensure_version_table_width(conn)
@@ -216,7 +229,7 @@ def test_an_existing_narrow_table_is_widened_and_keeps_its_revision(probe_db):
         conn.rollback()
         return action, state, width, revision, note
 
-    action, state, width, revision, note = asyncio.run(_run(widen))
+    action, state, width, revision, note = asyncio.run(_run(widen, probe_db))
     assert action == WIDENED
     assert (state, width) == (LIMITED, TARGET_WIDTH)
     assert revision == "0008_channel_connections", "the stored revision was lost"
@@ -232,10 +245,10 @@ def test_a_second_call_against_the_real_table_changes_nothing(probe_db):
         conn.commit()
         return None
 
-    asyncio.run(_run(setup))
-    assert asyncio.run(_run(ensure_version_table_width)) == WIDENED
-    assert asyncio.run(_run(ensure_version_table_width)) == UNCHANGED
-    assert asyncio.run(_run(ensure_version_table_width)) == UNCHANGED
+    asyncio.run(_run(setup, probe_db))
+    assert asyncio.run(_run(ensure_version_table_width, probe_db)) == WIDENED
+    assert asyncio.run(_run(ensure_version_table_width, probe_db)) == UNCHANGED
+    assert asyncio.run(_run(ensure_version_table_width, probe_db)) == UNCHANGED
 
 
 @pg
@@ -245,24 +258,24 @@ def test_a_text_column_on_a_real_database_is_not_narrowed(probe_db):
         conn.commit()
         return inspect_version_column(conn)
 
-    assert asyncio.run(_run(setup)) == (UNLIMITED, None)
-    assert asyncio.run(_run(ensure_version_table_width)) == UNCHANGED
+    assert asyncio.run(_run(setup, probe_db)) == (UNLIMITED, None)
+    assert asyncio.run(_run(ensure_version_table_width, probe_db)) == UNCHANGED
 
     def recheck(conn):
         state = inspect_version_column(conn)
         conn.rollback()
         return state
 
-    assert asyncio.run(_run(recheck)) == (UNLIMITED, None)
+    assert asyncio.run(_run(recheck, probe_db)) == (UNLIMITED, None)
 
 
 @pg
 def test_missing_table_is_created_on_a_real_database(probe_db):
-    assert asyncio.run(_run(ensure_version_table_width)) == CREATED
+    assert asyncio.run(_run(ensure_version_table_width, probe_db)) == CREATED
 
     def recheck(conn):
         state = inspect_version_column(conn)
         conn.rollback()
         return state
 
-    assert asyncio.run(_run(recheck)) == (LIMITED, TARGET_WIDTH)
+    assert asyncio.run(_run(recheck, probe_db)) == (LIMITED, TARGET_WIDTH)
