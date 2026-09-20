@@ -23,6 +23,7 @@ from app.auth.models import User
 from app.config import get_settings
 from app.db import get_db
 from app.import_export import services as svc
+from app.import_export.access import ExportFilterForbidden, ExportFilterInvalid
 from app.import_export.adapters.bitrix24 import (
     apply_bitrix24_mapping,
     is_bitrix24,
@@ -361,17 +362,29 @@ async def create_export(
     user: Annotated[User, Depends(current_user)] = ...,
 ) -> ExportJobOut:
     """Create an ExportJob and dispatch the Celery task. Returns 202
-    with the job row — clients poll GET /api/export/{id} for status."""
+    with the job row — clients poll GET /api/export/{id} for status.
+
+    Фильтры приводятся к правам вызывающего до создания задачи, и в
+    `filters_json` сохраняется уже безопасная выборка. Менеджеру база
+    лидов и чужой `assigned_to` отвечают отказом, а не более широкой
+    выгрузкой; отсутствие `assigned_to` принудительно сужается до него
+    самого.
+    """
     try:
         job = await svc.create_export_job(
             db,
-            workspace_id=user.workspace_id,
-            user_id=user.id,
+            actor=user,
             format_value=payload.format,
             filters=payload.filters,
             include_ai_brief=payload.include_ai_brief,
         )
     except svc.ExportJobBadFormat as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
+    except ExportFilterForbidden as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except ExportFilterInvalid as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         )
@@ -472,9 +485,7 @@ async def get_export(
     user: Annotated[User, Depends(current_user)] = ...,
 ) -> ExportJobOut:
     try:
-        job = await svc.get_export_job(
-            db, job_id=job_id, workspace_id=user.workspace_id
-        )
+        job = await svc.get_export_job(db, job_id=job_id, actor=user)
     except svc.ExportJobNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
     return ExportJobOut.model_validate(svc.export_job_out(job))
@@ -487,9 +498,7 @@ async def download_export(
     user: Annotated[User, Depends(current_user)] = ...,
 ) -> StreamingResponse:
     try:
-        job, data = await svc.fetch_export_payload(
-            db, job_id=job_id, workspace_id=user.workspace_id
-        )
+        job, data = await svc.fetch_export_payload(db, job_id=job_id, actor=user)
     except svc.ExportJobNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
     except svc.ExportJobNotReady:

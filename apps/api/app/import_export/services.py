@@ -232,26 +232,34 @@ VALID_EXPORT_FORMATS = {fmt.value for fmt in ExportJobFormat}
 async def create_export_job(
     session: AsyncSession,
     *,
-    workspace_id: UUID,
-    user_id: UUID,
+    actor,
     format_value: str,
     filters: dict[str, Any] | None,
     include_ai_brief: bool,
 ) -> ExportJob:
     """Stage a fresh ExportJob with status='pending'. The Celery task
     `run_export_task` is dispatched separately by the router so the
-    DB write commits before the worker can race the row read."""
+    DB write commits before the worker can race the row read.
+
+    В `filters_json` уходит выборка, приведённая к правам вызывающего
+    (`app/import_export/access.py`), а не то, что прислал клиент. До этого
+    сюда попадал сырой словарь, и менеджер мог выгрузить базу лидов или
+    карточки коллеги: worker сверял только рабочее пространство.
+    """
+    from app.import_export.access import effective_export_selection
+
     if format_value not in VALID_EXPORT_FORMATS:
         raise ExportJobBadFormat(f"unknown export format: {format_value}")
 
-    payload_filters = dict(filters or {})
+    selection = await effective_export_selection(session, filters, actor=actor)
+    payload_filters = selection.to_json()
     # Carry include_ai_brief inside filters_json — keeps the schema
     # narrower; the worker pulls it back out at run time.
     payload_filters["include_ai_brief"] = bool(include_ai_brief)
 
     job = ExportJob(
-        workspace_id=workspace_id,
-        user_id=user_id,
+        workspace_id=actor.workspace_id,
+        user_id=actor.id,
         status=ExportJobStatus.pending.value,
         format=format_value,
         filters_json=payload_filters,
@@ -263,15 +271,23 @@ async def create_export_job(
 
 
 async def get_export_job(
-    session: AsyncSession, *, job_id: UUID, workspace_id: UUID
+    session: AsyncSession, *, job_id: UUID, actor
 ) -> ExportJob:
+    """Своя задача — автору, любая в пространстве — руководителю и админу.
+
+    Чужая задача и задача другого пространства отвечают одинаково: 404.
+    Отдельный код для «есть, но не ваша» подтверждал бы, что выгрузка
+    существует.
+    """
+    from app.import_export.access import may_read_job
+
     res = await session.execute(
         select(ExportJob)
         .where(ExportJob.id == job_id)
-        .where(ExportJob.workspace_id == workspace_id)
+        .where(ExportJob.workspace_id == actor.workspace_id)
     )
     job = res.scalar_one_or_none()
-    if job is None:
+    if job is None or not may_read_job(actor, job.user_id):
         raise ExportJobNotFound(str(job_id))
     return job
 
@@ -280,7 +296,7 @@ async def fetch_export_payload(
     session: AsyncSession,
     *,
     job_id: UUID,
-    workspace_id: UUID,
+    actor,
 ) -> tuple[ExportJob, bytes]:
     """Resolve a download request. Raises:
       ExportJobNotFound — bad UUID or cross-workspace
@@ -289,7 +305,7 @@ async def fetch_export_payload(
     """
     from app.import_export.redis_bytes import fetch_export_bytes
 
-    job = await get_export_job(session, job_id=job_id, workspace_id=workspace_id)
+    job = await get_export_job(session, job_id=job_id, actor=actor)
     if job.status != ExportJobStatus.done.value:
         raise ExportJobNotReady(job.status)
     if not job.redis_key:

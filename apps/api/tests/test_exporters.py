@@ -320,7 +320,9 @@ async def test_export_endpoint_returns_202():
 
     create_mock.assert_awaited_once()
     kwargs = create_mock.await_args.kwargs
-    assert kwargs["workspace_id"] == user.workspace_id
+    # Роутер передаёт самого пользователя: рабочее пространство, автора и
+    # права выборки сервис берёт из него (ревью доступа к экспорту).
+    assert kwargs["actor"] is user
     assert kwargs["format_value"] == "csv"
     assert kwargs["filters"] == {"city": "Москва"}
 
