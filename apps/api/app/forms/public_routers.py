@@ -54,14 +54,25 @@ _UTM_KEYS = {
 
 
 def _client_ip(request: Request) -> str:
-    """Best-effort client-IP extraction. Honours X-Forwarded-For when
-    nginx is in front (production setup); falls back to direct
-    connection for local dev. Trims to the first hop — XFF can
-    chain through multiple proxies and the leftmost is the original
-    client."""
+    """Адрес клиента так, как его видит доверенный прокси.
+
+    Заголовки, пришедшие снаружи, подделываются кем угодно, поэтому
+    левый элемент X-Forwarded-For брать нельзя: злоумышленник просто
+    подставит туда чужой адрес и обойдёт лимит. Доверяем только тому,
+    что дописал наш nginx:
+
+    1. ``X-Real-IP`` — nginx ставит его равным ``$remote_addr``,
+       перезаписывая присланное клиентом значение;
+    2. правый элемент ``X-Forwarded-For`` — ``$proxy_add_x_forwarded_for``
+       дописывает реальный адрес справа (доверенный прокси один);
+    3. прямое соединение — когда прокси нет (локальная разработка).
+    """
+    real_ip = (request.headers.get("x-real-ip") or "").strip()
+    if real_ip:
+        return real_ip
     xff = request.headers.get("x-forwarded-for") or ""
-    if xff:
-        return xff.split(",")[0].strip()
+    if xff.strip():
+        return xff.split(",")[-1].strip()
     if request.client and request.client.host:
         return request.client.host
     return ""
