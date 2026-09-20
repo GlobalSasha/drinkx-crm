@@ -15,6 +15,25 @@ AUTH-01 / AUTH-03 are written to the SECURE contract and are expected to
 FAIL against the current code -- that failure is the counterexample this
 file exists to pin down. AUTH-02 documents the working control case.
 AUTH-04 is not reproduced here -- see the note above that test.
+
+Isolation notes (audit-integration round, drinkx_ci shared run):
+- `gmail_callback` calls `await db.commit()` on success, which is a REAL
+  Postgres commit -- not something the per-test `db` fixture's trailing
+  `rollback()` can undo. Every test below that drives a callback all the
+  way to a successful link therefore explicitly deletes the Workspace it
+  created (cascades to User/ChannelConnection rows via `ondelete=CASCADE`)
+  in a `finally`, so no row survives the test into the shared DB. Without
+  this, a later, unrelated test's "oldest workspace" query
+  (`app/auth/services.py`'s `ORDER BY created_at ASC LIMIT 1`) can pick up
+  an orphaned workspace committed here and fail for a reason that has
+  nothing to do with what it's testing.
+- `celery_app.send_task` is stubbed for every callback call (same pattern
+  as `tests/test_export_access.py`) -- with no broker running, the
+  Celery Redis result backend was retrying for ~20s per successful
+  callback (`Connection to Redis lost: Retry (0/20)...(19/20)`), which
+  was the actual source of the ~78s runtime, not slowness in the code
+  under test. Stubbing is scoped to a single call (`get`/`set` around
+  the request) and restored in `finally`.
 """
 from __future__ import annotations
 
@@ -64,17 +83,39 @@ async def _make_user(db, workspace_id, *, email_prefix: str):
     return u
 
 
+async def _cleanup_workspace(db, workspace_id) -> None:
+    """Undo a REAL commit made by the gmail_callback endpoint.
+
+    `db.commit()` inside the router is a genuine Postgres commit on the
+    shared test database -- the per-test `db` fixture's `rollback()`
+    (called after the test returns) is a no-op once that has already
+    happened. Deleting the Workspace here, in the SAME session, and
+    committing that delete, cascades (ondelete=CASCADE) to every User
+    and ChannelConnection row this test created, so nothing leaks into
+    whatever test runs next in the same process/database.
+    """
+    from sqlalchemy import delete
+
+    from app.auth.models import Workspace
+
+    await db.execute(delete(Workspace).where(Workspace.id == workspace_id))
+    await db.commit()
+
+
 async def _callback(db, settings_obj, *, code: str | None, state: str | None):
     """GET /api/inbox/gmail/callback with get_settings patched inside
     app.inbox.oauth (the module that owns the signing key + client
-    config) and token exchange stubbed (no real network/Google)."""
+    config), token exchange stubbed (no real network/Google), and the
+    Celery dispatch stubbed (no real/attempted network to Redis)."""
     from app.db import get_db
     from app.main import app
+    from app.scheduled.celery_app import celery_app
 
     app.dependency_overrides[get_db] = lambda: db
 
     orig_get_settings = oauth_helpers.get_settings
     orig_exchange = oauth_helpers.exchange_code_for_credentials
+    orig_send_task = celery_app.send_task
     oauth_helpers.get_settings = lambda: settings_obj
     oauth_helpers.exchange_code_for_credentials = lambda _code: {
         "token": "attacker-access-token",
@@ -85,6 +126,7 @@ async def _callback(db, settings_obj, *, code: str | None, state: str | None):
         "scopes": ["https://www.googleapis.com/auth/gmail.readonly"],
         "expiry": None,
     }
+    celery_app.send_task = lambda *a, **kw: None
     try:
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -99,6 +141,7 @@ async def _callback(db, settings_obj, *, code: str | None, state: str | None):
     finally:
         oauth_helpers.get_settings = orig_get_settings
         oauth_helpers.exchange_code_for_credentials = orig_exchange
+        celery_app.send_task = orig_send_task
         app.dependency_overrides.clear()
 
 
@@ -148,19 +191,22 @@ async def test_auth01_forged_state_with_empty_secret_must_not_link_victim_mailbo
     )
     forged_state = _forge_state(victim.id, secret=DEV_FALLBACK_CONSTANT)
 
-    resp = await _callback(db, settings_empty_secret, code="attacker-code", state=forged_state)
+    try:
+        resp = await _callback(db, settings_empty_secret, code="attacker-code", state=forged_state)
 
-    conn = await _connection_for(db, victim.id)
+        conn = await _connection_for(db, victim.id)
 
-    # SECURE expectation: forged state rejected, nothing written for the victim.
-    assert "invalid_state" in resp.headers.get("location", "") or resp.status_code >= 400, (
-        f"forged state was accepted (redirect={resp.headers.get('location')!r}); "
-        "empty-secret fallback lets anyone sign a state for any user_id"
-    )
-    assert conn is None, (
-        "a ChannelConnection was written for the victim from a state forged "
-        "with the hardcoded dev fallback constant -- see REPRO.md"
-    )
+        # SECURE expectation: forged state rejected, nothing written for the victim.
+        assert "invalid_state" in resp.headers.get("location", "") or resp.status_code >= 400, (
+            f"forged state was accepted (redirect={resp.headers.get('location')!r}); "
+            "empty-secret fallback lets anyone sign a state for any user_id"
+        )
+        assert conn is None, (
+            "a ChannelConnection was written for the victim from a state forged "
+            "with the hardcoded dev fallback constant -- see REPRO.md"
+        )
+    finally:
+        await _cleanup_workspace(db, workspace.id)
 
 
 @skip_no_pg
@@ -171,6 +217,10 @@ async def test_auth01_state_signed_with_different_secret_is_rejected(db, workspa
     This leg passes on current code -- verify_state's HMAC compare is
     otherwise sound; the vulnerability is specifically the fallback
     constant becoming the de-facto shared secret when config is empty.
+
+    No commit reaches Postgres on this path (rejected before the
+    upsert), so no explicit workspace cleanup is needed here -- the
+    `db` fixture's trailing rollback is enough.
     """
     victim = await _make_user(db, workspace.id, email_prefix="victim2")
     await db.flush()
@@ -215,13 +265,16 @@ async def test_auth02_valid_state_links_mailbox_to_the_right_user(db, workspace)
     finally:
         oauth_helpers.get_settings = orig_get_settings
 
-    resp = await _callback(db, settings_ok, code="legit-code", state=state)
-    conn = await _connection_for(db, user.id)
+    try:
+        resp = await _callback(db, settings_ok, code="legit-code", state=state)
+        conn = await _connection_for(db, user.id)
 
-    assert "status=ok" in resp.headers.get("location", "")
-    assert conn is not None
-    assert conn.workspace_id == workspace.id
-    assert conn.status == "active"
+        assert "status=ok" in resp.headers.get("location", "")
+        assert conn is not None
+        assert conn.workspace_id == workspace.id
+        assert conn.status == "active"
+    finally:
+        await _cleanup_workspace(db, workspace.id)
 
 
 @skip_no_pg
@@ -252,14 +305,17 @@ async def test_replay_of_a_still_valid_state_is_not_rejected(db, workspace):
     finally:
         oauth_helpers.get_settings = orig_get_settings
 
-    resp1 = await _callback(db, settings_ok, code="legit-code-1", state=state)
-    resp2 = await _callback(db, settings_ok, code="legit-code-2", state=state)
+    try:
+        resp1 = await _callback(db, settings_ok, code="legit-code-1", state=state)
+        resp2 = await _callback(db, settings_ok, code="legit-code-2", state=state)
 
-    assert "status=ok" in resp1.headers.get("location", "")
-    assert "status=ok" in resp2.headers.get("location", ""), (
-        "actual behavior: replay within the TTL window is accepted "
-        "(no nonce/one-time-use check in verify_state)"
-    )
+        assert "status=ok" in resp1.headers.get("location", "")
+        assert "status=ok" in resp2.headers.get("location", ""), (
+            "actual behavior: replay within the TTL window is accepted "
+            "(no nonce/one-time-use check in verify_state)"
+        )
+    finally:
+        await _cleanup_workspace(db, workspace.id)
 
 
 # ---------------------------------------------------------------------------
@@ -277,6 +333,9 @@ async def test_auth03_empty_secret_in_production_must_refuse_not_use_constant():
     which raises `CredentialsCryptoError` when `app_env == "production"`
     and no FERNET_KEY is configured, instead of falling back to
     plaintext).
+
+    No `db`/`workspace` fixture, no HTTP call, no commit -- nothing to
+    clean up.
 
     Expected (secure): raises before returning a token signed with the
     fallback constant.
