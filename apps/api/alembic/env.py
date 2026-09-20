@@ -60,47 +60,42 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
-# Alembic hardcodes `Column("version_num", String(32))` for its bookkeeping
-# table (alembic/ddl/impl.py, version_table_impl) and exposes no option to
-# widen it. Seven revision ids in this project are longer than 32 characters —
-# the first is `0009_inbox_items_and_activity_email` at 35 — so `upgrade head`
-# against a NEW database dies there with:
-#
-#   StringDataRightTruncationError: value too long for type character varying(32)
-#
-# which means the chain could not build a fresh environment at all: disaster
-# recovery, a new staging box, or a wiped volume would never come up, because
-# the API container runs `alembic upgrade head` before uvicorn starts.
-#
-# Create the table ourselves at a workable width, and widen it if an older
-# database already has the narrow one. Idempotent, one row, Alembic's
-# `create(checkfirst=True)` then leaves our table alone. The alternative —
-# renaming seven historical revisions — rewrites migration history that live
-# databases already point at.
-VERSION_NUM_WIDTH = 255
+# Alembic's bookkeeping column is too narrow for this project's revision ids.
+# The reasoning, and why the check has to look before it writes, live in
+# scripts/alembic_version_table.py. `prepend_sys_path = .` in alembic.ini puts
+# apps/api on sys.path, which is how `app.config` above is importable too.
+from scripts.alembic_version_table import (  # noqa: E402
+    CREATED,
+    UNCHANGED,
+    ensure_version_table_width,
+)
+
+# Commands that only read. `alembic current` is a status query; it has no
+# business creating or altering tables on the way to answering (finding R3).
+READ_ONLY_COMMANDS = frozenset({"current", "heads", "history", "show", "branches"})
 
 
-def _ensure_wide_version_table(connection: Connection) -> None:
-    if connection.dialect.name != "postgresql":
-        return
-    connection.exec_driver_sql(
-        "CREATE TABLE IF NOT EXISTS alembic_version ("
-        f"version_num VARCHAR({VERSION_NUM_WIDTH}) NOT NULL, "
-        "CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num))"
-    )
-    connection.exec_driver_sql(
-        "ALTER TABLE alembic_version "
-        f"ALTER COLUMN version_num TYPE VARCHAR({VERSION_NUM_WIDTH})"
-    )
-    # Commit and leave the connection with no transaction open. Alembic's
-    # begin_transaction() treats an already-active transaction as "someone else
-    # owns this" and hands back a no-op, which then breaks the autocommit_block
-    # a couple of migrations use for CREATE INDEX CONCURRENTLY.
-    connection.commit()
+def _alembic_command_name() -> str | None:
+    """The subcommand being run, or None when Alembic is driven in-process."""
+    cmd = getattr(getattr(config, "cmd_opts", None), "cmd", None)
+    if not cmd:
+        return None
+    return getattr(cmd[0], "__name__", None)
 
 
 def do_run_migrations(connection: Connection) -> None:
-    _ensure_wide_version_table(connection)
+    command_name = _alembic_command_name()
+    if command_name in READ_ONLY_COMMANDS:
+        # Read-only: report what is there, change nothing. A narrow column will
+        # be widened by the next command that actually writes.
+        pass
+    else:
+        action = ensure_version_table_width(connection)
+        if action != UNCHANGED:
+            verb = "created" if action == CREATED else "widened"
+            print(f"alembic: {verb} the {'' if action == CREATED else 'existing '}"
+                  f"version table so it can hold this project's revision ids")
+
     context.configure(
         connection=connection,
         target_metadata=target_metadata,

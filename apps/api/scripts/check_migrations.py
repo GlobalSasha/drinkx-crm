@@ -12,7 +12,10 @@ This check closes that gap:
   2. `alembic upgrade head` on a clean database — the real chain, no create_all;
   3. exactly one head, taken from Alembic itself rather than from any document;
   4. the database's current revision equals that head;
-  5. a second `upgrade head` succeeds and re-applies nothing.
+  5. a second `upgrade head` succeeds, re-applies no revision AND performs no
+     bootstrap DDL of its own. The absence of "Running upgrade" alone would
+     only show that no revision file ran again; the env bootstrap used to emit
+     CREATE and ALTER on every invocation regardless (review finding R3).
 
 Not covered here, on purpose: migrating an existing database from an older
 revision and checking data survives. That belongs with a pull request that
@@ -118,15 +121,21 @@ def main() -> int:
     show("alembic upgrade head (second run)", second)
     if second.returncode != 0:
         die("re-running upgrade head failed — migrations are not idempotent")
-    reapplied = [
-        line for line in (second.stdout + second.stderr).splitlines()
-        if "Running upgrade" in line
-    ]
+    second_output = second.stdout + second.stderr
+    reapplied = [line for line in second_output.splitlines() if "Running upgrade" in line]
     if reapplied:
         die(f"the second upgrade re-applied {len(reapplied)} migration(s): {reapplied}")
 
+    # The env bootstrap announces itself when it creates or widens the version
+    # table. On an already-correct database it must stay silent, because it
+    # must not run any DDL at all.
+    bootstrapped = [line for line in second_output.splitlines() if line.startswith("alembic: ")]
+    if bootstrapped:
+        die(f"the second run still performed bootstrap DDL: {bootstrapped}")
+
     print()
-    print(f"OK: chain applies cleanly to head {head}, one head, second run is a no-op")
+    print(f"OK: chain applies cleanly to head {head}; one head; the second run")
+    print("    re-applied no revision and issued no bootstrap DDL")
     return 0
 
 
