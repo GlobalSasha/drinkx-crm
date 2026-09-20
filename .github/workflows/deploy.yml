@@ -51,9 +51,14 @@ jobs:
 
       # ServerAliveInterval keeps the session alive across the ~12-15m build,
       # which prints nothing for minutes at a time.
+      #
+      # deploy.sh exits non-zero on a failed build, a failed start, an exhausted
+      # health-check budget, or containers running anything other than
+      # github.sha — so a non-zero here means the release did NOT land. Before
+      # G1 a failed build only printed a warning and the script exited 0.
       - name: Trigger deploy
         run: |
-          ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 \
+          ssh -o ConnectTimeout=30 -o ServerAliveInterval=30 -o ServerAliveCountMax=20 \
             -i ~/.ssh/deploy_key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
             "DEPLOY_SHA='${{ github.sha }}' bash /opt/drinkx-crm/infra/production/deploy.sh"
 
@@ -84,3 +89,25 @@ jobs:
           check "API" https://crm.drinkx.tech/api/health || exit 1
 
           echo "✅ Deploy verified"
+
+      # HTTP 200 only proves something is answering — the previous release
+      # answers just as well. /health reports DRINKX_GIT_SHA, which is baked
+      # into the image at build time (see the GIT_SHA build arg), so a match
+      # here means the commit under test is the one serving traffic.
+      - name: Verify running version
+        run: |
+          EXPECTED='${{ github.sha }}'
+          BODY=$(curl -fsS --max-time 20 --retry 3 --retry-delay 5 \
+            https://crm.drinkx.tech/api/health) || {
+              echo "could not read /api/health" >&2; exit 1; }
+          echo "health: $BODY"
+          LIVE=$(printf '%s' "$BODY" | sed -n 's/.*"sha"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+          if [ -z "$LIVE" ]; then
+            echo "::error::/api/health did not report a build SHA — cannot confirm the release is live" >&2
+            exit 1
+          fi
+          if [ "$LIVE" != "$EXPECTED" ]; then
+            echo "::error::production is serving build $LIVE, expected $EXPECTED" >&2
+            exit 1
+          fi
+          echo "✅ Production is serving $LIVE"

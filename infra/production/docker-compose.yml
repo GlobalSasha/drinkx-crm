@@ -63,6 +63,11 @@ services:
       # Dockerfile path is explicit since the context isn't apps/api.
       context: ../..
       dockerfile: apps/api/Dockerfile
+      args:
+        # Baked into the image as DRINKX_GIT_SHA; deploy.sh reads it back out of
+        # the running container to prove the new build is live. Never mirror it
+        # into `environment:` — that would let a stale image report a fresh SHA.
+        GIT_SHA: ${DEPLOY_SHA:-unknown}
     restart: unless-stopped
     logging: *default-logging
     environment: &api-env
@@ -120,6 +125,11 @@ services:
       # Dockerfile path is explicit since the context isn't apps/api.
       context: ../..
       dockerfile: apps/api/Dockerfile
+      args:
+        # Baked into the image as DRINKX_GIT_SHA; deploy.sh reads it back out of
+        # the running container to prove the new build is live. Never mirror it
+        # into `environment:` — that would let a stale image report a fresh SHA.
+        GIT_SHA: ${DEPLOY_SHA:-unknown}
     restart: unless-stopped
     logging: *default-logging
     command: ["uv", "run", "celery", "-A", "app.scheduled.celery_app", "worker", "-l", "INFO", "--concurrency=2"]
@@ -141,6 +151,11 @@ services:
       # Dockerfile path is explicit since the context isn't apps/api.
       context: ../..
       dockerfile: apps/api/Dockerfile
+      args:
+        # Baked into the image as DRINKX_GIT_SHA; deploy.sh reads it back out of
+        # the running container to prove the new build is live. Never mirror it
+        # into `environment:` — that would let a stale image report a fresh SHA.
+        GIT_SHA: ${DEPLOY_SHA:-unknown}
     restart: unless-stopped
     logging: *default-logging
     command: ["uv", "run", "celery", "-A", "app.scheduled.celery_app", "beat", "-l", "INFO"]
@@ -163,6 +178,7 @@ services:
       # build time. Runtime `environment:` below is kept as belt-and-suspenders
       # for any server-side code that reads from process.env at runtime.
       args:
+        GIT_SHA: ${DEPLOY_SHA:-unknown}
         NEXT_PUBLIC_API_URL: https://crm.drinkx.tech/api
         NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_URL}
         NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY}

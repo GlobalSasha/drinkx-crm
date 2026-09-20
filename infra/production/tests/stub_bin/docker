@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# Scenario-driven Docker stub for the deploy release-gate regression tests.
+#
+# Never contacts a Docker daemon, a registry, SSH or the network. Behaviour is
+# driven entirely by STUB_* environment variables set by the test runner.
+#
+# Recognises the command shapes of BOTH the pre-G1 script (which built with
+# `up -d --build`) and the post-G1 script (which builds in a separate step),
+# so the same scenario can be run against either version.
+set -u
+ARGS="$*"
+
+case "$ARGS" in
+  # Orphan rename-stub cleanup: `docker ps -a --format '{{.Names}}'`.
+  "ps -a --format"*)
+    exit 0
+    ;;
+
+  # Image build. Must be matched before the plain `up` case, because the
+  # pre-G1 script builds and starts in one `up -d --build` invocation.
+  *"--build"*|*"compose build"*|*"--env-file .env build"*)
+    if [ "${STUB_BUILD_RC:-0}" -ne 0 ]; then
+      echo "STUB: build of the new release FAILED" >&2
+      exit "${STUB_BUILD_RC:-0}"
+    fi
+    exit 0
+    ;;
+
+  # Reading the build-time version stamp out of a running container.
+  *"printenv DRINKX_GIT_SHA"*)
+    svc=""
+    for tok in $ARGS; do
+      case "$tok" in
+        api|web|worker|beat) svc="$tok" ;;
+      esac
+    done
+    var="STUB_SHA_$(echo "$svc" | tr '[:lower:]' '[:upper:]')"
+    eval "sha=\${$var:-\${STUB_RUNNING_SHA:-}}"
+    if [ -z "$sha" ]; then
+      echo "STUB: no container running for $svc" >&2
+      exit 1
+    fi
+    echo "$sha"
+    exit 0
+    ;;
+
+  # Celery worker liveness probe.
+  *"inspect ping"*)
+    [ "${STUB_WORKER_PING:-ok}" = "ok" ] && exit 0
+    exit 1
+    ;;
+
+  # `docker compose ps --status running beat`.
+  *"ps --status running beat"*)
+    if [ "${STUB_BEAT_RUNNING:-yes}" = "yes" ]; then
+      echo "drinkx-beat-1   running"
+      exit 0
+    fi
+    exit 0
+    ;;
+
+  # Starting containers.
+  *"up -d"*)
+    [ "${STUB_UP_RC:-0}" -ne 0 ] && exit "${STUB_UP_RC:-0}"
+    exit 0
+    ;;
+
+  # Diagnostic `docker compose ps` on the failure paths.
+  *"ps"*)
+    exit 0
+    ;;
+
+  *)
+    exit 0
+    ;;
+esac

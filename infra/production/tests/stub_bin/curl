@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# HTTP stub — sends no request. Local health endpoints only.
+set -u
+ARGS="$*"
+case "$ARGS" in
+  *"127.0.0.1:8000"*) [ "${STUB_API_HEALTH:-ok}" = "ok" ] && exit 0; exit 7 ;;
+  *"127.0.0.1:3000"*) [ "${STUB_WEB_HEALTH:-ok}" = "ok" ] && exit 0; exit 7 ;;
+  *) exit 0 ;;
+esac
