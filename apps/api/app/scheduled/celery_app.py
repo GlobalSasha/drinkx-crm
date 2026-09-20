@@ -83,6 +83,12 @@ celery_app.conf.beat_schedule = {
         "task": "app.scheduled.jobs.pool_auto_enrich_batch",
         "schedule": crontab(hour=3, minute=0),
     },
+    "expire-stuck-enrichment-runs": {
+        # S-2 — порог гашения 5 минут (STUCK_RUN_TIMEOUT_SECONDS), так что
+        # и проход раз в 5 минут.
+        "task": "app.scheduled.jobs.expire_stuck_enrichment_runs",
+        "schedule": crontab(minute="*/5"),
+    },
     "purge-orphan-storage-files": {
         "task": "app.scheduled.jobs.purge_orphan_storage_files",
         "schedule": crontab(hour=3, minute=30, day_of_week=0),  # Sundays 03:30 UTC

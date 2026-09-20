@@ -270,6 +270,26 @@ def base_update_apply(job_id: str) -> dict:
     return asyncio.run(_core())
 
 
+@celery_app.task(name="app.scheduled.jobs.expire_stuck_enrichment_runs")
+def expire_stuck_enrichment_runs() -> dict:
+    """S-2: сторож зависших обогащений. Каждые 5 минут гасит строки
+    `enrichment_runs` в `running` старше STUCK_RUN_TIMEOUT_SECONDS, освобождая
+    потолок конкурентности пространства."""
+    from app.enrichment.services import expire_stuck_runs
+
+    async def _core():
+        engine, factory = _build_task_engine_and_factory()
+        try:
+            async with factory() as db:
+                expired = await expire_stuck_runs(db)
+                await db.commit()
+            return {"job": "expire_stuck_enrichment_runs", "expired": expired}
+        finally:
+            await engine.dispose()
+
+    return asyncio.run(_core())
+
+
 @celery_app.task(name="app.scheduled.jobs.purge_orphan_storage_files")
 def purge_orphan_storage_files() -> dict:
     """Weekly: list the lead-files bucket, delete objects with no Activity backing them.

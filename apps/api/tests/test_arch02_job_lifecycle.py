@@ -448,7 +448,11 @@ async def test_q10_overlapping_followup_dispatch_is_serialized(db):
 
 # ===========================================================================
 # Q-7 (P1, ARCH-JOB-02). Зомби-строки enrichment_runs в running занимают
-# потолок конкурентности пространства навсегда — новый запуск получает 429.
+# потолок конкурентности пространства — новый запуск получает 429.
+# БЫЛО: освободить место мог только ленивый сторож в `get_latest_run`, то
+# есть лишь когда кто-то откроет карточку именно зомби-лида; беат-прохода
+# не было вовсе. СТАЛО (S-2): `expire_stuck_runs` гасит все просроченные
+# строки разом, потолок освобождается без участия человека.
 # ===========================================================================
 
 @skip_no_pg
@@ -458,6 +462,7 @@ async def test_q7_zombie_enrichment_runs_exhaust_workspace_concurrency(db):
     from app.enrichment.models import EnrichmentRun
     from app.enrichment.services import (
         EnrichmentConcurrencyLimit,
+        expire_stuck_runs,
         trigger_enrichment,
     )
 
@@ -490,12 +495,31 @@ async def test_q7_zombie_enrichment_runs_exhaust_workspace_concurrency(db):
 
     from sqlalchemy import func, select
 
-    still_running = (
-        await db.execute(
-            select(func.count(EnrichmentRun.id)).where(EnrichmentRun.status == "running")
-        )
-    ).scalar_one()
-    assert still_running == limit, "зомби-строки остаются running — их никто не тронул"
+    count_running = select(func.count(EnrichmentRun.id)).where(
+        EnrichmentRun.status == "running"
+    )
+    assert (await db.execute(count_running)).scalar_one() == limit, (
+        "до прохода сторожа зомби-строки остаются running"
+    )
+
+    # Беат-сторож S-2: тот же код, что зовёт задача
+    # `expire_stuck_enrichment_runs`, только на тестовой сессии.
+    expired = await expire_stuck_runs(db)
+    await db.commit()
+    assert expired == limit, "сторож гасит все просроченные строки за один проход"
+    assert (await db.execute(count_running)).scalar_one() == 0
+
+    # Потолок освобождён. Проверяем именно его: пройти `trigger_enrichment`
+    # целиком здесь нельзя — следующий за конкурентностью охранник смотрит
+    # дневной бюджет в Redis, а Redis в тестовой среде не поднят и fail-closed
+    # даёт EnrichmentBudgetExceeded независимо от нашей правки.
+    from app.enrichment.concurrency import (
+        count_running_for_workspace,
+        is_at_concurrency_limit,
+    )
+
+    assert await count_running_for_workspace(db, ws.id) == 0
+    assert await is_at_concurrency_limit(db, ws.id) is False
 
 
 # ===========================================================================
