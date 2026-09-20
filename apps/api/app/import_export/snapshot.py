@@ -113,42 +113,43 @@ async def generate_snapshot(
     session: AsyncSession,
     *,
     workspace_id: UUID,
-    filters: dict | None = None,
+    selection=None,
     include_ai_brief: bool = True,
     limit: int = 500,
 ) -> bytes:
     """Build the YAML snapshot. Returns UTF-8 bytes ready for the
-    StreamingResponse / Content-Disposition: attachment download."""
-    filters = filters or {}
+    StreamingResponse / Content-Disposition: attachment download.
+
+    `selection` — каноническое описание выборки (`app/leads/selection.py`),
+    уже приведённое к правам вызывающего. Раньше здесь был свой набор
+    условий из девяти ключей: он не знал про роль, не исключал удалённые
+    карточки и отдавал менеджеру срез по всему рабочему пространству
+    (аудит SEC-02-A).
+    """
+    from app.leads.selection import (
+        LeadSelection,
+        NoMatches,
+        selection_conditions,
+    )
+
+    if selection is None:
+        selection = LeadSelection()
+
+    try:
+        conds = await selection_conditions(session, selection, workspace_id)
+    except NoMatches:
+        conds = None
+
+    if conds is None:
+        leads: list[Lead] = []
+        stage_lookup: dict[Any, str] = {}
+        return _render(leads, stage_lookup, include_ai_brief)
 
     stmt = (
         select(Lead)
-        .where(Lead.workspace_id == workspace_id)
+        .where(*conds)
         .options(selectinload(Lead.contacts))
     )
-    # Mirror the GET /api/leads filter shape (subset).
-    if filters.get("stage_id"):
-        stmt = stmt.where(Lead.stage_id == filters["stage_id"])
-    if filters.get("segment"):
-        stmt = stmt.where(Lead.segment == filters["segment"])
-    if filters.get("city"):
-        stmt = stmt.where(Lead.city == filters["city"])
-    if filters.get("priority"):
-        stmt = stmt.where(Lead.priority == filters["priority"])
-    if filters.get("deal_type"):
-        stmt = stmt.where(Lead.deal_type == filters["deal_type"])
-    if filters.get("assigned_to"):
-        stmt = stmt.where(Lead.assigned_to == filters["assigned_to"])
-    if filters.get("assignment_status"):
-        stmt = stmt.where(Lead.assignment_status == filters["assignment_status"])
-    if filters.get("fit_min") is not None:
-        try:
-            stmt = stmt.where(Lead.fit_score >= float(filters["fit_min"]))
-        except (TypeError, ValueError):
-            pass
-    if filters.get("q"):
-        stmt = stmt.where(Lead.company_name.ilike(f"%{filters['q']}%"))
-
     stmt = stmt.order_by(Lead.created_at.desc()).limit(limit)
     res = await session.execute(stmt)
     leads = list(res.scalars().unique())
@@ -162,6 +163,10 @@ async def generate_snapshot(
         )
         stage_lookup = {sid: name for sid, name in s_res.all()}
 
+    return _render(leads, stage_lookup, include_ai_brief)
+
+
+def _render(leads, stage_lookup, include_ai_brief: bool) -> bytes:
     payload = {
         "leads": [
             _format_lead(

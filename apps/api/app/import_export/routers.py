@@ -23,7 +23,11 @@ from app.auth.models import User
 from app.config import get_settings
 from app.db import get_db
 from app.import_export import services as svc
-from app.import_export.access import ExportFilterForbidden, ExportFilterInvalid
+from app.import_export.access import (
+    ExportFilterForbidden,
+    ExportFilterInvalid,
+    effective_export_selection,
+)
 from app.import_export.adapters.bitrix24 import (
     apply_bitrix24_mapping,
     is_bitrix24,
@@ -77,7 +81,7 @@ async def list_jobs(
 ) -> ImportJobPageOut:
     items, total = await svc.list_jobs(
         db,
-        workspace_id=user.workspace_id,
+        actor=user,
         status=item_status,
         page=page,
         page_size=page_size,
@@ -97,7 +101,7 @@ async def get_job(
     user: Annotated[User, Depends(current_user)] = ...,
 ) -> ImportJobOut:
     try:
-        job = await svc.get_job(db, job_id=job_id, workspace_id=user.workspace_id)
+        job = await svc.get_job(db, job_id=job_id, actor=user)
     except svc.ImportJobNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
     return ImportJobOut.model_validate(job)
@@ -110,9 +114,7 @@ async def cancel_job(
     user: Annotated[User, Depends(current_user)] = ...,
 ) -> ImportJobOut:
     try:
-        job = await svc.cancel_job(
-            db, job_id=job_id, workspace_id=user.workspace_id
-        )
+        job = await svc.cancel_job(db, job_id=job_id, actor=user)
     except svc.ImportJobNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
     except svc.ImportJobBadState as exc:
@@ -139,7 +141,7 @@ async def _handle_bulk_update_upload(
     run_bulk_update instead of bulk_import_run."""
     updates = parse_bulk_update(content)
     diff = await compute_diff(
-        db, workspace_id=user.workspace_id, updates=updates
+        db, workspace_id=user.workspace_id, updates=updates, actor=user
     )
 
     items_jsonable = diff_to_jsonable(diff)
@@ -309,7 +311,7 @@ async def confirm_mapping_endpoint(
         job = await svc.confirm_mapping(
             db,
             job_id=job_id,
-            workspace_id=user.workspace_id,
+            actor=user,
             mapping=payload.mapping,
         )
     except svc.ImportJobNotFound:
@@ -332,9 +334,7 @@ async def apply_job(
     user: Annotated[User, Depends(current_user)] = ...,
 ) -> ImportJobOut:
     try:
-        job = await svc.request_apply(
-            db, job_id=job_id, workspace_id=user.workspace_id
-        )
+        job = await svc.request_apply(db, job_id=job_id, actor=user)
     except svc.ImportJobNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not_found")
     except svc.ImportJobBadState as exc:
@@ -445,10 +445,23 @@ async def get_snapshot(
         if v is not None
     }
 
+    # Та же политика, что у обычного экспорта: менеджеру — только его
+    # карточки, руководителю и админу — пространство. Фильтры из запроса
+    # прав не расширяют. До этого снимок отдавал менеджеру всё
+    # пространство целиком (аудит SEC-02-A).
+    try:
+        selection = await effective_export_selection(db, filters, actor=user)
+    except ExportFilterForbidden as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except ExportFilterInvalid as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
+
     payload = await generate_snapshot(
         db,
         workspace_id=user.workspace_id,
-        filters=filters,
+        selection=selection,
         include_ai_brief=include_ai_brief,
     )
 

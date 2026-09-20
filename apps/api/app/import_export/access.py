@@ -22,14 +22,18 @@ Worker остаётся простым и не обязан ничего пер�
 from __future__ import annotations
 
 import uuid
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+if TYPE_CHECKING:  # pragma: no cover — только для аннотаций
+    from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.models import User
-from app.leads.selection import LeadSelection
+    from app.auth.models import User
+    from app.leads.selection import LeadSelection
 
+# Модуль намеренно лёгкий на импорт: SQLAlchemy и модели подтягиваются
+# внутри функций. `may_read_job` и `own_jobs_only` вызываются из сервисов,
+# которые часть тестов прогоняет с подменённым SQLAlchemy, и модульный
+# импорт моделей ломал бы эту изоляцию.
 PRIVILEGED_ROLES = ("admin", "head")
 
 
@@ -41,17 +45,22 @@ class ExportFilterInvalid(Exception):
     """422 — фильтр ссылается на то, чего нет в этом пространстве."""
 
 
-def is_privileged(actor: User) -> bool:
+def is_privileged(actor: "User") -> bool:
     return actor.role in PRIVILEGED_ROLES
 
 
 async def effective_export_selection(
-    db: AsyncSession, raw: dict[str, Any] | None, *, actor: User
-) -> LeadSelection:
+    db: "AsyncSession", raw: dict[str, Any] | None, *, actor: "User"
+) -> "LeadSelection":
     """Выборка, которую этому человеку действительно можно выгрузить.
 
     Возвращает каноническое описание; сохранять в задачу нужно именно его.
     """
+    from sqlalchemy import select
+
+    from app.auth.models import User
+    from app.leads.selection import LeadSelection
+
     selection = LeadSelection.from_json(raw)
 
     if is_privileged(actor):
@@ -89,7 +98,12 @@ async def effective_export_selection(
     return selection.with_(assigned_to=actor.id, assignment_status="assigned")
 
 
-def may_read_job(actor: User, job_user_id: uuid.UUID | None) -> bool:
+def own_jobs_only(actor: "User") -> bool:
+    """Менеджеру видны только свои задачи импорта и экспорта."""
+    return not is_privileged(actor)
+
+
+def may_read_job(actor: "User", job_user_id: uuid.UUID | None) -> bool:
     """Свою задачу экспорта видит автор; руководитель и админ — любую в
     своём пространстве.
 

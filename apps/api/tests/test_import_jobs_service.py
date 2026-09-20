@@ -85,6 +85,10 @@ def _stub_sqlalchemy():
 
 _stub_sqlalchemy()
 
+# Владение задачей читает `import_jobs.user_id` — внешний ключ на `users`.
+# Схему для фикстур собирает `create_all`, а он видит только импортированные
+# модели, поэтому нужен полный импорт приложения (см. P2-5 в бэклоге).
+import app.main  # noqa: E402,F401
 import app.import_export.services as svc  # noqa: E402
 from app.import_export.models import ImportJobStatus  # noqa: E402
 
@@ -107,10 +111,24 @@ def _result(*, scalar=None):
     return r
 
 
-def _make_job(status=ImportJobStatus.uploaded.value):
+# Владение задачей проверяется по автору (аудит SEC-02-B..E), поэтому у
+# заглушек теперь есть и автор, и вызывающий.
+ACTOR_ID = uuid.uuid4()
+
+
+def _actor(role="head", user_id=None, workspace_id=None):
+    a = MagicMock()
+    a.id = user_id or ACTOR_ID
+    a.workspace_id = workspace_id or WS
+    a.role = role
+    return a
+
+
+def _make_job(status=ImportJobStatus.uploaded.value, user_id=None):
     job = MagicMock()
     job.id = uuid.uuid4()
     job.workspace_id = WS
+    job.user_id = user_id or ACTOR_ID
     job.status = status
     return job
 
@@ -169,7 +187,7 @@ async def test_get_job_returns_match():
     job = _make_job()
     db.execute.return_value = _result(scalar=job)
 
-    out = await svc.get_job(db, job_id=job.id, workspace_id=WS)
+    out = await svc.get_job(db, job_id=job.id, actor=_actor())
     assert out is job
 
 
@@ -180,7 +198,7 @@ async def test_get_job_raises_for_wrong_workspace():
     db.execute.return_value = _result(scalar=None)
 
     with pytest.raises(svc.ImportJobNotFound):
-        await svc.get_job(db, job_id=uuid.uuid4(), workspace_id=WS)
+        await svc.get_job(db, job_id=uuid.uuid4(), actor=_actor())
 
 
 # ---------------------------------------------------------------------------
@@ -193,7 +211,7 @@ async def test_cancel_job_succeeds_in_uploaded_status():
     job = _make_job(status=ImportJobStatus.uploaded.value)
     db.execute.return_value = _result(scalar=job)
 
-    out = await svc.cancel_job(db, job_id=job.id, workspace_id=WS)
+    out = await svc.cancel_job(db, job_id=job.id, actor=_actor())
     assert out.status == ImportJobStatus.cancelled.value
     db.commit.assert_awaited()
 
@@ -207,7 +225,7 @@ async def test_cancel_job_raises_when_already_running():
     db.execute.return_value = _result(scalar=job)
 
     with pytest.raises(svc.ImportJobBadState):
-        await svc.cancel_job(db, job_id=job.id, workspace_id=WS)
+        await svc.cancel_job(db, job_id=job.id, actor=_actor())
 
 
 @pytest.mark.asyncio
@@ -221,4 +239,4 @@ async def test_cancel_job_raises_when_terminal_status():
         job = _make_job(status=terminal)
         db.execute.return_value = _result(scalar=job)
         with pytest.raises(svc.ImportJobBadState):
-            await svc.cancel_job(db, job_id=job.id, workspace_id=WS)
+            await svc.cancel_job(db, job_id=job.id, actor=_actor())

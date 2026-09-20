@@ -779,8 +779,51 @@ async def _run_bulk_update(job_id: UUID) -> dict:
             workspace_id = job.workspace_id
             user_id = job.user_id
 
+            # Права автора проверяются ещё раз, здесь. `diff_json` собран
+            # раньше и с тех пор мог устареть: карточку передали другому
+            # менеджеру, автора понизили в роли. Доверять разбору,
+            # сделанному в другой момент времени, для записи нельзя
+            # (аудит SEC-02-H).
+            from app.auth.models import User as _User
+            from app.leads.access import may_access_lead as _may_access
+            from app.leads.models import Lead as _Lead
+
+            author = None
+            if user_id is not None:
+                author = (
+                    await session.execute(
+                        select(_User).where(_User.id == user_id)
+                    )
+                ).scalar_one_or_none()
+
+            async def _target_allowed(item) -> bool:
+                """Можно ли автору задания менять эту карточку."""
+                if item.lead_id is None:
+                    return True  # создание новой карточки
+                if author is None:
+                    # Задание без автора применять некому: раньше такие
+                    # строки проходили как «системные».
+                    return False
+                target = (
+                    await session.execute(
+                        select(_Lead).where(_Lead.id == UUID(str(item.lead_id)))
+                    )
+                ).scalar_one_or_none()
+                return _may_access(author, target)
+
             for idx, item in enumerate(items):
                 try:
+                    if not item.error and not await _target_allowed(item):
+                        session.add(ImportError(
+                            job_id=job.id,
+                            row_number=idx,
+                            field="access",
+                            message="нет доступа к этой карточке",
+                        ))
+                        job.failed += 1
+                        job.processed += 1
+                        await session.commit()
+                        continue
                     if item.error:
                         # Resolution-time error — count as failed but
                         # don't try to apply.

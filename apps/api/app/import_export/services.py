@@ -61,24 +61,39 @@ PREVIEW_ROWS = 100  # how many rows we surface in the preview UI
 async def list_jobs(
     session: AsyncSession,
     *,
-    workspace_id: UUID,
+    actor,
     status: str | None = None,
     page: int = 1,
     page_size: int = 20,
 ) -> tuple[list[ImportJob], int]:
+    """Список задач импорта. Менеджеру — только свои.
+
+    Раньше выборка сужалась одним рабочим пространством, и менеджер видел
+    задачи коллег: имена файлов, счётчики, разбор (аудит SEC-02-B).
+    `total` считается по той же выборке, иначе число выдавало бы чужие
+    задачи, которых в списке нет.
+    """
+    from app.import_export.access import own_jobs_only
+
     page = max(page, 1)
     page_size = max(min(page_size, 100), 1)
     offset = (page - 1) * page_size
 
-    base = select(ImportJob).where(ImportJob.workspace_id == workspace_id)
+    base = select(ImportJob).where(ImportJob.workspace_id == actor.workspace_id)
+    if own_jobs_only(actor):
+        base = base.where(ImportJob.user_id == actor.id)
     if status:
         base = base.where(ImportJob.status == status)
 
+    # `total` считается по той же выборке, что и страница: иначе число
+    # выдавало бы существование чужих задач, которых в списке нет.
     total_q = (
         select(func.count())
         .select_from(ImportJob)
-        .where(ImportJob.workspace_id == workspace_id)
+        .where(ImportJob.workspace_id == actor.workspace_id)
     )
+    if own_jobs_only(actor):
+        total_q = total_q.where(ImportJob.user_id == actor.id)
     if status:
         total_q = total_q.where(ImportJob.status == status)
     total = int((await session.execute(total_q)).scalar_one() or 0)
@@ -89,16 +104,22 @@ async def list_jobs(
     return list(res.scalars()), total
 
 
-async def get_job(
-    session: AsyncSession, *, job_id: UUID, workspace_id: UUID
-) -> ImportJob:
+async def get_job(session: AsyncSession, *, job_id: UUID, actor) -> ImportJob:
+    """Своя задача — автору, любая в пространстве — руководителю и админу.
+
+    Проверка идёт ДО того, как вызывающий что-либо сделает с задачей:
+    прочитает разбор, сменит статус или поставит в очередь. Чужая задача и
+    задача другого пространства отвечают одинаково — 404.
+    """
+    from app.import_export.access import may_read_job
+
     res = await session.execute(
         select(ImportJob)
         .where(ImportJob.id == job_id)
-        .where(ImportJob.workspace_id == workspace_id)
+        .where(ImportJob.workspace_id == actor.workspace_id)
     )
     job = res.scalar_one_or_none()
-    if job is None:
+    if job is None or not may_read_job(actor, job.user_id):
         raise ImportJobNotFound(str(job_id))
     return job
 
@@ -138,12 +159,12 @@ async def confirm_mapping(
     session: AsyncSession,
     *,
     job_id: UUID,
-    workspace_id: UUID,
+    actor,
     mapping: dict[str, str | None],
 ) -> ImportJob:
     """Persist the manager-confirmed column mapping, re-validate every row
     against the mapped shape, and roll the job to status='previewed'."""
-    job = await get_job(session, job_id=job_id, workspace_id=workspace_id)
+    job = await get_job(session, job_id=job_id, actor=actor)
     if job.status != ImportJobStatus.uploaded.value:
         raise ImportJobBadState(
             f"confirm-mapping illegal in status={job.status}"
@@ -184,11 +205,11 @@ async def request_apply(
     session: AsyncSession,
     *,
     job_id: UUID,
-    workspace_id: UUID,
+    actor,
 ) -> ImportJob:
     """Flip the job into status='running' and dispatch the Celery task.
     The task itself owns the per-row create/error accounting."""
-    job = await get_job(session, job_id=job_id, workspace_id=workspace_id)
+    job = await get_job(session, job_id=job_id, actor=actor)
     if job.status != ImportJobStatus.previewed.value:
         raise ImportJobBadState(
             f"apply illegal in status={job.status}"
@@ -344,10 +365,10 @@ async def cancel_job(
     session: AsyncSession,
     *,
     job_id: UUID,
-    workspace_id: UUID,
+    actor,
 ) -> ImportJob:
     """Allowed only while the job hasn't started running."""
-    job = await get_job(session, job_id=job_id, workspace_id=workspace_id)
+    job = await get_job(session, job_id=job_id, actor=actor)
     if job.status in (
         ImportJobStatus.running.value,
         ImportJobStatus.succeeded.value,
