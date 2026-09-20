@@ -360,18 +360,19 @@ async def test_uploaded_job_takes_workspace_and_author_from_the_actor(db, scene,
 
 @skip_no_pg
 @pytest.mark.asyncio
-async def test_apply_answers_500_although_the_job_really_starts(db, scene, no_queue):
-    """Найдено разведкой: `/apply` отвечает ошибкой при успешном запуске.
+async def test_apply_answers_202_and_really_starts_the_job(db, scene, no_queue):
+    """Регрессия SEC-04-1: `/apply` отвечает 202, а не ошибкой.
 
-    `mark_resolving` меняет статус, и на UPDATE у `updated_at` стоит
-    серверный `onupdate=now()`. SQLAlchemy помечает поле устаревшим, а
-    `IngestJobOut` его читает — уже после коммита, вне greenlet-контекста.
-    Получается 500 при том, что статус переведён и задача в очереди;
-    повторная попытка получит 409 «уже resolving».
+    Было: `mark_resolving` меняет статус, на UPDATE у `updated_at` стоит
+    серверный `onupdate=now()`, SQLAlchemy помечает поле устаревшим, а
+    `IngestJobOut` читает его уже после коммита, вне greenlet-контекста.
+    Выходило 500 при том, что статус переведён и задача в очереди.
 
-    Это не обход доступа: проверка прав отработала до этого места.
-    Здесь зафиксировано фактическое поведение — чтобы починка была
-    заметна, а не тихо поменяла контракт.
+    Стало: значение дочитывается внутри асинхронного контекста, ответ 202
+    с актуальным статусом. Побочные эффекты те же: статус в базе и ровно
+    одна задача в очереди; повтор по-прежнему даёт 409.
+
+    Это не про доступ — проверка прав отрабатывает раньше.
     """
     from app.base_update.models import IngestJob
     from sqlalchemy import select
@@ -382,7 +383,11 @@ async def test_apply_answers_500_although_the_job_really_starts(db, scene, no_qu
 
     r = await call(db, s["a_admin"], "POST", f"/api/base-update/jobs/{job.id}/apply",
                    raise_errors=False)
-    assert r.status_code == 500, r.status_code
+    assert r.status_code == 202, r.text
+    body = r.json()
+    assert body["id"] == str(job.id)
+    assert body["status"] == c.JOB_RESOLVING
+    assert body["updated_at"]
 
     fresh = (
         await db.execute(select(IngestJob.status).where(IngestJob.id == job.id))
@@ -390,10 +395,11 @@ async def test_apply_answers_500_although_the_job_really_starts(db, scene, no_qu
     assert fresh == c.JOB_RESOLVING
     assert [n for n, _, _ in no_queue] == ["app.scheduled.jobs.base_update_apply"]
 
-    # Повтор: состояние уже изменено, поэтому приходит 409, а не 202.
+    # Повтор: состояние уже изменено, поэтому приходит 409, а не второй запуск.
     r2 = await call(db, s["a_admin"], "POST", f"/api/base-update/jobs/{job.id}/apply",
                     raise_errors=False)
     assert r2.status_code == 409, r2.text
+    assert len(no_queue) == 1, "повтор не должен ставить вторую задачу"
 
 
 # ===========================================================================
@@ -438,44 +444,73 @@ async def test_own_field_overwrite_really_writes(db, scene):
 
 @skip_no_pg
 @pytest.mark.asyncio
-async def test_pick_of_a_foreign_company_does_not_reach_it(db, scene):
-    """`pick` с чужим UUID: запись его принимает, но правка не проходит."""
+async def test_pick_of_a_foreign_company_is_refused_outright(db, scene):
+    """Регрессия SEC-04-2: чужой UUID отвергается там, где приходит.
+
+    Было: `pick` записывал чужой `company_id` в запись как есть, и только
+    последующая правка полей упиралась в проверку пространства внутри
+    сервиса компаний. Ссылка при этом уже стояла в базе.
+
+    Стало: решение отвергается сразу, запись не меняется, конфликт
+    остаётся открытым, чужая компания не тронута.
+    """
     s = scene
     job = await _job(db, s["a"].id, s["a_admin"].id)
     rec = await _record(db, job)
+    before = rec.match_company_id
     pick = await _conflict(db, job, rec, type_=c.C_COMPANY_AMBIGUOUS,
                            target_kind=c.TK_COMPANY)
     await resolve(db, pick, c.R_PICK, str(s["b_co"].id))
     await run_apply(db, job.id)
 
     await db.refresh(rec)
-    # Проверка здесь отсутствует — чужой UUID действительно записан.
-    assert rec.match_company_id == s["b_co"].id
-
-    field = await _conflict(db, job, rec, type_=c.C_FIELD_MISMATCH,
-                            target_kind=c.TK_COMPANY, field_name="city",
-                            incoming="Взломанный город")
-    await resolve(db, field, c.R_OVERWRITE)
-    await run_apply(db, job.id)
-
+    assert rec.match_company_id == before, "чужой UUID всё-таки записан"
+    assert "workspace" in (rec.error or ""), rec.error
+    await db.refresh(pick)
+    assert pick.status == c.CONFLICT_OPEN
     await db.refresh(s["b_co"])
     assert s["b_co"].city == "Казань", "чужая компания изменена"
-    await db.refresh(rec)
-    assert rec.error and "update_company failed" in rec.error
-    await db.refresh(field)
-    assert field.status == c.CONFLICT_OPEN
 
 
 @skip_no_pg
 @pytest.mark.asyncio
-async def test_new_lead_may_point_at_a_foreign_company(db, scene):
-    """Создание карточки по непроверенному `match_company_id`.
+async def test_pick_of_an_own_company_goes_through(db, scene):
+    """Разрешённый контроль: своя компания выбирается и правится."""
+    s = scene
+    job = await _job(db, s["a"].id, s["a_admin"].id)
+    rec = await _record(db, job)
+    pick = await _conflict(db, job, rec, type_=c.C_COMPANY_AMBIGUOUS,
+                           target_kind=c.TK_COMPANY)
+    await resolve(db, pick, c.R_PICK, str(s["a_co"].id))
+    await run_apply(db, job.id)
 
-    Пространство новой карточки берётся из задания — чужим оно не
-    становится. Но ссылка на компанию не проверяется, и карточка
-    пространства A может ссылаться на компанию пространства B.
+    await db.refresh(rec)
+    assert rec.match_company_id == s["a_co"].id, rec.error
+
+    field = await _conflict(db, job, rec, type_=c.C_FIELD_MISMATCH,
+                            target_kind=c.TK_COMPANY, field_name="city",
+                            incoming="Тверь")
+    await resolve(db, field, c.R_OVERWRITE)
+    await run_apply(db, job.id)
+
+    await db.refresh(s["a_co"])
+    assert s["a_co"].city == "Тверь"
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_new_lead_cannot_point_at_a_foreign_company(db, scene):
+    """Регрессия SEC-04-2: ссылка на компанию проверяется по пространству.
+
+    Было: `create_new_lead` брал `match_company_id` как есть, и карточка
+    пространства A могла ссылаться на компанию пространства B.
+    Содержимое соседа при этом не раскрывалось, но ссылка в базе
+    оставалась.
+
+    Стало: перед записью проверяется принадлежность компании пространству
+    задания; запись не создаётся, у строки появляется внятная ошибка.
     """
-    from sqlalchemy import select
+    from sqlalchemy import func, select
 
     from app.leads.models import Lead
 
@@ -485,25 +520,39 @@ async def test_new_lead_may_point_at_a_foreign_company(db, scene):
     target = await _conflict(db, job, rec, type_=c.C_LEAD_TARGET, target_kind=c.TK_LEAD)
     await resolve(db, target, c.R_KEEP)
 
+    before = (await db.execute(select(func.count(Lead.id)))).scalar_one()
     await run_apply(db, job.id)
 
     await db.refresh(rec)
+    assert rec.match_lead_id is None, "карточка создана по чужой ссылке"
+    assert "workspace" in (rec.error or ""), rec.error
+    after = (await db.execute(select(func.count(Lead.id)))).scalar_one()
+    assert after == before, "лишняя карточка всё-таки записана"
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_new_lead_is_created_for_a_company_of_its_own_workspace(db, scene):
+    """Разрешённый контроль к предыдущей проверке: своя компания проходит."""
+    from sqlalchemy import select
+
+    from app.leads.models import Lead
+
+    s = scene
+    job = await _job(db, s["a"].id, s["a_admin"].id)
+    rec = await _record(db, job, match_company_id=s["a_co"].id, name="Своя")
+    target = await _conflict(db, job, rec, type_=c.C_LEAD_TARGET, target_kind=c.TK_LEAD)
+    await resolve(db, target, c.R_KEEP)
+
+    await run_apply(db, job.id)
+
+    await db.refresh(rec)
+    assert rec.match_lead_id is not None, rec.error
     created = (
         await db.execute(select(Lead).where(Lead.id == rec.match_lead_id))
-    ).scalar_one_or_none()
-    assert created is not None, "карточка не создана — проверка ниже теряет смысл"
-    assert created.workspace_id == s["a"].id, "пространство взято не из задания"
-    # Фактическое поведение: ссылка на чужую компанию сохраняется.
-    assert created.company_id == s["b_co"].id
-
-    # Раскрытия при этом не происходит: карточка отдаёт только сам UUID,
-    # а поля компании читаются отдельным запросом со своей проверкой
-    # пространства. Без этой проверки находка выглядела бы утечкой.
-    r = await call(db, s["a_admin"], "GET", f"/leads/{created.id}")
-    assert r.status_code == 200, r.text
-    assert "Казань" not in r.text and "Компания B" not in r.text
-    r = await call(db, s["a_admin"], "GET", f"/companies/{s['b_co'].id}")
-    assert r.status_code == 404, r.status_code
+    ).scalar_one()
+    assert created.workspace_id == s["a"].id
+    assert created.company_id == s["a_co"].id
 
 
 @skip_no_pg

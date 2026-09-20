@@ -502,6 +502,21 @@ def _decide_apply(cf: IngestConflict) -> tuple[str, dict]:
     return ("deferred", {})
 
 
+async def _in_workspace(db: AsyncSession, model, obj_id, workspace_id) -> bool:
+    """Принадлежит ли объект пространству задания.
+
+    Идентификаторы в решении конфликта приходят снаружи, из тела запроса.
+    Без этой проверки карточка одного пространства могла сослаться на
+    компанию другого: содержимое чужого пространства не раскрывалось, но
+    ссылка в базе оставалась.
+    """
+    return (
+        await db.execute(
+            select(model.id).where(model.id == obj_id, model.workspace_id == workspace_id)
+        )
+    ).scalar_one_or_none() is not None
+
+
 async def _execute_op(db: AsyncSession, *, workspace_id, cf: IngestConflict, op: str, args: dict) -> bool:
     """Run the op chosen by _decide_apply. Returns True on success, False on failure
     (caller flips conflict status accordingly)."""
@@ -527,11 +542,15 @@ async def _execute_op(db: AsyncSession, *, workspace_id, cf: IngestConflict, op:
             return False
     if op == "set_match_company":
         try:
-            cf.record.match_company_id = uuid.UUID(args["company_id"])
-            return True
-        except (ValueError, TypeError):
+            company_id = uuid.UUID(str(args["company_id"]))
+        except (ValueError, TypeError, KeyError):
             cf.record.error = f"invalid company id: {args.get('company_id')!r}"
             return False
+        if not await _in_workspace(db, Company, company_id, workspace_id):
+            cf.record.error = "company does not belong to this workspace"
+            return False
+        cf.record.match_company_id = company_id
+        return True
     if op == "set_record_error":
         cf.record.error = args["message"]
         return True
@@ -557,14 +576,22 @@ async def _execute_op(db: AsyncSession, *, workspace_id, cf: IngestConflict, op:
             return False
     if op == "set_match_lead":
         try:
-            cf.record.match_lead_id = uuid.UUID(str(args["lead_id"]))
-            return True
-        except (ValueError, TypeError):
+            lead_id = uuid.UUID(str(args["lead_id"]))
+        except (ValueError, TypeError, KeyError):
             cf.record.error = f"invalid lead id: {args.get('lead_id')!r}"
             return False
+        if not await _in_workspace(db, Lead, lead_id, workspace_id):
+            cf.record.error = "lead does not belong to this workspace"
+            return False
+        cf.record.match_lead_id = lead_id
+        return True
     if op == "create_new_lead":
         if not cf.record.match_company_id:
             cf.record.error = "create_new_lead: record has no match_company_id"
+            return False
+        # Ссылка могла попасть в запись и раньше — проверяем перед записью.
+        if not await _in_workspace(db, Company, cf.record.match_company_id, workspace_id):
+            cf.record.error = "create_new_lead: company does not belong to this workspace"
             return False
         first = await pipelines_repo.get_default_first_stage(db, workspace_id)
         if first is None:
@@ -841,4 +868,9 @@ async def mark_resolving(
         raise ValueError(f"cannot apply: job is in status {job.status!r}")
     job.status = c.JOB_RESOLVING
     await db.flush()
+    # На UPDATE у `updated_at` серверный onupdate=now(), и после flush поле
+    # помечено устаревшим. Ручка читает его уже после коммита, вне
+    # greenlet-контекста, и ленивая дозагрузка падала — 202 превращался в
+    # 500 при том, что статус переведён и задача поставлена в очередь.
+    await db.refresh(job)
     return job
