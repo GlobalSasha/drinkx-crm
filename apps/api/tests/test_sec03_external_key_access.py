@@ -477,17 +477,27 @@ async def test_mcp_refuses_a_revoked_key_and_a_wrong_scope(db, two_workspaces):
 
 @skip_no_pg
 @pytest.mark.asyncio
-async def test_malformed_cursor_is_an_error_not_a_wider_selection(db, two_workspaces):
-    """Битый курсор: важно, что он не расширяет выборку.
+async def test_malformed_cursor_is_a_bad_request_not_a_wider_selection(db, two_workspaces):
+    """Регрессия SEC-03-5: битый курсор — ошибка ввода, а не сбой.
 
-    Ответ на такой запрос — 500 (разбор курсора не обёрнут в проверку
-    ввода). Это огрех входной валидации, а не доступа: чужих строк в
-    ответе нет, потому что ответа нет вовсе. Зафиксировано фактическое
-    поведение.
+    Было: разбор курсора не обёрнут, наружу летел `binascii.Error` или
+    `ValueError`, и внешний ключ получал 500 на собственной опечатке.
+    Стало: 400. Главное свойство сохраняется — выборка не расширяется,
+    чужих строк в ответе нет.
+
+    Проверяются обе страницы с курсором: лиды и компании.
     """
     s = two_workspaces
-    for bad in ("not-base64", "%%%", "YWJj"):
-        r = await ext(db, s["token_a"], f"/external/v1/leads?cursor={bad}",
-                      raise_errors=False)
-        assert r.status_code == 500, (bad, r.status_code)
-        assert "Лид B" not in r.text
+    for path in ("/external/v1/leads", "/external/v1/companies"):
+        for bad in ("not-base64", "%%%", "YWJj", "0KLQtdGB0YI="):
+            r = await ext(db, s["token_a"], f"{path}?cursor={bad}", raise_errors=False)
+            assert r.status_code == 400, (path, bad, r.status_code)
+            assert "Лид B" not in r.text and "Компания B" not in r.text
+
+    # Разрешённый контроль: годный курсор по-прежнему листает страницу.
+    r = await ext(db, s["token_a"], "/external/v1/leads?limit=1")
+    assert r.status_code == 200, r.text
+    cursor = r.json()["next_cursor"]
+    if cursor:
+        r = await ext(db, s["token_a"], f"/external/v1/leads?limit=1&cursor={cursor}")
+        assert r.status_code == 200, r.text

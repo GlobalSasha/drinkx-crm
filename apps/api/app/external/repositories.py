@@ -21,10 +21,24 @@ def encode_cursor(updated_at: datetime, row_id: uuid.UUID) -> str:
     return base64.urlsafe_b64encode(raw.encode()).decode()
 
 
+class InvalidCursor(ValueError):
+    """Курсор непригоден к разбору — это ошибка ввода, а не сбой сервера."""
+
+
 def decode_cursor(cursor: str) -> tuple[datetime, uuid.UUID]:
-    raw = base64.urlsafe_b64decode(cursor.encode()).decode()
-    ts, rid = raw.split("|", 1)
-    return datetime.fromisoformat(ts), uuid.UUID(rid)
+    """Разобрать курсор. Любой мусор на входе — `InvalidCursor`.
+
+    Разбор без обёртки поднимал наружу `binascii.Error`, `ValueError` или
+    `UnicodeDecodeError`, и внешний ключ получал 500 на собственной
+    опечатке. Выборка при этом не расширялась, но 500 на ошибку ввода
+    неверен и мешает отличать её от настоящего сбоя.
+    """
+    try:
+        raw = base64.urlsafe_b64decode(cursor.encode()).decode()
+        ts, rid = raw.split("|", 1)
+        return datetime.fromisoformat(ts), uuid.UUID(rid)
+    except Exception as exc:  # noqa: BLE001 — любой разбор мусора равнозначен
+        raise InvalidCursor(str(exc)) from exc
 
 
 async def list_leads_rows(
