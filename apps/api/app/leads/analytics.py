@@ -136,3 +136,167 @@ async def stage_dwell_summary(db: AsyncSession, workspace_id: uuid.UUID) -> list
         }
         for r in rows
     ]
+
+
+# ── forecast aggregate (FORECAST-01) ───────────────────────────────
+# «Прогноз» раньше считался в браузере по одной странице `GET /leads`
+# (`page_size: 500` при потолке роута 200 — то есть 422 и нули вместо сумм).
+# Здесь та же формула, но в базе и по всей доступной выборке: страница
+# получает готовые числа и не зависит от того, сколько строк поместилось в
+# ответ.
+#
+# Формула воспроизведена дословно, вместе с её известными особенностями —
+# менять смысл метрик эта правка не должна:
+#   * `deal_amount` продажи и ежемесячная аренда складываются в одно число
+#     (`commercial_model` не разделяется, в отличие от utm-статистики);
+#   * `archived_at`-дубликаты после слияния не исключаются;
+#   * «закрыто за 90 дней» считается по `last_activity_at`, а не по `won_at`;
+#   * лид без стадии не попадает ни в одну сумму.
+# Единственное отличие от браузерной версии — «под угрозой» наконец работает:
+# дни на стадии считаются здесь, по открытой строке `lead_stage_history`
+# (в списке лидов `current_stage_days` не заполнялся вовсе, и метрика была
+# структурно нулевой).
+_FORECAST_SCOPED_CTE = """
+    WITH scoped AS (
+        SELECT l.id,
+               l.company_name,
+               l.stage_id,
+               l.last_activity_at,
+               COALESCE(l.deal_amount, 0) AS amount,
+               GREATEST(
+                   0,
+                   FLOOR(
+                       EXTRACT(EPOCH FROM (now() - COALESCE(h.entered_at, l.created_at)))
+                       / 86400
+                   )
+               ) AS stage_days
+        FROM leads l
+        LEFT JOIN LATERAL (
+            SELECT lsh.entered_at
+            FROM lead_stage_history lsh
+            WHERE lsh.lead_id = l.id
+              AND lsh.stage_id = l.stage_id
+              AND lsh.exited_at IS NULL
+            ORDER BY lsh.entered_at DESC
+            LIMIT 1
+        ) h ON true
+        WHERE l.workspace_id = :wid
+          AND l.assignment_status = 'assigned'
+          AND l.deleted_at IS NULL
+          AND (CAST(:assigned_to AS uuid) IS NULL OR l.assigned_to = CAST(:assigned_to AS uuid))
+    )
+"""
+
+_FORECAST_BY_STAGE_SQL = text(
+    _FORECAST_SCOPED_CTE
+    + """
+    SELECT s.id::text AS stage_id,
+           s.name AS stage_name,
+           s.position,
+           s.probability,
+           s.is_won,
+           s.is_lost,
+           count(sc.id) AS lead_count,
+           COALESCE(sum(sc.amount), 0) AS total,
+           COALESCE(sum(sc.amount) FILTER (
+               WHERE s.rot_days > 0 AND sc.stage_days > s.rot_days AND sc.amount > 0
+           ), 0) AS at_risk_total,
+           COALESCE(sum(sc.amount) FILTER (
+               WHERE sc.last_activity_at >= now() - interval '90 days'
+           ), 0) AS won_recent
+    FROM stages s
+    JOIN pipelines p ON p.id = s.pipeline_id
+    LEFT JOIN scoped sc ON sc.stage_id = s.id
+    WHERE p.workspace_id = :wid
+    GROUP BY s.id, s.name, s.position, s.probability, s.is_won, s.is_lost
+    ORDER BY s.position
+    """
+)
+
+_FORECAST_AT_RISK_SQL = text(
+    _FORECAST_SCOPED_CTE
+    + """
+    SELECT sc.id::text AS id,
+           sc.company_name,
+           sc.amount,
+           (sc.stage_days - s.rot_days)::int AS overdue_days,
+           s.name AS stage_name
+    FROM scoped sc
+    JOIN stages s ON s.id = sc.stage_id
+    JOIN pipelines p ON p.id = s.pipeline_id
+    WHERE p.workspace_id = :wid
+      AND s.is_won = false
+      AND s.is_lost = false
+      AND s.rot_days > 0
+      AND sc.stage_days > s.rot_days
+      AND sc.amount > 0
+    ORDER BY sc.amount DESC
+    LIMIT :limit
+    """
+)
+
+AT_RISK_LIMIT = 10
+
+
+async def forecast_summary(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    *,
+    assigned_to: uuid.UUID | None = None,
+) -> dict:
+    """Суммы прогноза по всей выборке: воронка, взвешенный прогноз, риски,
+    закрытые за 90 дней и разбивка по этапам.
+
+    `assigned_to` — сужение до одного человека (менеджер видит только свои
+    сделки); `None` — весь workspace.
+    """
+    params = {"wid": str(workspace_id), "assigned_to": str(assigned_to) if assigned_to else None}
+    rows = (await db.execute(_FORECAST_BY_STAGE_SQL, params)).mappings().all()
+
+    pipeline_total = 0.0
+    weighted_total = 0.0
+    at_risk_total = 0.0
+    won_recent = 0.0
+    stage_bars: list[dict] = []
+
+    for r in rows:
+        if r["is_won"]:
+            # «Закрыто за 90 дней» — только выигранные этапы.
+            won_recent += float(r["won_recent"])
+            continue
+        if r["is_lost"]:
+            continue
+        total = float(r["total"])
+        pipeline_total += total
+        weighted_total += total * float(r["probability"] or 0) / 100
+        at_risk_total += float(r["at_risk_total"])
+        stage_bars.append(
+            {
+                "stage_id": r["stage_id"],
+                "name": r["stage_name"],
+                "total": total,
+                "count": r["lead_count"],
+            }
+        )
+
+    deals = (
+        await db.execute(_FORECAST_AT_RISK_SQL, {**params, "limit": AT_RISK_LIMIT})
+    ).mappings().all()
+
+    return {
+        "pipeline_total": pipeline_total,
+        "weighted_total": weighted_total,
+        "at_risk_total": at_risk_total,
+        "won_recent": won_recent,
+        "stage_bars": stage_bars,
+        "at_risk_deals": [
+            {
+                "id": d["id"],
+                "company_name": d["company_name"],
+                "amount": float(d["amount"]),
+                "overdue_days": d["overdue_days"],
+                "stage_name": d["stage_name"],
+            }
+            for d in deals
+        ],
+    }

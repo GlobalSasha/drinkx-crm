@@ -17,6 +17,7 @@ from app.leads import services
 from app.leads.access import lead_access_guard
 from app.leads.schemas import (
     DealPatchIn,
+    ForecastOut,
     GateViolationOut,
     LeadAssignIn,
     LeadAssignOut,
@@ -351,6 +352,32 @@ async def lead_utm_stats(
 
     rows = await utm_source_stats(db, user.workspace_id)
     return [UtmSourceStatOut(**r) for r in rows]
+
+
+@router.get("/forecast", response_model=ForecastOut)
+async def lead_forecast(
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> ForecastOut:
+    """«Прогноз» — суммы по ВСЕЙ доступной выборке, посчитанные в базе.
+
+    Раньше страница складывала одну страницу `GET /leads`, прося 500 строк
+    при потолке роута 200: запрос отбивался валидацией, и прогноз молча
+    показывал нули. Агрегату страницы не нужны — ни `page`, ни `page_size`
+    на него не влияют.
+
+    Менеджер видит свои сделки, руководитель и админ — весь workspace. Это
+    сознательное отличие от `GET /leads`, где по умолчанию даже админу
+    отдаются только его лиды: прогноз без команды руководителю бесполезен.
+
+    Объявлено ДО `/{lead_id}`, иначе литеральный путь перехватит
+    маршрут с параметром и ответит 404.
+    """
+    from app.leads.analytics import forecast_summary
+
+    scope = None if user.role in ("admin", "head") else user.id
+    data = await forecast_summary(db, user.workspace_id, assigned_to=scope)
+    return ForecastOut(**data)
 
 
 @router.get("/trash", response_model=LeadListOut)

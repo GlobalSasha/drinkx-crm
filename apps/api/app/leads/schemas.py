@@ -446,6 +446,38 @@ class UtmSourceStatOut(BaseModel):
     won_rental_mrr: Decimal = Decimal(0)  # rental monthly recurring — plan 025
 
 
+class ForecastStageBarOut(BaseModel):
+    """Один столбец «воронки по сумме» — активный этап и что на нём стоит."""
+    stage_id: UUID
+    name: str
+    total: float
+    count: int
+
+
+class ForecastAtRiskOut(BaseModel):
+    """Сделка, стоящая на этапе дольше его `rot_days`."""
+    id: UUID
+    company_name: str
+    amount: float
+    overdue_days: int
+    stage_name: str
+
+
+class ForecastOut(BaseModel):
+    """Прогноз по всей доступной актору выборке.
+
+    Суммы — JSON-числа, а не строки: страница и так приводит их через
+    `Number(...)`, а `Decimal` уехал бы строкой и добавил бы разбор на
+    ровном месте. Точности `Numeric(12,2)` double хватает с запасом.
+    """
+    pipeline_total: float
+    weighted_total: float
+    at_risk_total: float
+    won_recent: float
+    stage_bars: list[ForecastStageBarOut]
+    at_risk_deals: list[ForecastAtRiskOut]
+
+
 class LeadPipelineChangeIn(BaseModel):
     """Перенос лида в другую воронку.
 
