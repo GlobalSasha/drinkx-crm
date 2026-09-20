@@ -279,3 +279,112 @@ def test_missing_table_is_created_on_a_real_database(probe_db):
         return state
 
     assert asyncio.run(_run(recheck, probe_db)) == (LIMITED, TARGET_WIDTH)
+
+@pg
+def test_a_conflicting_lock_makes_widening_fail_in_bounded_time(probe_db):
+    """The scenario the original R3 acceptance asked for, on a real server.
+
+    `ALTER TABLE ... TYPE` needs ACCESS EXCLUSIVE, which even a plain SELECT in
+    an open transaction blocks. Until now only the presence of
+    `SET LOCAL lock_timeout` in the emitted SQL was checked; that shows the
+    statement is there, not that the wait actually ends. Here another
+    transaction really holds the table.
+
+    No assertion on how long it took: the point is that it stops at all, and
+    wall-clock thresholds make tests flap on a loaded machine. The outer
+    `wait_for` is a safety net, not the measurement — if the bound were
+    missing, this test would hit it and fail rather than hang the suite.
+    """
+    import asyncpg
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+    from sqlalchemy.pool import NullPool
+
+    plan = probe_db
+
+    async def scenario():
+        engine = create_async_engine(plan.probe_url, poolclass=NullPool)
+        holder = None
+        try:
+            async with engine.connect() as conn:
+                await conn.run_sync(_seed_narrow_table_with_data)
+
+            # Another transaction takes ACCESS SHARE and keeps it.
+            holder = await asyncpg.connect(asyncpg_dsn(plan.probe_url), timeout=10)
+            holder_tx = holder.transaction()
+            await holder_tx.start()
+            await holder.fetchval("SELECT count(*) FROM alembic_version")
+
+            blocked_error = None
+            async with engine.connect() as conn:
+                try:
+                    await conn.run_sync(
+                        lambda c: ensure_version_table_width(c, lock_timeout_ms=250)
+                    )
+                except Exception as exc:  # noqa: BLE001 - the driver's error type is the subject
+                    blocked_error = exc
+
+            # Still narrow, and nothing was lost while the attempt failed.
+            async with engine.connect() as conn:
+                state_after_block = await conn.run_sync(inspect_version_column)
+                revision = await conn.scalar(text("SELECT version_num FROM alembic_version"))
+                note = await conn.scalar(text("SELECT note FROM control_row WHERE id = 1"))
+
+            await holder_tx.rollback()
+            await holder.close()
+            holder = None
+
+            async with engine.connect() as conn:
+                action = await conn.run_sync(ensure_version_table_width)
+            async with engine.connect() as conn:
+                state_after_release = await conn.run_sync(inspect_version_column)
+                revision_after = await conn.scalar(text("SELECT version_num FROM alembic_version"))
+                note_after = await conn.scalar(text("SELECT note FROM control_row WHERE id = 1"))
+
+            return {
+                "blocked_error": blocked_error,
+                "state_after_block": state_after_block,
+                "revision": revision,
+                "note": note,
+                "action": action,
+                "state_after_release": state_after_release,
+                "revision_after": revision_after,
+                "note_after": note_after,
+            }
+        finally:
+            if holder is not None:
+                await holder.close()
+            await engine.dispose()
+
+    async def guarded():
+        # Generous: this is "it did not hang", not a performance assertion.
+        return await asyncio.wait_for(scenario(), timeout=60)
+
+    result = asyncio.run(guarded())
+
+    assert result["blocked_error"] is not None, (
+        "widening succeeded while another transaction held the table"
+    )
+    assert "lock" in str(result["blocked_error"]).lower(), result["blocked_error"]
+
+    # The failed attempt changed nothing.
+    assert result["state_after_block"] == (LIMITED, 32)
+    assert result["revision"] == "0008_channel_connections"
+    assert result["note"] == "must survive widening"
+
+    # Once the other transaction lets go, the same call succeeds.
+    assert result["action"] == WIDENED
+    assert result["state_after_release"] == (LIMITED, TARGET_WIDTH)
+    assert result["revision_after"] == "0008_channel_connections"
+    assert result["note_after"] == "must survive widening"
+
+
+def _seed_narrow_table_with_data(conn) -> None:
+    conn.exec_driver_sql(
+        "CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL, "
+        "CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num))"
+    )
+    conn.exec_driver_sql("INSERT INTO alembic_version VALUES ('0008_channel_connections')")
+    conn.exec_driver_sql("CREATE TABLE control_row (id int primary key, note text)")
+    conn.exec_driver_sql("INSERT INTO control_row VALUES (1, 'must survive widening')")
+    conn.commit()
