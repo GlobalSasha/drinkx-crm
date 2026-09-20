@@ -2,9 +2,10 @@
 
 // /tasks — full task list: «Мои» / «Поставлено мной» / «Команда» (только
 // head/admin). Опирается на GET /tasks с фильтрами по исполнителю/автору;
-// бэкенд сам сужает выборку менеджеру. Статус/срок/поиск — клиентские чипы.
+// бэкенд сам сужает выборку менеджеру. Статус, срок и поиск тоже уходят на
+// сервер: отбор идёт в базе до счётчиков и до среза страницы.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ListChecks, Check, ArrowUpRight, Pencil, Plus } from "lucide-react";
 import { useTasks, useSetTaskDone, type TaskFilters } from "@/lib/hooks/use-tasks";
@@ -13,9 +14,10 @@ import { useUsers } from "@/lib/hooks/use-users";
 import {
   myTaskToRow,
   isOverdue,
-  isToday,
-  withinThisWeek,
+  dueRangeFor,
   formatDueDateTime,
+  type DateFilter,
+  type DueRange,
   type TaskRow,
 } from "@/lib/tasks";
 import { apiErrorDetail } from "@/lib/api-error";
@@ -40,7 +42,9 @@ import {
 
 type TabKey = "mine" | "authored" | "team";
 type StatusFilter = "all" | "open" | "done" | "overdue";
-type DateFilter = "today" | "week" | "all";
+
+/** Пауза в наборе, после которой поиск уходит на сервер. */
+const SEARCH_DEBOUNCE_MS = 300;
 
 interface ToastState {
   id: number;
@@ -48,16 +52,23 @@ interface ToastState {
   type: "error" | "success";
 }
 
-// Статус уходит на сервер вместе с остальными фильтрами: отбор и сортировка
-// делаются в базе до среза страницы. Пока страница фильтровала у себя, чипы
-// работали только по тому, что поместилось в один ответ.
+// Все фильтры уходят на сервер: отбор и сортировка делаются в базе до среза
+// страницы. Пока страница фильтровала у себя, чипы и поиск работали только по
+// тому, что поместилось в загруженные страницы.
 function buildFilters(
   tab: TabKey,
   meId: string | undefined,
   assigneeFilter: string | null,
   status: StatusFilter,
+  search: string,
+  due: DueRange,
 ): TaskFilters {
-  const base = { status };
+  const base = {
+    status,
+    q: search.trim() || undefined,
+    dueFrom: due.from,
+    dueTo: due.to,
+  };
   if (tab === "mine") return { ...base, assigneeUserId: meId };
   if (tab === "authored") return { ...base, authorUserId: meId };
   return { ...base, assigneeUserId: assigneeFilter ?? undefined };
@@ -278,6 +289,7 @@ export default function TasksPage() {
   const [status, setStatus] = useState<StatusFilter>("open");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [search, setSearch] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [editingRow, setEditingRow] = useState<TaskRow | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastState[]>([]);
@@ -288,9 +300,20 @@ export default function TasksPage() {
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
   }
 
+  // Поиск ждёт паузы в наборе: иначе каждая буква — отдельный запрос.
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchQuery(search.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Границы считаются один раз на выбор чипа, а не на каждый рендер: иначе
+  // «сейчас» менялось бы вместе с ключом запроса и список перезагружался бы
+  // сам по себе.
+  const due = useMemo(() => dueRangeFor(dateFilter), [dateFilter]);
+
   const filters = useMemo(
-    () => buildFilters(tab, me?.id, assigneeFilter, status),
-    [tab, me?.id, assigneeFilter, status],
+    () => buildFilters(tab, me?.id, assigneeFilter, status, searchQuery, due),
+    [tab, me?.id, assigneeFilter, status, searchQuery, due],
   );
 
   const {
@@ -304,25 +327,9 @@ export default function TasksPage() {
   } = useTasks(filters, { enabled: !!me });
   const setDone = useSetTaskDone();
 
-  const allRows: TaskRow[] = useMemo(() => items.map(myTaskToRow), [items]);
-
-  // Статус уже отобран сервером. Срок и поиск остаются клиентскими — они
-  // сужают загруженные страницы, и подпись под таблицей это проговаривает.
-  const rows = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return allRows.filter((r) => {
-      if (dateFilter === "today" && !isToday(r.due)) return false;
-      if (dateFilter === "week" && !withinThisWeek(r.due)) return false;
-      if (
-        q &&
-        !(r.company ?? "").toLowerCase().includes(q) &&
-        !r.name.toLowerCase().includes(q)
-      ) {
-        return false;
-      }
-      return true;
-    });
-  }, [allRows, dateFilter, search]);
+  // Отбор целиком серверный: строки приходят уже суженными статусом, сроком
+  // и поиском, доклеивать к ним нечего.
+  const rows: TaskRow[] = useMemo(() => items.map(myTaskToRow), [items]);
 
   const isMutating = setDone.isPending;
 
@@ -360,7 +367,10 @@ export default function TasksPage() {
 
   // «Задач нет» — только когда их нет на сервере. Раньше сюда попадала длина
   // загруженного куска, и пустая страница фильтра выглядела как пустая база.
-  const empty = emptyStateFor(tab, (counts?.total ?? 0) > 0);
+  // counts описывают уже отфильтрованную выборку, поэтому пустой результат
+  // под активным фильтром — это «ничего не найдено», а не «задач нет вовсе».
+  const narrowed = status !== "all" || dateFilter !== "all" || searchQuery !== "";
+  const empty = emptyStateFor(tab, (counts?.total ?? 0) > 0 || narrowed);
   const loading = isPending && items.length === 0;
 
   return (
@@ -498,11 +508,8 @@ export default function TasksPage() {
                 {isFetchingNextPage ? "Загрузка…" : "Показать ещё"}
               </button>
               <span className={`type-caption ${C.color.mutedLight}`}>
-                показано {allRows.length}
+                показано {rows.length}
                 {counts ? ` из ${countForStatus(counts, status)}` : ""}
-                {search.trim() || dateFilter !== "all"
-                  ? " — поиск и срок применяются к загруженным"
-                  : ""}
               </span>
             </div>
           )}

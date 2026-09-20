@@ -59,10 +59,37 @@ export function isToday(due: string | null): boolean {
   return new Date(due).toDateString() === new Date().toDateString();
 }
 
-export function withinThisWeek(due: string | null): boolean {
-  if (!due) return false;
-  const d = new Date(due).getTime();
-  const now = Date.now();
-  const weekMs = 7 * 24 * 60 * 60 * 1000;
-  return d >= now - weekMs && d <= now + weekMs;
+/** Границы чипа «Срок» на странице «Задачи». */
+export interface DueRange {
+  from?: string;
+  to?: string;
+}
+
+export type DateFilter = "today" | "week" | "all";
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * ISO-границы для `due_from` / `due_to` у GET /tasks — полуоткрытый интервал
+ * `[from, to)`.
+ *
+ * Календарь считает клиент, в своём часовом поясе: сервер границы только
+ * сравнивает и про пояс рабочего пространства ничего не знает
+ * (docs/TASK_LISTS.md §6). «Эта неделя» — прежнее окно вокруг текущего
+ * момента, а не календарная неделя; семантику чипа правка не меняет.
+ */
+export function dueRangeFor(filter: DateFilter, now: Date = new Date()): DueRange {
+  if (filter === "today") {
+    const from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const to = new Date(from);
+    to.setDate(to.getDate() + 1);
+    return { from: from.toISOString(), to: to.toISOString() };
+  }
+  if (filter === "week") {
+    return {
+      from: new Date(now.getTime() - WEEK_MS).toISOString(),
+      to: new Date(now.getTime() + WEEK_MS).toISOString(),
+    };
+  }
+  return {};
 }

@@ -27,6 +27,11 @@ export interface TaskFilters {
   assigneeUserId?: string;
   authorUserId?: string;
   status?: TaskStatusFilter;
+  /** Подстрока в тексте задачи или названии компании — отбирает сервер. */
+  q?: string;
+  /** Полуоткрытый интервал по сроку, ISO. Границы считает клиент. */
+  dueFrom?: string;
+  dueTo?: string;
 }
 
 /** Размер страницы списка задач. Дальше — «Показать ещё». */
@@ -37,6 +42,9 @@ function toQuery(filters: TaskFilters, cursor: string | null): string {
   if (filters.assigneeUserId) params.set("assignee_user_id", filters.assigneeUserId);
   if (filters.authorUserId) params.set("author_user_id", filters.authorUserId);
   if (filters.status && filters.status !== "all") params.set("status", filters.status);
+  if (filters.q) params.set("q", filters.q);
+  if (filters.dueFrom) params.set("due_from", filters.dueFrom);
+  if (filters.dueTo) params.set("due_to", filters.dueTo);
   if (cursor) params.set("cursor", cursor);
   return `?${params.toString()}`;
 }
@@ -44,10 +52,12 @@ function toQuery(filters: TaskFilters, cursor: string | null): string {
 /**
  * GET /tasks — постранично, курсором.
  *
- * `status` уходит на сервер: отбор «открытые / закрытые / просроченные» и
- * сортировка делаются в базе до среза страницы. Раньше страница брала одним
- * запросом до 500 строк и фильтровала их у себя — при большем числе задач
- * нужная просто не приезжала.
+ * Статус, поиск и срок уходят на сервер: отбор и сортировка делаются в базе
+ * до среза страницы. Раньше страница фильтровала у себя то, что уже приехало,
+ * — при большем числе задач нужная строка просто не попадала в ответ.
+ *
+ * Любой из фильтров входит в `queryKey`, поэтому его смена — это новый запрос
+ * с первой страницы, а не подмешивание старых строк к новому фильтру.
  *
  * `counts` описывают всю серверную выборку, поэтому чипы и пустые состояния
  * говорят о задачах, а не о том, сколько страниц успели загрузить.

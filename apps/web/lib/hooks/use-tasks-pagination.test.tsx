@@ -105,6 +105,48 @@ describe("useTasks", () => {
     expect(result.current.counts?.total).toBe(120);
   });
 
+  it("поиск и границы срока уходят в запрос параметрами", async () => {
+    const { result } = renderHook(
+      () =>
+        useTasks({
+          status: "open",
+          q: "Уникальный-маркер",
+          dueFrom: "2026-02-01T00:00:00.000Z",
+          dueTo: "2026-02-02T00:00:00.000Z",
+        }),
+      { wrapper: wrap(client()) },
+    );
+    await waitFor(() => expect(result.current.items).toHaveLength(2));
+
+    const url = apiGet.mock.calls[0][0] as string;
+    expect(url).toContain(`q=${encodeURIComponent("Уникальный-маркер")}`);
+    expect(url).toContain(`due_from=${encodeURIComponent("2026-02-01T00:00:00.000Z")}`);
+    expect(url).toContain(`due_to=${encodeURIComponent("2026-02-02T00:00:00.000Z")}`);
+  });
+
+  it("смена поиска сбрасывает листание: новый запрос идёт без курсора", async () => {
+    const qc = client();
+    type Props = { q: string };
+    const { rerender, result } = renderHook(({ q }: Props) => useTasks({ status: "open", q }), {
+      wrapper: wrap(qc),
+      initialProps: { q: "альфа" } as Props,
+    });
+    await waitFor(() => expect(result.current.items).toHaveLength(2));
+    await act(async () => {
+      await result.current.fetchNextPage();
+    });
+    await waitFor(() => expect(result.current.items).toHaveLength(3));
+
+    rerender({ q: "бета" });
+    await waitFor(() => expect(apiGet.mock.calls.length).toBe(3));
+
+    const url = apiGet.mock.calls[2][0] as string;
+    expect(url).toContain("q=%D0%B1%D0%B5%D1%82%D0%B0");
+    expect(url).not.toContain("cursor=");
+    // Страница, взятая под старым поиском, не подмешивается к новому.
+    await waitFor(() => expect(result.current.items).toHaveLength(2));
+  });
+
   it("смена статуса — это новый запрос, а не фильтрация загруженного", async () => {
     const qc = client();
     type Props = { status: "open" | "done" };
