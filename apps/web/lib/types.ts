@@ -345,6 +345,32 @@ export interface StageDwellStat {
   stuck_count: number;
 }
 
+/** Прогноз по всей доступной выборке (`GET /leads/forecast`).
+ *  Суммы считает сервер — страница их не пересобирает из списка лидов. */
+export interface ForecastStageBar {
+  stage_id: string;
+  name: string;
+  total: number;
+  count: number;
+}
+
+export interface ForecastAtRiskDeal {
+  id: string;
+  company_name: string;
+  amount: number;
+  overdue_days: number;
+  stage_name: string;
+}
+
+export interface ForecastSummary {
+  pipeline_total: number;
+  weighted_total: number;
+  at_risk_total: number;
+  won_recent: number;
+  stage_bars: ForecastStageBar[];
+  at_risk_deals: ForecastAtRiskDeal[];
+}
+
 /** A manager's active-deal portfolio (`GET /team/{id}/portfolio`). */
 export interface ManagerPortfolio {
   user_id: string;
