@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import current_user, require_admin_or_head
@@ -12,6 +12,9 @@ from app.auth.models import User
 from app.automation.stage_change import StageTransitionBlocked, StageTransitionInvalid
 from app.db import get_db
 from app.leads import services
+# Правило «кто может открыть этот лид» переехало в свой модуль: его же
+# подключает /leads/{id}/tasks, который висит на другом роутере.
+from app.leads.access import lead_access_guard
 from app.leads.schemas import (
     DealPatchIn,
     GateViolationOut,
@@ -89,38 +92,10 @@ def _resolve_assignee_scope(
         return user_id
 
 
-async def _lead_access_guard(
-    request: Request,
-    db: Annotated[AsyncSession, Depends(get_db)] = ...,
-    user: Annotated[User, Depends(current_user)] = ...,
-) -> None:
-    """Router-wide guard: every current and future `/{lead_id}` endpoint is
-    covered by construction, so a manager cannot open a colleague's lead even
-    by direct link (404, not 403)."""
-    lead_id = request.path_params.get("lead_id")
-    if lead_id is None:
-        return
-    if user.role in ("admin", "head"):
-        return
-    from app.leads.repositories import get_by_id
-
-    try:
-        lead_uuid = UUID(str(lead_id))
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found"
-        )
-    lead = await get_by_id(db, lead_uuid, user.workspace_id)
-    if lead is None or lead.assigned_to != user.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found"
-        )
-
-
 router = APIRouter(
     prefix="/leads",
     tags=["leads"],
-    dependencies=[Depends(_lead_access_guard)],
+    dependencies=[Depends(lead_access_guard)],
 )
 
 

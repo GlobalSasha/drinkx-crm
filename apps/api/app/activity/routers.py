@@ -27,6 +27,7 @@ from app.activity.schemas import (
 from app.auth.dependencies import current_user
 from app.auth.models import User
 from app.db import get_db
+from app.leads.access import lead_access_guard
 from app.leads.services import LeadNotFound
 
 router = APIRouter(prefix="/leads/{lead_id}/activities", tags=["activities"])
@@ -86,7 +87,16 @@ async def list_my_tasks(
 # карточка брала задачи из ленты с `limit=200` и не читала курсор, поэтому
 # открытая задача, заведённая раньше двухсот других записей, в интерфейс
 # просто не попадала (G5, дефект A).
-lead_tasks_router = APIRouter(prefix="/leads/{lead_id}/tasks", tags=["tasks"])
+#
+# Доступ к самому лиду — тем же стражем, что стоит на роутере `/leads`. Он
+# подключён отдельно, поэтому страж на него не распространялся: менеджер мог
+# прочитать задачи чужого лида, зная UUID. Правило не переписано здесь заново,
+# а взято из `app/leads/access.py` — один источник для обоих роутеров.
+lead_tasks_router = APIRouter(
+    prefix="/leads/{lead_id}/tasks",
+    tags=["tasks"],
+    dependencies=[Depends(lead_access_guard)],
+)
 
 
 @lead_tasks_router.get("", response_model=TaskListOut)
@@ -101,8 +111,10 @@ async def list_lead_tasks(
     """Все задачи лида, открытые первыми.
 
     Выборка не сужается до задач читателя: кто открыл карточку, тот видит всю
-    работу по лиду — ровно как раньше во вкладке. Доступ к самому лиду
-    проверяется по рабочему пространству, как и у ленты.
+    работу по лиду — ровно как раньше во вкладке. Но саму карточку надо иметь
+    право открыть: руководитель и админ — любую в своём пространстве, менеджер
+    — только свою. Это проверяет `lead_access_guard` на роутере, и чужой лид
+    неотличим от несуществующего (404, не 403), включая счётчики.
     """
     try:
         await services._get_lead_or_raise(db, lead_id, user.workspace_id)
