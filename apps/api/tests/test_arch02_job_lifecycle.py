@@ -269,8 +269,11 @@ async def test_q1_control_repeat_on_terminal_status_is_skipped(db):
 
 
 # ===========================================================================
-# Q-9 (P1, ARCH-JOB-01/04 — ожидается нарушение). Наложение двух тиков
-# `execute_due_step_runs` на один и тот же шаг → письмо уходит дважды.
+# Q-9 (P1, ARCH-JOB-01/04). Наложение двух тиков `execute_due_step_runs`
+# на один и тот же шаг.
+# БЫЛО: выборка без блокировки → оба тика брали строку, письмо уходило
+# дважды. СТАЛО (S-3): `FOR UPDATE SKIP LOCKED` — второй тик строку не
+# видит, письмо одно.
 # ===========================================================================
 
 async def _automation_with_email_step(db, ws, lead):
@@ -335,11 +338,11 @@ async def test_q9_overlapping_scheduler_ticks_send_second_email(db, monkeypatch)
 
     other = await _fresh_session()
     try:
-        # `list_due_step_runs` не берёт `FOR UPDATE SKIP LOCKED` (F-3).
+        # `list_due_step_runs` берёт `FOR UPDATE SKIP LOCKED` (S-3).
         # Нужен настоящий параллелизм: последовательные вызовы ничего не
         # докажут — вторая сессия просто увидит уже исполненную строку.
-        # `asyncio.gather` даёт обеим сессиям сделать SELECT ДО того, как
-        # любая из них закоммитит `executed_at`.
+        # `asyncio.gather` даёт обеим сессиям сделать SELECT одновременно —
+        # ровно та гонка, которую блокировка и должна гасить.
         result_a, result_b = await asyncio.gather(
             automation_svc.execute_due_step_runs(db),
             automation_svc.execute_due_step_runs(other),
@@ -347,9 +350,12 @@ async def test_q9_overlapping_scheduler_ticks_send_second_email(db, monkeypatch)
     finally:
         await other.close()
 
-    assert (result_a["fired"], result_b["fired"]) == (1, 1), (
-        "ожидаемое по контракту: второй тик должен увидеть исполненный шаг "
-        "и ничего не делать — сейчас нет ни блокировки, ни повторной проверки"
+    # было: (1, 1) — оба тика отрабатывали шаг. Стало: строку берёт ровно
+    # один тик, второй пропускает её по SKIP LOCKED. Какой именно из двух
+    # успеет первым — дело планировщика asyncio, поэтому сравниваем пару
+    # без учёта порядка.
+    assert sorted([result_a["fired"], result_b["fired"]]) == [0, 1], (
+        "шаг исполняет ровно один тик из двух"
     )
 
     await db.refresh(step_run)
@@ -362,19 +368,20 @@ async def test_q9_overlapping_scheduler_ticks_send_second_email(db, monkeypatch)
             select(Activity).where(Activity.lead_id == lead.id, Activity.type == "comment")
         )
     ).scalars().all()
-    assert len(activities) == 2, "ожидаемое по контракту: одно письмо — одна Activity"
-    assert len(sent_emails) == 2, "ожидаемое по контракту: SMTP-заглушка не должна звонить дважды"
-    assert sent_emails == ["lead-q9@example.com", "lead-q9@example.com"]
+    # было: 2 (дубль в ленте) и 2 письма.
+    assert len(activities) == 1, "одно письмо — одна Activity"
+    assert sent_emails == ["lead-q9@example.com"], "SMTP-заглушка звонит один раз"
 
 
 # ===========================================================================
-# Q-10 (P1, ARCH-JOB-01). Наложение двух тиков followup-напоминалок →
-# два Activity(reminder) и два уведомления на один followup.
+# Q-10 (P1, ARCH-JOB-01). Наложение двух тиков followup-напоминалок.
+# БЫЛО: выборка без блокировки → второй тик заводил вторую напоминалку.
+# СТАЛО (S-3): `FOR UPDATE SKIP LOCKED` — followup обрабатывает один тик.
 # ===========================================================================
 
 @skip_no_pg
 @pytest.mark.asyncio
-async def test_q10_overlapping_followup_dispatch_creates_second_reminder(db):
+async def test_q10_overlapping_followup_dispatch_is_serialized(db):
     from sqlalchemy import select
 
     from app.activity.models import Activity, ActivityType
@@ -400,19 +407,19 @@ async def test_q10_overlapping_followup_dispatch_creates_second_reminder(db):
 
     other = await _fresh_session()
     try:
-        # `run_followup_dispatch` — одна транзакция на весь тик, без
-        # `FOR UPDATE` (F-3). Как и в Q-9, нужен настоящий параллелизм:
-        # `asyncio.gather` даёт обеим сессиям прочитать dispatched_at IS
-        # NULL до того, как любая из них закоммитит.
+        # `run_followup_dispatch` — одна транзакция на весь тик, теперь
+        # с `FOR UPDATE SKIP LOCKED` (S-3). Как и в Q-9, нужен настоящий
+        # параллелизм: `asyncio.gather` сталкивает обе сессии на одной и
+        # той же строке.
         created_a, created_b = await asyncio.gather(
             run_followup_dispatch(db), run_followup_dispatch(other)
         )
     finally:
         await other.close()
 
-    assert (created_a, created_b) == (1, 1), (
-        "ожидаемое по контракту: второй тик не должен создавать вторую "
-        "напоминалку на тот же followup — сейчас создаёт"
+    # было: (1, 1) — вторая напоминалка на тот же followup.
+    assert sorted([created_a, created_b]) == [0, 1], (
+        "followup обрабатывает ровно один тик из двух"
     )
 
     reminders = (
@@ -422,7 +429,8 @@ async def test_q10_overlapping_followup_dispatch_creates_second_reminder(db):
             )
         )
     ).scalars().all()
-    assert len(reminders) == 2, "ожидаемое по контракту: один followup — одно напоминание"
+    # было: 2.
+    assert len(reminders) == 1, "один followup — одно напоминание"
 
     notifications = (
         await db.execute(
@@ -431,14 +439,11 @@ async def test_q10_overlapping_followup_dispatch_creates_second_reminder(db):
             )
         )
     ).scalars().all()
-    # Уведомление не задваивается — но не из-за защиты от этой гонки, а
-    # случайно: `notify()` держит общий часовой dedup-фильтр «тот же
-    # (workspace, user, kind)» (`notifications/services.py::_has_recent_
-    # same_kind`), не предназначенный для гонки тиков. Он совпал по
-    # `kind='followup_due'` и погасил вторую вставку. Дубль остаётся
-    # видимым пользователю: в Activity-ленте лида — два одинаковых
-    # напоминания.
-    assert len(notifications) == 1, "уведомление гасится общим dedup-окном, а не защитой от гонки"
+    # Раньше уведомление не задваивалось случайно — общим часовым
+    # dedup-фильтром `notifications/services.py::_has_recent_same_kind`.
+    # Теперь второго вызова просто не происходит, и одно уведомление —
+    # следствие блокировки, а не совпадения.
+    assert len(notifications) == 1, "один followup — одно уведомление"
 
 
 # ===========================================================================

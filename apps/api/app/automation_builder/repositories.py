@@ -260,7 +260,13 @@ async def list_due_step_runs(
     """Beat-scheduler picker. Returns step rows whose scheduled time
     is in the past and which haven't fired yet. Bounded by `limit`
     so a single tick can't run away with the worker — leftovers
-    catch up on the next tick."""
+    catch up on the next tick.
+
+    S-3: строки берутся с `FOR UPDATE SKIP LOCKED`. Тик живёт до 9 минут
+    (`task_soft_time_limit=540`) при расписании раз в 5 минут, так что два
+    тика законно накладываются. Без блокировки оба видели бы один и тот же
+    `executed_at IS NULL` и отправляли письмо дважды; со `SKIP LOCKED`
+    второй тик просто пропускает занятые строки."""
     res = await db.execute(
         select(AutomationStepRun)
         .where(
@@ -269,5 +275,6 @@ async def list_due_step_runs(
         )
         .order_by(AutomationStepRun.scheduled_at.asc())
         .limit(limit)
+        .with_for_update(skip_locked=True)
     )
     return list(res.scalars().all())
