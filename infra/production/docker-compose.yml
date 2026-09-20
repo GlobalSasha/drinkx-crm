@@ -57,6 +57,11 @@ services:
       retries: 5
 
   api:
+    # Explicit tag, identical to the name Compose derives for a built
+    # service (<project>-<service>, project `drinkx`). Spelling it out makes
+    # the service -> image mapping unambiguous in `config`, which the deploy
+    # gate reads by service key. Project name and volumes are unchanged.
+    image: drinkx-api
     build:
       # Repo-root context so the image can include `docs/` for the
       # Lead AI Agent's product-foundation + skill files (Sprint 3.1).
@@ -119,6 +124,7 @@ services:
       start_period: 20s
 
   worker:
+    image: drinkx-worker
     build:
       # Repo-root context so the image can include `docs/` for the
       # Lead AI Agent's product-foundation + skill files (Sprint 3.1).
@@ -145,6 +151,7 @@ services:
         condition: service_healthy
 
   beat:
+    image: drinkx-beat
     build:
       # Repo-root context so the image can include `docs/` for the
       # Lead AI Agent's product-foundation + skill files (Sprint 3.1).
@@ -171,6 +178,7 @@ services:
         condition: service_healthy
 
   web:
+    image: drinkx-web
     build:
       context: ../../apps/web
       dockerfile: Dockerfile

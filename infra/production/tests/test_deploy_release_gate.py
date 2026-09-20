@@ -141,6 +141,32 @@ SCENARIOS = [
         must_contain=[SUCCESS_MARKER] + [f"✓ {svc} runs {EXPECTED_SHA}" for svc in ("api", "web", "worker", "beat")],
     ),
     Scenario(
+        name="compose lists dependencies before the service asked about",
+        stubs=all_healthy(),
+        expect_success=True,
+        why=(
+            "`config --images api` starts with postgres, and `config --images web` starts "
+            "with the api image; the lookup must key on the service, not on line order"
+        ),
+        must_contain=[SUCCESS_MARKER],
+    ),
+    Scenario(
+        name="compose lists only the service asked about",
+        stubs={**all_healthy(), "STUB_IMAGES_EXACT": "1"},
+        expect_success=True,
+        why="the older single-line shape must keep working too",
+        must_contain=[SUCCESS_MARKER],
+    ),
+    Scenario(
+        name="web is running the api image, both at the expected revision",
+        stubs={**all_healthy(), "STUB_RUN_GROUP_WEB": "apisvc"},
+        expect_success=False,
+        why=(
+            "same revision, wrong image — a revision-only check would wave this through, "
+            "so the image ID has to be compared as well"
+        ),
+    ),
+    Scenario(
         name="manual run with no DEPLOY_SHA: healthy, but nothing to verify against",
         stubs=all_healthy(),
         deploy_sha="",
@@ -189,6 +215,33 @@ def static_checks() -> list[str]:
                 f"{label} Dockerfile does not set the OCI revision label — the gate "
                 "would fall back to container environment, which is forgeable"
             )
+
+    # `config --images <svc>` lists the service's dependencies too, so taking a
+    # line out of it by position attributes the wrong image to the service.
+    IMAGE_CHECK = TESTS_DIR / "check_image_identity.sh"
+    for label, path in (("deploy.sh", DEPLOY_SH), ("check_image_identity.sh", IMAGE_CHECK)):
+        # Code only. The comments explain why the positional read was wrong and
+        # naturally quote the command they warn about.
+        code = [
+            line for line in path.read_text().splitlines()
+            if not line.lstrip().startswith("#")
+        ]
+        for line in code:
+            if "config --images" in line:
+                problems.append(
+                    f"{label} still runs `config --images`; that list includes the "
+                    "service's dependencies, so a line from it can name the wrong image"
+                )
+                break
+        if "config --format json" not in "\n".join(code):
+            problems.append(f"{label} does not resolve service images by key from the Compose config")
+
+    # Compose must name an image for every built service, so the lookup by key
+    # has something unambiguous to find.
+    compose_cfg = COMPOSE.read_text()
+    for svc in ("drinkx-api", "drinkx-worker", "drinkx-beat", "drinkx-web"):
+        if f"image: {svc}" not in compose_cfg:
+            problems.append(f"docker-compose.yml does not give an explicit image name for {svc}")
 
     # The gate must never decide identity from the container environment.
     deploy = DEPLOY_SH.read_text()

@@ -66,13 +66,31 @@ run_bounded() {
 COMPOSE_PROJECT="${COMPOSE_PROJECT_NAME:-drinkx}"
 BUILT_SERVICES="api web worker beat"
 
-# Image reference compose uses for a built service (project-service by default).
+# Image reference Compose will use for a service, looked up BY SERVICE KEY.
+#
+# Not `config --images <svc> | head -n 1`. That command prints the images of
+# the selected services *including their dependencies*, so the first line
+# belongs to whatever Compose resolved first: for api that is postgres, and
+# for web it is the api image. Reading it positionally attributed the wrong
+# image to the service and rejected perfectly good releases (finding R2).
+#
+# The resolved configuration is keyed by service name, which is a contract;
+# line order is not.
 compose_image_ref() {
-  local svc="$1" ref=""
-  ref="$(run_bounded 30 docker compose --env-file .env config --images "$svc" \
-           2>/dev/null | head -n 1 | tr -d '\r' || true)"
-  [ -n "$ref" ] || ref="${COMPOSE_PROJECT}-${svc}"
-  printf '%s' "$ref"
+  local svc="$1" cfg=""
+  cfg="$(run_bounded 60 docker compose --env-file .env config --format json 2>/dev/null || true)"
+  [ -n "$cfg" ] || return 0
+  printf '%s' "$cfg" | python3 -c '
+import json, sys
+try:
+    cfg = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+image = ((cfg.get("services") or {}).get(sys.argv[1]) or {}).get("image")
+if not image:
+    sys.exit(1)
+print(image)
+' "$svc" 2>/dev/null || true
 }
 
 # Full image ID for a reference or ID.
@@ -97,6 +115,15 @@ container_image_of() {
   run_bounded 30 docker inspect --format '{{.Image}}' "$cid" \
     2>/dev/null | head -n 1 | tr -d '\r' || true
 }
+
+# The service -> image lookup parses Compose's resolved configuration, so the
+# gate needs python3 present. Missing interpreter is a hard failure: silently
+# falling back to a positional guess is the bug this replaced.
+if [ "$VERIFY_VERSION" -eq 1 ] && ! command -v python3 > /dev/null 2>&1; then
+  echo "✗ python3 is required to resolve service images for the release gate" >&2
+  echo "DEPLOY_RESULT=failed"
+  exit 1
+fi
 
 fail() {
   echo "✗ $1" >&2
@@ -131,6 +158,9 @@ if [ "$VERIFY_VERSION" -eq 1 ]; then
   echo "==> Record images produced by this build"
   for svc in $BUILT_SERVICES; do
     ref="$(compose_image_ref "$svc")"
+    if [ -z "$ref" ]; then
+      fail "Compose config does not name an image for service '$svc' — cannot identify what was built"
+    fi
     built_id="$(image_id_of "$ref")"
     if [ -z "$built_id" ]; then
       fail "could not resolve the image built for '$svc' (looked for '$ref')"

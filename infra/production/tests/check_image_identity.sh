@@ -11,6 +11,11 @@
 # Nothing is started: no application, no migrations, no Celery worker, no
 # published ports, no production volumes. Images are built and inspected.
 #
+# The service -> image lookup is the same one deploy.sh uses: read Compose's
+# resolved configuration and index it by service key. `config --images <svc>`
+# also lists that service's dependencies, so its first line is postgres for
+# api and the api image for web (finding R2).
+#
 # Runs in CI (.github/workflows/quality.yml, job `docker-smoke`) and locally on
 # any machine with Docker:
 #
@@ -63,12 +68,33 @@ API_BASE_URL=https://example.invalid
 FRONTEND_BASE_URL=https://example.invalid
 ENVEOF
 
+# Image reference for a service, by key — never by position in a list.
+compose_image_ref() {
+  docker compose --env-file .env config --format json \
+    | python3 -c '
+import json, sys
+cfg = json.load(sys.stdin)
+image = ((cfg.get("services") or {}).get(sys.argv[1]) or {}).get("image")
+if not image:
+    sys.exit(1)
+print(image)
+' "$1"
+}
+
+echo "==> Compose CLI version (recorded: the lookup depends on its behaviour)"
+docker compose version
+
+echo "==> Service to image mapping, by key"
+for svc in api web worker beat; do
+  echo "  $svc -> $(compose_image_ref "$svc")"
+done
+
 echo "==> Building every service image at $EXPECTED"
 docker compose --env-file .env build --build-arg GIT_SHA="$EXPECTED"
 
 echo "==> Checking each image is labelled with this commit"
 for svc in api web worker beat; do
-  ref="$(docker compose --env-file .env config --images "$svc" | head -n 1)"
+  ref="$(compose_image_ref "$svc")"
   id="$(docker image inspect --format '{{.Id}}' "$ref")"
   rev="$(docker image inspect \
           --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$id")"
@@ -85,7 +111,7 @@ done
 
 echo "==> Checking a runtime override cannot forge the revision"
 FORGED=0000000000000000000000000000000000000000
-ref="$(docker compose --env-file .env config --images api | head -n 1)"
+ref="$(compose_image_ref api)"
 id="$(docker image inspect --format '{{.Id}}' "$ref")"
 
 env_says="$(docker run --rm --network none --entrypoint printenv \

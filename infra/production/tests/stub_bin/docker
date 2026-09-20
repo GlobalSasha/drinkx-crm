@@ -6,21 +6,28 @@
 #
 # Model
 # -----
-# An image is identified as `sha256:img-<revision>`, and its OCI revision label
-# is that same <revision>. So a scenario picks revisions, not opaque IDs:
+# An image ID and a revision are different things, and the earlier model
+# conflated them — every service at one SHA got one ID, which is why the
+# suite could not see review finding R2. Here an image ID is
+# `sha256:img-<group>-<revision>`:
 #
-#   STUB_BUILD_REV        revision the build produces           (default: unset -> build makes nothing)
-#   STUB_RUN_REV          revision every running container uses (default: STUB_BUILD_REV)
-#   STUB_RUN_REV_<SVC>    per-service override, SVC upper-case  (api|web|worker|beat)
-#   STUB_NO_CONTAINER_<SVC>=1   `compose ps -q <svc>` returns nothing
-#   STUB_LABEL_MISSING=1  images carry no revision label
-#   STUB_INSPECT_FAIL=1   `docker image inspect` always fails
-#   STUB_RUNNING_SHA      what the container ENV reports — a deliberate liar,
-#                         used to prove the gate does not consult it
+#   group apisvc   api, worker and beat — one Dockerfile, one built image
+#   group websvc   web — a different image at the same revision
+#   group infra    postgres and redis — pulled, carry no revision label
 #
-# Recognises the command shapes of the pre-G1 script too (which built with
-# `up -d --build` and read the env), so the same scenarios can be replayed
-# against the old version to show the tests have teeth.
+#   STUB_BUILD_REV          revision this build stamps into the images
+#   STUB_RUN_REV            revision the running containers came from
+#   STUB_RUN_REV_<SVC>      per-service override (API|WEB|WORKER|BEAT)
+#   STUB_RUN_GROUP_<SVC>    per-service image group override, e.g. web on apisvc
+#   STUB_NO_CONTAINER_<SVC> `compose ps -q <svc>` returns nothing
+#   STUB_LABEL_MISSING=1    images carry no revision label
+#   STUB_INSPECT_FAIL=1     `docker image inspect` always fails
+#   STUB_IMAGES_EXACT=1     `config --images <svc>` returns only that service
+#   STUB_RUNNING_SHA        what the container ENV reports — a deliberate liar
+#
+# By default `config --images <svc>` lists dependencies first, the way Compose
+# actually does: service selection there includes dependencies, so the first
+# line belongs to postgres or to api, not to the service asked about.
 set -u
 ARGS="$*"
 
@@ -32,21 +39,55 @@ svc_from_args() {
   done
 }
 
-# Revision the running container of $1 was built from.
+group_of() {   # service -> image group
+  case "$1" in
+    web) printf 'websvc' ;;
+    api|worker|beat) printf 'apisvc' ;;
+    *) printf 'unknown' ;;
+  esac
+}
+
+upper() { echo "$1" | tr '[:lower:]' '[:upper:]'; }
+
 run_rev_of() {
   local svc="$1" var
-  var="STUB_RUN_REV_$(echo "$svc" | tr '[:lower:]' '[:upper:]')"
+  var="STUB_RUN_REV_$(upper "$svc")"
   eval "printf '%s' \"\${$var:-\${STUB_RUN_REV:-\${STUB_BUILD_REV:-}}}\""
 }
 
+run_group_of() {
+  local svc="$1" var
+  var="STUB_RUN_GROUP_$(upper "$svc")"
+  eval "printf '%s' \"\${$var:-$(group_of "$svc")}\""
+}
+
+# Image reference -> image id.
+id_for_ref() {
+  case "$1" in
+    drinkx-web)                  printf 'sha256:img-websvc-%s' "${STUB_BUILD_REV:-}" ;;
+    drinkx-api|drinkx-worker|drinkx-beat)
+                                 printf 'sha256:img-apisvc-%s' "${STUB_BUILD_REV:-}" ;;
+    postgres:16-alpine|redis:7-alpine)
+                                 printf 'sha256:img-infra-none' ;;
+    sha256:*)                    printf '%s' "$1" ;;
+    *)                           printf '' ;;
+  esac
+}
+
+# Image id -> revision label. Infra images have none, like a pulled base image.
+label_for_id() {
+  case "$1" in
+    sha256:img-infra-*) printf '' ;;
+    sha256:img-*-*)     printf '%s' "${1#sha256:img-*-}" ;;
+    *)                  printf '' ;;
+  esac
+}
+
 case "$ARGS" in
-  # Orphan rename-stub cleanup: `docker ps -a --format '{{.Names}}'`.
   "ps -a --format"*)
     exit 0
     ;;
 
-  # Image build. Matched before the plain `up` case, because the pre-G1 script
-  # built and started in one `up -d --build` invocation.
   *"--build"*|*"compose build"*|*"--env-file .env build"*)
     if [ "${STUB_BUILD_RC:-0}" -ne 0 ]; then
       echo "STUB: build of the new release FAILED" >&2
@@ -55,51 +96,91 @@ case "$ARGS" in
     exit 0
     ;;
 
-  # `docker compose config --images <svc>` -> the image reference.
-  *"config --images"*)
-    echo "drinkx-$(svc_from_args)"
+  # The resolved configuration, keyed by service. This is what a correct
+  # lookup uses.
+  *"config --format json"*)
+    cat <<JSON
+{
+  "name": "drinkx",
+  "services": {
+    "postgres": {"image": "postgres:16-alpine"},
+    "redis":    {"image": "redis:7-alpine"},
+    "api":      {"image": "drinkx-api"},
+    "worker":   {"image": "drinkx-worker"},
+    "beat":     {"image": "drinkx-beat"},
+    "web":      {"image": "drinkx-web"}
+  }
+}
+JSON
     exit 0
     ;;
 
-  # `docker compose ps -q <svc>` -> the container id.
+  # The bare list. Dependencies come first unless a scenario says otherwise —
+  # this is the shape that made a positional read pick the wrong image.
+  *"config --images"*)
+    svc="$(svc_from_args)"
+    if [ "${STUB_IMAGES_EXACT:-0}" = "1" ]; then
+      echo "drinkx-$svc"
+      exit 0
+    fi
+    case "$svc" in
+      api|worker|beat)
+        printf 'postgres:16-alpine\nredis:7-alpine\ndrinkx-%s\n' "$svc" ;;
+      web)
+        printf 'drinkx-api\npostgres:16-alpine\nredis:7-alpine\ndrinkx-web\n' ;;
+      *)
+        exit 1 ;;
+    esac
+    exit 0
+    ;;
+
   *"ps -q"*)
     svc="$(svc_from_args)"
-    var="STUB_NO_CONTAINER_$(echo "$svc" | tr '[:lower:]' '[:upper:]')"
+    var="STUB_NO_CONTAINER_$(upper "$svc")"
     eval "missing=\${$var:-0}"
     [ "$missing" = "1" ] && exit 0
     echo "cid-$svc"
     exit 0
     ;;
 
-  # `docker image inspect --format '{{index .Config.Labels ...}}' <image>`
   *"image inspect"*"Config.Labels"*)
     [ "${STUB_INSPECT_FAIL:-0}" = "1" ] && { echo "STUB: inspect failed" >&2; exit 1; }
     [ "${STUB_LABEL_MISSING:-0}" = "1" ] && { echo ""; exit 0; }
     for tok in $ARGS; do
       case "$tok" in
-        sha256:img-*) printf '%s\n' "${tok#sha256:img-}"; exit 0 ;;
+        sha256:*)  label_for_id "$tok"; echo; exit 0 ;;
+        drinkx-*|postgres:*|redis:*) label_for_id "$(id_for_ref "$tok")"; echo; exit 0 ;;
       esac
     done
     echo ""
     exit 0
     ;;
 
-  # `docker image inspect --format '{{.Id}}' <ref>` -> the built image id.
   *"image inspect"*)
     [ "${STUB_INSPECT_FAIL:-0}" = "1" ] && { echo "STUB: inspect failed" >&2; exit 1; }
     if [ -z "${STUB_BUILD_REV:-}" ]; then
       echo "STUB: no such image" >&2
       exit 1
     fi
-    echo "sha256:img-${STUB_BUILD_REV}"
-    exit 0
+    for tok in $ARGS; do
+      case "$tok" in
+        drinkx-*|postgres:*|redis:*|sha256:*)
+          out="$(id_for_ref "$tok")"
+          [ -n "$out" ] || { echo "STUB: no such image: $tok" >&2; exit 1; }
+          echo "$out"; exit 0 ;;
+      esac
+    done
+    echo "STUB: no image reference in args" >&2
+    exit 1
     ;;
 
-  # `docker inspect --format '{{.Image}}' <container>` -> image behind a container.
   *"inspect --format"*".Image"*)
     for tok in $ARGS; do
       case "$tok" in
-        cid-*) svc="${tok#cid-}"; printf 'sha256:img-%s\n' "$(run_rev_of "$svc")"; exit 0 ;;
+        cid-*)
+          svc="${tok#cid-}"
+          printf 'sha256:img-%s-%s\n' "$(run_group_of "$svc")" "$(run_rev_of "$svc")"
+          exit 0 ;;
       esac
     done
     exit 1
@@ -112,25 +193,21 @@ case "$ARGS" in
     exit 1
     ;;
 
-  # Celery worker liveness probe.
   *"inspect ping"*)
     [ "${STUB_WORKER_PING:-ok}" = "ok" ] && exit 0
     exit 1
     ;;
 
-  # `docker compose ps --status running beat`.
   *"ps --status running beat"*)
     [ "${STUB_BEAT_RUNNING:-yes}" = "yes" ] && echo "drinkx-beat-1   running"
     exit 0
     ;;
 
-  # Starting containers.
   *"up -d"*)
     [ "${STUB_UP_RC:-0}" -ne 0 ] && exit "${STUB_UP_RC:-0}"
     exit 0
     ;;
 
-  # Diagnostic `docker compose ps` on the failure paths.
   *"ps"*)
     exit 0
     ;;
