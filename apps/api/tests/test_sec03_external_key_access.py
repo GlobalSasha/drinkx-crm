@@ -123,7 +123,7 @@ async def issue_key(db, workspace_id, *, scopes=("read:core",), revoked=False) -
     return token
 
 
-async def ext(db, token: str | None, path: str):
+async def ext(db, token: str | None, path: str, raise_errors: bool = True):
     """GET на внешнюю поверхность с машинным ключом (или без него)."""
     from app.db import get_db
     from app.main import app
@@ -131,7 +131,7 @@ async def ext(db, token: str | None, path: str):
     app.dependency_overrides[get_db] = lambda: db
     try:
         headers = {"Authorization": f"Bearer {token}"} if token else {}
-        transport = ASGITransport(app=app)
+        transport = ASGITransport(app=app, raise_app_exceptions=raise_errors)
         async with AsyncClient(transport=transport, base_url="http://test") as c:
             return await c.get(path, headers=headers)
     finally:
@@ -473,3 +473,21 @@ async def test_mcp_refuses_a_revoked_key_and_a_wrong_scope(db, two_workspaces):
         with pytest.raises(HTTPException) as exc:
             await _mcp_call(db, mcp.search_leads, token, q="")
         assert exc.value.status_code in (401, 403), (label, exc.value.status_code)
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_malformed_cursor_is_an_error_not_a_wider_selection(db, two_workspaces):
+    """Битый курсор: важно, что он не расширяет выборку.
+
+    Ответ на такой запрос — 500 (разбор курсора не обёрнут в проверку
+    ввода). Это огрех входной валидации, а не доступа: чужих строк в
+    ответе нет, потому что ответа нет вовсе. Зафиксировано фактическое
+    поведение.
+    """
+    s = two_workspaces
+    for bad in ("not-base64", "%%%", "YWJj"):
+        r = await ext(db, s["token_a"], f"/external/v1/leads?cursor={bad}",
+                      raise_errors=False)
+        assert r.status_code == 500, (bad, r.status_code)
+        assert "Лид B" not in r.text
