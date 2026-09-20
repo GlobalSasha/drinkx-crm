@@ -9,6 +9,20 @@ The guard below is deliberately an allowlist over the parsed URL — scheme,
 host, port and database name each checked on their own. Substring matching on
 "test" is not a safety property: `prod_latest_backup` contains it.
 
+It also refuses any URL carrying a query string or a fragment. Reading the URL
+ourselves and trusting that the driver reads it the same way is exactly what
+failed review finding R1:
+
+    postgresql+asyncpg://ci:pw@localhost:5432/drinkx_test
+        ?host=elsewhere.invalid&database=not_disposable
+
+`urlsplit` reports an allowlisted host and database for that string, while
+SQLAlchemy's asyncpg dialect resolves it to elsewhere.invalid/not_disposable.
+Rather than re-implement every override rule the driver honours — repeated
+keys, percent-encoded names, `options`, future parameters — the supported DSN
+form is closed: authority and path only. A connection string that needs more
+is a deliberate change here, not something that slips through.
+
 Override for a different disposable setup with TEST_DB_ALLOWED_HOSTS,
 TEST_DB_ALLOWED_PORTS and TEST_DB_ALLOWED_NAMES (comma-separated).
 """
@@ -45,15 +59,37 @@ def _from_env(name: str, default: frozenset[str]) -> frozenset[str]:
 
 
 def redact(dsn: str) -> str:
-    """The DSN with any password replaced, safe to print in logs and errors."""
+    """A description of the target that is safe to print in logs and errors.
+
+    Rebuilt field by field rather than patched in place. A password can sit in
+    the userinfo *and* in the query (`?password=...`), so masking one of them
+    by string surgery leaves the other in the log. Anything not needed to
+    identify the target — the query above all — is dropped rather than masked.
+    """
     try:
         parts = urlsplit(dsn)
     except ValueError:
         return "<unparseable dsn>"
-    if parts.password is None:
-        return dsn
-    netloc = parts.netloc.replace(f":{parts.password}@", ":***@", 1)
-    return parts._replace(netloc=netloc).geturl()
+
+    scheme = parts.scheme or "<no-scheme>"
+    try:
+        host = parts.hostname or ""
+        port = parts.port
+    except ValueError:
+        host, port = "<invalid-host-or-port>", None
+
+    user = parts.username
+    if user and parts.password is not None:
+        userinfo = f"{user}:***@"
+    elif user:
+        userinfo = f"{user}@"
+    else:
+        userinfo = ""
+
+    authority = f"{userinfo}{host}" + (f":{port}" if port is not None else "")
+    database = parts.path.lstrip("/")
+    tail = " [query removed]" if ("?" in dsn or "#" in dsn) else ""
+    return f"{scheme}://{authority}/{database}{tail}"
 
 
 def assert_disposable(dsn: str, *, purpose: str) -> None:
@@ -66,6 +102,19 @@ def assert_disposable(dsn: str, *, purpose: str) -> None:
 
     if not dsn or not dsn.strip():
         raise UnsafeDatabaseTarget(f"{purpose}: no database URL configured")
+
+    # Refuse query and fragment before parsing anything else. The driver, not
+    # this function, decides what a query means, and it can move the host, the
+    # port and the database out from under every check below (finding R1).
+    # Detected on the raw string: `urlsplit` reports an empty query for a bare
+    # trailing "?", which would otherwise slip past.
+    if "?" in dsn or "#" in dsn:
+        raise UnsafeDatabaseTarget(
+            f"{purpose}: the URL carries a query string or fragment, which can "
+            f"redirect the driver to a different host, port or database than "
+            f"this guard sees. Supported form is scheme://user:password@host:port/database "
+            f"with nothing after it. Target as parsed here: {safe}"
+        )
 
     try:
         parts = urlsplit(dsn)
@@ -83,6 +132,14 @@ def assert_disposable(dsn: str, *, purpose: str) -> None:
         port = parts.port
     except ValueError as exc:  # malformed port
         raise UnsafeDatabaseTarget(f"{purpose}: bad host/port in {safe}: {exc}") from exc
+
+    # asyncpg accepts a comma-separated host list; only the allowlisted one
+    # would be checked here while the driver may reach any of them.
+    if host and "," in host:
+        raise UnsafeDatabaseTarget(
+            f"{purpose}: the URL names more than one host, which this guard "
+            f"cannot check as a single target ({safe})"
+        )
 
     allowed_hosts = _from_env("TEST_DB_ALLOWED_HOSTS", DEFAULT_ALLOWED_HOSTS)
     if not host or host not in allowed_hosts:
