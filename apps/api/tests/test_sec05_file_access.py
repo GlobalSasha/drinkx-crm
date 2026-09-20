@@ -123,12 +123,47 @@ async def upload(db, actor, lead_id, filename, content=PNG):
 
 
 
+async def _task(db, workspace_id, lead_id, user_id, title="Позвонить"):
+    """Настоящая задача этого лида — задачи хранятся как Activity(type=task)."""
+    from app.activity.models import Activity, ActivityType
+
+    task = Activity(
+        lead_id=lead_id,
+        user_id=user_id,
+        type=ActivityType.task.value,
+        body=title,
+        payload_json={"title": title},
+    )
+    if hasattr(Activity, "workspace_id"):
+        task.workspace_id = workspace_id
+    db.add(task)
+    await db.flush()
+    return task
+
+
+async def _file_url_from_a_fresh_session(activity_id):
+    """Перечитать ключ отдельной сессией — не той, в которой шла загрузка.
+
+    Иначе значение может прийти из карты идентичности и проверка будет
+    ничего не стоить.
+    """
+    from sqlalchemy import select
+
+    from app.activity.models import Activity
+    from tests.conftest import _test_session_factory
+
+    async with _test_session_factory() as fresh:
+        return (
+            await fresh.execute(select(Activity.file_url).where(Activity.id == activity_id))
+        ).scalar_one()
+
+
 async def attach_file(db, workspace_id, lead_id, user_id, filename="dogovor.png"):
     """Готовое вложение с заполненным ключом.
 
-    Нужно потому, что настоящая загрузка ключ теряет (см. отдельную
-    проверку ниже). Без этого проверки доступа к скачиванию и удалению
-    проходили бы «сами собой»: файла с ключом просто не бывает.
+    Короткий путь для проверок доступа: они про то, кому достаётся файл,
+    а не про то, как он загружается. Сама загрузка и сохранение ключа
+    проверяются отдельно, через настоящий HTTP POST.
     """
     from app.activity.models import Activity, ActivityType
     from app.storage.paths import build_object_key
@@ -196,40 +231,73 @@ async def test_owner_upload_writes_the_object_under_its_own_folder(db, scene, st
 
 @skip_no_pg
 @pytest.mark.asyncio
-async def test_upload_saves_the_storage_key_and_the_file_downloads(db, scene, storage):
-    """Регрессия SEC-05-1: ключ хранилища доходит до базы.
+@pytest.mark.parametrize("path_kind", ["lead-file", "task-file"])
+async def test_upload_persists_the_storage_key_on_both_paths(db, scene, storage, path_kind):
+    """Регрессия SEC-05-1: ключ хранилища доходит до базы на обоих путях.
 
     Было: `upload_lead_file` присваивал `file_url` уже после `flush`, а
     следом `db.refresh(activity)` перечитывал строку и отбрасывал
     неотправленное присваивание. В базе оставался NULL: объект в
-    хранилище есть, скачать нельзя, удаление сносит строку и оставляет
-    сироту.
+    хранилище есть, скачать нельзя (500), удаление сносило строку и
+    оставляло сироту. `upload_task_file` — тонкая обёртка над тем же
+    сервисом, поэтому проверяются оба маршрута.
 
-    Стало: присваивание отправляется в базу своим `flush` до `refresh`.
-    Проверяется не ответ ручки, а состояние базы и то, что подпись
-    запрашивается ровно на том ключе, по которому объект записан.
+    Проверяется не код ответа, а состояние базы: ключ перечитывается
+    ОТДЕЛЬНОЙ сессией, затем подписанная ссылка и удаление должны
+    обратиться ровно к тому ключу, который получило хранилище.
 
     Прежние тесты этого не ловили: там сессия подменена заглушкой, у
     которой `refresh` ничего не делает.
     """
-    from sqlalchemy import select
-
-    from app.activity.models import Activity
-
     s = scene
-    r = await upload(db, s["owner"], s["lead"].id, "договор.png")
-    activity_id = uuid.UUID(r.json()["id"])
-    assert storage.uploaded, "объект в хранилище не записан"
-    stored_key = storage.uploaded[-1][0]
+    if path_kind == "lead-file":
+        path = f"/leads/{s['lead'].id}/files"
+        expected_parent = None
+    else:
+        task = await _task(db, s["a"].id, s["lead"].id, s["owner"].id)
+        await db.commit()
+        path = f"/leads/{s['lead'].id}/tasks/{task.id}/files"
+        expected_parent = str(task.id)
 
-    file_url = (
-        await db.execute(select(Activity.file_url).where(Activity.id == activity_id))
-    ).scalar_one()
-    assert file_url == stored_key, "ключ хранилища не сохранён в базе"
+    r = await call(
+        db, s["owner"], "POST", path,
+        files={"file": ("договор.png", PNG, "application/octet-stream")},
+    )
+    assert r.status_code == 201, r.text
+    body = r.json()
+    activity_id = uuid.UUID(body["id"])
+    assert body.get("parent_task_id") == expected_parent
+    assert body["file_name"] == "договор.png"
+
+    assert storage.uploaded, "объект в хранилище не записан"
+    stored_key, size, ctype = storage.uploaded[-1]
+    assert stored_key == f"{s['a'].id}/{s['lead'].id}/{activity_id}/dogovor.png"
+    assert size == len(PNG) and ctype == "image/png"
+
+    persisted = await _file_url_from_a_fresh_session(activity_id)
+    assert persisted == stored_key, "ключ хранилища не сохранён в базе"
 
     r = await call(db, s["owner"], "GET", f"/activities/{activity_id}/download")
     assert r.status_code == 200, r.text
     assert storage.signed[-1] == (stored_key, 300)
+
+    r = await call(db, s["owner"], "DELETE", f"/activities/{activity_id}/file")
+    assert r.status_code == 204, r.text
+    assert storage.deleted[-1] == stored_key
+    assert await _row_exists(activity_id) is False
+
+
+async def _row_exists(activity_id) -> bool:
+    from sqlalchemy import select
+
+    from app.activity.models import Activity
+    from tests.conftest import _test_session_factory
+
+    async with _test_session_factory() as fresh:
+        row = (
+            await fresh.execute(select(Activity.id).where(Activity.id == activity_id))
+        ).scalar_one_or_none()
+    return row is not None
 
 
 @skip_no_pg
