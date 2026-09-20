@@ -1,3 +1,12 @@
+# Releasing commit S requires the mandatory checks of commit S to have passed.
+# Not "main was green yesterday", and not "a pull request with a different SHA
+# was green before the merge" — the exact commit being shipped.
+#
+# Before G2 this workflow ran on its own push event with no dependency on the
+# API or web checks at all, and those two had path filters of their own, so a
+# change to infra or the root lockfile could reach production having been
+# tested by nothing.
+
 name: Deploy to crm.drinkx.tech
 
 on:
@@ -5,12 +14,41 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
+  # Never two deploys mutating the same server at once, and never cancel one
+  # halfway through replacing containers.
   group: deploy-production
   cancel-in-progress: false
 
 jobs:
+  # Manual runs are for re-releasing main, not for shipping an arbitrary ref.
+  guard:
+    name: Release candidate guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Only main may be released
+        run: |
+          REF='${{ github.ref }}'
+          if [ "$REF" != "refs/heads/main" ]; then
+            echo "::error::production releases come from main only, got $REF"
+            exit 1
+          fi
+          echo "releasing ${{ github.sha }} from $REF"
+
+  # The same mandatory checks a pull request runs, against this exact commit.
+  # No secrets are passed: nothing in here can touch the server.
+  quality:
+    name: Quality
+    needs: guard
+    uses: ./.github/workflows/quality.yml
+    with:
+      sha: ${{ github.sha }}
+
   deploy:
+    needs: [guard, quality]
     runs-on: ubuntu-latest
     # 25m headroom: the web build alone runs ~10-15m and crept to 14m41s on the
     # Wave 2 deploy; the КП feature adds more frontend. 15m was cutting it close.
@@ -35,6 +73,24 @@ jobs:
       # No --delete: `git reset --hard` never removed untracked files either,
       # and a stray --delete here would wipe infra/production/.env (the prod
       # secrets, deliberately not in git). .env is excluded twice on purpose.
+      # Serialised by the concurrency group above, so by the time this runs a
+      # newer candidate may already have been merged and be queued behind us.
+      # Shipping now would put the older tree on the server and leave the newer
+      # run to fix it. Stop instead: this candidate was superseded, and the run
+      # for the newer commit is the one that should deploy.
+      - name: Refuse a superseded candidate
+        run: |
+          TIP="$(git ls-remote https://github.com/${{ github.repository }}.git refs/heads/main | cut -f1)"
+          if [ -z "$TIP" ]; then
+            echo "::error::could not read the current tip of main"
+            exit 1
+          fi
+          if [ "$TIP" != "${{ github.sha }}" ]; then
+            echo "::error::superseded: main is now $TIP, this run is for ${{ github.sha }} — not deploying an older tree"
+            exit 1
+          fi
+          echo "still the tip of main: $TIP"
+
       - name: Ship code to server
         run: |
           rsync -az --timeout=60 \

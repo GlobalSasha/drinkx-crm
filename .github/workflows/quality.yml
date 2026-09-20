@@ -1,0 +1,297 @@
+# Mandatory checks for one exact commit.
+#
+# Called by pr.yml (pull requests) and deploy.yml (release candidates). Every
+# job tests the SHA passed in, never a moving ref, and `quality-gate` at the
+# bottom is the single signal a release is allowed to depend on.
+#
+# No secrets are passed in: nothing here may reach production. Deployment
+# credentials live only in the deploy job, which runs after this workflow.
+
+name: Quality
+
+on:
+  workflow_call:
+    inputs:
+      sha:
+        description: The full commit SHA every job must check out and test.
+        required: true
+        type: string
+      canary_fail:
+        description: >
+          Name of one mandatory job to fail on purpose, for verifying that the
+          gate really blocks a release. Only canary.yml passes this; pr.yml and
+          deploy.yml never do. It can only ever CAUSE a failure — there is no
+          value that makes a job pass — so it cannot be used to slip a release
+          through, and it needs no intentionally broken test in the repository.
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    name: API tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: drinkx
+          POSTGRES_PASSWORD: dev
+          POSTGRES_DB: drinkx_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U drinkx"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: apps/api
+
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://drinkx:dev@localhost:5432/drinkx_test
+      # An unreachable database must fail this job. Without it the fixtures
+      # skip every database-backed test and the suite reports green on the
+      # handful that need no database at all.
+      REQUIRE_TEST_DB: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ inputs.sha }}", fetch-depth: 1, persist-credentials: false}
+      - name: Assert checkout
+        run: |
+          [ "$(git rev-parse HEAD)" = "${{ inputs.sha }}" ] || { echo "::error::wrong commit"; exit 1; }
+
+      - name: Canary fault injection
+        if: inputs.canary_fail == 'api'
+        run: |
+          echo "::error::canary: failing 'api' deliberately to prove the gate blocks the release"
+          exit 1
+
+
+
+
+
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies (incl. dev)
+        run: uv sync
+
+      - name: Run pytest
+        run: uv run pytest -q
+
+  migrations:
+    name: Alembic chain
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # A database of its own, separate from the API fixtures': that suite drops
+    # and recreates the public schema, which would erase a migrated schema
+    # mid-run if both shared one database.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: drinkx
+          POSTGRES_PASSWORD: dev
+          POSTGRES_DB: drinkx_migrations_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U drinkx"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: apps/api
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://drinkx:dev@localhost:5432/drinkx_migrations_test
+
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ inputs.sha }}", fetch-depth: 1, persist-credentials: false}
+      - name: Assert checkout
+        run: |
+          [ "$(git rev-parse HEAD)" = "${{ inputs.sha }}" ] || { echo "::error::wrong commit"; exit 1; }
+
+      - name: Canary fault injection
+        if: inputs.canary_fail == 'migrations'
+        run: |
+          echo "::error::canary: failing 'migrations' deliberately to prove the gate blocks the release"
+          exit 1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync
+
+      # The real chain on a clean database — not metadata.create_all, which is
+      # what the API fixtures use and which never executes a migration.
+      - name: alembic upgrade head, single head, idempotent re-run
+        run: uv run python scripts/check_migrations.py
+
+  web:
+    name: Web checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ inputs.sha }}", fetch-depth: 1, persist-credentials: false}
+      - name: Assert checkout
+        run: |
+          [ "$(git rev-parse HEAD)" = "${{ inputs.sha }}" ] || { echo "::error::wrong commit"; exit 1; }
+
+      - name: Canary fault injection
+        if: inputs.canary_fail == 'web'
+        run: |
+          echo "::error::canary: failing 'web' deliberately to prove the gate blocks the release"
+          exit 1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter web run typecheck
+
+      - name: Lint
+        run: pnpm --filter web run lint
+
+      - name: Build
+        run: pnpm --filter web run build
+
+      - name: Test
+        run: pnpm --filter web run test
+
+  release-gate:
+    name: Deploy release gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ inputs.sha }}", fetch-depth: 1, persist-credentials: false}
+      - name: Assert checkout
+        run: |
+          [ "$(git rev-parse HEAD)" = "${{ inputs.sha }}" ] || { echo "::error::wrong commit"; exit 1; }
+
+      - name: Canary fault injection
+        if: inputs.canary_fail == 'release-gate'
+        run: |
+          echo "::error::canary: failing 'release-gate' deliberately to prove the gate blocks the release"
+          exit 1
+
+      # Runs the real deploy.sh against local stubs: no Docker daemon, no SSH,
+      # no network, no production. Covers the failure paths that used to end in
+      # a green deploy of the previous release.
+      - name: Deploy script scenarios
+        run: python3 infra/production/tests/test_deploy_release_gate.py
+
+      # A managed interpreter: the runner's system python is
+      # externally-managed (PEP 668), so pip refuses to install into it.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyYAML
+        run: python3 -m pip install --quiet pyyaml
+
+      # Structural assertions over this pipeline itself: one SHA everywhere,
+      # every mandatory job wired into the gate, no path filter that can make a
+      # check silently vanish, no secrets reaching pull-request code.
+      - name: Release pipeline wiring
+        run: python3 infra/production/tests/test_release_pipeline_wiring.py
+
+  docker-smoke:
+    name: Image build and identity
+    runs-on: ubuntu-latest
+    # The web image runs a full `pnpm build` inside Docker; the production
+    # deploy logs put that at 12-15 minutes on its own.
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ inputs.sha }}", fetch-depth: 1, persist-credentials: false}
+      - name: Assert checkout
+        run: |
+          [ "$(git rev-parse HEAD)" = "${{ inputs.sha }}" ] || { echo "::error::wrong commit"; exit 1; }
+
+      - name: Canary fault injection
+        if: inputs.canary_fail == 'docker-smoke'
+        run: |
+          echo "::error::canary: failing 'docker-smoke' deliberately to prove the gate blocks the release"
+          exit 1
+
+      # Real Dockerfiles through the real compose file, including the web
+      # runner stage. Nothing is started: the gate's claim is about image
+      # provenance, and images can be inspected without running the
+      # application or its background workers. Same script a developer runs
+      # locally, so CI and local cannot drift apart.
+      - name: Build images and verify their identity
+        run: infra/production/tests/check_image_identity.sh "${{ inputs.sha }}"
+
+  quality-gate:
+    name: Quality gate
+    runs-on: ubuntu-latest
+    needs: [api, migrations, web, release-gate, docker-smoke]
+    # always() so the gate still reports when a prerequisite failed, was
+    # cancelled or was skipped — but it is NOT permission to deploy: the step
+    # below fails unless every mandatory job actually succeeded.
+    if: always()
+    steps:
+      - name: Require every mandatory job to have succeeded
+        run: |
+          set -euo pipefail
+          cat > /tmp/needs.json <<'JSONEOF'
+          ${{ toJSON(needs) }}
+          JSONEOF
+          python3 - <<'PY'
+          import json, sys
+
+          with open("/tmp/needs.json") as fh:
+              needs = json.load(fh)
+
+          mandatory = ["api", "migrations", "web", "release-gate", "docker-smoke"]
+          bad = []
+          for job in mandatory:
+              result = needs.get(job, {}).get("result", "missing")
+              print(f"{job:14} {result}")
+              # Anything that is not an outright success blocks the release:
+              # failure, cancelled, skipped and a job that never reported.
+              if result != "success":
+                  bad.append(f"{job}={result}")
+
+          if bad:
+              print(f"::error::mandatory checks did not pass: {', '.join(bad)}")
+              sys.exit(1)
+          print("all mandatory checks succeeded")
+          PY

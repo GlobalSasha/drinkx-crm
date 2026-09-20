@@ -24,23 +24,66 @@ TEST_DB_URL = os.environ.get(
     "postgresql+asyncpg://drinkx:dev@localhost:5432/drinkx_test",
 )
 
+# The session fixture below runs DROP SCHEMA public CASCADE. Check the target
+# is a throwaway database BEFORE the probe opens a socket, so a stray
+# production DSN never even gets connected to, let alone dropped. Failing here
+# is deliberate: a misconfigured DSN must stop the run, not quietly downgrade
+# it to "postgres unavailable, skipping".
+from scripts.db_safety import assert_disposable  # noqa: E402
+
+assert_disposable(TEST_DB_URL, purpose="API test fixtures")
+
+# DB-required mode. CI sets REQUIRE_TEST_DB=1 so an unreachable Postgres or a
+# missing async driver is a failure, not a suite that silently skips its way
+# to green. Local runs default to the permissive mode.
+REQUIRE_TEST_DB = os.environ.get("REQUIRE_TEST_DB", "").strip() not in ("", "0", "false", "no")
+
 POSTGRES_AVAILABLE = False
+_PROBE_ERROR: str | None = None
 try:
     import asyncpg  # noqa: F401
 
     async def _probe() -> bool:
+        global _PROBE_ERROR
         dsn = TEST_DB_URL.replace("postgresql+asyncpg://", "postgresql://")
         try:
             conn = await asyncpg.connect(dsn, timeout=2)
             await conn.close()
             return True
-        except Exception:
-            # Probe-only suppression: any connection failure means "not available"
+        except Exception as exc:
+            # Probe-only suppression: any connection failure means "not available".
+            # The reason is kept so REQUIRE_TEST_DB can report it.
+            _PROBE_ERROR = f"{type(exc).__name__}: {exc}"
             return False
 
     POSTGRES_AVAILABLE = asyncio.run(_probe())
-except Exception:
+except Exception as exc:
+    _PROBE_ERROR = f"{type(exc).__name__}: {exc}"
     POSTGRES_AVAILABLE = False
+
+if REQUIRE_TEST_DB and not POSTGRES_AVAILABLE:
+    from scripts.db_safety import redact
+
+    raise RuntimeError(
+        "REQUIRE_TEST_DB is set but the test database is unusable: "
+        f"{_PROBE_ERROR or 'unknown reason'} (target {redact(TEST_DB_URL)}). "
+        "Refusing to report a green run from skipped database tests."
+    )
+
+if REQUIRE_TEST_DB and not PYTEST_ASYNCIO_AVAILABLE:
+    raise RuntimeError(
+        "REQUIRE_TEST_DB is set but pytest-asyncio is not installed, so every "
+        "database-backed test would be skipped."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Database-backed coverage accounting
+# ---------------------------------------------------------------------------
+# "1000 passed" says nothing about whether the database tests ran. Track the
+# tests that actually request a session and report their real outcomes.
+_DB_BACKED_IDS: set[str] = set()
+_DB_BACKED_OUTCOMES = {"passed": 0, "failed": 0, "skipped": 0, "xfailed": 0}
 
 
 # ---------------------------------------------------------------------------
@@ -65,6 +108,8 @@ _KNOWN_PRE_EXISTING_FAILURES: set[str] = {
 def pytest_collection_modifyitems(config, items):
     """Mark the quarantined legacy failures as xfail (non-strict)."""
     for item in items:
+        if "db" in getattr(item, "fixturenames", ()):
+            _DB_BACKED_IDS.add(item.nodeid)
         if item.nodeid in _KNOWN_PRE_EXISTING_FAILURES:
             item.add_marker(
                 pytest.mark.xfail(
@@ -72,6 +117,39 @@ def pytest_collection_modifyitems(config, items):
                     strict=False,
                 )
             )
+
+
+def pytest_runtest_logreport(report):
+    """Record the real outcome of every database-backed test."""
+    if report.nodeid not in _DB_BACKED_IDS:
+        return
+    if report.when == "setup" and report.skipped:
+        _DB_BACKED_OUTCOMES["skipped"] += 1
+    elif report.when == "call":
+        if getattr(report, "wasxfail", None) is not None:
+            _DB_BACKED_OUTCOMES["xfailed"] += 1
+        elif report.passed:
+            _DB_BACKED_OUTCOMES["passed"] += 1
+        elif report.failed:
+            _DB_BACKED_OUTCOMES["failed"] += 1
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus=None, config=None):
+    """Print what the database actually covered, not just the collected total."""
+    from scripts.db_safety import redact
+
+    tr = terminalreporter
+    tr.write_sep("-", "database-backed coverage")
+    tr.write_line(f"target            : {redact(TEST_DB_URL)}")
+    tr.write_line(f"postgres available: {POSTGRES_AVAILABLE}  (REQUIRE_TEST_DB={REQUIRE_TEST_DB})")
+    tr.write_line(f"db-backed tests   : {len(_DB_BACKED_IDS)} collected, " + ", ".join(
+        f"{k}={v}" for k, v in _DB_BACKED_OUTCOMES.items()
+    ))
+    if REQUIRE_TEST_DB and _DB_BACKED_OUTCOMES["skipped"]:
+        tr.write_line(
+            "WARNING: database-backed tests were skipped in DB-required mode",
+            red=True,
+        )
 
 
 # ---------------------------------------------------------------------------

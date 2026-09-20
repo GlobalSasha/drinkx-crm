@@ -178,9 +178,12 @@ for i in 1 2 3 4 5 6 7 8 9 10; do
 done
 [ "$API_OK" -eq 1 ] || fail "API did not become healthy on :8000/health"
 
+# "/" is an entry point, not a page: middleware 307s it to /today or /sign-in
+# depending on the session, and `curl -f` treats a 3xx as success. Probing it
+# would accept a redirect as proof the app renders. /sign-in returns a real 200.
 WEB_OK=0
 for i in 1 2 3 4 5 6 7 8 9 10; do
-  if curl -fsS --max-time 10 http://127.0.0.1:3000 > /dev/null 2>&1; then
+  if curl -fsS --max-time 10 http://127.0.0.1:3000/sign-in > /dev/null 2>&1; then
     echo "✓ Web reachable on :3000"
     WEB_OK=1
     break

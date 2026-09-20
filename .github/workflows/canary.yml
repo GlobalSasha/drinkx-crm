@@ -1,0 +1,54 @@
+# Prove the release graph blocks a release, without releasing anything.
+#
+# Runs the same mandatory checks as a real candidate, then stops at a marker
+# where the deploy job would be. Nothing here can reach the server: no secrets
+# are passed, there is no SSH step and no production command.
+#
+# `fail_job` deliberately fails one mandatory check so you can watch the gate
+# refuse the release. It can only cause a failure — no value makes a job pass —
+# so proving the negative case needs no intentionally broken test committed to
+# the repository.
+#
+# Manual only. NOT RUN as of this change: running a workflow on GitHub was
+# outside what this work was allowed to do.
+
+name: Release gate canary
+
+on:
+  workflow_dispatch:
+    inputs:
+      fail_job:
+        description: Mandatory job to fail on purpose (none = everything should pass)
+        required: true
+        default: none
+        type: choice
+        options: [none, api, migrations, web, release-gate, docker-smoke]
+
+permissions:
+  contents: read
+
+concurrency:
+  # Its own group: a canary must never queue behind, or ahead of, a real
+  # production deploy.
+  group: release-canary-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    uses: ./.github/workflows/quality.yml
+    with:
+      sha: ${{ github.sha }}
+      canary_fail: ${{ inputs.fail_job == 'none' && '' || inputs.fail_job }}
+
+  # Stands exactly where `deploy` stands in deploy.yml, and does nothing but
+  # say so. If this prints, the gate would have allowed the release.
+  would-deploy:
+    name: Marker instead of a deploy
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: This is where the real workflow would ship to the server
+        run: |
+          echo "CANARY_WOULD_DEPLOY=${{ github.sha }}"
+          echo "The quality gate passed, so a real run would deploy at this point."
+          echo "Nothing was shipped: this workflow has no credentials and no server step."
