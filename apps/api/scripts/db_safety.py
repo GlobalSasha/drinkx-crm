@@ -99,10 +99,14 @@ def resolved_target(dsn: str) -> tuple[str, int, str]:
     """`(host, port, database)` as the driver will actually see them.
 
     One database can be written several ways — with the port left implicit,
-    with different credentials — and those spellings must not look like
-    different resources. Anything keyed on the raw string gets that wrong:
-    review finding F2 found two advisory lock keys for one database, so two
-    runs failed to exclude each other.
+    with different credentials, with the host as a name or as its IP — and
+    those spellings must not look like different resources. Anything compared
+    as a raw string gets that wrong: review finding F2 found two advisory lock
+    keys for one database, so two runs failed to exclude each other.
+
+    Used to compare and describe targets. Advisory lock keys are no longer
+    derived from it — a lock is scoped to the whole server, so only the
+    database name enters the key (see `db_test_resources.advisory_key`).
 
     Only meaningful after `assert_disposable`: it is the closed DSN contract,
     with no query allowed, that makes this triple match what the driver

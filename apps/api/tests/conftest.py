@@ -176,12 +176,13 @@ if POSTGRES_AVAILABLE and PYTEST_ASYNCIO_AVAILABLE:
     # exist" hundreds of tests in. Observed exactly that way while generating
     # review evidence alongside a full run. A PostgreSQL advisory lock makes
     # the collision a clear, immediate error instead (review finding R3).
-    # Keyed on the resolved target, not on the DSN string. The same database
-    # written with and without its default port produced two different keys,
-    # so two runs did not exclude each other after all (review finding F2).
-    _SCHEMA_LOCK_KEY = advisory_key(
-        *resolved_target(TEST_DB_URL), purpose="drinkx:test-schema"
-    )
+    # Keyed on the database name alone, not on the DSN string and not on the
+    # address. The same database written with and without its default port, or
+    # as `localhost` and as `127.0.0.1`, produced different keys, so two runs
+    # did not exclude each other after all (findings F2 and P2-1). An advisory
+    # lock is scoped to the whole server, which the connection already fixes.
+    _SCHEMA_LOCK_DATABASE = resolved_target(TEST_DB_URL)[2]
+    _SCHEMA_LOCK_KEY = advisory_key(_SCHEMA_LOCK_DATABASE, purpose="drinkx:test-schema")
 
     @pytest_asyncio.fixture(scope="session", loop_scope="session", autouse=True)
     async def _create_tables():

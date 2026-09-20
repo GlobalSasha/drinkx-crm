@@ -10,12 +10,16 @@ will touch is now decided, validated and frozen before the first connection is
 opened, and the database name is checked as an identifier rather than trusted
 inside a quoted string.
 
-F2: the advisory lock protecting a destroyed database was keyed on the DSN
-string, so `…@localhost/drinkx_test` and `…@localhost:5432/drinkx_test` — the
-same database — produced different keys and did not exclude each other. Keys
-now come from the resolved target. The probe database also gets a lock of its
-own, held for the whole fixture lifetime from the admin database, because a
-connection inside a database cannot guard that database's own DROP.
+F2 / P2-1: the advisory lock protecting a destroyed database was keyed on the
+DSN string, so `…@localhost/drinkx_test` and `…@localhost:5432/drinkx_test` —
+the same database — produced different keys and did not exclude each other.
+Keying it on the resolved target fixed the port half and left the host half:
+`localhost` and `127.0.0.1` are one server written two ways, and again gave
+two keys. An advisory lock is scoped to the whole server, so the key now names
+only the purpose and the database, and the address is left out of it entirely.
+The probe database also gets a lock of its own, held for the whole fixture
+lifetime from the admin database, because a connection inside a database
+cannot guard that database's own DROP.
 
 This is a helper for these test resources, not a general locking service.
 """
@@ -69,15 +73,23 @@ def validate_database_identifier(name: object, *, purpose: str) -> str:
     return name
 
 
-def advisory_key(host: str, port: int, database: str, *, purpose: str) -> int:
+def advisory_key(database: str, *, purpose: str) -> int:
     """A stable PostgreSQL advisory-lock key for one database and one purpose.
 
-    Derived from the resolved target, never from the DSN string, so the same
-    database always yields the same key no matter how it was spelled or which
-    credentials were used. The purpose keeps unrelated locks on one database
-    from colliding.
+    Derived from the database name alone — never from the DSN string, and no
+    longer from the host or port. A PostgreSQL advisory lock lives in one lock
+    space per server, so the server is already fixed by the connection the lock
+    is taken on. Putting its address into the key adds nothing, while a second
+    spelling of that address — `localhost` against `127.0.0.1`, a name against
+    its IP — silently produced a second key for the same database, and two
+    destructive runs stopped excluding each other (review finding P2-1).
+
+    The database name keeps two disposable databases on one server apart; the
+    purpose keeps unrelated locks on one database from colliding. Host and port
+    are still checked by `assert_disposable` — they identify the target, they
+    just do not identify the lock.
     """
-    payload = f"{purpose}|{host.lower()}|{int(port)}|{database}"
+    payload = f"{purpose}|{database}"
     return int.from_bytes(hashlib.sha256(payload.encode()).digest()[:8], "big") % (2**63)
 
 
@@ -130,12 +142,12 @@ def plan_probe_database(main_url: str, probe_name: object, *, purpose: str) -> P
     # 5. The administrative connection inherits the validated host and port.
     admin_url = urlunsplit((parts.scheme, parts.netloc, f"/{ADMIN_DATABASE}", "", ""))
 
-    host, port, name = probe_target
+    name = probe_target[2]
     return ProbePlan(
         database=name,
         probe_url=probe_url,
         admin_url=admin_url,
-        lock_key=advisory_key(host, port, name, purpose=purpose),
+        lock_key=advisory_key(name, purpose=purpose),
     )
 
 

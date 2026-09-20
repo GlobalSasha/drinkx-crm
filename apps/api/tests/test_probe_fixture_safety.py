@@ -188,8 +188,18 @@ EQUIVALENT = [
 
 
 def test_every_spelling_of_one_database_gets_one_key():
-    keys = {advisory_key(*resolved_target(u), purpose="p") for u in EQUIVALENT}
+    keys = {advisory_key(resolved_target(u)[2], purpose="p") for u in EQUIVALENT}
     assert len(keys) == 1, f"one database produced {len(keys)} different lock keys"
+
+
+def test_two_names_for_one_host_get_one_key():
+    """IMPLEMENTER (P2-1): `localhost` and `127.0.0.1` are one server."""
+    aliases = [
+        "postgresql+asyncpg://ci:dummy@localhost:5432/drinkx_test",
+        "postgresql+asyncpg://ci:dummy@127.0.0.1:5432/drinkx_test",
+    ]
+    keys = {advisory_key(resolved_target(u)[2], purpose="p") for u in aliases}
+    assert len(keys) == 1, "two names for one host produced two lock keys"
 
 
 def test_the_resolved_target_matches_what_the_driver_would_use():
@@ -205,11 +215,19 @@ def test_the_resolved_target_matches_what_the_driver_would_use():
         assert resolved_target(url) == driver, url
 
 
-def test_advisory_key_normalises_what_it_is_given():
-    """Defence in depth: the caller normalises, and so does the key function."""
-    base = advisory_key("localhost", 5432, "drinkx_test", purpose="p")
-    assert advisory_key("LOCALHOST", 5432, "drinkx_test", purpose="p") == base
-    assert advisory_key("localhost", "5432", "drinkx_test", purpose="p") == base
+def test_the_address_does_not_enter_the_key():
+    """The key is the purpose and the database, nothing else (P2-1).
+
+    A lock lives in one space per server, and the connection already fixes the
+    server, so no spelling of the address may change the key.
+    """
+    base = advisory_key("drinkx_test", purpose="p")
+    for url in (
+        "postgresql+asyncpg://ci:dummy@localhost/drinkx_test",
+        "postgresql+asyncpg://ci:dummy@127.0.0.1:5432/drinkx_test",
+        "postgresql+asyncpg://ci:dummy@LOCALHOST:5432/drinkx_test",
+    ):
+        assert advisory_key(resolved_target(url)[2], purpose="p") == base, url
 
 
 def test_the_suite_schema_lock_is_keyed_on_the_resolved_target():
@@ -222,23 +240,24 @@ def test_the_suite_schema_lock_is_keyed_on_the_resolved_target():
     key = getattr(conftest, "_SCHEMA_LOCK_KEY", None)
     if key is None:
         pytest.skip("the schema lock only exists when PostgreSQL is configured")
-    expected = advisory_key(*resolved_target(conftest.TEST_DB_URL), purpose="drinkx:test-schema")
+    expected = advisory_key(
+        resolved_target(conftest.TEST_DB_URL)[2], purpose="drinkx:test-schema"
+    )
     assert key == expected, (
-        "the schema lock key is not derived from the resolved target, so the "
-        "same database written another way would get a different key"
+        "the schema lock key is not derived from the resolved database name, "
+        "so the same database written another way would get a different key"
     )
 
 
 def test_different_databases_and_purposes_get_different_keys():
-    a = advisory_key("localhost", 5432, "drinkx_test", purpose="p")
-    b = advisory_key("localhost", 5432, "drinkx_ci", purpose="p")
-    c = advisory_key("localhost", 5433, "drinkx_test", purpose="p")
-    d = advisory_key("localhost", 5432, "drinkx_test", purpose="other")
-    assert len({a, b, c, d}) == 4
+    a = advisory_key("drinkx_test", purpose="p")
+    b = advisory_key("drinkx_ci", purpose="p")
+    c = advisory_key("drinkx_test", purpose="other")
+    assert len({a, b, c}) == 3
 
 
 def test_the_key_stays_inside_the_signed_64_bit_range():
-    key = advisory_key("localhost", 5432, "drinkx_test", purpose="p")
+    key = advisory_key("drinkx_test", purpose="p")
     assert 0 <= key < 2**63
 
 
