@@ -283,7 +283,15 @@ async def test_the_worker_rechecks_targets_before_writing(db, workspace):
                 "company_name": "Компания коллеги",
                 "inn": None,
                 "lead_id": str(theirs.id),
-                "changes": [{"field": "city", "before": None, "after": "Казань"}],
+                # `tags` + `op: add` worker действительно применяет.
+                # Раньше здесь было `city` с before/after — таких полей
+                # `Change` не читает, и «город остался пустым» выполнялось
+                # само собой, независимо от прав (ревью SEC2-T1).
+                # Положительный контроль тем же изменением — в
+                # test_sec02_worker_authz.py.
+                "changes": [
+                    {"field": "tags", "op": "add", "value": ["security-test-marker"]}
+                ],
                 "error": None,
                 "match_confidence": "high",
             }
@@ -311,6 +319,8 @@ async def test_the_worker_rechecks_targets_before_writing(db, workspace):
         jobs_mod._build_task_engine_and_factory = orig
 
     await db.refresh(theirs)
-    assert theirs.city is None, "чужая карточка не должна была измениться"
+    assert "security-test-marker" not in (theirs.tags_json or []), (
+        "чужая карточка не должна была измениться"
+    )
     await db.refresh(job)
     assert job.failed == 1 and job.succeeded == 0, (job.failed, job.succeeded, result)

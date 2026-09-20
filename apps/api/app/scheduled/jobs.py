@@ -784,29 +784,63 @@ async def _run_bulk_update(job_id: UUID) -> dict:
             # менеджеру, автора понизили в роли. Доверять разбору,
             # сделанному в другой момент времени, для записи нельзя
             # (аудит SEC-02-H).
+            from types import SimpleNamespace
+
             from app.auth.models import User as _User
             from app.leads.access import may_access_lead as _may_access
             from app.leads.models import Lead as _Lead
 
-            author = None
-            if user_id is not None:
-                author = (
+            async def _current_author():
+                """Действующий автор задания — заново, перед каждой строкой.
+
+                Раньше он читался один раз до цикла. Сессия живёт с
+                `expire_on_commit=False`, задание применяется построчно с
+                коммитом после каждой, и роль, отозванная между двумя уже
+                закоммиченными строками, worker'ом не замечалась
+                (ревью SEC2-F1).
+
+                Читаются скаляры, а не ORM-объект: повторный
+                `select(User)` вернул бы тот же экземпляр из карты
+                идентичности с прежними атрибутами, то есть ничего бы не
+                освежил.
+                """
+                if user_id is None:
+                    return None
+                row = (
                     await session.execute(
-                        select(_User).where(_User.id == user_id)
+                        select(_User.id, _User.role, _User.workspace_id).where(
+                            _User.id == user_id
+                        )
                     )
-                ).scalar_one_or_none()
+                ).first()
+                if row is None:
+                    return None
+                return SimpleNamespace(
+                    id=row.id, role=row.role, workspace_id=row.workspace_id
+                )
 
             async def _target_allowed(item) -> bool:
-                """Можно ли автору задания менять эту карточку."""
+                """Можно ли автору задания применить эту строку прямо сейчас."""
+                author = await _current_author()
+                if author is None:
+                    # Нет действующего автора — нет и полномочий. Это
+                    # относится и к созданию: раньше ветка `lead_id is
+                    # None` отвечала «можно» до всякой проверки, и задание
+                    # без автора заводило карточки. Подставлять вместо
+                    # него admin/head нельзя, отдельного системного актора
+                    # в этом worker нет.
+                    return False
+                if author.workspace_id != workspace_id:
+                    # Автора перевели в другое пространство — к этому
+                    # заданию он больше отношения не имеет.
+                    return False
                 if item.lead_id is None:
                     return True  # создание новой карточки
-                if author is None:
-                    # Задание без автора применять некому: раньше такие
-                    # строки проходили как «системные».
-                    return False
                 target = (
                     await session.execute(
-                        select(_Lead).where(_Lead.id == UUID(str(item.lead_id)))
+                        select(_Lead)
+                        .where(_Lead.id == UUID(str(item.lead_id)))
+                        .execution_options(populate_existing=True)
                     )
                 ).scalar_one_or_none()
                 return _may_access(author, target)
@@ -821,8 +855,10 @@ async def _run_bulk_update(job_id: UUID) -> dict:
                             message="нет доступа к этой карточке",
                         ))
                         job.failed += 1
-                        job.processed += 1
-                        await session.commit()
+                        # `processed` и коммит — в `finally`: он
+                        # выполняется и после `continue`, поэтому
+                        # увеличивать счётчик здесь означало считать одну
+                        # строку дважды (ревью SEC2-F2).
                         continue
                     if item.error:
                         # Resolution-time error — count as failed but
