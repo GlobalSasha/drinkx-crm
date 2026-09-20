@@ -28,10 +28,6 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
-
-# Configures every SQLAlchemy mapper; without it a run of this file on its own
-# dies resolving a relationship string to a model nothing here imports.
-import app.main  # noqa: F401
 from tests.conftest import POSTGRES_AVAILABLE
 
 skip_no_pg = pytest.mark.skipif(not POSTGRES_AVAILABLE, reason="requires PostgreSQL")

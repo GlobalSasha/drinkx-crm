@@ -26,7 +26,6 @@ import uuid
 
 import pytest
 
-import app.main  # noqa: F401  — настраивает мапперы SQLAlchemy
 from tests.conftest import POSTGRES_AVAILABLE
 from tests.test_sec01_lead_scoped_access import _lead, _user
 

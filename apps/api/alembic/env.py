@@ -10,28 +10,10 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 # Import settings + Base + ALL models so metadata is populated.
+# Список моделей один на проект — app/models_registry.py. Раньше он дублировался
+# здесь вручную и отставал от дерева. target_metadata — тот же Base.metadata.
 from app.config import get_settings
-from app.common.models import Base
-from app.auth import models as _auth_models  # noqa: F401
-from app.base_update import models as _base_update_models  # noqa: F401
-from app.pipelines import models as _pipeline_models  # noqa: F401
-from app.leads import models as _leads_models        # noqa: F401
-from app.contacts import models as _contacts_models  # noqa: F401
-from app.activity import models as _activity_models  # noqa: F401
-from app.followups import models as _followups_models  # noqa: F401
-from app.enrichment import models as _enrichment_models  # noqa: F401
-from app.daily_plan import models as _daily_plan_models  # noqa: F401
-from app.notifications import models as _notifications_models  # noqa: F401
-from app.audit import models as _audit_models  # noqa: F401
-from app.inbox import models as _inbox_models  # noqa: F401
-from app.import_export import models as _import_export_models  # noqa: F401
-from app.forms import models as _forms_models  # noqa: F401
-from app.custom_attributes import models as _custom_attr_models  # noqa: F401
-from app.template import models as _template_models  # noqa: F401
-from app.automation_builder import models as _automation_builder_models  # noqa: F401
-from app.quotas import models as _quotas_models  # noqa: F401
-from app.utm import models as _utm_models  # noqa: F401
-from app.presence import models as _presence_models  # noqa: F401
+from app.models_registry import Base  # noqa: F401 — импорт наполняет metadata
 
 config = context.config
 

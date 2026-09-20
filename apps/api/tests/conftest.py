@@ -162,7 +162,11 @@ if POSTGRES_AVAILABLE and PYTEST_ASYNCIO_AVAILABLE:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
     from sqlalchemy.pool import NullPool
 
-    from app.common.models import Base
+    # Реестр моделей, а не отдельные домены: create_all видит только уже
+    # импортированные модули, поэтому без него одиночный прогон вроде
+    # `pytest tests/activity` получал обрезанную схему и падал на FK
+    # contacts.company_id → companies. Реестр не тянет роутеры и Celery.
+    from app.models_registry import Base
 
     # NullPool: never reuse a connection across event loops. pytest-asyncio runs
     # each test on a fresh function-scoped loop, so a pooled connection bound to

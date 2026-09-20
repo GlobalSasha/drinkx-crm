@@ -85,10 +85,6 @@ def _stub_sqlalchemy():
 
 _stub_sqlalchemy()
 
-# Владение задачей читает `import_jobs.user_id` — внешний ключ на `users`.
-# Схему для фикстур собирает `create_all`, а он видит только импортированные
-# модели, поэтому нужен полный импорт приложения (см. P2-5 в бэклоге).
-import app.main  # noqa: E402,F401
 import app.import_export.services as svc  # noqa: E402
 from app.import_export.models import ImportJobStatus  # noqa: E402
 
