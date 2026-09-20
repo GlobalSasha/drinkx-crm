@@ -347,9 +347,14 @@ async def test_receive_matched_inbound_writes_activity_and_kicks_agent():
     )
 
     with patch.object(msg_svc, "_enqueue_lead_agent_refresh", _fake_refresh):
-        msg, created = await msg_svc.receive(
+        msg, created, after_commit = await msg_svc.receive(
             db, workspace_id=WS, payload=payload
         )
+        # БЫЛО: refresh ставился внутри незакоммиченной транзакции.
+        # СТАЛО (S-6): откладывается до коммита вызывающим.
+        assert refresh_calls == [], "до коммита очередь не трогаем"
+        for enqueue in after_commit:
+            enqueue()
 
     assert created is True
     # 1 InboxMessage + 1 Activity
@@ -396,9 +401,11 @@ async def test_receive_unmatched_skips_activity_and_agent():
     )
 
     with patch.object(msg_svc, "_enqueue_lead_agent_refresh", _fake_refresh):
-        msg, created = await msg_svc.receive(
+        msg, created, after_commit = await msg_svc.receive(
             db, workspace_id=WS, payload=payload
         )
+        for enqueue in after_commit:
+            enqueue()
 
     assert created is True
     # Only the InboxMessage row — no Activity, no refresh

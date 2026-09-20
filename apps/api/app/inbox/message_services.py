@@ -19,6 +19,7 @@ table. The surface:
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from uuid import UUID
 
 import structlog
@@ -160,15 +161,22 @@ async def receive(
     *,
     workspace_id: UUID,
     payload: WebhookPayload,
-) -> tuple[InboxMessage, bool]:
+) -> tuple[InboxMessage, bool, list[Callable[[], None]]]:
     """Persist an inbound webhook payload.
 
-    Returns (message, created) where `created` is False when the same
-    `(channel, external_id)` already existed — dedup for retried
+    Returns (message, created, after_commit) where `created` is False when
+    the same `(channel, external_id)` already existed — dedup for retried
     webhook deliveries. The DB also enforces this via the UNIQUE INDEX
     `uq_inbox_msg_external`; the Python-level pre-check just keeps
     error noise out of the logs.
+
+    S-6: постановка задач в очередь НЕ делается здесь. Транзакцию коммитит
+    вызывающий (вебхук), и до коммита сообщения в базе ещё нет — worker,
+    успевший стартовать, увидел бы пустоту, а откат оставил бы задачу в
+    очереди навсегда. `after_commit` — список функций без аргументов,
+    который вызывающий обязан прогнать ПОСЛЕ успешного commit.
     """
+    after_commit: list[Callable[[], None]] = []
     if payload.external_id:
         existing = await session.execute(
             select(InboxMessage)
@@ -178,7 +186,7 @@ async def receive(
         )
         prior = existing.scalar_one_or_none()
         if prior is not None:
-            return prior, False
+            return prior, False, after_commit
 
     lead_id = await match_lead(
         session, workspace_id=workspace_id, payload=payload
@@ -228,7 +236,9 @@ async def receive(
             ws = ws_res.scalar_one_or_none()
             ai_block = (ws.settings_json or {}).get("ai", {}) if ws else {}
             if bool(ai_block.get("auto_lead_agent_refresh_on_inbound", False)):
-                _enqueue_lead_agent_refresh(lead_id, countdown=900)
+                after_commit.append(
+                    lambda: _enqueue_lead_agent_refresh(lead_id, countdown=900)
+                )
 
     # Phone calls that landed with a recording → kick the transcription
     # job (G4b). Missed calls and recording-less rows skip this — there
@@ -238,7 +248,8 @@ async def receive(
         and payload.call_status == "answered"
         and payload.media_url
     ):
-        _enqueue_transcribe(msg.id, countdown=30)
+        message_id = msg.id
+        after_commit.append(lambda: _enqueue_transcribe(message_id, countdown=30))
 
     log.info(
         "inbox.message.received",
@@ -247,7 +258,7 @@ async def receive(
         matched=lead_id is not None,
         external_id=payload.external_id,
     )
-    return msg, True
+    return msg, True, after_commit
 
 
 def _enqueue_lead_agent_refresh(lead_id: UUID, *, countdown: int) -> None:
