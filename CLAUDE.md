@@ -105,9 +105,15 @@ NOT Vercel/Railway. Earlier docs reflected the original plan — this section
 is the canonical truth.
 
 - **Trigger**: every push to `main` fires `.github/workflows/deploy.yml` (job
-  «Deploy to crm.drinkx.tech»). The workflow SSHes into the server and runs
-  `infra/production/deploy.sh` — which `git pull`s, `docker compose build`s
-  the `web`, `api`, `worker`, and `beat` services, then health-checks `/health`.
+  «Deploy to crm.drinkx.tech»), after the mandatory checks in `quality.yml` pass
+  on that exact commit. The workflow ships a `git archive` of the commit to the
+  server, unpacks it into a clean `/opt/drinkx-crm/releases/<sha>/`, and runs
+  `infra/production/deploy.sh` from there — `docker compose build` of `web`,
+  `api`, `worker`, `beat`, health checks, then a check that the running
+  containers came from the images this build produced. The server never talks
+  to GitHub and nothing is `git pull`ed there. Secrets live in
+  `/opt/drinkx-crm/shared/.env`, outside every release tree. Details and
+  rollback: `infra/production/RELEASE_GATE.md`.
 - **Frontend (`apps/web`)**: Next.js 15 inside the `web` container; built via
   `pnpm build` during `docker compose build`.
 - **Backend (`apps/api`)**: FastAPI in `api`; Celery worker in `worker`;

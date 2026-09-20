@@ -70,9 +70,6 @@ jobs:
       # (2026-07-14). The runner always has GitHub — so it ships the code and
       # the server never talks to GitHub at all.
       #
-      # No --delete: `git reset --hard` never removed untracked files either,
-      # and a stray --delete here would wipe infra/production/.env (the prod
-      # secrets, deliberately not in git). .env is excluded twice on purpose.
       # Serialised by the concurrency group above, so by the time this runs a
       # newer candidate may already have been merged and be queued behind us.
       # Shipping now would put the older tree on the server and leave the newer
@@ -91,19 +88,45 @@ jobs:
           fi
           echo "still the tip of main: $TIP"
 
-      - name: Ship code to server
+      # G4 / DEBT-01. This used to be `rsync` without --delete into one
+      # long-lived /opt/drinkx-crm. A file deleted from git therefore stayed on
+      # the server, and the Dockerfile copies whole directories
+      # (`COPY apps/api/app ./app`, `COPY docs ./docs`), so a removed module
+      # could still be baked into the image. --delete was not an option there:
+      # the same directory holds infra/production/.env, the production secrets,
+      # deliberately not in git.
+      #
+      # So the unit of delivery is now an archive of the commit's tree, not a
+      # sync of a working directory. `git archive` cannot emit an untracked or
+      # a deleted file, and the server unpacks it into an empty per-SHA
+      # directory. Secrets stay in shared/.env, outside every release tree, and
+      # nothing under /opt/drinkx-crm is deleted wholesale.
+      - name: Build release archive
         run: |
-          rsync -az --timeout=60 \
-            -e "ssh -i ~/.ssh/deploy_key -o ServerAliveInterval=30 -o ServerAliveCountMax=10" \
-            --exclude='.git/' \
-            --exclude='.env' \
-            --exclude='.env.*' \
-            --exclude='infra/production/.env' \
-            --exclude='node_modules/' \
-            --exclude='.next/' \
-            --exclude='__pycache__/' \
-            --exclude='.venv/' \
-            ./ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/drinkx-crm/"
+          infra/production/make_release_archive.sh \
+            "${{ github.sha }}" "$RUNNER_TEMP/${{ github.sha }}.tar.gz"
+
+      - name: Ship release archive to server
+        run: |
+          SSH_OPTS="-i ~/.ssh/deploy_key -o ConnectTimeout=30 -o ServerAliveInterval=30 -o ServerAliveCountMax=10"
+          # shellcheck disable=SC2086
+          ssh $SSH_OPTS "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "mkdir -p /opt/drinkx-crm/incoming"
+          # shellcheck disable=SC2086
+          scp $SSH_OPTS \
+            "$RUNNER_TEMP/${{ github.sha }}.tar.gz" \
+            "$RUNNER_TEMP/${{ github.sha }}.tar.gz.sha256" \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/drinkx-crm/incoming/"
+
+      # Piped over stdin rather than run from a path on the server: the tree
+      # that would hold such a script is exactly the thing this step creates.
+      # The version that runs is always the one from the commit being released.
+      - name: Prepare clean release tree
+        run: |
+          ssh -i ~/.ssh/deploy_key -o ConnectTimeout=30 -o ServerAliveInterval=30 \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "DEPLOY_ROOT=/opt/drinkx-crm bash -s -- '${{ github.sha }}'" \
+            < infra/production/remote_prepare_release.sh
 
       # ServerAliveInterval keeps the session alive across the ~12-15m build,
       # which prints nothing for minutes at a time.
@@ -116,7 +139,7 @@ jobs:
         run: |
           ssh -o ConnectTimeout=30 -o ServerAliveInterval=30 -o ServerAliveCountMax=20 \
             -i ~/.ssh/deploy_key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
-            "DEPLOY_SHA='${{ github.sha }}' bash /opt/drinkx-crm/infra/production/deploy.sh"
+            "DEPLOY_SHA='${{ github.sha }}' bash /opt/drinkx-crm/releases/${{ github.sha }}/infra/production/deploy.sh"
 
       - name: Verify health
         run: |

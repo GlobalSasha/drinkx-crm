@@ -262,9 +262,16 @@ def run_scenario(sc: Scenario) -> tuple[bool, str]:
 
     with tempfile.TemporaryDirectory(prefix="drinkx-g1-") as tmp:
         work = Path(tmp)
-        script = work / "infra" / "production" / "deploy.sh"
+        # G4 layout: a verified release is built from a tree unpacked under
+        # <deploy root>/releases/<sha>, and the secrets live in shared/.env,
+        # outside every release tree. A hand-run deploy with no DEPLOY_SHA has
+        # no SHA to name its directory after.
+        tree = work / "releases" / (sc.deploy_sha or "manual")
+        script = tree / "infra" / "production" / "deploy.sh"
         script.parent.mkdir(parents=True)
         shutil.copy2(DEPLOY_SH, script)
+        (work / "shared").mkdir()
+        (work / "shared" / ".env").write_text("POSTGRES_PASSWORD=stub\n")
 
         mocks = work / "stub-bin"
         mocks.mkdir()

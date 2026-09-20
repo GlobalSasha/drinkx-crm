@@ -114,9 +114,12 @@ Local dev uses `.env.local` files. Production env vars live on the bare-metal se
 Production runs on a **bare-metal server** (`crm.drinkx.tech` / `77.105.168.227`), NOT
 Vercel/Railway.
 
-- **Trigger:** every push to `main` fires `.github/workflows/deploy.yml`. It SSHes into
-  the server and runs `infra/production/deploy.sh` — `git pull`, `docker compose build`
-  of `web`, `api`, `worker`, `beat`, then health-checks `/sign-in`.
+- **Trigger:** every push to `main` fires `.github/workflows/deploy.yml`, after
+  `quality.yml` passes on that exact commit. It ships a `git archive` of the commit,
+  unpacks it into a clean `/opt/drinkx-crm/releases/<sha>/`, and runs
+  `infra/production/deploy.sh` from there — `docker compose build` of `web`, `api`,
+  `worker`, `beat`, health checks, then an image-identity check. No `git pull` on the
+  server. Secrets: `/opt/drinkx-crm/shared/.env`. See `infra/production/RELEASE_GATE.md`.
 - **Frontend** (`apps/web`): Next.js 15 in the `web` container.
 - **Backend** (`apps/api`): FastAPI in `api`; Celery worker in `worker`; Celery beat in
   `beat` — all three share one image.

@@ -215,6 +215,18 @@ jobs:
       - name: Deploy script scenarios
         run: python3 infra/production/tests/test_deploy_release_gate.py
 
+      # The build context the server actually builds from must be the tree
+      # of the released commit — not a directory that accumulates whatever
+      # earlier releases left behind (audit G4 / DEBT-01). Runs the real
+      # archive + unpack scripts against throwaway git repositories.
+      - name: Release build context
+        run: python3 infra/production/tests/test_release_build_context.py
+
+      # The reproduction of the original defect, kept executable so it cannot
+      # quietly stop describing the delivery it is about.
+      - name: Build context reproduction
+        run: python3 infra/production/tests/repro_build_context_debt01.py
+
       # A managed interpreter: the runner's system python is
       # externally-managed (PEP 668), so pip refuses to install into it.
       - name: Set up Python

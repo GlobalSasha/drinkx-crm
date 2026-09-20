@@ -35,8 +35,29 @@ cd "$(dirname "$0")/../.."
 # running container was started from exactly those images and that their labels
 # match the requested commit.
 #
-# This proves WHICH BUILD is running. It does not prove the build context was
-# clean — a file deleted from git can survive on the server (audit DEBT-01/G4).
+# That proves WHICH BUILD is running. What it cannot prove on its own is that
+# the build context was clean: before G4 the code was rsynced into a single
+# long-lived directory without --delete, so a file deleted from git survived on
+# the server and the Dockerfile's directory-level COPYs could still pick it up.
+# A matching label said "built with this GIT_SHA", not "built from this tree".
+#
+# G4 closes that: a verified release is unpacked from `git archive <sha>` into
+# its own empty directory under <deploy root>/releases/<sha>, and this script
+# refuses to call a build verified unless it is running from exactly that
+# directory. See infra/production/remote_prepare_release.sh.
+
+# Where this copy of the repository lives, and where the server keeps its
+# per-release state. A prepared release sits at <deploy root>/releases/<sha>;
+# anything else (a hand-made checkout, the legacy /opt/drinkx-crm tree) is
+# treated as its own root and can only ever produce an unverified deploy.
+RELEASE_TREE="$(pwd -P)"
+if [ -n "${DRINKX_DEPLOY_ROOT:-}" ]; then
+  DEPLOY_ROOT="$DRINKX_DEPLOY_ROOT"
+elif [ "$(basename "$(dirname "$RELEASE_TREE")")" = "releases" ]; then
+  DEPLOY_ROOT="$(cd "$RELEASE_TREE/../.." && pwd -P)"
+else
+  DEPLOY_ROOT="$RELEASE_TREE"
+fi
 
 DEPLOY_SHA="${DEPLOY_SHA:-}"
 if [ -n "$DEPLOY_SHA" ]; then
@@ -78,7 +99,7 @@ BUILT_SERVICES="api web worker beat"
 # line order is not.
 compose_image_ref() {
   local svc="$1" cfg=""
-  cfg="$(run_bounded 60 docker compose --env-file .env config --format json 2>/dev/null || true)"
+  cfg="$(run_bounded 60 docker compose --env-file "$ENV_FILE" config --format json 2>/dev/null || true)"
   [ -n "$cfg" ] || return 0
   printf '%s' "$cfg" | python3 -c '
 import json, sys
@@ -109,7 +130,7 @@ image_revision_of() {
 # Image ID a running container was actually started from.
 container_image_of() {
   local svc="$1" cid=""
-  cid="$(run_bounded 30 docker compose --env-file .env ps -q "$svc" \
+  cid="$(run_bounded 30 docker compose --env-file "$ENV_FILE" ps -q "$svc" \
            2>/dev/null | head -n 1 | tr -d '\r' || true)"
   [ -n "$cid" ] || return 0
   run_bounded 30 docker inspect --format '{{.Image}}' "$cid" \
@@ -133,6 +154,40 @@ fail() {
   exit 1
 }
 
+# ---------------------------------------------------------------------------
+# 0. Build context. A verified release must come from a tree that was unpacked
+#    from `git archive <sha>` into an empty directory — not from a directory
+#    that accumulates. Without this check the rest of the gate still passes
+#    while a file deleted from git, or a file never in git at all, rides along
+#    inside the image (audit DEBT-01 / G4).
+# ---------------------------------------------------------------------------
+if [ "$VERIFY_VERSION" -eq 1 ]; then
+  expected_tree="$DEPLOY_ROOT/releases/$DEPLOY_SHA"
+  if [ "$RELEASE_TREE" != "$(cd "$expected_tree" 2>/dev/null && pwd -P || echo "")" ]; then
+    echo "✗ a verified release must be built from $expected_tree, this run is in $RELEASE_TREE" >&2
+    echo "  prepare the tree first: ssh <host> \"DEPLOY_ROOT=$DEPLOY_ROOT bash -s -- $DEPLOY_SHA\" < infra/production/remote_prepare_release.sh" >&2
+    echo "DEPLOY_RESULT=failed"
+    exit 1
+  fi
+  echo "==> Build context: $RELEASE_TREE (unpacked from git archive $DEPLOY_SHA)"
+fi
+
+# The environment file is server-owned state and deliberately outside every
+# release tree: a release directory holds exactly the tracked tree of its
+# commit, and secrets are not in git. shared/.env is the layout G4 introduces;
+# the legacy in-place path is still accepted so an existing server keeps
+# working without a manual migration step.
+ENV_FILE=""
+for candidate in "${DRINKX_ENV_FILE:-}" "$DEPLOY_ROOT/shared/.env" "$DEPLOY_ROOT/infra/production/.env"; do
+  if [ -n "$candidate" ] && [ -f "$candidate" ]; then ENV_FILE="$candidate"; break; fi
+done
+if [ -z "$ENV_FILE" ]; then
+  echo "✗ no environment file: looked for $DEPLOY_ROOT/shared/.env and $DEPLOY_ROOT/infra/production/.env" >&2
+  echo "DEPLOY_RESULT=failed"
+  exit 1
+fi
+echo "==> Environment file: $ENV_FILE"
+
 echo "==> Cleanup orphan rename stubs from prior partial runs"
 docker ps -a --format '{{.Names}}' | grep -E '^[a-f0-9]+_drinkx-' | xargs -r docker rm -f || true
 
@@ -147,7 +202,7 @@ cd infra/production
 # release. Build is now its own step and its failure is terminal.
 # ---------------------------------------------------------------------------
 echo "==> Build images"
-if ! docker compose --env-file .env build \
+if ! docker compose --env-file "$ENV_FILE" build \
        --build-arg GIT_SHA="${DEPLOY_SHA:-unknown}"; then
   fail "image build failed — the previous release is still running, nothing was replaced"
 fi
@@ -181,9 +236,9 @@ fi
 # 2. Start the freshly built images.
 # ---------------------------------------------------------------------------
 echo "==> Start containers"
-if ! docker compose --env-file .env up -d --remove-orphans; then
+if ! docker compose --env-file "$ENV_FILE" up -d --remove-orphans; then
   echo "⚠ First 'up' failed — retrying once for containers left in Created state"
-  if ! docker compose --env-file .env up -d; then
+  if ! docker compose --env-file "$ENV_FILE" up -d; then
     fail "containers could not be started"
   fi
 fi
@@ -231,7 +286,7 @@ done
 echo "==> Worker/beat health check"
 WORKER_OK=0
 for i in 1 2 3 4 5 6 7 8 9 10; do
-  if run_bounded 30 docker compose --env-file .env exec -T worker \
+  if run_bounded 30 docker compose --env-file "$ENV_FILE" exec -T worker \
       uv run celery -A app.scheduled.celery_app inspect ping -t 5 > /dev/null 2>&1; then
     echo "✓ Celery worker responds to ping"
     WORKER_OK=1
@@ -242,7 +297,7 @@ for i in 1 2 3 4 5 6 7 8 9 10; do
 done
 [ "$WORKER_OK" -eq 1 ] || fail "Celery worker did not respond to inspect ping — background jobs are down"
 
-if run_bounded 30 docker compose --env-file .env ps --status running beat | grep -q beat; then
+if run_bounded 30 docker compose --env-file "$ENV_FILE" ps --status running beat | grep -q beat; then
   echo "✓ Celery beat container running"
 else
   fail "Celery beat container is not running"
@@ -275,6 +330,26 @@ if [ "$VERIFY_VERSION" -eq 1 ]; then
     fi
     echo "  ✓ $svc runs $running_rev"
   done
+fi
+
+# ---------------------------------------------------------------------------
+# 5. Publish which release is live. The containers are already running from
+#    the verified images, so this symlink is a record, not a switch: it is what
+#    an operator follows to find the tree production was built from, and what
+#    the pruner protects from deletion. It moves only after every check above
+#    has passed, so a failed preparation or a failed build leaves it pointing
+#    at the release that is still serving traffic.
+#
+#    Written as rm + ln rather than `mv -T`: -T is GNU-only, and a plain `mv`
+#    of a symlink onto a symlink-to-directory moves it *into* that directory.
+#    Nothing reads `current` during a deploy, so the brief gap is harmless.
+# ---------------------------------------------------------------------------
+if [ "$VERIFY_VERSION" -eq 1 ] && [ "$RELEASE_TREE" != "$DEPLOY_ROOT" ]; then
+  if rm -f "$DEPLOY_ROOT/current" && ln -s "$RELEASE_TREE" "$DEPLOY_ROOT/current"; then
+    echo "==> current -> $RELEASE_TREE"
+  else
+    echo "⚠ could not update $DEPLOY_ROOT/current — the release IS live, the pointer is stale"
+  fi
 fi
 
 echo "==> Done"

@@ -1,0 +1,12 @@
+# The web image does `COPY . .` over this whole directory, so anything sitting
+# here lands in the builder stage. Since G4 the production context is a clean
+# `git archive` tree; locally it is whoever's working directory.
+.env
+.env.*
+!.env.example
+!.env.local.example
+node_modules/
+.next/
+.turbo/
+coverage/
+.DS_Store
