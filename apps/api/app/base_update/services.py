@@ -28,6 +28,13 @@ from app.leads.models import Lead
 from app.pipelines import repositories as pipelines_repo
 
 
+# Имена полей контакта в извлечённой карточке (`ExtractedContact`) и в модели
+# `Contact` расходятся: `telegram`/`linkedin` против `telegram_url`/`linkedin_url`.
+# ARCH-DELTA-001: исполнитель конфликтов этого не учитывал — `add_contact` падал
+# с `TypeError`, а `update_contact_field` тихо писал атрибут мимо колонки.
+CONTACT_FIELD_ALIASES = {"telegram": "telegram_url", "linkedin": "linkedin_url"}
+
+
 @dataclass
 class CompanyMatch:
     action: str  # "create" | "update" | "ambiguous"
@@ -379,12 +386,7 @@ async def apply_record(
                 incoming_v = getattr(ctc, field_name, None)
                 # For Contact model fields that differ in name (telegram_url, linkedin_url),
                 # map them when reading from the existing contact object.
-                if field_name == "telegram":
-                    base_v = getattr(base, "telegram_url", None)
-                elif field_name == "linkedin":
-                    base_v = getattr(base, "linkedin_url", None)
-                else:
-                    base_v = getattr(base, field_name, None)
+                base_v = getattr(base, CONTACT_FIELD_ALIASES.get(field_name, field_name), None)
                 if not (incoming_v or "") or not str(incoming_v).strip():
                     continue
                 if not (base_v or "") or _norm(base_v) == _norm(incoming_v):
@@ -567,7 +569,7 @@ async def _execute_op(db: AsyncSession, *, workspace_id, cf: IngestConflict, op:
                 workspace_id=workspace_id,
                 lead_id=cf.record.match_lead_id,
                 contact_id=uuid.UUID(str(contact_id)),
-                patch_dict={field: value},
+                patch_dict={CONTACT_FIELD_ALIASES.get(field, field): value},
             )
             return True
         except Exception as exc:  # noqa: BLE001
@@ -636,8 +638,8 @@ async def _execute_op(db: AsyncSession, *, workspace_id, cf: IngestConflict, op:
                     "role_type": data.get("role_type"),
                     "email": data.get("email"),
                     "phone": data.get("phone"),
-                    "telegram": data.get("telegram"),
-                    "linkedin": data.get("linkedin"),
+                    "telegram_url": data.get("telegram"),
+                    "linkedin_url": data.get("linkedin"),
                     "source": "base_update",
                     "verified_status": "to_verify",
                 },

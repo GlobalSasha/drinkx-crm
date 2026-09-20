@@ -585,22 +585,20 @@ async def test_q12_repeat_base_update_apply_duplicates_new_lead(db):
 
 @skip_no_pg
 @pytest.mark.asyncio
-async def test_q12_bonus_add_contact_op_is_broken_by_field_name_mismatch(db):
-    """Побочная находка разведки Q-12, не из документа фазы 1.
+async def test_q12_bonus_add_contact_op_maps_contact_field_names(db):
+    """Побочная находка разведки Q-12 (ARCH-DELTA-001), не из документа фазы 1.
 
-    `_execute_op`'s `add_contact` (`services.py:620-652`) собирает
-    аргументы `create_contact` как `{"telegram": …, "linkedin": …}`, но
-    модель `Contact` называет эти поля `telegram_url`/`linkedin_url`
-    (`app/contacts/models.py:63-64`; тот же файл двумя функциями выше,
-    в `apply_record`, честно комментирует именно это несовпадение имён
-    для diff'а полей — но исполнитель конфликта его не учёл).
-    Результат: ЛЮБОЙ `R_ADD_SEPARATE` по контакту падает с
-    `TypeError: 'telegram' is an invalid keyword argument for Contact`
-    ещё до того, как встаёт вопрос о повторном применении. Конфликт
-    при этом не зависает — `apply_resolutions` перехватывает `False` из
-    `_execute_op` и возвращает статус в `open` (`services.py:698`), так
-    что попытка отличима и повторяема, но результат — 0 контактов, а не
-    1 и не 2.
+    БЫЛО: `_execute_op`'s `add_contact` собирал аргументы `create_contact`
+    как `{"telegram": …, "linkedin": …}`, а модель `Contact` называет эти
+    поля `telegram_url`/`linkedin_url` (`app/contacts/models.py:63-64`).
+    ЛЮБОЙ `R_ADD_SEPARATE` по контакту падал с `TypeError: 'telegram' is
+    an invalid keyword argument for Contact`, конфликт возвращался в
+    `open`, контактов создавалось 0.
+
+    СТАЛО: `CONTACT_FIELD_ALIASES` переводит имена извлечённой карточки в
+    имена колонок — контакт создаётся, запись без ошибки, статус конфликта
+    остаётся `resolved` (терминального состояния у применённого решения
+    по-прежнему нет — это F-8/A-3, отдельный вопрос).
     """
     from sqlalchemy import func, select
 
@@ -640,14 +638,28 @@ async def test_q12_bonus_add_contact_op_is_broken_by_field_name_mismatch(db):
 
     await run_apply_resolutions(db=db, job_id=job.id)
 
+    # было: 0 (падало на TypeError) → стало: 1 созданный контакт.
     count_stmt = select(func.count(Contact.id)).where(Contact.lead_id == lead.id)
-    assert (await db.execute(count_stmt)).scalar_one() == 0, "add_contact падает раньше, чем успевает что-то создать"
+    assert (await db.execute(count_stmt)).scalar_one() == 1, "add_contact создаёт отдельный контакт"
+
+    created = (
+        await db.execute(select(Contact).where(Contact.lead_id == lead.id))
+    ).scalars().one()
+    assert created.name == "Новый ЛПР"
+    assert created.email == "new-lpr@example.com"
+    # Поля-псевдонимы доезжают до колонок модели (в этом payload они None,
+    # но важно, что аргумент принят, а не отвергнут конструктором).
+    assert created.telegram_url is None
+    assert created.linkedin_url is None
+    assert created.source == "base_update"
 
     await db.refresh(record)
-    assert record.error == "add_contact failed: 'telegram' is an invalid keyword argument for Contact"
+    # было: "add_contact failed: 'telegram' is an invalid keyword argument…"
+    assert record.error is None
 
     await db.refresh(conflict)
-    assert conflict.status == c.CONFLICT_OPEN, "неудача бонусирует назад в open — это работает как задумано"
+    # было: CONFLICT_OPEN (откат после неудачи) → стало: успех статус не трогает.
+    assert conflict.status == c.CONFLICT_RESOLVED
 
 
 # ===========================================================================
