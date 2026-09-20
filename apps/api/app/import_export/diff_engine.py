@@ -358,7 +358,11 @@ async def compute_diff(
                 continue
             if actor is not None and not may_access_lead(actor, lead):
                 # Тот же текст, что и у ненайденного: существование чужой
-                # карточки подтверждать незачем.
+                # карточки подтверждать незачем. По той же причине сбрасываем
+                # match_confidence в "not_found" — иначе "exact_inn" рядом с
+                # ошибкой «Лид не найден» отличал бы «есть, но не ваш» от
+                # «такого нет» (SEC-DELTA-002).
+                item.match_confidence = "not_found"
                 item.error = "Лид не найден"
                 out.append(item)
                 continue

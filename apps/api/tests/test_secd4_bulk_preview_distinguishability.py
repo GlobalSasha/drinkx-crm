@@ -275,11 +275,11 @@ async def test_preview03_mutation_guard_flags_stale_confidence(db, workspace):
     foreign, not_found = diff
     assert foreign.error == not_found.error == "Лид не найден"
 
-    # Текущий код (до фикса SEC-DELTA-002) оставляет "exact_inn" на отказе
-    # по правам — это и есть наблюдаемая утечка существования карточки.
-    if foreign.match_confidence != not_found.match_confidence:
-        pytest.xfail(
-            "SEC-DELTA-002 воспроизведён: match_confidence различает "
-            f"чужой лид ({foreign.match_confidence!r}) и несуществующий "
-            f"({not_found.match_confidence!r}) при одинаковом error"
-        )
+    # До фикса SEC-DELTA-002 код оставлял "exact_inn" на отказе по правам —
+    # это и была наблюдаемая утечка существования карточки. Вернёте старое
+    # присваивание — этот assert упадёт первым.
+    assert foreign.match_confidence == not_found.match_confidence, (
+        "SEC-DELTA-002 воспроизведён: match_confidence различает "
+        f"чужой лид ({foreign.match_confidence!r}) и несуществующий "
+        f"({not_found.match_confidence!r}) при одинаковом error"
+    )
