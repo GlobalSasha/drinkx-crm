@@ -68,20 +68,26 @@ export function TasksTab({ leadId }: Props) {
 
   const update = useUpdateTask();
   const [delegatingId, setDelegatingId] = useState<string | null>(null);
-  // Что человек выбрал, пока запрос в пути. На ошибке селектор остаётся
-  // открытым с этим значением — раньше он закрывался сразу после mutate, и
-  // при отказе выбор пропадал вместе с объяснением.
-  const [pendingAssignee, setPendingAssignee] = useState<string | null>(null);
+  // Что человек выбрал, пока запрос в пути, и в какой строке. На ошибке
+  // селектор остаётся открытым с этим значением — раньше он закрывался
+  // сразу после mutate, и при отказе выбор пропадал вместе с объяснением.
+  // Id задачи лежит рядом со значением: ожидание и ошибка принадлежат
+  // своей строке. Без него выбор и отказ по одной задаче протекали в
+  // селектор соседней.
+  const [pendingDelegate, setPendingDelegate] = useState<{
+    taskId: string;
+    value: string | null;
+  } | null>(null);
 
   const handleDelegate = (taskId: string, v: string | null) => {
     // Пусто — снять явного исполнителя, задачу делает владелец лида.
-    setPendingAssignee(v);
+    setPendingDelegate({ taskId, value: v });
     update.mutate(
       { taskId, body: { assignee_user_id: v }, leadId },
       {
         onSuccess: () => {
           setDelegatingId(null);
-          setPendingAssignee(null);
+          setPendingDelegate(null);
         },
       },
     );
@@ -281,6 +287,11 @@ export function TasksTab({ leadId }: Props) {
           {rows.map((a) => {
             const dueLabel = formatDue(a.task_due_at);
             const isExpanded = expanded.has(a.id);
+            // Ожидание и ошибка делегирования — только у той строки, из
+            // которой ушёл запрос.
+            const isDelegateOwner = pendingDelegate?.taskId === a.id;
+            const rowDelegatePending = isDelegateOwner && update.isPending;
+            const rowDelegateError = isDelegateOwner && update.isError;
             const toggle = () =>
               setExpanded((s) => {
                 const n = new Set(s);
@@ -332,8 +343,8 @@ export function TasksTab({ leadId }: Props) {
                       <div className="mt-2 max-w-xs">
                         <UserSelect
                           value={
-                            update.isError || update.isPending
-                              ? pendingAssignee
+                            rowDelegateError || rowDelegatePending
+                              ? (pendingDelegate?.value ?? null)
                               : a.explicit_assignee_user_id
                           }
                           onChange={(v) => handleDelegate(a.id, v)}
@@ -341,10 +352,10 @@ export function TasksTab({ leadId }: Props) {
                           meId={me?.id}
                           allowEmpty
                           emptyLabel="Владелец лида"
-                          disabled={update.isPending}
+                          disabled={rowDelegatePending}
                           aria-label="Кому поручить задачу"
                         />
-                        {update.isError && (
+                        {rowDelegateError && (
                           <p role="alert" className="mt-1 type-caption text-brand-danger">
                             {apiErrorDetail(update.error, "Не удалось поручить задачу")}
                           </p>
