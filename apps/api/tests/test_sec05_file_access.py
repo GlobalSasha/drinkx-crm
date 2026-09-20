@@ -76,6 +76,7 @@ class FakeStorage:
         self.uploaded: list[tuple[str, int, str]] = []
         self.signed: list[tuple[str, int]] = []
         self.deleted: list[str] = []
+        self.sent: list[str] = []  # celery task names dispatched via send_task
 
     async def upload(self, *, key, content, content_type):
         self.uploaded.append((key, len(content), content_type))
@@ -95,7 +96,12 @@ def storage(monkeypatch):
 
     fake = FakeStorage()
     monkeypatch.setattr(files_mod, "get_storage_client", lambda: fake)
-    monkeypatch.setattr(celery_app, "send_task", lambda *a, **kw: None)
+    # REV-01 (nonblocking): a plain no-op silently accepted a task dispatch a
+    # rejected upload should never make. A recording stub lets the forbidden-
+    # actor test assert nothing was queued, not just that nothing crashed.
+    monkeypatch.setattr(
+        celery_app, "send_task", lambda name, *a, **kw: fake.sent.append(name)
+    )
     return fake
 
 
@@ -400,6 +406,7 @@ async def test_stranger_and_other_workspace_cannot_upload(db, scene, storage):
         assert r.status_code in (403, 404), (actor.name, r.status_code, r.text[:200])
 
     assert storage.uploaded == []
+    assert storage.sent == [], "a rejected upload must not queue any celery task"
     after = (
         await db.execute(
             select(func.count()).select_from(Activity).where(Activity.lead_id == s["lead"].id)

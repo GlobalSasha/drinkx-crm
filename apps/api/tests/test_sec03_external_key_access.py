@@ -495,12 +495,69 @@ async def test_malformed_cursor_is_a_bad_request_not_a_wider_selection(db, two_w
             assert "Лид B" not in r.text and "Компания B" not in r.text
 
     # Разрешённый контроль: годный курсор по-прежнему листает страницу.
-    r = await ext(db, s["token_a"], "/external/v1/leads?limit=1")
-    assert r.status_code == 200, r.text
-    cursor = r.json()["next_cursor"]
-    if cursor:
-        r = await ext(db, s["token_a"], f"/external/v1/leads?limit=1&cursor={cursor}")
-        assert r.status_code == 200, r.text
+    #
+    # REV-02 (blocking): фикстура two_workspaces кладёт в пространство A
+    # ровно один лид и одну компанию, так что limit=1 сразу отдаёт
+    # has_more=False, next_cursor=None — ветка курсора не исполнялась
+    # никогда, а /external/v1/companies вовсе не проверялся. Добавляем
+    # второй лид и вторую компанию в пространство A, чтобы страница
+    # реально переворачивалась, и проверяем ОБА маршрута: две страницы по
+    # limit=1 вместе дают ровно два своих объекта без повторов, в порядке
+    # app/external/repositories.py (updated_at DESC, id DESC), вторая
+    # страница больше не листается, а чужие строки пространства B нигде
+    # не всплывают.
+    a_lead2 = await _lead(
+        db, s["a"].id, name="Лид A2", owner_id=s["a_user"].id, pipeline=s["a_pipe"]
+    )
+    a_co2 = await _company(db, s["a"].id, "Компания A2")
+    await db.commit()
+
+    def _by_repository_order(rows):
+        # app/external/repositories.py sorts updated_at DESC, id DESC for
+        # both leads and companies — mirrored here rather than assumed.
+        return sorted(rows, key=lambda row: (row.updated_at, row.id), reverse=True)
+
+    for path, own_rows, foreign_marker in (
+        ("/external/v1/leads", [s["a_lead"], a_lead2], "Лид B"),
+        ("/external/v1/companies", [s["a_co"], a_co2], "Компания B"),
+    ):
+        expected_order = _by_repository_order(own_rows)
+        own_ids = {row.id for row in own_rows}
+
+        r1 = await ext(db, s["token_a"], f"{path}?limit=1")
+        assert r1.status_code == 200, r1.text
+        page1 = r1.json()
+        assert len(page1["items"]) == 1, (path, page1)
+        assert page1["next_cursor"] is not None, (
+            f"{path}: two rows of our own but limit=1 came back with no "
+            "cursor — the valid-cursor control was vacuous"
+        )
+        assert foreign_marker not in r1.text
+
+        r2 = await ext(db, s["token_a"], f"{path}?limit=1&cursor={page1['next_cursor']}")
+        assert r2.status_code == 200, r2.text
+        page2 = r2.json()
+        assert len(page2["items"]) == 1, (path, page2)
+        assert page2["next_cursor"] is None, (path, page2)
+        assert foreign_marker not in r2.text
+
+        seen_ids = {
+            uuid.UUID(page1["items"][0]["id"]),
+            uuid.UUID(page2["items"][0]["id"]),
+        }
+        assert seen_ids == own_ids, (
+            f"{path}: the two pages together should be exactly our own two "
+            f"rows, no duplicates and nothing missing (got {seen_ids}, "
+            f"expected {own_ids})"
+        )
+        assert uuid.UUID(page1["items"][0]["id"]) == expected_order[0].id, (
+            f"{path}: first page did not match the repository's own "
+            "(updated_at DESC, id DESC) order"
+        )
+        assert uuid.UUID(page2["items"][0]["id"]) == expected_order[1].id, (
+            f"{path}: second page did not match the repository's own "
+            "(updated_at DESC, id DESC) order"
+        )
 
 
 @skip_no_pg
