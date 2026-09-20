@@ -18,7 +18,9 @@ from app.activity.schemas import (
     FeedItemOut,
     FeedListOut,
     MyTaskOut,
+    TaskCountsOut,
     TaskCreateIn,
+    TaskListOut,
     TaskPatchIn,
     TaskUpdateIn,
 )
@@ -34,17 +36,91 @@ router = APIRouter(prefix="/leads/{lead_id}/activities", tags=["activities"])
 me_router = APIRouter(tags=["activities"])
 
 
-@me_router.get("/me/tasks", response_model=list[MyTaskOut])
+def _task_page(result) -> TaskListOut:
+    rows, next_cursor, counts = result
+    return TaskListOut(
+        items=[MyTaskOut.model_validate(r) for r in rows],
+        next_cursor=next_cursor,
+        counts=TaskCountsOut(**counts),
+    )
+
+
+def _bad_cursor() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Некорректный курсор постраничной выдачи",
+    )
+
+
+@me_router.get("/me/tasks", response_model=TaskListOut)
 async def list_my_tasks(
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(current_user)],
-) -> list[MyTaskOut]:
-    """All manager-created tasks across the user's leads. Manager-only,
-    no AI ordering."""
-    rows = await services.list_my_tasks(
-        db, workspace_id=user.workspace_id, user_id=user.id
-    )
-    return [MyTaskOut.model_validate(r) for r in rows]
+    status_filter: str = Query("all", alias="status", pattern="^(all|open|done|overdue)$"),
+    cursor: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=200),
+) -> TaskListOut:
+    """Задачи, которые числятся за этим человеком. Без AI.
+
+    Открытые идут первыми — до G5 сортировка начиналась со срока, и
+    пятьсот закрытых задач с более ранними датами вытесняли из ответа
+    единственную незакрытую (G5, дефект B). `counts` считаются по всей
+    выборке, а не по странице.
+    """
+    try:
+        result = await services.list_my_tasks(
+            db,
+            workspace_id=user.workspace_id,
+            user_id=user.id,
+            status=status_filter,
+            cursor=cursor,
+            limit=limit,
+        )
+    except services.TaskCursorInvalid:
+        raise _bad_cursor()
+    return _task_page(result)
+
+# Задачи одного лида — вкладка «Задачи» в карточке. Отдельный роутер, а не
+# `?type=task` у ленты: у списка задач своя сортировка (открытые первыми, потом
+# по сроку) и свои счётчики, а лента упорядочена по времени события. До G5
+# карточка брала задачи из ленты с `limit=200` и не читала курсор, поэтому
+# открытая задача, заведённая раньше двухсот других записей, в интерфейс
+# просто не попадала (G5, дефект A).
+lead_tasks_router = APIRouter(prefix="/leads/{lead_id}/tasks", tags=["tasks"])
+
+
+@lead_tasks_router.get("", response_model=TaskListOut)
+async def list_lead_tasks(
+    lead_id: UUID,
+    status_filter: str = Query("all", alias="status", pattern="^(all|open|done|overdue)$"),
+    cursor: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> TaskListOut:
+    """Все задачи лида, открытые первыми.
+
+    Выборка не сужается до задач читателя: кто открыл карточку, тот видит всю
+    работу по лиду — ровно как раньше во вкладке. Доступ к самому лиду
+    проверяется по рабочему пространству, как и у ленты.
+    """
+    try:
+        await services._get_lead_or_raise(db, lead_id, user.workspace_id)
+    except LeadNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+    try:
+        result = await services.list_lead_tasks(
+            db,
+            workspace_id=user.workspace_id,
+            lead_id=lead_id,
+            status=status_filter,
+            cursor=cursor,
+            limit=limit,
+        )
+    except services.TaskCursorInvalid:
+        raise _bad_cursor()
+    return _task_page(result)
+
 
 # Separate router mounted at /leads/{lead_id}/feed — the unified
 # activity feed (Sprint «Unified Activity Feed»). Lives in the same
@@ -431,27 +507,36 @@ def _unknown_assignee() -> HTTPException:
     )
 
 
-@tasks_router.get("", response_model=list[MyTaskOut])
+@tasks_router.get("", response_model=TaskListOut)
 async def list_tasks(
     assignee_user_id: UUID | None = Query(None),
     author_user_id: UUID | None = Query(None),
     status_filter: str = Query("all", alias="status", pattern="^(all|open|done|overdue)$"),
-    limit: int = Query(500, ge=1, le=1000),
+    cursor: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
     user: Annotated[User, Depends(current_user)] = ...,
-) -> list[MyTaskOut]:
+) -> TaskListOut:
     """Список задач. Руководитель и админ видят всю команду и могут
-    фильтровать по исполнителю; менеджер — только свои и поставленные им."""
-    rows = await services.list_tasks(
-        db,
-        workspace_id=user.workspace_id,
-        actor=user,
-        assignee_user_id=assignee_user_id,
-        author_user_id=author_user_id,
-        status=status_filter,
-        limit=limit,
-    )
-    return [MyTaskOut.model_validate(r) for r in rows]
+    фильтровать по исполнителю; менеджер — только свои и поставленные им.
+
+    Постранично, курсором. Потолок страницы — 200: список длиннее читают
+    страницами, а не одним ответом на тысячу строк.
+    """
+    try:
+        result = await services.list_tasks(
+            db,
+            workspace_id=user.workspace_id,
+            actor=user,
+            assignee_user_id=assignee_user_id,
+            author_user_id=author_user_id,
+            status=status_filter,
+            cursor=cursor,
+            limit=limit,
+        )
+    except services.TaskCursorInvalid:
+        raise _bad_cursor()
+    return _task_page(result)
 
 
 @tasks_router.post("", response_model=MyTaskOut, status_code=status.HTTP_201_CREATED)

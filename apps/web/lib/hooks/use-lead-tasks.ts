@@ -1,9 +1,9 @@
 "use client";
 
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useInfiniteQuery } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api-client";
 import { useTaskCacheReset } from "@/lib/hooks/use-task-cache";
-import type { ActivityListOut, ActivityOut } from "@/lib/types";
+import type { ActivityOut, MyTaskOut, TaskCounts, TaskListOut } from "@/lib/types";
 
 // Hooks for the LeadCard «Задачи» tab. Tasks are Activity rows of
 // type=task; followups have their own hooks in use-followups.ts.
@@ -12,18 +12,41 @@ import type { ActivityListOut, ActivityOut } from "@/lib/types";
 
 const TASKS_KEY = (leadId: string) => ["activities", leadId, "task"] as const;
 
-/** GET /leads/{id}/activities?type=task — all task activities for a lead. */
+/** Сколько задач лида приходит за один запрос. Дальше — «Показать ещё». */
+export const LEAD_TASKS_PAGE = 50;
+
+/**
+ * GET /leads/{id}/tasks — задачи лида, открытые первыми.
+ *
+ * Раньше тут был `?type=task&limit=200` к ленте активностей, и курсор из
+ * ответа выбрасывался. На лиде с историей длиннее двухсот записей открытая
+ * задача, заведённая раньше остальных, в карточку не попадала вообще (G5,
+ * дефект A). Теперь порядок задаёт база (не сделано → срок → id), а страницы
+ * подтягиваются по курсору.
+ *
+ * Вся история автоматически не грузится: первая страница — то, что нужно
+ * сейчас, остальное по кнопке.
+ */
 export function useLeadTasks(leadId: string) {
-  return useQuery<ActivityOut[]>({
+  const query = useInfiniteQuery<TaskListOut>({
     queryKey: TASKS_KEY(leadId),
-    queryFn: async () => {
-      const res = await api.get<ActivityListOut>(
-        `/leads/${leadId}/activities?type=task&limit=200`,
-      );
-      return res.items;
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams({ limit: String(LEAD_TASKS_PAGE) });
+      if (pageParam) params.set("cursor", String(pageParam));
+      return api.get<TaskListOut>(`/leads/${leadId}/tasks?${params.toString()}`);
     },
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.next_cursor ?? undefined,
     enabled: !!leadId,
   });
+
+  const pages = query.data?.pages ?? [];
+  const items: MyTaskOut[] = pages.flatMap((p) => p.items);
+  // Счётчики берём из последнего ответа: они описывают всю выборку на
+  // сервере, а не то, что успели загрузить.
+  const counts: TaskCounts | undefined = pages.at(-1)?.counts;
+
+  return { ...query, items, counts };
 }
 
 export interface CreateLeadTaskIn {

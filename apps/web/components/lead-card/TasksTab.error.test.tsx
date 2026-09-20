@@ -43,20 +43,27 @@ import { ApiError } from "@/lib/api-client";
 import { TasksTab } from "./TasksTab";
 
 const LEAD = "lead-1";
+// С G5 вкладка читает GET /leads/{id}/tasks — форма строки MyTaskOut, ответ
+// со счётчиками и курсором.
 const TASK = {
   id: "act-1",
   lead_id: LEAD,
-  type: "task",
-  body: "Позвонить клиенту",
-  payload_json: { title: "Позвонить клиенту" },
-  task_done: false,
+  lead_company_name: "Альфа",
+  text: "Позвонить клиенту",
   task_due_at: null,
+  task_done: false,
   task_completed_at: null,
-  assignee_user_id: null,
-  archived_at: null,
-  user_id: "head-1",
   created_at: "2026-09-20T10:00:00Z",
-  updated_at: "2026-09-20T10:00:00Z",
+  assignee_user_id: "head-1",
+  assignee_name: "Руководитель",
+  explicit_assignee_user_id: null,
+  author_user_id: "head-1",
+  author_name: "Руководитель",
+};
+const TASK_PAGE = {
+  items: [TASK],
+  next_cursor: null,
+  counts: { total: 1, open: 1, done: 0, overdue: 0 },
 };
 
 function renderTab() {
@@ -71,7 +78,7 @@ function renderTab() {
 }
 
 beforeEach(() => {
-  apiGet.mockReset().mockResolvedValue({ items: [TASK] });
+  apiGet.mockReset().mockResolvedValue(TASK_PAGE);
   apiPost.mockReset();
   apiPatch.mockReset();
   apiDelete.mockReset();

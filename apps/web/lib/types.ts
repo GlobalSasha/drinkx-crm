@@ -517,8 +517,31 @@ export interface MyTaskOut {
   /** Уже разрешённый исполнитель: явный, иначе владелец лида, иначе автор. */
   assignee_user_id: string | null;
   assignee_name: string | null;
+  /**
+   * Исполнитель, записанный в самой задаче, до применения лестницы. Пусто =
+   * «делает владелец лида». Селектор «Поручить» работает именно с ним:
+   * подставь туда вычисленного владельца — и первое же сохранение
+   * превратит неявное назначение в явное.
+   */
+  explicit_assignee_user_id: string | null;
   author_user_id: string | null;
   author_name: string | null;
+}
+
+/** Размеры полной серверной выборки, а не загруженной страницы. */
+export interface TaskCounts {
+  total: number;
+  open: number;
+  done: number;
+  overdue: number;
+}
+
+/** Ответ `/tasks`, `/me/tasks` и `/leads/{id}/tasks`. */
+export interface TaskListOut {
+  items: MyTaskOut[];
+  /** Пусто — страница последняя. Курсор непрозрачный: вернуть как есть. */
+  next_cursor: string | null;
+  counts: TaskCounts;
 }
 
 export interface TaskCreateIn {

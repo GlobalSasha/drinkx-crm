@@ -267,13 +267,10 @@ function FilterChip({
 }
 
 function TaskListWidget() {
-  const { data, isLoading, isError } = useMyTasks();
+  const { items, counts, hasMore, isLoading, isError } = useMyTasks();
   const completeTask = useCompleteMyTask();
 
-  const allRows: TaskRow[] = useMemo(
-    () => (data ?? []).map(myTaskToRow),
-    [data],
-  );
+  const allRows: TaskRow[] = useMemo(() => items.map(myTaskToRow), [items]);
 
   const [period, setPeriod] = useState<PeriodFilter>("all");
 
@@ -292,8 +289,11 @@ function TaskListWidget() {
     [allRows, period],
   );
 
-  const doneCount = allRows.filter((r) => r.done).length;
-  const totalCount = allRows.length;
+  // Прогресс — по всем задачам человека, а не по загруженной странице:
+  // «12 из 50 выполнено» на первой сотне из трёхсот — это про размер
+  // страницы, а не про работу.
+  const doneCount = counts?.done ?? allRows.filter((r) => r.done).length;
+  const totalCount = counts?.total ?? allRows.length;
   const progressPct =
     totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
@@ -369,11 +369,22 @@ function TaskListWidget() {
             onComplete={handleComplete}
             isCompleting={completeTask.isPending}
             emptyText={
-              allRows.length === 0
+              (counts?.total ?? 0) === 0
                 ? "Задач пока нет"
                 : "Нет задач под фильтр"
             }
           />
+        )}
+        {/* Виджет держит одну страницу. Когда задач больше, честно об этом
+            говорим и уводим на полный список, а не молча показываем часть
+            как всё. */}
+        {!isLoading && !isError && hasMore && (
+          <p className={`mt-2 type-caption ${C.color.mutedLight}`}>
+            Показаны первые {allRows.length} из {totalCount} —{" "}
+            <Link href="/tasks" className="text-brand-accent-text hover:underline">
+              открыть все задачи
+            </Link>
+          </p>
         )}
       </div>
 

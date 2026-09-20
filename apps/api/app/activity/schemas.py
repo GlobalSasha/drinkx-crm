@@ -107,8 +107,40 @@ class MyTaskOut(BaseModel):
     created_at: datetime
     assignee_user_id: UUID | None = None
     assignee_name: str | None = None
+    # Значение, записанное в самой строке, до применения лестницы. Карточке
+    # лида оно нужно для селектора «Поручить»: пустой выбор там означает
+    # «делает владелец лида», и подстановка вычисленного владельца превратила
+    # бы неявное назначение в явное при первом же сохранении.
+    explicit_assignee_user_id: UUID | None = None
     author_user_id: UUID | None = None
     author_name: str | None = None
+
+
+class TaskCountsOut(BaseModel):
+    """Размеры полной серверной выборки, а не загруженной страницы.
+
+    С постраничной выдачей счётчик по загруженным строкам просто врёт:
+    «12 из 50 выполнено» на первой странице из трёхсот задач — это не про
+    работу человека, а про размер страницы.
+    """
+
+    total: int
+    open: int
+    done: int
+    overdue: int
+
+
+class TaskListOut(BaseModel):
+    """Ответ всех списков задач: `/tasks`, `/me/tasks`, `/leads/{id}/tasks`.
+
+    `next_cursor` пуст, когда страница последняя. Курсор непрозрачный:
+    это полный ключ сортировки последней строки, и разбирать его на клиенте
+    не нужно — только вернуть как есть.
+    """
+
+    items: list[MyTaskOut]
+    next_cursor: str | None = None
+    counts: TaskCountsOut
 
 
 class TaskCreateIn(BaseModel):

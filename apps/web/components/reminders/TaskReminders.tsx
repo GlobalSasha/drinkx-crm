@@ -26,7 +26,9 @@ export function TaskReminders() {
   const router = useRouter();
   const me = useMe().data;
   const userId = me?.id ?? null;
-  const { data: tasks } = useMyTasks();
+  // Одна страница, открытые задачи первыми и по сроку — напоминания живут
+  // ровно в её начале. Счётчиками тут ничего не подписано.
+  const { items: tasks, isSuccess: tasksLoaded } = useMyTasks();
 
   const [now, setNow] = useState(() => Date.now());
   const [acks, setAcks] = useState<Record<string, number>>({});
@@ -45,7 +47,7 @@ export function TaskReminders() {
     return () => clearInterval(id);
   }, []);
 
-  if (!userId || !tasks) return null;
+  if (!userId || !tasksLoaded) return null;
 
   const due = selectDueReminders(tasks, now, acks, snoozes, startOfToday(now)).slice(
     0,

@@ -58,6 +58,9 @@ CLAUDE.md      # this file
 - Pydantic schemas for AI outputs use `Optional` + defaults — never raise on missing
   fields. See PRD §7.2 for the canonical `ResearchOutput` example
 - Stage transitions go through `app/automation/stage_change.py` (pre/post hooks)
+- Списки задач (`/tasks`, `/me/tasks`, `/leads/{id}/tasks`) — один контракт:
+  отбор и сортировка в базе до среза, курсорная страница, счётчики по всей
+  выборке. Порядок и причины: `docs/TASK_LISTS.md`
 
 ## Frontend conventions (apps/web)
 

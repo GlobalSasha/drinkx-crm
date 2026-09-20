@@ -19,7 +19,7 @@ import {
   type TaskRow,
 } from "@/lib/tasks";
 import { apiErrorDetail } from "@/lib/api-error";
-import type { MyTaskOut } from "@/lib/types";
+import type { MyTaskOut, TaskCounts } from "@/lib/types";
 import { C } from "@/lib/design-system";
 import { pageContainerVariants } from "@/components/ui/PageContainer";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -48,14 +48,27 @@ interface ToastState {
   type: "error" | "success";
 }
 
+// Статус уходит на сервер вместе с остальными фильтрами: отбор и сортировка
+// делаются в базе до среза страницы. Пока страница фильтровала у себя, чипы
+// работали только по тому, что поместилось в один ответ.
 function buildFilters(
   tab: TabKey,
   meId: string | undefined,
   assigneeFilter: string | null,
+  status: StatusFilter,
 ): TaskFilters {
-  if (tab === "mine") return { assigneeUserId: meId };
-  if (tab === "authored") return { authorUserId: meId };
-  return { assigneeUserId: assigneeFilter ?? undefined };
+  const base = { status };
+  if (tab === "mine") return { ...base, assigneeUserId: meId };
+  if (tab === "authored") return { ...base, authorUserId: meId };
+  return { ...base, assigneeUserId: assigneeFilter ?? undefined };
+}
+
+/** Сколько задач на сервере под выбранным статусом. */
+function countForStatus(counts: TaskCounts, status: StatusFilter): number {
+  if (status === "open") return counts.open;
+  if (status === "done") return counts.done;
+  if (status === "overdue") return counts.overdue;
+  return counts.total;
 }
 
 function emptyStateFor(tab: TabKey, hasAnyRows: boolean) {
@@ -276,24 +289,28 @@ export default function TasksPage() {
   }
 
   const filters = useMemo(
-    () => buildFilters(tab, me?.id, assigneeFilter),
-    [tab, me?.id, assigneeFilter],
+    () => buildFilters(tab, me?.id, assigneeFilter, status),
+    [tab, me?.id, assigneeFilter, status],
   );
 
-  const { data, isPending, isError } = useTasks(filters, { enabled: !!me });
+  const {
+    items,
+    counts,
+    isPending,
+    isError,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useTasks(filters, { enabled: !!me });
   const setDone = useSetTaskDone();
 
-  const allRows: TaskRow[] = useMemo(
-    () => (data ?? []).map(myTaskToRow),
-    [data],
-  );
+  const allRows: TaskRow[] = useMemo(() => items.map(myTaskToRow), [items]);
 
+  // Статус уже отобран сервером. Срок и поиск остаются клиентскими — они
+  // сужают загруженные страницы, и подпись под таблицей это проговаривает.
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
     return allRows.filter((r) => {
-      if (status === "open" && r.done) return false;
-      if (status === "done" && !r.done) return false;
-      if (status === "overdue" && !isOverdue(r)) return false;
       if (dateFilter === "today" && !isToday(r.due)) return false;
       if (dateFilter === "week" && !withinThisWeek(r.due)) return false;
       if (
@@ -305,7 +322,7 @@ export default function TasksPage() {
       }
       return true;
     });
-  }, [allRows, status, dateFilter, search]);
+  }, [allRows, dateFilter, search]);
 
   const isMutating = setDone.isPending;
 
@@ -341,8 +358,10 @@ export default function TasksPage() {
     [isMutating, tab],
   );
 
-  const empty = emptyStateFor(tab, allRows.length > 0);
-  const loading = isPending && !data;
+  // «Задач нет» — только когда их нет на сервере. Раньше сюда попадала длина
+  // загруженного куска, и пустая страница фильтра выглядела как пустая база.
+  const empty = emptyStateFor(tab, (counts?.total ?? 0) > 0);
+  const loading = isPending && items.length === 0;
 
   return (
     <>
@@ -467,6 +486,25 @@ export default function TasksPage() {
                 </Empty>
               }
             />
+          )}
+          {!loading && !isError && hasNextPage && (
+            <div className="pt-4 flex flex-col items-center gap-1">
+              <button
+                type="button"
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+                className={`${C.button.ghost} type-body px-4 py-2 disabled:opacity-40`}
+              >
+                {isFetchingNextPage ? "Загрузка…" : "Показать ещё"}
+              </button>
+              <span className={`type-caption ${C.color.mutedLight}`}>
+                показано {allRows.length}
+                {counts ? ` из ${countForStatus(counts, status)}` : ""}
+                {search.trim() || dateFilter !== "all"
+                  ? " — поиск и срок применяются к загруженным"
+                  : ""}
+              </span>
+            </div>
           )}
         </div>
       </div>

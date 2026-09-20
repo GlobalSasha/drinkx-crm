@@ -9,14 +9,16 @@
 
 import {
   keepPreviousData,
+  useInfiniteQuery,
   useMutation,
-  useQuery,
 } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api-client";
 import { useTaskCacheReset } from "@/lib/hooks/use-task-cache";
 import type {
   MyTaskOut,
+  TaskCounts,
   TaskCreateIn,
+  TaskListOut,
   TaskPatchIn,
   TaskStatusFilter,
 } from "@/lib/types";
@@ -27,28 +29,51 @@ export interface TaskFilters {
   status?: TaskStatusFilter;
 }
 
-function toQuery(filters: TaskFilters): string {
-  const params = new URLSearchParams();
+/** Размер страницы списка задач. Дальше — «Показать ещё». */
+export const TASKS_PAGE = 50;
+
+function toQuery(filters: TaskFilters, cursor: string | null): string {
+  const params = new URLSearchParams({ limit: String(TASKS_PAGE) });
   if (filters.assigneeUserId) params.set("assignee_user_id", filters.assigneeUserId);
   if (filters.authorUserId) params.set("author_user_id", filters.authorUserId);
   if (filters.status && filters.status !== "all") params.set("status", filters.status);
-  const qs = params.toString();
-  return qs ? `?${qs}` : "";
+  if (cursor) params.set("cursor", cursor);
+  return `?${params.toString()}`;
 }
 
+/**
+ * GET /tasks — постранично, курсором.
+ *
+ * `status` уходит на сервер: отбор «открытые / закрытые / просроченные» и
+ * сортировка делаются в базе до среза страницы. Раньше страница брала одним
+ * запросом до 500 строк и фильтровала их у себя — при большем числе задач
+ * нужная просто не приезжала.
+ *
+ * `counts` описывают всю серверную выборку, поэтому чипы и пустые состояния
+ * говорят о задачах, а не о том, сколько страниц успели загрузить.
+ */
 export function useTasks(
   filters: TaskFilters = {},
   options: { enabled?: boolean } = {},
 ) {
-  return useQuery<MyTaskOut[]>({
+  const query = useInfiniteQuery<TaskListOut>({
     queryKey: ["tasks", filters],
-    queryFn: () => api.get<MyTaskOut[]>(`/tasks${toQuery(filters)}`),
+    queryFn: ({ pageParam }) =>
+      api.get<TaskListOut>(`/tasks${toQuery(filters, (pageParam as string) ?? null)}`),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.next_cursor ?? undefined,
     staleTime: 15_000,
     // Смена вкладки = новый ключ; без этого таблица мигает «Загрузка…».
     placeholderData: keepPreviousData,
     // Пока /me не ответил, «Мои» у руководителя показали бы всю команду.
     enabled: options.enabled ?? true,
   });
+
+  const pages = query.data?.pages ?? [];
+  const items: MyTaskOut[] = pages.flatMap((p) => p.items);
+  const counts: TaskCounts | undefined = pages.at(-1)?.counts;
+
+  return { ...query, items, counts };
 }
 
 export function useCreateTask() {

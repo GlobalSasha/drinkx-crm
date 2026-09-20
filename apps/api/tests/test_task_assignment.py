@@ -64,12 +64,26 @@ async def _create_task(db, workspace, actor, **kwargs):
     return await services.create_task(db, workspace.id, actor, **params)
 
 
+# Списки задач с G5 отдают тройку (строки, курсор, счётчики). Тестам здесь
+# нужны только строки — размер страницы берётся с запасом, чтобы проверки прав
+# и лестницы исполнителя не зависели от постраничной выдачи. Её поведение
+# закреплено отдельно, в test_task_list_completeness.py.
 async def _my_tasks(db, workspace, user):
     from app.activity import services
 
-    return await services.list_my_tasks(
-        db, workspace_id=workspace.id, user_id=user.id
+    rows, _cursor, _counts = await services.list_my_tasks(
+        db, workspace_id=workspace.id, user_id=user.id, limit=200
     )
+    return rows
+
+
+async def _tasks(db, workspace, actor, **kwargs):
+    from app.activity import services
+
+    rows, _cursor, _counts = await services.list_tasks(
+        db, workspace_id=workspace.id, actor=actor, limit=200, **kwargs
+    )
+    return rows
 
 
 # ---------------------------------------------------------------------------
@@ -269,9 +283,7 @@ async def test_a_task_on_a_pool_lead_falls_back_to_the_head_author(db, workspace
     )
 
     my_rows = await _my_tasks(db, workspace, head)
-    filtered_rows = await services.list_tasks(
-        db, workspace_id=workspace.id, actor=head, assignee_user_id=head.id
-    )
+    filtered_rows = await _tasks(db, workspace, head, assignee_user_id=head.id)
 
     assert [row["id"] for row in my_rows] == [task.id]
     assert [row["id"] for row in filtered_rows] == [task.id]
@@ -315,7 +327,7 @@ async def test_a_manager_does_not_see_another_managers_tasks(db, workspace):
     await _create_task(db, workspace, head, text="Кириллу", assignee_user_id=manager.id)
     await _create_task(db, workspace, head, text="Петру", assignee_user_id=peer.id)
 
-    rows = await services.list_tasks(db, workspace_id=workspace.id, actor=manager)
+    rows = await _tasks(db, workspace, manager)
     assert [r["text"] for r in rows] == ["Кириллу"]
 
 
@@ -331,12 +343,10 @@ async def test_the_head_sees_the_team_and_can_filter_by_assignee(db, workspace):
     await _create_task(db, workspace, head, text="Кириллу", assignee_user_id=manager.id)
     await _create_task(db, workspace, head, text="Петру", assignee_user_id=peer.id)
 
-    everyone = await services.list_tasks(db, workspace_id=workspace.id, actor=head)
+    everyone = await _tasks(db, workspace, head)
     assert {r["text"] for r in everyone} == {"Кириллу", "Петру"}
 
-    only_kirill = await services.list_tasks(
-        db, workspace_id=workspace.id, actor=head, assignee_user_id=manager.id
-    )
+    only_kirill = await _tasks(db, workspace, head, assignee_user_id=manager.id)
     assert [r["text"] for r in only_kirill] == ["Кириллу"]
 
 
@@ -352,9 +362,7 @@ async def test_the_head_can_list_what_he_set_himself(db, workspace):
     await _create_task(db, workspace, head, text="Моя", assignee_user_id=manager.id)
     await _create_task(db, workspace, other_head, text="Чужая", assignee_user_id=manager.id)
 
-    rows = await services.list_tasks(
-        db, workspace_id=workspace.id, actor=head, author_user_id=head.id
-    )
+    rows = await _tasks(db, workspace, head, author_user_id=head.id)
     assert [r["text"] for r in rows] == ["Моя"]
 
 
@@ -382,9 +390,7 @@ async def test_the_overdue_filter_skips_open_future_and_closed_tasks(db, workspa
         db, workspace.id, closed.id, manager, done=True
     )
 
-    rows = await services.list_tasks(
-        db, workspace_id=workspace.id, actor=head, status="overdue"
-    )
+    rows = await _tasks(db, workspace, head, status="overdue")
     assert [r["text"] for r in rows] == ["Просрочена"]
 
 
@@ -405,7 +411,7 @@ async def test_tasks_on_trashed_leads_stay_out_of_the_lists(db, workspace):
     await db.flush()
 
     assert await _my_tasks(db, workspace, manager) == []
-    assert await services.list_tasks(db, workspace_id=workspace.id, actor=head) == []
+    assert await _tasks(db, workspace, head) == []
 
 
 @skip_no_pg
@@ -421,7 +427,7 @@ async def test_tasks_do_not_leak_across_workspaces(db, workspace):
     await _create_task(db, other_ws, outsider, text="Чужая задача")
 
     head = await _make_user(db, workspace.id, "head", "Head")
-    assert await services.list_tasks(db, workspace_id=workspace.id, actor=head) == []
+    assert await _tasks(db, workspace, head) == []
 
 
 # ---------------------------------------------------------------------------

@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import type { ActivityOut } from "@/lib/types";
+import type { MyTaskOut } from "@/lib/types";
 
 import { TasksTab } from "./TasksTab";
 
@@ -17,22 +17,29 @@ vi.mock("@/lib/hooks/use-lead-tasks", () => {
   const task = {
     id: "t1",
     lead_id: "lead-1",
-    user_id: "me",
-    assignee_user_id: null,
-    type: "task",
-    payload_json: { title: "Позвонить клиенту" },
+    lead_company_name: "Альфа",
+    text: "Позвонить клиенту",
     task_due_at: null,
-    reminder_trigger_at: null,
-    file_url: null,
-    file_kind: null,
     task_done: false,
     task_completed_at: null,
-    body: "Позвонить клиенту",
     created_at: "2026-01-01T00:00:00Z",
-  } as unknown as ActivityOut;
+    assignee_user_id: "me",
+    assignee_name: "Кирилл",
+    explicit_assignee_user_id: null,
+    author_user_id: "me",
+    author_name: "Кирилл",
+  } satisfies MyTaskOut;
 
   return {
-    useLeadTasks: () => ({ data: [task], isLoading: false, isError: false }),
+    useLeadTasks: () => ({
+      items: [task],
+      counts: { total: 1, open: 1, done: 0, overdue: 0 },
+      isLoading: false,
+      isError: false,
+      hasNextPage: false,
+      fetchNextPage: vi.fn(),
+      isFetchingNextPage: false,
+    }),
     useCreateLeadTask: () => ({ mutate: vi.fn(), isPending: false }),
     useCompleteLeadTask: () => ({ mutate: vi.fn(), isPending: false }),
     useReopenLeadTask: () => ({ mutate: vi.fn(), isPending: false }),

@@ -52,6 +52,11 @@ def _task_row_to_dict(
         "created_at": activity.created_at,
         "assignee_user_id": effective_assignee_id(activity, lead),
         "assignee_name": assignee_name or owner_name or author_name,
+        # The value stored on the row, before the ladder is applied. The lead
+        # card's «Поручить» control needs it: an empty select there means
+        # «делает владелец лида», and feeding it the resolved owner would turn
+        # an implicit assignment into an explicit one on the next save.
+        "explicit_assignee_user_id": activity.assignee_user_id,
         "author_user_id": activity.user_id,
         "author_name": author_name,
     }
@@ -112,23 +117,179 @@ def _assigned_to_clause(Lead, user_id: uuid.UUID):
     )
 
 
-async def list_my_tasks(
-    db: AsyncSession, *, workspace_id: uuid.UUID, user_id: uuid.UUID
-) -> list[dict]:
-    """Задачи, которые числятся за этим человеком. Без AI — только то,
-    что завели руками. Сортировка: по сроку, пустые сроки в конец."""
-    query, Lead = _tasks_query(workspace_id)
-    rows = (
-        await db.execute(
-            query.where(_assigned_to_clause(Lead, user_id))
-            .order_by(
-                Activity.task_due_at.asc().nulls_last(),
-                Activity.created_at.desc(),
-            )
-            .limit(500)
+# ---------------------------------------------------------------------------
+# Task lists (audit G5 / DEBT: a live task must not fall off a list just
+# because 200 or 500 other rows were created before it).
+#
+# ONE ordering for every task list, applied in the database:
+#
+#     task_done ASC, task_due_at ASC NULLS LAST, id DESC
+#
+# `task_done` first is the whole point: before G5 the order started at
+# task_due_at, so 500 completed tasks with earlier deadlines filled the entire
+# budget and the one thing left to do was never sent. Open work now always
+# precedes finished work, whatever the dates.
+#
+# `id DESC` is not decoration. Two tasks routinely share a due date (a batch
+# created by one automation, or a round hour typed by hand), and a keyset
+# cursor over a non-unique key either skips rows or repeats them at every page
+# boundary. The id makes the sort total.
+#
+# Pagination is keyset (cursor), not page/page_size. The project uses
+# page/page_size for leads, where the sort key is stable; a task list is sorted
+# by exactly the two columns the user mutates while reading it, so OFFSET would
+# shift rows across the boundary the moment somebody ticks a checkbox — the
+# page-two row that moves to page one is never seen. Counts, which is what
+# `total` would have bought us, are returned separately and are computed over
+# the whole server-side selection.
+# ---------------------------------------------------------------------------
+
+MAX_TASK_PAGE = 200
+
+
+def _task_order_by():
+    return (
+        Activity.task_done.asc(),
+        Activity.task_due_at.asc().nulls_last(),
+        Activity.id.desc(),
+    )
+
+
+def encode_task_cursor(row: dict) -> str:
+    """'<0|1>|<due iso or empty>|<uuid>' — the full sort key of a row."""
+    due = row["task_due_at"]
+    return f"{int(bool(row['task_done']))}|{due.isoformat() if due else ''}|{row['id']}"
+
+
+def decode_task_cursor(cursor: str) -> tuple[bool, datetime | None, uuid.UUID]:
+    done_s, due_s, id_s = cursor.split("|", 2)
+    return bool(int(done_s)), (datetime.fromisoformat(due_s) if due_s else None), uuid.UUID(id_s)
+
+
+class TaskCursorInvalid(Exception):
+    """400 — the cursor is not one this endpoint issued."""
+
+
+def _after_task_cursor(cursor: str):
+    """Rows strictly after the cursor under the ordering above."""
+    from sqlalchemy import and_, or_
+
+    try:
+        done, due, ident = decode_task_cursor(cursor)
+    except (ValueError, AttributeError) as exc:
+        raise TaskCursorInvalid(cursor) from exc
+
+    if due is None:
+        # NULLS LAST: inside this done-bucket nothing sorts after a NULL due
+        # date except a smaller id.
+        same_bucket = and_(
+            Activity.task_done.is_(done),
+            Activity.task_due_at.is_(None),
+            Activity.id < ident,
         )
+    else:
+        same_bucket = and_(
+            Activity.task_done.is_(done),
+            or_(
+                Activity.task_due_at > due,
+                Activity.task_due_at.is_(None),
+                and_(Activity.task_due_at == due, Activity.id < ident),
+            ),
+        )
+    if done:
+        # The done bucket is the last one; there is nothing beyond it.
+        return same_bucket
+    return or_(Activity.task_done.is_(True), same_bucket)
+
+
+def _apply_status(query, status: str):
+    """open / done / overdue, in SQL — never after the limit."""
+    if status == "open":
+        return query.where(Activity.task_done.is_(False))
+    if status == "done":
+        return query.where(Activity.task_done.is_(True))
+    if status == "overdue":
+        return query.where(
+            Activity.task_done.is_(False),
+            Activity.task_due_at.isnot(None),
+            Activity.task_due_at < datetime.now(timezone.utc),
+        )
+    return query
+
+
+async def _task_counts(db: AsyncSession, scoped) -> dict:
+    """open / done / overdue / total over the WHOLE server-side selection.
+
+    The screens show these numbers next to their filter chips and in the
+    «N из M выполнено» progress bar. Counting the loaded page instead would
+    make the number shrink as the user scrolls — and with pagination it would
+    simply be wrong.
+    """
+    from sqlalchemy import and_, func
+
+    now = datetime.now(timezone.utc)
+    counts_q = scoped.with_only_columns(
+        func.count().label("total"),
+        func.count().filter(Activity.task_done.is_(False)).label("open"),
+        func.count().filter(Activity.task_done.is_(True)).label("done"),
+        func.count()
+        .filter(
+            and_(
+                Activity.task_done.is_(False),
+                Activity.task_due_at.isnot(None),
+                Activity.task_due_at < now,
+            )
+        )
+        .label("overdue"),
+        maintain_column_froms=True,
+    ).order_by(None)
+    row = (await db.execute(counts_q)).one()
+    return {"total": row.total, "open": row.open, "done": row.done, "overdue": row.overdue}
+
+
+async def _page(
+    db: AsyncSession, scoped, *, status: str, cursor: str | None, limit: int
+) -> tuple[list[dict], str | None, dict]:
+    """Count the scoped set, then fetch one ordered page of it."""
+    limit = max(1, min(limit, MAX_TASK_PAGE))
+    # Counted BEFORE the status filter: the screens label their open / done /
+    # overdue chips with these numbers, so each chip has to know its own size
+    # while a different one is selected.
+    counts = await _task_counts(db, scoped)
+
+    query = _apply_status(scoped, status)
+    if cursor:
+        query = query.where(_after_task_cursor(cursor))
+
+    # limit + 1: one extra row answers "is there a next page" without a
+    # second count, and is dropped before the response is built.
+    rows = (
+        await db.execute(query.order_by(*_task_order_by()).limit(limit + 1))
     ).all()
-    return [_task_row_to_dict(*row) for row in rows]
+    items = [_task_row_to_dict(*row) for row in rows[:limit]]
+    next_cursor = encode_task_cursor(items[-1]) if len(rows) > limit and items else None
+    return items, next_cursor, counts
+
+
+async def list_my_tasks(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    user_id: uuid.UUID,
+    status: str = "all",
+    cursor: str | None = None,
+    limit: int = 100,
+) -> tuple[list[dict], str | None, dict]:
+    """Задачи, которые числятся за этим человеком. Без AI — только то,
+    что завели руками. Открытые идут первыми, потом по сроку."""
+    query, Lead = _tasks_query(workspace_id)
+    return await _page(
+        db,
+        query.where(_assigned_to_clause(Lead, user_id)),
+        status=status,
+        cursor=cursor,
+        limit=limit,
+    )
 
 
 async def get_task_out(
@@ -143,6 +304,31 @@ async def get_task_out(
     return _task_row_to_dict(*row) if row is not None else None
 
 
+async def list_lead_tasks(
+    db: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    lead_id: uuid.UUID,
+    status: str = "all",
+    cursor: str | None = None,
+    limit: int = 50,
+) -> tuple[list[dict], str | None, dict]:
+    """Все задачи одного лида — то, что показывает вкладка «Задачи» в карточке.
+
+    Не сужается до задач читателя: кто может открыть карточку, тот видит всю
+    работу по этому лиду. Доступ к самому лиду проверяет вызывающая сторона
+    (`_get_lead_or_raise` плюс страж на роутере `/leads`).
+    """
+    query, _ = _tasks_query(workspace_id)
+    return await _page(
+        db,
+        query.where(Activity.lead_id == lead_id),
+        status=status,
+        cursor=cursor,
+        limit=limit,
+    )
+
+
 async def list_tasks(
     db: AsyncSession,
     *,
@@ -151,8 +337,9 @@ async def list_tasks(
     assignee_user_id: uuid.UUID | None = None,
     author_user_id: uuid.UUID | None = None,
     status: str = "all",
-    limit: int = 500,
-) -> list[dict]:
+    cursor: str | None = None,
+    limit: int = 50,
+) -> tuple[list[dict], str | None, dict]:
     """Список задач для страницы «Задачи».
 
     Менеджер видит только свои — фильтр по чужому исполнителю ему просто
@@ -178,25 +365,7 @@ async def list_tasks(
         if assignee_user_id is not None:
             query = query.where(_assigned_to_clause(Lead, actor.id))
 
-    if status == "open":
-        query = query.where(Activity.task_done.is_(False))
-    elif status == "done":
-        query = query.where(Activity.task_done.is_(True))
-    elif status == "overdue":
-        query = query.where(
-            Activity.task_done.is_(False),
-            Activity.task_due_at < datetime.now(timezone.utc),
-        )
-
-    rows = (
-        await db.execute(
-            query.order_by(
-                Activity.task_due_at.asc().nulls_last(),
-                Activity.created_at.desc(),
-            ).limit(limit)
-        )
-    ).all()
-    return [_task_row_to_dict(*row) for row in rows]
+    return await _page(db, query, status=status, cursor=cursor, limit=limit)
 
 
 class TaskAssigneeInvalid(Exception):
