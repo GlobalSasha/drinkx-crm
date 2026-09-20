@@ -4,11 +4,40 @@
 # Never contacts a Docker daemon, a registry, SSH or the network. Behaviour is
 # driven entirely by STUB_* environment variables set by the test runner.
 #
-# Recognises the command shapes of BOTH the pre-G1 script (which built with
-# `up -d --build`) and the post-G1 script (which builds in a separate step),
-# so the same scenario can be run against either version.
+# Model
+# -----
+# An image is identified as `sha256:img-<revision>`, and its OCI revision label
+# is that same <revision>. So a scenario picks revisions, not opaque IDs:
+#
+#   STUB_BUILD_REV        revision the build produces           (default: unset -> build makes nothing)
+#   STUB_RUN_REV          revision every running container uses (default: STUB_BUILD_REV)
+#   STUB_RUN_REV_<SVC>    per-service override, SVC upper-case  (api|web|worker|beat)
+#   STUB_NO_CONTAINER_<SVC>=1   `compose ps -q <svc>` returns nothing
+#   STUB_LABEL_MISSING=1  images carry no revision label
+#   STUB_INSPECT_FAIL=1   `docker image inspect` always fails
+#   STUB_RUNNING_SHA      what the container ENV reports — a deliberate liar,
+#                         used to prove the gate does not consult it
+#
+# Recognises the command shapes of the pre-G1 script too (which built with
+# `up -d --build` and read the env), so the same scenarios can be replayed
+# against the old version to show the tests have teeth.
 set -u
 ARGS="$*"
+
+svc_from_args() {
+  for tok in $ARGS; do
+    case "$tok" in
+      api|web|worker|beat) printf '%s' "$tok"; return ;;
+    esac
+  done
+}
+
+# Revision the running container of $1 was built from.
+run_rev_of() {
+  local svc="$1" var
+  var="STUB_RUN_REV_$(echo "$svc" | tr '[:lower:]' '[:upper:]')"
+  eval "printf '%s' \"\${$var:-\${STUB_RUN_REV:-\${STUB_BUILD_REV:-}}}\""
+}
 
 case "$ARGS" in
   # Orphan rename-stub cleanup: `docker ps -a --format '{{.Names}}'`.
@@ -16,8 +45,8 @@ case "$ARGS" in
     exit 0
     ;;
 
-  # Image build. Must be matched before the plain `up` case, because the
-  # pre-G1 script builds and starts in one `up -d --build` invocation.
+  # Image build. Matched before the plain `up` case, because the pre-G1 script
+  # built and started in one `up -d --build` invocation.
   *"--build"*|*"compose build"*|*"--env-file .env build"*)
     if [ "${STUB_BUILD_RC:-0}" -ne 0 ]; then
       echo "STUB: build of the new release FAILED" >&2
@@ -26,22 +55,61 @@ case "$ARGS" in
     exit 0
     ;;
 
-  # Reading the build-time version stamp out of a running container.
-  *"printenv DRINKX_GIT_SHA"*)
-    svc=""
+  # `docker compose config --images <svc>` -> the image reference.
+  *"config --images"*)
+    echo "drinkx-$(svc_from_args)"
+    exit 0
+    ;;
+
+  # `docker compose ps -q <svc>` -> the container id.
+  *"ps -q"*)
+    svc="$(svc_from_args)"
+    var="STUB_NO_CONTAINER_$(echo "$svc" | tr '[:lower:]' '[:upper:]')"
+    eval "missing=\${$var:-0}"
+    [ "$missing" = "1" ] && exit 0
+    echo "cid-$svc"
+    exit 0
+    ;;
+
+  # `docker image inspect --format '{{index .Config.Labels ...}}' <image>`
+  *"image inspect"*"Config.Labels"*)
+    [ "${STUB_INSPECT_FAIL:-0}" = "1" ] && { echo "STUB: inspect failed" >&2; exit 1; }
+    [ "${STUB_LABEL_MISSING:-0}" = "1" ] && { echo ""; exit 0; }
     for tok in $ARGS; do
       case "$tok" in
-        api|web|worker|beat) svc="$tok" ;;
+        sha256:img-*) printf '%s\n' "${tok#sha256:img-}"; exit 0 ;;
       esac
     done
-    var="STUB_SHA_$(echo "$svc" | tr '[:lower:]' '[:upper:]')"
-    eval "sha=\${$var:-\${STUB_RUNNING_SHA:-}}"
-    if [ -z "$sha" ]; then
-      echo "STUB: no container running for $svc" >&2
+    echo ""
+    exit 0
+    ;;
+
+  # `docker image inspect --format '{{.Id}}' <ref>` -> the built image id.
+  *"image inspect"*)
+    [ "${STUB_INSPECT_FAIL:-0}" = "1" ] && { echo "STUB: inspect failed" >&2; exit 1; }
+    if [ -z "${STUB_BUILD_REV:-}" ]; then
+      echo "STUB: no such image" >&2
       exit 1
     fi
-    echo "$sha"
+    echo "sha256:img-${STUB_BUILD_REV}"
     exit 0
+    ;;
+
+  # `docker inspect --format '{{.Image}}' <container>` -> image behind a container.
+  *"inspect --format"*".Image"*)
+    for tok in $ARGS; do
+      case "$tok" in
+        cid-*) svc="${tok#cid-}"; printf 'sha256:img-%s\n' "$(run_rev_of "$svc")"; exit 0 ;;
+      esac
+    done
+    exit 1
+    ;;
+
+  # Container environment — a liar kept on purpose. The gate must not use it.
+  *"printenv DRINKX_GIT_SHA"*)
+    sha="${STUB_RUNNING_SHA:-$(run_rev_of "$(svc_from_args)")}"
+    [ -n "$sha" ] && { echo "$sha"; exit 0; }
+    exit 1
     ;;
 
   # Celery worker liveness probe.
@@ -52,10 +120,7 @@ case "$ARGS" in
 
   # `docker compose ps --status running beat`.
   *"ps --status running beat"*)
-    if [ "${STUB_BEAT_RUNNING:-yes}" = "yes" ]; then
-      echo "drinkx-beat-1   running"
-      exit 0
-    fi
+    [ "${STUB_BEAT_RUNNING:-yes}" = "yes" ] && echo "drinkx-beat-1   running"
     exit 0
     ;;
 

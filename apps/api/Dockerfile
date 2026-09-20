@@ -42,6 +42,12 @@ COPY docs ./docs
 ARG GIT_SHA=unknown
 ENV DRINKX_GIT_SHA=${GIT_SHA}
 
+# The same revision as an image LABEL. The deploy gate reads THIS, not the
+# container's environment: `docker run -e DRINKX_GIT_SHA=...` can override an
+# ENV at start-up, so a container's environment proves nothing about which
+# image it came from. Labels belong to the image and cannot be set at run time.
+LABEL org.opencontainers.image.revision=${GIT_SHA}
+
 EXPOSE 8000
 
 # Run migrations on startup, then boot the API.

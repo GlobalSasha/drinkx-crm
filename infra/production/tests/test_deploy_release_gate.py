@@ -42,16 +42,30 @@ class Scenario:
     must_contain: list[str] = field(default_factory=list)
 
 
-def all_healthy(sha: str = EXPECTED_SHA) -> dict[str, str]:
+def all_healthy(rev: str = EXPECTED_SHA) -> dict[str, str]:
+    """Every probe green, and every image built and running at `rev`."""
     return {
         "STUB_BUILD_RC": "0",
         "STUB_UP_RC": "0",
-        "STUB_RUNNING_SHA": sha,
+        "STUB_BUILD_REV": rev,
+        "STUB_RUN_REV": rev,
         "STUB_API_HEALTH": "ok",
         "STUB_WEB_HEALTH": "ok",
         "STUB_WORKER_PING": "ok",
         "STUB_BEAT_RUNNING": "yes",
     }
+
+
+def _stale_service(svc: str) -> Scenario:
+    """Build produced the new release, but one container never got replaced."""
+    stubs = all_healthy()
+    stubs[f"STUB_RUN_REV_{svc.upper()}"] = OLD_SHA
+    return Scenario(
+        name=f"only {svc} is still running the previous image",
+        stubs=stubs,
+        expect_success=False,
+        why=f"a partial rollout is a failed release, even when {svc} answers its probes",
+    )
 
 
 SCENARIOS = [
@@ -62,10 +76,38 @@ SCENARIOS = [
         why="a failed build must fail the deploy even when the old release answers every probe",
     ),
     Scenario(
-        name="build succeeds but the running containers report a different SHA",
-        stubs=all_healthy(OLD_SHA),
+        name="old image runs, but its environment and HTTP both report the new SHA",
+        stubs={**all_healthy(), "STUB_RUN_REV": OLD_SHA, "STUB_RUNNING_SHA": EXPECTED_SHA},
         expect_success=False,
-        why="healthy-but-stale must not count as a delivered release",
+        why="identity comes from the image label; a runtime -e flag must not be able to fake a release",
+    ),
+    _stale_service("api"),
+    _stale_service("web"),
+    _stale_service("worker"),
+    _stale_service("beat"),
+    Scenario(
+        name="images carry no revision label",
+        stubs={**all_healthy(), "STUB_LABEL_MISSING": "1"},
+        expect_success=False,
+        why="an unlabelled image cannot prove anything, so it cannot pass",
+    ),
+    Scenario(
+        name="images are labelled 'unknown' (built without the GIT_SHA arg)",
+        stubs=all_healthy("unknown"),
+        expect_success=False,
+        why="'unknown' is a placeholder, never a release",
+    ),
+    Scenario(
+        name="docker image inspect fails outright",
+        stubs={**all_healthy(), "STUB_INSPECT_FAIL": "1"},
+        expect_success=False,
+        why="an unreadable image is an unverifiable release",
+    ),
+    Scenario(
+        name="worker container is missing entirely",
+        stubs={**all_healthy(), "STUB_NO_CONTAINER_WORKER": "1"},
+        expect_success=False,
+        why="nothing to inspect means nothing is proven",
     ),
     Scenario(
         name="api and web healthy, celery worker does not answer ping",
@@ -86,11 +128,17 @@ SCENARIOS = [
         why="an exhausted retry budget is a failure, not a warning",
     ),
     Scenario(
-        name="every component healthy and stamped with the expected SHA",
+        name="web health never answers within the retry budget",
+        stubs={**all_healthy(), "STUB_WEB_HEALTH": "fail"},
+        expect_success=False,
+        why="web is checked on its own, and used to be only a warning",
+    ),
+    Scenario(
+        name="every component running the image built for the expected commit",
         stubs=all_healthy(),
         expect_success=True,
         why="the only path that may report success",
-        must_contain=[SUCCESS_MARKER],
+        must_contain=[SUCCESS_MARKER] + [f"✓ {svc} runs {EXPECTED_SHA}" for svc in ("api", "web", "worker", "beat")],
     ),
     Scenario(
         name="manual run with no DEPLOY_SHA: healthy, but nothing to verify against",
@@ -136,6 +184,19 @@ def static_checks() -> list[str]:
             problems.append(f"{label} Dockerfile does not declare ARG GIT_SHA")
         if "ENV DRINKX_GIT_SHA=${GIT_SHA}" not in text:
             problems.append(f"{label} Dockerfile does not bake DRINKX_GIT_SHA into the image")
+        if "LABEL org.opencontainers.image.revision=${GIT_SHA}" not in text:
+            problems.append(
+                f"{label} Dockerfile does not set the OCI revision label — the gate "
+                "would fall back to container environment, which is forgeable"
+            )
+
+    # The gate must never decide identity from the container environment.
+    deploy = DEPLOY_SH.read_text()
+    if "printenv DRINKX_GIT_SHA" in deploy:
+        problems.append(
+            "deploy.sh reads DRINKX_GIT_SHA out of a container; identity must come "
+            "from the image label, which a runtime -e flag cannot set"
+        )
 
     return problems
 

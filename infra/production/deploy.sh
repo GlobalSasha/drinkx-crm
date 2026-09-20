@@ -25,11 +25,18 @@ cd "$(dirname "$0")/../.."
 #
 # Don't read the commit from .git — rsync leaves it untouched, so it still
 # points at whatever was last fetched here and would lie about what is live.
-# The only trustworthy answer comes from the running containers themselves:
-# DRINKX_GIT_SHA is baked into each image at build time (see the Dockerfiles
-# and the GIT_SHA build arg in docker-compose.yml) and is deliberately NOT set
-# as a runtime `environment:` value, so it cannot be faked by re-tagging or by
-# restarting an old image with a new variable.
+#
+# Identity is proven from the IMAGES, not from the containers' environment.
+# `docker run -e DRINKX_GIT_SHA=...` can override an ENV at start-up, so a
+# container that answers with the right string proves nothing. Each image
+# instead carries the OCI label org.opencontainers.image.revision, set from the
+# GIT_SHA build arg; labels belong to the image and cannot be set at run time.
+# The gate records the image IDs produced by this build, then checks that every
+# running container was started from exactly those images and that their labels
+# match the requested commit.
+#
+# This proves WHICH BUILD is running. It does not prove the build context was
+# clean — a file deleted from git can survive on the server (audit DEBT-01/G4).
 
 DEPLOY_SHA="${DEPLOY_SHA:-}"
 if [ -n "$DEPLOY_SHA" ]; then
@@ -52,6 +59,43 @@ run_bounded() {
   else
     "$@"
   fi
+}
+
+# Compose project name — `name: drinkx` in docker-compose.yml. Used only as a
+# fallback when `compose config --images` is unavailable.
+COMPOSE_PROJECT="${COMPOSE_PROJECT_NAME:-drinkx}"
+BUILT_SERVICES="api web worker beat"
+
+# Image reference compose uses for a built service (project-service by default).
+compose_image_ref() {
+  local svc="$1" ref=""
+  ref="$(run_bounded 30 docker compose --env-file .env config --images "$svc" \
+           2>/dev/null | head -n 1 | tr -d '\r' || true)"
+  [ -n "$ref" ] || ref="${COMPOSE_PROJECT}-${svc}"
+  printf '%s' "$ref"
+}
+
+# Full image ID for a reference or ID.
+image_id_of() {
+  run_bounded 30 docker image inspect --format '{{.Id}}' "$1" \
+    2>/dev/null | head -n 1 | tr -d '\r' || true
+}
+
+# Revision recorded IN THE IMAGE at build time.
+image_revision_of() {
+  run_bounded 30 docker image inspect \
+    --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$1" \
+    2>/dev/null | head -n 1 | tr -d '\r' || true
+}
+
+# Image ID a running container was actually started from.
+container_image_of() {
+  local svc="$1" cid=""
+  cid="$(run_bounded 30 docker compose --env-file .env ps -q "$svc" \
+           2>/dev/null | head -n 1 | tr -d '\r' || true)"
+  [ -n "$cid" ] || return 0
+  run_bounded 30 docker inspect --format '{{.Image}}' "$cid" \
+    2>/dev/null | head -n 1 | tr -d '\r' || true
 }
 
 fail() {
@@ -79,6 +123,28 @@ echo "==> Build images"
 if ! docker compose --env-file .env build \
        --build-arg GIT_SHA="${DEPLOY_SHA:-unknown}"; then
   fail "image build failed — the previous release is still running, nothing was replaced"
+fi
+
+# Record what the build produced, before anything is started. If `up` later
+# leaves an old container in place, the comparison below catches it.
+if [ "$VERIFY_VERSION" -eq 1 ]; then
+  echo "==> Record images produced by this build"
+  for svc in $BUILT_SERVICES; do
+    ref="$(compose_image_ref "$svc")"
+    built_id="$(image_id_of "$ref")"
+    if [ -z "$built_id" ]; then
+      fail "could not resolve the image built for '$svc' (looked for '$ref')"
+    fi
+    built_rev="$(image_revision_of "$built_id")"
+    if [ -z "$built_rev" ] || [ "$built_rev" = "unknown" ]; then
+      fail "image for '$svc' carries no usable org.opencontainers.image.revision label"
+    fi
+    if [ "$built_rev" != "$DEPLOY_SHA" ]; then
+      fail "image for '$svc' is labelled '$built_rev', expected '$DEPLOY_SHA' — this build is not the requested release"
+    fi
+    eval "EXPECTED_IMAGE_${svc}=\$built_id"
+    echo "  ✓ $svc built as $built_id"
+  done
 fi
 
 # ---------------------------------------------------------------------------
@@ -150,22 +216,31 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 4. Version. Healthy is not the same as new: the checks above are all
-#    satisfied by the previous release. Read the build stamp out of each
-#    running container and require it to be the commit we were asked to ship.
+# 4. Identity. Healthy is not the same as new: every check above is satisfied
+#    by the previous release. Confirm each running container was started from
+#    the image this build produced, and that the image's own label names the
+#    requested commit. Deliberately NOT read from the container environment,
+#    which a runtime -e flag can set to anything.
 # ---------------------------------------------------------------------------
 if [ "$VERIFY_VERSION" -eq 1 ]; then
-  echo "==> Verify running build"
-  for svc in api web worker beat; do
-    actual="$(run_bounded 30 docker compose --env-file .env exec -T "$svc" \
-                printenv DRINKX_GIT_SHA 2>/dev/null | tr -d '\r\n' || true)"
-    if [ -z "$actual" ]; then
-      fail "could not read DRINKX_GIT_SHA from '$svc' — cannot prove which build is running"
+  echo "==> Verify running images"
+  for svc in $BUILT_SERVICES; do
+    eval "expected_id=\$EXPECTED_IMAGE_${svc}"
+    running_id="$(container_image_of "$svc")"
+    if [ -z "$running_id" ]; then
+      fail "no running container for '$svc' — cannot verify which image is live"
     fi
-    if [ "$actual" != "$DEPLOY_SHA" ]; then
-      fail "service '$svc' is running build '$actual', expected '$DEPLOY_SHA' — the new release is NOT live"
+    running_rev="$(image_revision_of "$running_id")"
+    if [ "$running_id" != "$expected_id" ]; then
+      fail "'$svc' runs image $running_id (revision '${running_rev:-none}'), not the image built for this release ($expected_id)"
     fi
-    echo "  ✓ $svc runs $actual"
+    if [ -z "$running_rev" ] || [ "$running_rev" = "unknown" ]; then
+      fail "'$svc' runs an image with no usable revision label — cannot prove the release"
+    fi
+    if [ "$running_rev" != "$DEPLOY_SHA" ]; then
+      fail "'$svc' runs revision '$running_rev', expected '$DEPLOY_SHA' — the new release is NOT live"
+    fi
+    echo "  ✓ $svc runs $running_rev"
   done
 fi
 
