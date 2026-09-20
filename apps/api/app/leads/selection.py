@@ -31,7 +31,7 @@ from typing import Any, Iterable, Sequence
 from sqlalchemy import Select, and_, cast, func, nullslast, or_
 from sqlalchemy.dialects.postgresql import JSONB
 
-from app.leads.models import Lead
+from app.leads.models import ASSIGNMENT_STATUSES, Lead
 
 # ---------------------------------------------------------------------------
 # Tier
@@ -194,6 +194,32 @@ class LeadSelection:
         object.__setattr__(self, "q", text or None)
         object.__setattr__(self, "has_email", bool(self.has_email))
         object.__setattr__(self, "has_phone", bool(self.has_phone))
+
+    def validate_assignment_status(self) -> None:
+        """Статус в выборке — из известного набора, иначе отказ.
+
+        `assignment_status` приходит от вызывающего только через экспорт
+        (`POST /api/export`, `GET /api/export/snapshot`). Неизвестное
+        значение уходило в `WHERE assignment_status = 'zzz'` и давало молча
+        пустую выборку: доступ не течёт, но и контракта на входе нет.
+        Набор допустимых значений один (`ASSIGNMENT_STATUSES`), тот же
+        проверяется на записи в `LeadUpdate`.
+
+        Проверка вызывается явно, а не из `__post_init__`: сначала
+        отрабатывает политика доступа (менеджеру всё, кроме `assigned`, —
+        403), и только потом формат значения. Иначе неизвестное значение
+        меняло бы менеджеру ответ с 403 на 422.
+        """
+        status = self.assignment_status
+        if status and status not in ASSIGNMENT_STATUSES:
+            # Импорт внутри: `app.import_export.access` — потребитель этого
+            # модуля, держать связь на уровне импорта модуля не за чем.
+            from app.import_export.access import ExportFilterInvalid
+
+            raise ExportFilterInvalid(
+                "Недопустимое значение assignment_status: "
+                f"{status!r}. Допустимы: {', '.join(ASSIGNMENT_STATUSES)}"
+            )
 
     @staticmethod
     def pool(**kwargs: Any) -> "LeadSelection":

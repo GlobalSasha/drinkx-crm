@@ -43,6 +43,17 @@ class AssignmentStatus(str, Enum):
     transferred = "transferred"
 
 
+# Что на самом деле может стоять в колонке `leads.assignment_status`.
+# Enum выше — историческое объявление «для ясности OpenAPI»: `transferred`
+# в него записан, но никогда никем не пишется (перевод карточки между
+# менеджерами оставляет статус `assigned`), а `deleted`, которым интерфейс
+# отклоняет авто-созданную карточку, в нём отсутствует. Валидатором служит
+# этот кортеж: он один и тот же для выборки (`app/leads/selection.py`) и для
+# записи (`LeadUpdate` в `app/leads/schemas.py`), чтобы значения не
+# расходились.
+ASSIGNMENT_STATUSES: tuple[str, ...] = ("pool", "assigned", "deleted")
+
+
 class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     __tablename__ = "leads"
 

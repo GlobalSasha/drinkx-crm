@@ -6,8 +6,9 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.leads.models import ASSIGNMENT_STATUSES
 from app.leads.models import (  # noqa: F401 — imported for OpenAPI clarity
     AssignmentStatus,
     CommercialModel,
@@ -76,6 +77,20 @@ class LeadUpdate(BaseModel):
     company_profile: str | None = None
     # Sprint 3.7 G4 — auto-created lead dismissal
     assignment_status: str | None = None
+
+    @field_validator("assignment_status")
+    @classmethod
+    def _known_assignment_status(cls, value: str | None) -> str | None:
+        """Статус — это инвариант, по которому вся система делит карточки на
+        пул и закреплённые (`app/team`, `app/company`, `app/daily_plan`…).
+        Раньше PATCH писал в колонку любую присланную строку, и такая
+        карточка молча выпадала из обоих представлений."""
+        if value is not None and value not in ASSIGNMENT_STATUSES:
+            raise ValueError(
+                "Недопустимое значение assignment_status: "
+                f"{value!r}. Допустимы: {', '.join(ASSIGNMENT_STATUSES)}"
+            )
+        return value
 
 
 class LeadOut(LeadBase):
