@@ -499,6 +499,45 @@ async def test_pick_of_an_own_company_goes_through(db, scene):
 
 @skip_no_pg
 @pytest.mark.asyncio
+async def test_pick_of_a_foreign_lead_is_refused(db, scene):
+    """Регрессия SEC-04-2: та же проверка для связи с лидом.
+
+    `set_match_lead` принимает идентификатор из тела запроса тем же
+    путём, что и компанию. Без сверки запись задания пространства A
+    сослалась бы на карточку пространства B.
+    """
+    s = scene
+    job = await _job(db, s["a"].id, s["a_admin"].id)
+    rec = await _record(db, job)
+    before = rec.match_lead_id
+    pick = await _conflict(db, job, rec, type_=c.C_LEAD_TARGET, target_kind=c.TK_LEAD)
+    await resolve(db, pick, c.R_PICK, str(s["b_lead"].id))
+    await run_apply(db, job.id)
+
+    await db.refresh(rec)
+    assert rec.match_lead_id == before, "чужой лид всё-таки записан"
+    assert "workspace" in (rec.error or ""), rec.error
+    await db.refresh(pick)
+    assert pick.status == c.CONFLICT_OPEN
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_pick_of_an_own_lead_goes_through(db, scene):
+    """Разрешённый контроль: свой лид выбирается."""
+    s = scene
+    job = await _job(db, s["a"].id, s["a_admin"].id)
+    rec = await _record(db, job)
+    pick = await _conflict(db, job, rec, type_=c.C_LEAD_TARGET, target_kind=c.TK_LEAD)
+    await resolve(db, pick, c.R_PICK, str(s["a_lead"].id))
+    await run_apply(db, job.id)
+
+    await db.refresh(rec)
+    assert rec.match_lead_id == s["a_lead"].id, rec.error
+
+
+@skip_no_pg
+@pytest.mark.asyncio
 async def test_new_lead_cannot_point_at_a_foreign_company(db, scene):
     """Регрессия SEC-04-2: ссылка на компанию проверяется по пространству.
 

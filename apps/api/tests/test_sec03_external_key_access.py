@@ -501,3 +501,23 @@ async def test_malformed_cursor_is_a_bad_request_not_a_wider_selection(db, two_w
     if cursor:
         r = await ext(db, s["token_a"], f"/external/v1/leads?limit=1&cursor={cursor}")
         assert r.status_code == 200, r.text
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_other_internal_errors_are_not_disguised_as_a_bad_cursor(db, two_workspaces, monkeypatch):
+    """Обработчик 400 ловит только разбор курсора.
+
+    Иначе «400 bad cursor» стало бы ширмой для любой внутренней
+    поломки, и настоящий сбой выглядел бы ошибкой вызывающего.
+    """
+    from app.external import services as ext_svc
+
+    async def _boom(*a, **kw):
+        raise RuntimeError("что-то сломалось внутри")
+
+    monkeypatch.setattr(ext_svc, "list_leads", _boom)
+    s = two_workspaces
+    r = await ext(db, s["token_a"], "/external/v1/leads", raise_errors=False)
+    assert r.status_code == 500, r.status_code
+    assert "bad cursor" not in r.text

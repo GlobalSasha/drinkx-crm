@@ -302,6 +302,58 @@ async def _row_exists(activity_id) -> bool:
 
 @skip_no_pg
 @pytest.mark.asyncio
+@pytest.mark.parametrize("path_kind", ["lead-file", "task-file"])
+async def test_storage_failure_leaves_no_attachment_behind(db, scene, storage, path_kind):
+    """Сбой хранилища не оставляет сохранённого вложения.
+
+    Дополнительный `flush` из исправления SEC-05-1 стоит ДО загрузки, и
+    надо показать, что он не создаёт наполовину записанное вложение:
+    транзакция ручки не коммитится, отдельная сессия строки не видит,
+    подпись и удаление не запрашивались.
+    """
+    from app.storage.client import StorageError
+
+    s = scene
+    if path_kind == "lead-file":
+        path = f"/leads/{s['lead'].id}/files"
+    else:
+        task = await _task(db, s["a"].id, s["lead"].id, s["owner"].id)
+        await db.commit()
+        path = f"/leads/{s['lead'].id}/tasks/{task.id}/files"
+
+    async def _boom(*, key, content, content_type):
+        storage.uploaded.append((key, len(content), content_type))
+        raise StorageError("upload failed [500]: boom")
+
+    storage.upload = _boom
+
+    with pytest.raises(StorageError):
+        await call(
+            db, s["owner"], "POST", path,
+            files={"file": ("договор.png", PNG, "application/octet-stream")},
+        )
+
+    attempted_key = storage.uploaded[-1][0]
+    await db.rollback()
+    assert await _file_url_by_key(attempted_key) is None, "вложение всё-таки сохранено"
+    assert storage.signed == [] and storage.deleted == []
+
+
+async def _file_url_by_key(key):
+    """Есть ли в базе строка с таким ключом — читается отдельной сессией."""
+    from sqlalchemy import select
+
+    from app.activity.models import Activity
+    from tests.conftest import _test_session_factory
+
+    async with _test_session_factory() as fresh:
+        return (
+            await fresh.execute(select(Activity.id).where(Activity.file_url == key))
+        ).scalar_one_or_none()
+
+
+@skip_no_pg
+@pytest.mark.asyncio
 async def test_owner_downloads_and_deletes_a_file_with_a_key(db, scene, storage):
     """Разрешённый контроль чтения и удаления — на вложении с ключом."""
     from sqlalchemy import select
