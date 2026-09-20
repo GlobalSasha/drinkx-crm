@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import os
 import uuid
 
@@ -30,6 +31,7 @@ TEST_DB_URL = os.environ.get(
 # is deliberate: a misconfigured DSN must stop the run, not quietly downgrade
 # it to "postgres unavailable, skipping".
 from scripts.db_safety import assert_disposable  # noqa: E402
+from scripts.db_safety import redact as redact_dsn  # noqa: E402
 
 assert_disposable(TEST_DB_URL, purpose="API test fixtures")
 
@@ -167,10 +169,38 @@ if POSTGRES_AVAILABLE and PYTEST_ASYNCIO_AVAILABLE:
     _test_engine = create_async_engine(TEST_DB_URL, echo=False, poolclass=NullPool)
     _test_session_factory = async_sessionmaker(_test_engine, expire_on_commit=False, class_=AsyncSession)
 
+    # Two pytest processes pointed at one database will destroy each other:
+    # this fixture drops the public schema, so the second run pulls the tables
+    # out from under the first, which then fails with "relation ... does not
+    # exist" hundreds of tests in. Observed exactly that way while generating
+    # review evidence alongside a full run. A PostgreSQL advisory lock makes
+    # the collision a clear, immediate error instead (review finding R3).
+    _SCHEMA_LOCK_KEY = (
+        int.from_bytes(hashlib.sha256(TEST_DB_URL.encode()).digest()[:8], "big")
+        % (2**63)
+    )
+
     @pytest_asyncio.fixture(scope="session", loop_scope="session", autouse=True)
     async def _create_tables():
         """Create all tables once per session, drop afterwards."""
         from sqlalchemy import text
+
+        # Held for the whole session on a connection of its own; PostgreSQL
+        # releases it if this process dies, so a crashed run cannot wedge the
+        # next one.
+        lock_conn = await _test_engine.connect()
+        got_lock = await lock_conn.scalar(
+            text("SELECT pg_try_advisory_lock(:key)"), {"key": _SCHEMA_LOCK_KEY}
+        )
+        if not got_lock:
+            await lock_conn.close()
+            raise RuntimeError(
+                "another test run already holds the schema lock on "
+                f"{redact_dsn(TEST_DB_URL)}. These fixtures drop and recreate "
+                "the public schema, so two runs on one database corrupt each "
+                "other. Wait for the other run, or point TEST_DATABASE_URL at "
+                "a different disposable database."
+            )
 
         # DROP SCHEMA … CASCADE instead of metadata.drop_all: the leads↔contacts
         # FK cycle (leads.primary_contact_id ↔ contacts.lead_id) can't be
@@ -183,10 +213,16 @@ if POSTGRES_AVAILABLE and PYTEST_ASYNCIO_AVAILABLE:
             # search tests can exercise the trgm mode.
             await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
             await conn.run_sync(Base.metadata.create_all)
-        yield
-        async with _test_engine.begin() as conn:
-            await conn.execute(text("DROP SCHEMA public CASCADE"))
-            await conn.execute(text("CREATE SCHEMA public"))
+        try:
+            yield
+        finally:
+            async with _test_engine.begin() as conn:
+                await conn.execute(text("DROP SCHEMA public CASCADE"))
+                await conn.execute(text("CREATE SCHEMA public"))
+            await lock_conn.exec_driver_sql(
+                f"SELECT pg_advisory_unlock({_SCHEMA_LOCK_KEY})"
+            )
+            await lock_conn.close()
 
     @pytest_asyncio.fixture
     async def db():
