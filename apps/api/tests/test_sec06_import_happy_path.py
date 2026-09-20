@@ -303,16 +303,19 @@ async def test_counters_have_no_double_accounting(db, scene, no_queue):
 
 @skip_no_pg
 @pytest.mark.asyncio
-async def test_preview_promises_a_skip_the_worker_does_not_keep(db, scene, no_queue):
-    """Найдено разведкой: предпросмотр и результат расходятся.
+async def test_worker_keeps_the_skip_the_preview_promised(db, scene, no_queue):
+    """Регрессия SEC-06-1: предпросмотр и результат сходятся.
 
-    `confirm-mapping` считает строку с негодным email в `will_skip`, но
-    worker проверку не повторяет и карточку всё-таки создаёт. Значит
-    `dry_run_stats` — не обещание результата, а только разбор файла.
+    Было: `confirm-mapping` считал строку с негодным email в
+    `will_skip`, а worker проверку не повторял и карточку всё-таки
+    создавал — предпросмотр обещал одно, импорт делал другое.
+
+    Стало: worker прогоняет те же правила, строка уходит в отказ с
+    внятной ошибкой, годная строка при этом заводится.
     """
     from sqlalchemy import select
 
-    from app.import_export.models import ImportJob
+    from app.import_export.models import ImportError, ImportJob
     from app.leads.models import Lead
 
     s = scene
@@ -333,14 +336,29 @@ async def test_preview_promises_a_skip_the_worker_does_not_keep(db, scene, no_qu
     await run_import_worker(db, job_id)
 
     await db.refresh(job)
-    assert (job.succeeded, job.failed) == (2, 0), "поведение изменилось — сверить отчёт"
+    assert (job.succeeded, job.failed) == (stats["will_create"], stats["will_skip"])
+    assert job.processed == job.succeeded + job.failed == job.total_rows
+
     bad = (
         await db.execute(
             select(Lead).where(Lead.workspace_id == s["a"].id,
                                Lead.company_name == "С кривой почтой")
         )
     ).scalar_one_or_none()
-    assert bad is not None and bad.email == "не-почта"
+    assert bad is None, "строка, обещанная пропущенной, всё-таки заведена"
+
+    good = (
+        await db.execute(
+            select(Lead).where(Lead.workspace_id == s["a"].id,
+                               Lead.company_name == "Хорошая")
+        )
+    ).scalar_one_or_none()
+    assert good is not None, "годная строка не заведена"
+
+    errs = list((await db.execute(
+        select(ImportError).where(ImportError.job_id == job_id)
+    )).scalars())
+    assert [e.field for e in errs] == ["validation"]
 
 
 # ===========================================================================
@@ -398,58 +416,97 @@ async def test_head_may_drive_someone_elses_job(db, scene, no_queue):
 
 @skip_no_pg
 @pytest.mark.asyncio
-async def test_worker_does_not_recheck_the_author_before_writing(db, scene, no_queue):
-    """Найдено разведкой: обычный импорт автора не перепроверяет.
+async def test_worker_rechecks_the_author_before_every_row(db, scene, no_queue):
+    """Регрессия SEC-06-2: автор перепроверяется перед каждой строкой.
 
-    В bulk-update это исправлено (SEC2-F1): там права автора читаются
-    на каждой строке. Обычный импорт `user_id` использует только как
-    автора комментария и после `apply` уже ни на что не смотрит — смена
-    роли между постановкой и прогоном ничего не меняет.
+    Было: обычный импорт использовал `user_id` только как автора
+    комментария и после `apply` на автора уже не смотрел. В bulk-update
+    это исправлено (SEC2-F1), здесь — нет.
 
-    Чужих данных это не затрагивает: карточки создаются в пространстве
-    задания и уходят в пул. Поэтому здесь зафиксировано поведение, а не
-    объявлена дыра.
+    Стало: перед каждой строкой читаются действующие данные автора.
+    Проверяется случай, у которого в этом продукте есть смысл: автора
+    перевели в другое пространство. Роль здесь не ворота — обычный
+    импорт ролью не ограничен вовсе (это открытый P2-13, отдельная
+    задача), поэтому «отозванную роль» здесь нечем воспроизвести.
     """
-    from sqlalchemy import select, update
+    from sqlalchemy import func, select, update
 
     from app.auth.models import User
-    from app.import_export.models import ImportJob
+    from app.import_export.models import ImportError, ImportJob
     from app.leads.models import Lead
 
     s = scene
-    r = await upload_csv(db, s["owner"], [("После увольнения", "Тверь", "a@example.com")])
+    r = await upload_csv(db, s["owner"], [("После перевода", "Тверь", "a@example.com")])
     job_id = uuid.UUID(r.json()["id"])
     await call(db, s["owner"], "POST", f"/api/import/jobs/{job_id}/confirm-mapping",
                {"mapping": MAPPING})
     await call(db, s["owner"], "POST", f"/api/import/jobs/{job_id}/apply")
 
-    # Роль отозвана уже после постановки в очередь.
+    before = (await db.execute(select(func.count(Lead.id)))).scalar_one()
+
+    # Автор переведён в другое пространство уже после постановки в очередь.
     await db.execute(
-        update(User).where(User.id == s["owner"].id).values(role="disabled")
+        update(User).where(User.id == s["owner"].id).values(workspace_id=s["b"].id)
     )
     await db.commit()
 
     await run_import_worker(db, job_id)
 
     job = (await db.execute(select(ImportJob).where(ImportJob.id == job_id))).scalar_one()
-    assert (job.succeeded, job.failed) == (1, 0)
-    created = (
-        await db.execute(
-            select(Lead).where(Lead.workspace_id == s["a"].id,
-                               Lead.company_name == "После увольнения")
-        )
-    ).scalar_one()
-    assert created.assignment_status == "pool"
+    await db.refresh(job)
+    assert (job.succeeded, job.failed) == (0, 1)
+    assert job.processed == 1, "строка посчитана дважды"
+    assert (await db.execute(select(func.count(Lead.id)))).scalar_one() == before
+
+    errs = list((await db.execute(
+        select(ImportError).where(ImportError.job_id == job_id)
+    )).scalars())
+    assert [e.field for e in errs] == ["access"]
 
 
 @skip_no_pg
 @pytest.mark.asyncio
-async def test_deleted_author_leaves_the_job_without_one(db, scene, no_queue):
-    """Удаление автора: ссылка обнуляется (`ON DELETE SET NULL`), импорт идёт."""
-    from sqlalchemy import delete, select
+async def test_own_author_still_completes_the_import(db, scene, no_queue):
+    """Разрешённый контроль: автор на месте — импорт доходит до записи."""
+    from sqlalchemy import select
+
+    from app.import_export.models import ImportJob
+    from app.leads.models import Lead
+
+    s = scene
+    r = await upload_csv(db, s["owner"], [("Всё в порядке", "Тверь", "a@example.com")])
+    job_id = uuid.UUID(r.json()["id"])
+    await call(db, s["owner"], "POST", f"/api/import/jobs/{job_id}/confirm-mapping",
+               {"mapping": MAPPING})
+    await call(db, s["owner"], "POST", f"/api/import/jobs/{job_id}/apply")
+    await run_import_worker(db, job_id)
+
+    job = (await db.execute(select(ImportJob).where(ImportJob.id == job_id))).scalar_one()
+    await db.refresh(job)
+    assert (job.succeeded, job.failed) == (1, 0)
+    assert (
+        await db.execute(
+            select(Lead).where(Lead.workspace_id == s["a"].id,
+                               Lead.company_name == "Всё в порядке")
+        )
+    ).scalar_one_or_none() is not None
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_deleted_author_stops_the_job_instead_of_writing(db, scene, no_queue):
+    """Регрессия SEC-06-3: без автора задание не пишет.
+
+    Было: `ON DELETE SET NULL` обнулял ссылку, и импорт молча
+    продолжался — записи заводил никто. Стало: строки уходят в отказ.
+    Подставлять вместо удалённого автора admin нельзя, отдельного
+    системного актора в этом worker нет; если такой понадобится, это
+    отдельное решение, а не умолчание.
+    """
+    from sqlalchemy import delete, func, select
 
     from app.auth.models import User
-    from app.import_export.models import ImportJob
+    from app.import_export.models import ImportError, ImportJob
     from app.leads.models import Lead
 
     s = scene
@@ -469,12 +526,20 @@ async def test_deleted_author_leaves_the_job_without_one(db, scene, no_queue):
     await db.refresh(job)
     assert job.user_id is None
 
+    before = (await db.execute(select(func.count(Lead.id)))).scalar_one()
     await run_import_worker(db, job_id)
     await db.refresh(job)
-    assert (job.succeeded, job.failed) == (1, 0)
+
+    assert (job.succeeded, job.failed) == (0, 1)
+    assert (await db.execute(select(func.count(Lead.id)))).scalar_one() == before
     assert (
         await db.execute(
             select(Lead).where(Lead.workspace_id == s["a"].id,
                                Lead.company_name == "После удаления")
         )
-    ).scalar_one_or_none() is not None
+    ).scalar_one_or_none() is None
+    errs = list((await db.execute(
+        select(ImportError).where(ImportError.job_id == job_id)
+    )).scalars())
+    assert [e.field for e in errs] == ["access"]
+

@@ -1101,7 +1101,7 @@ async def _run_bulk_import(job_id: UUID) -> dict:
         TAG_FIELD,
     )
     from app.import_export.models import ImportError, ImportJob, ImportJobStatus
-    from app.import_export.validators import parse_deal_amount
+    from app.import_export.validators import parse_deal_amount, validate_row
     from app.leads.models import Lead
     from app.pipelines import repositories as pipelines_repo
 
@@ -1143,8 +1143,66 @@ async def _run_bulk_import(job_id: UUID) -> dict:
             )
             pipeline_id, stage_id = first if first is not None else (None, None)
 
+            # Полномочия автора — заново перед каждой строкой. Задание
+            # применяется построчно с коммитом после каждой, и роль,
+            # отозванная между двумя уже закоммиченными строками, иначе
+            # остаётся незамеченной. Тот же приём, что в
+            # `_run_bulk_update` (ревью SEC2-F1); здесь его не было
+            # (аудит SEC-06-2, SEC-06-3).
+            from app.auth.models import User as _User
+
+            async def _author_may_write() -> bool:
+                """Есть ли у автора задания право писать прямо сейчас.
+
+                Читаются скаляры, а не ORM-объект: повторный
+                `select(User)` вернул бы тот же экземпляр из карты
+                идентичности с прежними атрибутами.
+
+                Автора нет (удалён, `ON DELETE SET NULL`) — писать
+                некому. Продолжать от его имени молча нельзя, отдельного
+                системного актора в этом worker нет.
+                """
+                if user_id is None:
+                    return False
+                row = (
+                    await session.execute(
+                        select(_User.id, _User.workspace_id).where(
+                            _User.id == user_id
+                        )
+                    )
+                ).first()
+                return row is not None and row.workspace_id == workspace_id
+
             for i, row in enumerate(mapped_rows):
                 try:
+                    if not await _author_may_write():
+                        session.add(
+                            ImportError(
+                                job_id=job.id,
+                                row_number=i,
+                                field="access",
+                                message="у автора задания нет прав на запись",
+                            )
+                        )
+                        job.failed += 1
+                        continue
+
+                    # Те же правила, что в предпросмотре: строка, которую
+                    # `confirm-mapping` посчитал пропущенной, не должна
+                    # заводиться здесь (аудит SEC-06-1).
+                    row_errors = validate_row(row)
+                    if row_errors:
+                        session.add(
+                            ImportError(
+                                job_id=job.id,
+                                row_number=i,
+                                field="validation",
+                                message="; ".join(row_errors)[:1000],
+                            )
+                        )
+                        job.failed += 1
+                        continue
+
                     company = (row.get("company_name") or "").strip()
                     if not company:
                         # confirmed_mapping shouldn't have let an empty
