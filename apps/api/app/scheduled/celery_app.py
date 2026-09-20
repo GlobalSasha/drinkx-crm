@@ -10,28 +10,15 @@ from celery.schedules import crontab
 
 from app.config import get_settings
 
-# Side-effect imports: hydrate the SQLAlchemy mapper registry with every
-# domain model BEFORE any Celery task touches the DB. The worker process
-# doesn't go through app.main, so without these the string-based forward
-# references in Lead → Contact / Activity / Followup fail to resolve at
-# task time with 'expression Contact failed to locate a name'.
-from app.auth import models as _auth_models  # noqa: F401, E402
-from app.base_update import models as _base_update_models  # noqa: F401
-from app.pipelines import models as _pipeline_models  # noqa: F401, E402
-from app.leads import models as _leads_models  # noqa: F401, E402
-from app.contacts import models as _contacts_models  # noqa: F401, E402
-from app.activity import models as _activity_models  # noqa: F401, E402
-from app.followups import models as _followups_models  # noqa: F401, E402
-from app.enrichment import models as _enrichment_models  # noqa: F401, E402
-from app.daily_plan import models as _daily_plan_models  # noqa: F401, E402
-from app.notifications import models as _notifications_models  # noqa: F401, E402
-from app.audit import models as _audit_models  # noqa: F401, E402
-from app.inbox import models as _inbox_models  # noqa: F401, E402
-from app.import_export import models as _import_export_models  # noqa: F401, E402
-from app.forms import models as _forms_models  # noqa: F401, E402
-from app.automation_builder import models as _automation_builder_models  # noqa: F401, E402
-from app.llm_usage import models as _llm_usage_models  # noqa: F401, E402
-from app.quotas import models as _quotas_models  # noqa: F401, E402
+# Реестр моделей: наполняет mapper-реестр SQLAlchemy всеми доменными
+# моделями ДО того, как задача Celery тронет БД. Worker не проходит через
+# app.main, и без этого строковые forward-ссылки Lead → Contact / Activity /
+# Followup падают во время задачи с 'expression Contact failed to locate a
+# name'. Раньше здесь лежал ручной список из 17 доменов (из 27) — он тихо
+# отставал от кода; app.models_registry — единственный список, за полнотой
+# которого следит tests/test_models_registry_completeness.py. Импортирует
+# только models.py, сеть и БД не трогает.
+import app.models_registry  # noqa: F401, E402
 
 _s = get_settings()
 

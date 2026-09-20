@@ -105,8 +105,10 @@ def resolved_target(dsn: str) -> tuple[str, int, str]:
     keys for one database, so two runs failed to exclude each other.
 
     Used to compare and describe targets. Advisory lock keys are no longer
-    derived from it — a lock is scoped to the whole server, so only the
-    database name enters the key (see `db_test_resources.advisory_key`).
+    derived from it — a lock lives in the lock space of the database its
+    connection is attached to, which any spelling of the address reaches
+    alike, so only the purpose and the database name enter the key (see
+    `db_test_resources.advisory_key`).
 
     Only meaningful after `assert_disposable`: it is the closed DSN contract,
     with no query allowed, that makes this triple match what the driver

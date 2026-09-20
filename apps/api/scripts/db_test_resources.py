@@ -15,8 +15,10 @@ DSN string, so `…@localhost/drinkx_test` and `…@localhost:5432/drinkx_test` 
 the same database — produced different keys and did not exclude each other.
 Keying it on the resolved target fixed the port half and left the host half:
 `localhost` and `127.0.0.1` are one server written two ways, and again gave
-two keys. An advisory lock is scoped to the whole server, so the key now names
-only the purpose and the database, and the address is left out of it entirely.
+two keys. An advisory lock lives in the lock space of the database its
+connection is attached to, and two spellings of one address reach that same
+database over one such space, so the key now names only the purpose and the
+database, and the address is left out of it entirely.
 The probe database also gets a lock of its own, held for the whole fixture
 lifetime from the admin database, because a connection inside a database
 cannot guard that database's own DROP.
@@ -77,17 +79,23 @@ def advisory_key(database: str, *, purpose: str) -> int:
     """A stable PostgreSQL advisory-lock key for one database and one purpose.
 
     Derived from the database name alone — never from the DSN string, and no
-    longer from the host or port. A PostgreSQL advisory lock lives in one lock
-    space per server, so the server is already fixed by the connection the lock
-    is taken on. Putting its address into the key adds nothing, while a second
-    spelling of that address — `localhost` against `127.0.0.1`, a name against
-    its IP — silently produced a second key for the same database, and two
-    destructive runs stopped excluding each other (review finding P2-1).
+    longer from the host or port. A PostgreSQL advisory lock is scoped to one
+    database, not to the cluster: `pg_locks.database` names the database the
+    holding connection is attached to, and two connections in different
+    databases of one cluster do not see each other's advisory locks. So the
+    lock space is already fixed by the connection the lock is taken on, and
+    putting the address into the key adds nothing — while a second spelling of
+    that address (`localhost` against `127.0.0.1`, a name against its IP)
+    reaches the very same database over the very same lock space and silently
+    produced a second key for it, so two destructive runs stopped excluding
+    each other (review finding P2-1).
 
-    The database name keeps two disposable databases on one server apart; the
-    purpose keeps unrelated locks on one database from colliding. Host and port
-    are still checked by `assert_disposable` — they identify the target, they
-    just do not identify the lock.
+    The database name still enters the key, because locks taken from one
+    connection — the admin database `postgres`, from which the probe database
+    is dropped — share a single lock space and would otherwise collide across
+    the databases they guard; the purpose keeps unrelated locks on one database
+    from colliding. Host and port are still checked by `assert_disposable` —
+    they identify the target, they just do not identify the lock.
     """
     payload = f"{purpose}|{database}"
     return int.from_bytes(hashlib.sha256(payload.encode()).digest()[:8], "big") % (2**63)

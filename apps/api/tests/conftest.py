@@ -184,7 +184,9 @@ if POSTGRES_AVAILABLE and PYTEST_ASYNCIO_AVAILABLE:
     # address. The same database written with and without its default port, or
     # as `localhost` and as `127.0.0.1`, produced different keys, so two runs
     # did not exclude each other after all (findings F2 and P2-1). An advisory
-    # lock is scoped to the whole server, which the connection already fixes.
+    # lock is scoped to the database its connection is attached to, not to the
+    # cluster, and every spelling of the address reaches that same database
+    # over that same lock space — so the connection already fixes it.
     _SCHEMA_LOCK_DATABASE = resolved_target(TEST_DB_URL)[2]
     _SCHEMA_LOCK_KEY = advisory_key(_SCHEMA_LOCK_DATABASE, purpose="drinkx:test-schema")
 
