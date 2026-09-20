@@ -58,6 +58,10 @@ CLAUDE.md      # this file
 - Pydantic schemas for AI outputs use `Optional` + defaults — never raise on missing
   fields. See PRD §7.2 for the canonical `ResearchOutput` example
 - Stage transitions go through `app/automation/stage_change.py` (pre/post hooks)
+- База лидов: выборка описывается одним `LeadSelection`
+  (`app/leads/selection.py`), им пользуются список, счётчики, экспорт и
+  выдача «по фильтру». Отбор и порядок — в базе. Подробности:
+  `docs/LEAD_POOL_SELECTION.md`
 - Списки задач (`/tasks`, `/me/tasks`, `/leads/{id}/tasks`) — один контракт:
   отбор и сортировка в базе до среза, курсорная страница, счётчики по всей
   выборке. Порядок и причины: `docs/TASK_LISTS.md`

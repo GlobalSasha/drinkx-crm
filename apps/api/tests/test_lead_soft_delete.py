@@ -8,6 +8,11 @@ from sqlalchemy import select
 
 from tests.conftest import POSTGRES_AVAILABLE
 
+# Пул целиком: с G6 выборка описывается одним объектом.
+from app.leads.selection import LeadSelection  # noqa: E402
+
+POOL = LeadSelection.pool()
+
 skip_no_pg = pytest.mark.skipif(
     not POSTGRES_AVAILABLE,
     reason="Requires a running Postgres at postgresql+asyncpg://drinkx:dev@localhost:5432/drinkx_test",
@@ -69,7 +74,7 @@ async def test_soft_deleted_lead_absent_from_list_and_pool(db, workspace, user):
     assert assigned.id not in {i.id for i in items}
     assert total == 0
 
-    pool_items, pool_total = await repo.list_pool(db, workspace.id)
+    pool_items, pool_total = await repo.list_pool(db, workspace.id, POOL)
     assert pooled.id not in {i.id for i in pool_items}
     assert pool_total == 0
 

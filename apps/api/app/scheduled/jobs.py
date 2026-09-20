@@ -876,6 +876,7 @@ async def _run_export(job_id: UUID) -> dict:
     )
     from app.import_export.redis_bytes import store_export_bytes
     from app.leads.models import Lead
+    from app.leads.selection import LeadSelection
     from app.pipelines.models import Stage
 
     engine, factory = _build_task_engine_and_factory()
@@ -901,42 +902,35 @@ async def _run_export(job_id: UUID) -> dict:
                 filters = dict(job.filters_json or {})
                 include_ai_brief = bool(filters.pop("include_ai_brief", False))
 
-                # Build the lead query from saved filters. We mirror the
-                # filter set GET /api/leads accepts but DON'T limit by
-                # assignment_status — exporting "everything in workspace"
-                # is the common case and the manager can narrow via filters.
-                stmt = select(Lead).where(Lead.workspace_id == job.workspace_id)
-                if filters.get("stage_id"):
-                    stmt = stmt.where(Lead.stage_id == filters["stage_id"])
-                if filters.get("segment"):
-                    stmt = stmt.where(Lead.segment == filters["segment"])
-                if filters.get("city"):
-                    stmt = stmt.where(Lead.city == filters["city"])
-                if filters.get("priority"):
-                    stmt = stmt.where(Lead.priority == filters["priority"])
-                if filters.get("deal_type"):
-                    stmt = stmt.where(Lead.deal_type == filters["deal_type"])
-                if filters.get("assigned_to"):
-                    stmt = stmt.where(Lead.assigned_to == filters["assigned_to"])
-                if filters.get("assignment_status"):
-                    stmt = stmt.where(
-                        Lead.assignment_status == filters["assignment_status"]
-                    )
-                if filters.get("fit_min") is not None:
-                    try:
-                        stmt = stmt.where(
-                            Lead.fit_score >= float(filters["fit_min"])
-                        )
-                    except (TypeError, ValueError):
-                        pass
-                if filters.get("q"):
-                    stmt = stmt.where(
-                        Lead.company_name.ilike(f"%{filters['q']}%")
-                    )
-                stmt = stmt.order_by(Lead.created_at.desc())
+                # Выборка — тем же каноническим описанием, что у списка и у
+                # выдачи «по фильтру» (аудит G6). Здесь раньше жила своя
+                # сборка WHERE: она знала по одному значению на поле, искала
+                # `q` только по названию компании, не понимала tier, теги,
+                # источник, наличие почты и телефона — и не исключала
+                # удалённые карточки. Поэтому выгрузка расходилась с тем,
+                # что человек видел на экране, вплоть до карточек, которых
+                # на экране не было вовсе.
+                #
+                # Никакого ограничения страницей: экспорт отдаёт всю
+                # выборку целиком.
+                from app.leads.selection import (
+                    NoMatches,
+                    order_by as selection_order_by,
+                    selection_conditions,
+                )
 
-                leads_res = await session.execute(stmt)
-                leads = list(leads_res.scalars())
+                selection = LeadSelection.from_json(filters)
+                try:
+                    conds = await selection_conditions(
+                        session, selection, job.workspace_id
+                    )
+                    stmt = (
+                        select(Lead).where(*conds).order_by(*selection_order_by())
+                    )
+                    leads_res = await session.execute(stmt)
+                    leads = list(leads_res.scalars())
+                except NoMatches:
+                    leads = []
 
                 # Resolve relations the exporters need without N+1
                 stage_ids = {l.stage_id for l in leads if l.stage_id}

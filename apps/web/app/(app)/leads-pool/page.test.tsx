@@ -14,10 +14,31 @@ const { claimMock, meMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/hooks/use-leads", () => ({
+  POOL_PAGE_SIZE: 50,
   usePoolLeads: () => ({
-    data: { items: mockLeads, total: mockLeads.length },
+    data: {
+      items: mockLeads,
+      total: mockLeads.length,
+      page: 1,
+      page_size: 50,
+    },
     isLoading: false,
     isError: false,
+    isFetching: false,
+  }),
+  // Значения фильтров и их размеры приходят с сервера (аудит G6).
+  usePoolFacets: () => ({
+    data: {
+      cities: [{ value: "Москва", count: 1 }],
+      segments: [{ value: "Ритейл", count: 1 }],
+      priorities: [{ value: "A", count: 1 }],
+      tiers: [{ value: "A", count: 1 }],
+      deal_types: [],
+      sources: [{ value: "Выставка", count: 1 }],
+      tags: [{ value: "сеть", count: 1 }],
+      total: 1,
+    },
+    isLoading: false,
   }),
   useClaimLead: () => ({ mutate: claimMock }),
 }));

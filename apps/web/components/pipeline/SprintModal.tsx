@@ -1,8 +1,12 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { X, Loader2 } from "lucide-react";
 import { usePipelineStore } from "@/lib/store/pipeline-store";
-import { usePoolLeads, useCreateSprint } from "@/lib/hooks/use-leads";
+import { usePoolFacets, usePoolLeads, useCreateSprint } from "@/lib/hooks/use-leads";
+import {
+  EMPTY_POOL_FILTERS,
+  type PoolFilterState,
+} from "@/lib/leads-pool-filters";
 import { Toast } from "@/components/ui/Toast";
 
 const SPRINT_CAPACITY = 20; // fallback if workspace value unavailable
@@ -57,28 +61,29 @@ export function SprintModal({ isOpen: isOpenProp, onClose: onCloseProp }: Props 
     return () => document.removeEventListener("keydown", handler);
   }, [isOpen, closeModal]);
 
-  const poolQuery = usePoolLeads({
-    segment: selectedSegment ?? undefined,
-  });
+  // Выборка описывается тем же объектом, что и на «Базе лидов» (аудит G6).
+  // Города и предварительный счёт берутся с сервера: раньше и то и другое
+  // собиралось из загруженной страницы, поэтому «найдено N» означало
+  // «N среди первых загруженных», а города, которых на той странице не
+  // случилось, в список просто не попадали.
+  const poolFilters: PoolFilterState = useMemo(
+    () => ({
+      ...EMPTY_POOL_FILTERS,
+      segments: selectedSegment ? [selectedSegment] : [],
+      cities: selectedCities,
+    }),
+    [selectedSegment, selectedCities],
+  );
+
+  // Одна строка: нужен только серверный счётчик, не сами карточки.
+  const poolQuery = usePoolLeads(poolFilters, 1, { pageSize: 1 });
+  const facetsQuery = usePoolFacets(poolFilters);
 
   const createSprint = useCreateSprint();
 
-  // Unique cities in pool
-  const poolCities = Array.from(
-    new Set(
-      (poolQuery.data?.items ?? [])
-        .map((l) => l.city)
-        .filter(Boolean) as string[]
-    )
-  ).sort();
+  const poolCities = (facetsQuery.data?.cities ?? []).map((c) => c.value);
 
-  // Filter pool by selected cities for preview count
-  const filteredPool = (poolQuery.data?.items ?? []).filter((l) => {
-    if (selectedCities.length > 0 && (!l.city || !selectedCities.includes(l.city)))
-      return false;
-    return true;
-  });
-  const previewFound = filteredPool.length;
+  const previewFound = poolQuery.data?.total ?? 0;
   const previewAdded = Math.min(previewFound, SPRINT_CAPACITY);
 
   function toggleCity(city: string) {
@@ -164,11 +169,11 @@ export function SprintModal({ isOpen: isOpenProp, onClose: onCloseProp }: Props 
           <div className="mb-5">
             <label className="font-mono text-2xs uppercase tracking-[0.12em] text-brand-muted block mb-2">
               Города
-              {poolQuery.isLoading && (
+              {(poolQuery.isLoading || facetsQuery.isLoading) && (
                 <Loader2 size={10} className="inline-block ml-1 animate-spin" />
               )}
             </label>
-            {poolCities.length === 0 && !poolQuery.isLoading ? (
+            {poolCities.length === 0 && !facetsQuery.isLoading ? (
               <p className="text-xs text-brand-muted">Нет доступных городов в пуле</p>
             ) : (
               <div className="flex flex-wrap gap-1.5">

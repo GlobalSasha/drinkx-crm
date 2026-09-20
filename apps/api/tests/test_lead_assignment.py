@@ -53,16 +53,25 @@ async def _make_lead(db, workspace_id, **kwargs):
 
 
 async def _assign(db, workspace, actor, target, **kwargs):
+    """С G6 выборка режима `filter` описывается одним `LeadSelection` —
+    тем же, что у списка базы лидов и у экспорта. Хелпер по-прежнему
+    принимает `cities`/`segment`/`fit_min` и складывает их в это описание,
+    чтобы проверки прав и гонок остались про то, про что они были."""
     from app.leads import services
+    from app.leads.selection import LeadSelection
 
     lead_ids = kwargs.get("lead_ids", [])
+    segment = kwargs.pop("segment", None)
+    selection = LeadSelection.pool(
+        cities=kwargs.pop("cities", []) or (),
+        segments=(segment,) if segment else (),
+        fit_min=kwargs.pop("fit_min", None),
+    )
     params = dict(
         mode="ids" if lead_ids else "filter",
         only_pool=True,
         lead_ids=[],
-        cities=[],
-        segment=None,
-        fit_min=None,
+        selection=selection,
         limit=None,
         comment=None,
     )

@@ -45,7 +45,9 @@ function renderModal(overrides: Partial<React.ComponentProps<typeof AssignLeadsM
     onClose,
     mode: "selected",
     selectedIds: ["l1", "l2"],
-    visibleIds: ["l1", "l2", "l3", "l4"],
+    // Каноническое описание выборки вместо списка id с экрана (аудит G6).
+    filterBody: { assignment_status: "pool", cities: ["Москва"], tiers: ["A"] },
+    matchingCount: 4,
     onDone,
     ...overrides,
   };
@@ -85,9 +87,12 @@ describe("AssignLeadsModal", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("режим topN с n=2 шлёт первые 2 из visibleIds", async () => {
+  it("режим topN шлёт сам фильтр и limit, а не список id с экрана", async () => {
+    // До G6 сюда уходили `mode: "ids"` и первые N из загруженной
+    // страницы, поэтому «по фильтру» означало «по тому куску пула,
+    // который браузер успел скачать».
     apiPost.mockResolvedValue({ assigned_count: 2, requested: 2, skipped: 0, items: [] });
-    renderModal({ mode: "topN", visibleIds: ["a", "b", "c", "d"] });
+    renderModal({ mode: "topN", matchingCount: 4 });
 
     const nInput = screen.getByLabelText("Сколько выдать");
     await userEvent.clear(nInput);
@@ -98,15 +103,20 @@ describe("AssignLeadsModal", () => {
     await waitFor(() =>
       expect(apiPost).toHaveBeenCalledWith("/leads/assign", {
         to_user_id: "u1",
-        mode: "ids",
+        mode: "filter",
         only_pool: true,
-        lead_ids: ["a", "b"],
+        assignment_status: "pool",
+        cities: ["Москва"],
+        tiers: ["A"],
+        limit: 2,
       }),
     );
+    const [, body] = apiPost.mock.calls[0];
+    expect(body).not.toHaveProperty("lead_ids");
   });
 
   it("режим topN объясняет невалидное количество", async () => {
-    renderModal({ mode: "topN", visibleIds: ["a", "b", "c", "d"] });
+    renderModal({ mode: "topN", matchingCount: 4 });
 
     const nInput = screen.getByLabelText("Сколько выдать");
     await userEvent.clear(nInput);

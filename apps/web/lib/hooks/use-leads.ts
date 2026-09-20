@@ -1,12 +1,19 @@
 import {
+  keepPreviousData,
   useQuery,
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api-client";
+import {
+  poolQueryParams,
+  poolScopeParams,
+  type PoolFilterState,
+} from "@/lib/leads-pool-filters";
 import type {
   LeadListOut,
   LeadOut,
+  PoolFacets,
   LeadCreate,
   SprintCreateIn,
   SprintCreateOut,
@@ -67,21 +74,51 @@ export function useLeads(filters: LeadFilters = {}) {
   });
 }
 
+/** Сколько карточек базы приходит за один запрос. */
+export const POOL_PAGE_SIZE = 50;
+
+/**
+ * GET /leads/pool — одна страница базы лидов.
+ *
+ * Весь отбор на сервере. До G6 сюда уходили только форма и needs_review,
+ * фронтенд просил 500 строк и решал принадлежность к выборке у себя —
+ * карточка за этой границей не находилась ни поиском, ни фильтром
+ * (аудит G6). Никакого `page_size: 500` здесь больше нет и быть не должно.
+ */
 export function usePoolLeads(
-  filters: { city?: string; segment?: string; page_size?: number; form_id?: string; needs_review?: boolean } = {},
+  filters: PoolFilterState,
+  page: number,
+  options: { pageSize?: number } = {},
 ) {
-  const p = new URLSearchParams();
-  if (filters.city) p.set("city", filters.city);
-  if (filters.segment) p.set("segment", filters.segment);
-  if (filters.form_id) p.set("form_id", filters.form_id);
-  if (filters.needs_review !== undefined) p.set("needs_review", String(filters.needs_review));
-  p.set("page_size", String(filters.page_size ?? 200));
-  const qs = p.toString();
-  const path = qs ? `/leads/pool?${qs}` : "/leads/pool";
+  const pageSize = options.pageSize ?? POOL_PAGE_SIZE;
+  const params = poolQueryParams(filters);
+  params.set("page", String(page));
+  params.set("page_size", String(pageSize));
+  const qs = params.toString();
 
   return useQuery<LeadListOut>({
-    queryKey: ["leads-pool", filters],
-    queryFn: () => api.get<LeadListOut>(path),
+    // Ключ включает фильтры и страницу: смена любого условия — другой
+    // запрос, а не пересортировка уже загруженного.
+    queryKey: ["leads-pool", qs],
+    queryFn: () => api.get<LeadListOut>(`/leads/pool?${qs}`),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * GET /leads/pool/facets — значения фильтров и их размеры.
+ *
+ * Отдельным запросом: числа зависят только от области пула (форма и
+ * needs_review) и не меняются при листании и выборе фасетов, поэтому
+ * переход на следующую страницу их не перезапрашивает.
+ */
+export function usePoolFacets(filters: PoolFilterState) {
+  const qs = poolScopeParams(filters).toString();
+  const path = qs ? `/leads/pool/facets?${qs}` : "/leads/pool/facets";
+  return useQuery<PoolFacets>({
+    queryKey: ["leads-pool-facets", qs],
+    queryFn: () => api.get<PoolFacets>(path),
+    staleTime: 60_000,
   });
 }
 

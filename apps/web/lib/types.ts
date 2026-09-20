@@ -749,6 +749,32 @@ export const DEFAULT_GATE_CRITERIA: Record<number, string[]> = {
   10: [],
 };
 
+/** Одно значение фильтра и его размер в серверной выборке. */
+export interface FacetValue {
+  value: string;
+  count: number;
+}
+
+/**
+ * Значения фильтров базы лидов и их размеры — GET /leads/pool/facets.
+ * Считаются на сервере по всей базе, а не по загруженной странице.
+ */
+export interface PoolFacets {
+  cities: FacetValue[];
+  segments: FacetValue[];
+  priorities: FacetValue[];
+  tiers: FacetValue[];
+  deal_types: FacetValue[];
+  sources: FacetValue[];
+  tags: FacetValue[];
+  total: number;
+}
+
+/**
+ * Порог tier для показа. Источник правды — бэкенд
+ * (`app/leads/selection.py`), он же отбирает по tier; здесь значения
+ * нужны только чтобы нарисовать бейдж у уже полученной строки.
+ */
 export function tierFromScore(score: number): "A" | "B" | "C" | "D" {
   if (score >= 80) return "A";
   if (score >= 60) return "B";

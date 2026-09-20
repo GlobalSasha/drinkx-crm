@@ -15,6 +15,7 @@ from app.automation.stage_change import (
 )
 from app.leads import repositories as repo
 from app.leads.models import DealType, Lead, Priority
+from app.leads.selection import LeadSelection  # noqa: F401
 from app.leads.schemas import LeadCreate, LeadUpdate
 from app.pipelines.models import Stage
 
@@ -225,9 +226,28 @@ async def list_leads(
 async def list_pool(
     db: AsyncSession,
     workspace_id: uuid.UUID,
-    filters: dict[str, Any],
+    selection: "LeadSelection",
+    *,
+    page: int = 1,
+    page_size: int = 50,
 ) -> tuple[list[Lead], int]:
-    return await repo.list_pool(db, workspace_id, **filters)
+    return await repo.list_pool(
+        db, workspace_id, selection, page=page, page_size=page_size
+    )
+
+
+async def pool_facets(
+    db: AsyncSession, workspace_id: uuid.UUID, selection: "LeadSelection"
+) -> dict[str, list[dict]]:
+    """Значения фасетов и их размеры по всей выборке на сервере."""
+    return await repo.pool_facets(db, workspace_id, selection)
+
+
+async def list_selection_ids(
+    db: AsyncSession, workspace_id: uuid.UUID, selection: "LeadSelection"
+) -> list[uuid.UUID]:
+    """Все идентификаторы выборки без страниц — тем же порядком, что список."""
+    return await repo.list_selection_ids(db, workspace_id, selection)
 
 
 class CompanyNameLocked(Exception):
@@ -445,9 +465,7 @@ async def assign_leads(
     mode: str,
     only_pool: bool,
     lead_ids: list[uuid.UUID],
-    cities: list[str],
-    segment: str | None,
-    fit_min: float | None,
+    selection: "LeadSelection",
     limit: int | None,
     comment: str | None,
 ) -> tuple[list[Lead], int, int]:
@@ -489,13 +507,7 @@ async def assign_leads(
                 raise ValueError(f"Workspace {workspace_id} not found")
             limit = workspace.sprint_capacity_per_week
         assigned = await repo.assign_pool_by_filter(
-            db,
-            workspace_id,
-            to_user_id,
-            cities=cities,
-            segment=segment,
-            fit_min=fit_min,
-            limit=limit,
+            db, workspace_id, to_user_id, selection, limit=limit
         )
         requested = limit
         skipped = requested - len(assigned)

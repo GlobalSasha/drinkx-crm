@@ -1,9 +1,21 @@
 "use client";
 import { useState, useMemo, useCallback, useEffect, useRef, Suspense } from "react";
+import type { SetStateAction } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2, ShieldAlert, Sparkles } from "lucide-react";
-import { usePoolLeads, useClaimLead } from "@/lib/hooks/use-leads";
+import {
+  POOL_PAGE_SIZE,
+  useClaimLead,
+  usePoolFacets,
+  usePoolLeads,
+} from "@/lib/hooks/use-leads";
+import {
+  activeFilterCount,
+  poolFilterBody,
+  EMPTY_POOL_FILTERS,
+  type PoolFilterState,
+} from "@/lib/leads-pool-filters";
 import { useForms } from "@/lib/hooks/use-forms";
 import { useMe } from "@/lib/hooks/use-me";
 import { Toast } from "@/components/ui/Toast";
@@ -13,8 +25,7 @@ import { PoolRow } from "@/components/leads-pool/PoolRow";
 import { PoolFilterBar } from "@/components/leads-pool/PoolFilterBar";
 import { SelectionBar } from "@/components/leads-pool/SelectionBar";
 import { AssignLeadsModal } from "@/components/leads-pool/AssignLeadsModal";
-import { tierFromScore } from "@/lib/types";
-import type { LeadAssignOut } from "@/lib/types";
+import type { FacetValue, LeadAssignOut } from "@/lib/types";
 import { SEGMENT_OPTIONS } from "@/lib/i18n";
 import { pageContainerVariants } from "@/components/ui/PageContainer";
 import {
@@ -25,6 +36,9 @@ import {
   EmptyDescription,
   EmptyContent,
 } from "@/components/ui/Empty";
+
+/** Задержка перед отправкой поискового запроса на сервер. */
+const SEARCH_DEBOUNCE_MS = 300;
 
 // ---- Toast state ----
 
@@ -38,19 +52,13 @@ interface ToastState {
 
 function LeadsPoolPageInner() {
   const searchParams = useSearchParams();
-  const [cityFilters, setCityFilters] = useState<string[]>([]);
-  const [segmentFilters, setSegmentFilters] = useState<string[]>([]);
-  const [priorityFilters, setPriorityFilters] = useState<string[]>([]);
-  const [tierFilters, setTierFilters] = useState<string[]>([]);
-  const [dealTypeFilters, setDealTypeFilters] = useState<string[]>([]);
-  const [sourceFilters, setSourceFilters] = useState<string[]>([]);
-  const [tagFilters, setTagFilters] = useState<string[]>([]);
-  const [fitMin, setFitMin] = useState(0);
-  const [search, setSearch] = useState("");
-  const [hasEmailOnly, setHasEmailOnly] = useState(false);
-  const [hasPhoneOnly, setHasPhoneOnly] = useState(false);
-  const [formId, setFormId] = useState<string | undefined>(undefined);
-  const [needsReview, setNeedsReview] = useState<boolean | undefined>(undefined);
+  // Одно состояние фильтров вместо тринадцати отдельных: оно же уходит в
+  // список, в счётчики, в экспорт и в выдачу «по фильтру» (аудит G6).
+  const [filters, setFilters] = useState<PoolFilterState>(EMPTY_POOL_FILTERS);
+  // Текст в поле ввода отделён от того, что ушло на сервер: запрос
+  // отправляется с задержкой, иначе каждое нажатие — обращение к базе.
+  const [searchInput, setSearchInput] = useState("");
+  const [page, setPage] = useState(1);
   const [toasts, setToasts] = useState<ToastState[]>([]);
   // Track which lead IDs are currently being claimed (for optimistic UI)
   const [claimingIds, setClaimingIds] = useState<Set<string>>(new Set());
@@ -62,44 +70,60 @@ function LeadsPoolPageInner() {
   const meQuery = useMe();
   const canAssign = meQuery.data?.role === "admin" || meQuery.data?.role === "head";
 
+  /** Любая смена условия возвращает на первую страницу. */
+  const updateFilters = useCallback(
+    (patch: Partial<PoolFilterState>) => {
+      setFilters((prev) => ({ ...prev, ...patch }));
+      setPage(1);
+    },
+    [],
+  );
+
+  /**
+   * Сеттер одного поля фильтра в форме, к которой привыкли компоненты
+   * фильтров: принимает и значение, и функцию-обновитель.
+   */
+  const setField = useCallback(
+    <K extends keyof PoolFilterState>(key: K) =>
+      (value: SetStateAction<PoolFilterState[K]>) => {
+        setFilters((prev) => ({
+          ...prev,
+          [key]:
+            typeof value === "function"
+              ? (value as (p: PoolFilterState[K]) => PoolFilterState[K])(prev[key])
+              : value,
+        }));
+        setPage(1);
+      },
+    [],
+  );
+
+  // Ввод в поиске уходит на сервер с задержкой.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setFilters((prev) =>
+        prev.search === searchInput ? prev : { ...prev, search: searchInput },
+      );
+      setPage(1);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(id);
+  }, [searchInput]);
+
   // Pre-select form filter from ?form_id= URL param (set by Lead Card chip links).
   const didMountRef = useRef(false);
   useEffect(() => {
     if (didMountRef.current) return;
     didMountRef.current = true;
     const presetFormId = searchParams.get("form_id") ?? undefined;
-    if (presetFormId) setFormId(presetFormId);
+    if (presetFormId) setFilters((prev) => ({ ...prev, formId: presetFormId }));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const activeFilterCount =
-    (cityFilters.length > 0 ? 1 : 0) +
-    (segmentFilters.length > 0 ? 1 : 0) +
-    (priorityFilters.length > 0 ? 1 : 0) +
-    (tierFilters.length > 0 ? 1 : 0) +
-    (dealTypeFilters.length > 0 ? 1 : 0) +
-    (sourceFilters.length > 0 ? 1 : 0) +
-    (tagFilters.length > 0 ? 1 : 0) +
-    (fitMin > 0 ? 1 : 0) +
-    (search ? 1 : 0) +
-    (hasEmailOnly ? 1 : 0) +
-    (hasPhoneOnly ? 1 : 0) +
-    (formId ? 1 : 0) +
-    (needsReview !== undefined ? 1 : 0);
+  const activeFilters = activeFilterCount(filters);
 
   function resetAllFilters() {
-    setCityFilters([]);
-    setSegmentFilters([]);
-    setPriorityFilters([]);
-    setTierFilters([]);
-    setDealTypeFilters([]);
-    setSourceFilters([]);
-    setTagFilters([]);
-    setFitMin(0);
-    setSearch("");
-    setHasEmailOnly(false);
-    setHasPhoneOnly(false);
-    setFormId(undefined);
-    setNeedsReview(undefined);
+    setFilters(EMPTY_POOL_FILTERS);
+    setSearchInput("");
+    setPage(1);
   }
 
   // Monotonic toast id — avoids React key collisions when two toasts are
@@ -111,190 +135,63 @@ function LeadsPoolPageInner() {
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
   }, []);
 
-  // Fetch the WHOLE pool once and filter client-side. Per-chip counts only
-  // make sense against the unfiltered pool — passing city/segment to the
-  // backend means each chip would just show the size of the active filter
-  // (or zero for non-active ones). 216 leads ≈ 50KB, fine for one fetch;
-  // revisit if pool grows past a few thousand.
-  // form_id is server-side filtered because it scopes the whole pool
-  // to a specific landing source.
-  const poolQuery = usePoolLeads({ page_size: 500, form_id: formId, needs_review: needsReview });
+  // Список и счётчики приходят с сервера. Раньше здесь запрашивались 500
+  // карточек, а всё остальное — поиск, приоритет, tier, тип сделки,
+  // источник, теги, наличие почты и телефона — решал `Array.filter` по
+  // этим строкам. Карточка за границей не находилась ничем, счётчики в
+  // выпадающих списках описывали загруженный кусок, а экспорт получал
+  // урезанный набор полей (аудит G6).
+  const poolQuery = usePoolLeads(filters, page);
+  const facetsQuery = usePoolFacets(filters);
   const { mutate: claimLead } = useClaimLead();
 
   const formsQuery = useForms();
   const forms = formsQuery.data?.items ?? [];
 
-  const allItems = poolQuery.data?.items ?? [];
+  const rows = poolQuery.data?.items ?? [];
+  const total = poolQuery.data?.total ?? 0;
+  const pageSize = poolQuery.data?.page_size ?? POOL_PAGE_SIZE;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const facets = facetsQuery.data;
 
-  // Sorted unique values for the filter dropdowns. Segment list = canonical
-  // Russian set + any unexpected legacy values still in the pool.
-  const cities = useMemo(
-    () =>
-      Array.from(new Set(allItems.map((l) => l.city).filter(Boolean) as string[])).sort(
-        (a, b) => a.localeCompare(b, "ru"),
-      ),
-    [allItems],
+  // Значения для выпадающих списков и числа рядом с ними — из ответа
+  // сервера, а не из загруженных строк. Сегменты дополняем канонической
+  // русской раскладкой, как и раньше: набор не должен зависеть от того,
+  // что сейчас лежит в базе.
+  const facetValues = useCallback(
+    (list: FacetValue[] | undefined) => (list ?? []).map((f) => f.value),
+    [],
   );
+  const facetCounts = useCallback(
+    (list: FacetValue[] | undefined) =>
+      Object.fromEntries((list ?? []).map((f) => [f.value, f.count])),
+    [],
+  );
+
+  const cities = useMemo(() => facetValues(facets?.cities), [facets, facetValues]);
   const segments = useMemo(() => {
-    const extras = new Set<string>();
-    for (const l of allItems) {
-      if (
-        l.segment &&
-        !SEGMENT_OPTIONS.includes(l.segment as typeof SEGMENT_OPTIONS[number])
-      ) {
-        extras.add(l.segment);
-      }
-    }
-    return [...SEGMENT_OPTIONS, ...Array.from(extras).sort()];
-  }, [allItems]);
+    const extras = facetValues(facets?.segments).filter(
+      (s) => !SEGMENT_OPTIONS.includes(s as typeof SEGMENT_OPTIONS[number]),
+    );
+    return [...SEGMENT_OPTIONS, ...extras.sort()];
+  }, [facets, facetValues]);
+  const dealTypes = useMemo(() => facetValues(facets?.deal_types), [facets, facetValues]);
+  const sources = useMemo(() => facetValues(facets?.sources), [facets, facetValues]);
+  const tags = useMemo(() => facetValues(facets?.tags), [facets, facetValues]);
 
-  // Per-* counts on the unfiltered pool — shown inside each dropdown
-  // row so a manager sees "Кофейни и кафе · 29" before selecting.
-  const segmentCounts = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const l of allItems) {
-      if (l.segment) m[l.segment] = (m[l.segment] ?? 0) + 1;
-    }
-    return m;
-  }, [allItems]);
-  const cityCounts = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const l of allItems) {
-      if (l.city) m[l.city] = (m[l.city] ?? 0) + 1;
-    }
-    return m;
-  }, [allItems]);
-  const priorityCounts = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const l of allItems) {
-      if (l.priority) m[l.priority] = (m[l.priority] ?? 0) + 1;
-    }
-    return m;
-  }, [allItems]);
-  const tierCounts = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const l of allItems) {
-      const t = tierFromScore(l.score);
-      m[t] = (m[t] ?? 0) + 1;
-    }
-    return m;
-  }, [allItems]);
-  const dealTypes = useMemo(
-    () =>
-      Array.from(
-        new Set(allItems.map((l) => l.deal_type).filter(Boolean) as string[]),
-      ).sort(),
-    [allItems],
-  );
-  const dealTypeCounts = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const l of allItems) {
-      if (l.deal_type) m[l.deal_type] = (m[l.deal_type] ?? 0) + 1;
-    }
-    return m;
-  }, [allItems]);
-  const sources = useMemo(
-    () =>
-      Array.from(
-        new Set(allItems.map((l) => l.source).filter(Boolean) as string[]),
-      ).sort(),
-    [allItems],
-  );
-  const sourceCounts = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const l of allItems) {
-      if (l.source) m[l.source] = (m[l.source] ?? 0) + 1;
-    }
-    return m;
-  }, [allItems]);
-  const tags = useMemo(() => {
-    const set = new Set<string>();
-    for (const l of allItems) {
-      for (const t of l.tags_json ?? []) set.add(t);
-    }
-    return Array.from(set).sort();
-  }, [allItems]);
-  const tagCounts = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const l of allItems) {
-      for (const t of l.tags_json ?? []) m[t] = (m[t] ?? 0) + 1;
-    }
-    return m;
-  }, [allItems]);
+  const cityCounts = useMemo(() => facetCounts(facets?.cities), [facets, facetCounts]);
+  const segmentCounts = useMemo(() => facetCounts(facets?.segments), [facets, facetCounts]);
+  const priorityCounts = useMemo(() => facetCounts(facets?.priorities), [facets, facetCounts]);
+  const tierCounts = useMemo(() => facetCounts(facets?.tiers), [facets, facetCounts]);
+  const dealTypeCounts = useMemo(() => facetCounts(facets?.deal_types), [facets, facetCounts]);
+  const sourceCounts = useMemo(() => facetCounts(facets?.sources), [facets, facetCounts]);
+  const tagCounts = useMemo(() => facetCounts(facets?.tags), [facets, facetCounts]);
 
-  // Apply ALL filters client-side.
-  const filtered = useMemo(() => {
-    const segSet = new Set(segmentFilters);
-    const citySet = new Set(cityFilters);
-    const prioSet = new Set(priorityFilters);
-    const tierSet = new Set(tierFilters);
-    const dealSet = new Set(dealTypeFilters);
-    const sourceSet = new Set(sourceFilters);
-    const tagSet = new Set(tagFilters);
-    const q = search.trim().toLowerCase();
-    return allItems.filter((l) => {
-      if (citySet.size > 0 && (!l.city || !citySet.has(l.city))) return false;
-      if (segSet.size > 0 && (!l.segment || !segSet.has(l.segment))) return false;
-      if (prioSet.size > 0 && (!l.priority || !prioSet.has(l.priority))) return false;
-      if (tierSet.size > 0 && !tierSet.has(tierFromScore(l.score))) return false;
-      if (dealSet.size > 0 && (!l.deal_type || !dealSet.has(l.deal_type))) return false;
-      if (sourceSet.size > 0 && (!l.source || !sourceSet.has(l.source))) return false;
-      if (tagSet.size > 0) {
-        const leadTags = l.tags_json ?? [];
-        // AND-match across selected tags — lead must carry every one
-        let ok = true;
-        for (const t of tagSet) {
-          if (!leadTags.includes(t)) {
-            ok = false;
-            break;
-          }
-        }
-        if (!ok) return false;
-      }
-      if (fitMin > 0 && (l.fit_score == null || l.fit_score < fitMin)) return false;
-      if (hasEmailOnly && !l.email) return false;
-      if (hasPhoneOnly && !l.phone) return false;
-      if (q) {
-        // Multi-field text match: name + email + phone + INN.
-        // Phone is normalised to digits-only on both sides so users
-        // can paste "+7 (495) 123-45-67" and still match "74951234567".
-        const phoneDigits = q.replace(/\D/g, "");
-        const leadName = (l.company_name ?? "").toLowerCase();
-        const leadEmail = (l.email ?? "").toLowerCase();
-        const leadInn = (l.inn ?? "").toLowerCase();
-        const leadPhoneDigits = (l.phone ?? "").replace(/\D/g, "");
-        const matched =
-          leadName.includes(q) ||
-          (leadEmail && leadEmail.includes(q)) ||
-          (leadInn && leadInn.includes(q)) ||
-          (phoneDigits.length >= 3 &&
-            leadPhoneDigits &&
-            leadPhoneDigits.includes(phoneDigits));
-        if (!matched) return false;
-      }
-      return true;
-    });
-  }, [
-    allItems,
-    cityFilters,
-    segmentFilters,
-    priorityFilters,
-    tierFilters,
-    dealTypeFilters,
-    sourceFilters,
-    tagFilters,
-    fitMin,
-    search,
-    hasEmailOnly,
-    hasPhoneOnly,
-  ]);
-
-  // Счётчик и отправка выделения используют только пересечение с видимым
-  // списком — руководитель не должен выдать то, чего сейчас не видит
-  // из-за фильтров. Один useMemo, без useEffect на все фильтры.
+  // Выделение считается только по видимым строкам: руководитель не должен
+  // выдать то, чего сейчас не видит.
   const visibleSelected = useMemo(
-    () => filtered.filter((l) => selectedIds.has(l.id)).map((l) => l.id),
-    [filtered, selectedIds],
+    () => rows.filter((l) => selectedIds.has(l.id)).map((l) => l.id),
+    [rows, selectedIds],
   );
 
   // Вычищаем из выделения id карточек, которых больше нет в пуле —
@@ -302,7 +199,7 @@ function LeadsPoolPageInner() {
   useEffect(() => {
     setSelectedIds((prev) => {
       if (prev.size === 0) return prev;
-      const poolIds = new Set(allItems.map((l) => l.id));
+      const poolIds = new Set(rows.map((l) => l.id));
       let changed = false;
       const next = new Set<string>();
       for (const id of prev) {
@@ -314,7 +211,7 @@ function LeadsPoolPageInner() {
       }
       return changed ? next : prev;
     });
-  }, [allItems]);
+  }, [rows]);
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -325,8 +222,8 @@ function LeadsPoolPageInner() {
     });
   }, []);
 
-  const allFilteredSelected = filtered.length > 0 && filtered.every((l) => selectedIds.has(l.id));
-  const someFilteredSelected = !allFilteredSelected && filtered.some((l) => selectedIds.has(l.id));
+  const allFilteredSelected = rows.length > 0 && rows.every((l) => selectedIds.has(l.id));
+  const someFilteredSelected = !allFilteredSelected && rows.some((l) => selectedIds.has(l.id));
   const selectAllRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (selectAllRef.current) selectAllRef.current.indeterminate = someFilteredSelected;
@@ -336,9 +233,9 @@ function LeadsPoolPageInner() {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (allFilteredSelected) {
-        for (const l of filtered) next.delete(l.id);
+        for (const l of rows) next.delete(l.id);
       } else {
-        for (const l of filtered) next.add(l.id);
+        for (const l of rows) next.add(l.id);
       }
       return next;
     });
@@ -392,8 +289,8 @@ function LeadsPoolPageInner() {
   // than we received, the table + every chip count are based on a partial
   // pool. Surface that instead of silently hiding leads. (Full server-side
   // filtering + facet counts is the tracked follow-up.)
-  const serverTotal = poolQuery.data?.total ?? 0;
-  const poolTruncated = serverTotal > allItems.length;
+  const rangeFrom = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const rangeTo = Math.min(page * pageSize, total);
 
   // Пул — только руководителю и админу (доступ урезан 2026-09-14). Пункт меню
   // у менеджера скрыт, но по прямой ссылке страница открывалась и валилась
@@ -440,19 +337,13 @@ function LeadsPoolPageInner() {
             {/* Compact total — shown small next to title, the loud counts
                 live inside each chip below. */}
             <span className="text-brand-muted text-xs font-mono tabular-nums">
-              {filtered.length}
-              {filtered.length !== allItems.length && (
-                <span className="text-brand-muted"> / {allItems.length}</span>
-              )}
+              {/* Число с сервера: столько карточек подходит под фильтры
+                  целиком, а не столько загружено. */}
+              {total > 0 ? `${rangeFrom}–${rangeTo} из ${total}` : total}
             </span>
-            {poolTruncated && (
-              <span
-                className="text-xs font-medium text-warning bg-warning/10 border border-warning/20 rounded-full px-2.5 py-0.5"
-                title="Показана только часть пула. Уточните фильтры, чтобы увидеть нужные лиды."
-              >
-                показаны первые {allItems.length} из {serverTotal}
-              </span>
-            )}
+            {/* Предупреждения «показаны первые N из M» больше нет: список
+                листается страницами, а фильтры и поиск применяются ко всей
+                базе, а не к загруженному куску. */}
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <button
@@ -466,23 +357,18 @@ function LeadsPoolPageInner() {
             {canAssign && !isLoading && !isError && (
               <button
                 onClick={() => setAssignMode("topN")}
-                disabled={filtered.length === 0}
+                disabled={total === 0}
                 className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition hover:bg-brand-panel active:scale-[0.96] disabled:opacity-40"
               >
                 Выдать по фильтру
               </button>
             )}
-            <ExportPopover
-              filters={{
-                city: cityFilters.length === 1 ? cityFilters[0] : undefined,
-                segment:
-                  segmentFilters.length === 1 ? segmentFilters[0] : undefined,
-                fit_min: fitMin > 0 ? fitMin : undefined,
-                q: search || undefined,
-                assignment_status: "pool",
-              }}
-              leadCount={filtered.length}
-            />
+            {/* Тот же объект выборки, что у списка. Раньше сюда уходили
+                город и сегмент только когда выбран ровно один, а
+                приоритет, tier, теги, источник и галочки почты с
+                телефоном не уходили вовсе — выгрузка не совпадала с
+                экраном (аудит G6). */}
+            <ExportPopover filters={poolFilterBody(filters)} leadCount={total} />
             {/* "Только мой пул" placeholder toggle */}
             <label className="flex items-center gap-2 cursor-pointer opacity-50" title="Скоро">
               <span className="text-xs font-semibold text-brand-muted">Только мой пул</span>
@@ -496,46 +382,46 @@ function LeadsPoolPageInner() {
         />
 
         <PoolFilterBar
-          search={search}
-          setSearch={setSearch}
+          search={searchInput}
+          setSearch={setSearchInput}
           segments={segments}
-          segmentFilters={segmentFilters}
-          setSegmentFilters={setSegmentFilters}
+          segmentFilters={filters.segments}
+          setSegmentFilters={setField("segments")}
           segmentCounts={segmentCounts}
           cities={cities}
-          cityFilters={cityFilters}
-          setCityFilters={setCityFilters}
+          cityFilters={filters.cities}
+          setCityFilters={setField("cities")}
           cityCounts={cityCounts}
-          priorityFilters={priorityFilters}
-          setPriorityFilters={setPriorityFilters}
+          priorityFilters={filters.priorities}
+          setPriorityFilters={setField("priorities")}
           priorityCounts={priorityCounts}
-          tierFilters={tierFilters}
-          setTierFilters={setTierFilters}
+          tierFilters={filters.tiers}
+          setTierFilters={setField("tiers")}
           tierCounts={tierCounts}
           dealTypes={dealTypes}
-          dealTypeFilters={dealTypeFilters}
-          setDealTypeFilters={setDealTypeFilters}
+          dealTypeFilters={filters.dealTypes}
+          setDealTypeFilters={setField("dealTypes")}
           dealTypeCounts={dealTypeCounts}
           sources={sources}
-          sourceFilters={sourceFilters}
-          setSourceFilters={setSourceFilters}
+          sourceFilters={filters.sources}
+          setSourceFilters={setField("sources")}
           sourceCounts={sourceCounts}
           forms={forms}
-          formId={formId}
-          setFormId={setFormId}
-          needsReview={needsReview}
-          setNeedsReview={setNeedsReview}
+          formId={filters.formId}
+          setFormId={setField("formId")}
+          needsReview={filters.needsReview}
+          setNeedsReview={setField("needsReview")}
           tags={tags}
-          tagFilters={tagFilters}
-          setTagFilters={setTagFilters}
+          tagFilters={filters.tags}
+          setTagFilters={setField("tags")}
           tagCounts={tagCounts}
-          fitMin={fitMin}
-          setFitMin={setFitMin}
-          hasEmailOnly={hasEmailOnly}
-          setHasEmailOnly={setHasEmailOnly}
-          hasPhoneOnly={hasPhoneOnly}
-          setHasPhoneOnly={setHasPhoneOnly}
-          activeFilterCount={activeFilterCount}
+          fitMin={filters.fitMin}
+          setFitMin={setField("fitMin")}
+          hasEmailOnly={filters.hasEmail}
+          setHasEmailOnly={setField("hasEmail")}
+          hasPhoneOnly={filters.hasPhone}
+          setHasPhoneOnly={setField("hasPhone")}
+          activeFilterCount={activeFilters}
           resetAllFilters={resetAllFilters}
         />
       </div>
@@ -554,18 +440,22 @@ function LeadsPoolPageInner() {
           </div>
         )}
 
-        {!isLoading && !isError && filtered.length === 0 && (
+        {!isLoading && !isError && total === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="bg-white border border-brand-border rounded-card p-10 max-w-sm w-full">
-              <p className="type-card-title mb-2">В пуле пока пусто</p>
+              <p className="type-card-title mb-2">
+                {activeFilters > 0 ? "Ничего не найдено" : "В пуле пока пусто"}
+              </p>
               <p className="text-sm text-brand-muted">
-                Импортируйте лиды или добавьте вручную.
+                {activeFilters > 0
+                  ? "Под эти условия в базе нет ни одной карточки. Снимите часть фильтров."
+                  : "Импортируйте лиды или добавьте вручную."}
               </p>
             </div>
           </div>
         )}
 
-        {!isLoading && !isError && filtered.length > 0 && (
+        {!isLoading && !isError && total > 0 && (
           <>
             <div className="overflow-x-auto rounded-xl border border-brand-border bg-white">
               <table className="w-full text-left">
@@ -604,7 +494,7 @@ function LeadsPoolPageInner() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((lead) => (
+                  {rows.map((lead) => (
                     <PoolRow
                       key={lead.id}
                       lead={lead}
@@ -618,6 +508,40 @@ function LeadsPoolPageInner() {
                 </tbody>
               </table>
             </div>
+            {/* Страницы. Вся база в браузер не загружается: фильтры и
+                поиск применяются на сервере, сюда приезжает одна
+                страница. */}
+            {pageCount > 1 && (
+              <nav
+                className="mt-4 flex items-center justify-between gap-3"
+                aria-label="Страницы базы лидов"
+              >
+                <span className="text-xs text-brand-muted font-mono tabular-nums">
+                  {rangeFrom}–{rangeTo} из {total}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1 || poolQuery.isFetching}
+                    className="rounded-full border border-brand-border px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
+                  >
+                    Назад
+                  </button>
+                  <span className="text-xs text-brand-muted font-mono tabular-nums">
+                    {page} / {pageCount}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                    disabled={page >= pageCount || poolQuery.isFetching}
+                    className="rounded-full border border-brand-border px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
+                  >
+                    Вперёд
+                  </button>
+                </div>
+              </nav>
+            )}
             {canAssign && visibleSelected.length > 0 && (
               <SelectionBar
                 count={visibleSelected.length}
@@ -635,7 +559,10 @@ function LeadsPoolPageInner() {
           onClose={() => setAssignMode(null)}
           mode={assignMode}
           selectedIds={visibleSelected}
-          visibleIds={filtered.map((l) => l.id)}
+          /* «по фильтру» отправляет на сервер саму выборку и её размер, а
+             не список id с текущей страницы (аудит G6). */
+          filterBody={poolFilterBody(filters)}
+          matchingCount={total}
           onDone={handleAssignDone}
         />
       )}

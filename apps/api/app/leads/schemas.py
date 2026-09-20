@@ -193,6 +193,33 @@ class LeadListOut(BaseModel):
     page_size: int
 
 
+class FacetValueOut(BaseModel):
+    """Одно значение фасета и его размер в серверной выборке."""
+
+    value: str
+    count: int
+
+
+class PoolFacetsOut(BaseModel):
+    """Значения фильтров и их размеры по всей базе лидов (аудит G6).
+
+    Считаются по области пула (форма и needs_review), а не по уже
+    выбранным фасетам, — так число рядом с «Кофейни и кафе» означает
+    «столько их в пуле», как и до G6. И, в отличие от прежнего варианта,
+    считаются на сервере: раньше числа описывали первые 500 загруженных
+    строк.
+    """
+
+    cities: list[FacetValueOut] = Field(default_factory=list)
+    segments: list[FacetValueOut] = Field(default_factory=list)
+    priorities: list[FacetValueOut] = Field(default_factory=list)
+    tiers: list[FacetValueOut] = Field(default_factory=list)
+    deal_types: list[FacetValueOut] = Field(default_factory=list)
+    sources: list[FacetValueOut] = Field(default_factory=list)
+    tags: list[FacetValueOut] = Field(default_factory=list)
+    total: int = 0
+
+
 class SprintCreateIn(BaseModel):
     cities: list[str] = Field(default_factory=list)
     segment: str | None = None
@@ -224,25 +251,56 @@ class LeadAssignIn(BaseModel):
     mode: Literal["ids", "filter"]
     only_pool: bool = True
     lead_ids: list[UUID] = Field(default_factory=list, max_length=500)
-    # filter mode only
+    # --- filter mode only -------------------------------------------------
+    # Тот же набор, что принимает GET /leads/pool. До G6 здесь было три
+    # поля из тринадцати, поэтому действие «Выдать по фильтру» работало по
+    # выборке, которой человек на экране не видел.
     cities: list[str] = Field(default_factory=list)
-    segment: str | None = None
+    segments: list[str] = Field(default_factory=list)
+    priorities: list[str] = Field(default_factory=list)
+    tiers: list[str] = Field(default_factory=list)
+    deal_types: list[str] = Field(default_factory=list)
+    sources: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
     fit_min: float | None = None
+    has_email: bool = False
+    has_phone: bool = False
+    form_id: UUID | None = None
+    needs_review: bool | None = None
+    q: str | None = Field(None, max_length=200)
     limit: int | None = Field(None, ge=1, le=500)
     comment: str | None = Field(None, max_length=500)
+
+    def to_selection(self):
+        """Каноническое описание выборки — то же, что у списка и экспорта."""
+        from app.leads.selection import LeadSelection
+
+        return LeadSelection.from_params(
+            cities=self.cities,
+            segments=self.segments,
+            priorities=self.priorities,
+            tiers=self.tiers,
+            deal_types=self.deal_types,
+            sources=self.sources,
+            tags=self.tags,
+            fit_min=self.fit_min,
+            has_email=self.has_email,
+            has_phone=self.has_phone,
+            form_id=self.form_id,
+            needs_review=self.needs_review,
+            q=self.q,
+            assignment_status="pool",
+        )
 
     @model_validator(mode="after")
     def _check_mode_matches_payload(self) -> "LeadAssignIn":
         if self.mode == "ids" and not self.lead_ids:
             raise ValueError("mode=ids требует непустой lead_ids")
-        if (
-            self.mode == "filter"
-            and not self.cities
-            and self.segment is None
-            and self.fit_min is None
-            and self.limit is None
-        ):
-            raise ValueError("mode=filter требует хотя бы один фильтр или limit")
+        if self.mode == "filter":
+            selection = self.to_selection()
+            has_filter = selection != selection.__class__(assignment_status="pool")
+            if not has_filter and self.limit is None:
+                raise ValueError("mode=filter требует хотя бы один фильтр или limit")
         return self
 
 
