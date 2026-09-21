@@ -334,3 +334,63 @@ async def test_move_stage_returns_200_and_persists(db, workspace, pipeline):
 
     stored = await _reread(db, Lead, lead_id)
     assert stored.stage_id == second_stage_id
+
+
+# --- третья волна: объединение дублей (проверка ChatGPT по snapshot) ---------
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_merge_leads_returns_200_and_persists(db, workspace):
+    """`POST /leads/{id}/merge` отдавал 500 после того, как объединил.
+
+    Мастер меняется через атрибуты (пустые поля заполняются из дубля), затем
+    flush — и `updated_at` протухает ровно так же, как в остальных местах
+    ARCH-DELTA-004.
+    """
+    from app.leads.models import Lead
+
+    head = await _user(db, workspace.id, "head", "head")
+    master = Lead(
+        workspace_id=workspace.id,
+        company_name="Ромашка",
+        assignment_status="pool",
+        tags_json=["a"],
+    )
+    duplicate = Lead(
+        workspace_id=workspace.id,
+        company_name="Ромашка Дубль",
+        email="ivan@romashka.ru",
+        phone="89161234567",
+        city="Казань",
+        assignment_status="pool",
+        tags_json=["b"],
+    )
+    db.add_all([master, duplicate])
+    await db.flush()
+    master_id, duplicate_id = master.id, duplicate.id
+
+    status, body = await call(
+        db,
+        head,
+        "POST",
+        f"/leads/{master_id}/merge",
+        {"duplicate_ids": [str(duplicate_id)]},
+    )
+
+    assert status == 200, body
+    assert body["id"] == str(master_id), body
+    assert body["updated_at"] is not None, body
+    # Мастер действительно забрал пустые поля дубля, а не просто «не упал».
+    assert body["email"] == "ivan@romashka.ru", body
+    assert body["city"] == "Казань", body
+
+    stored_master = await _reread(db, Lead, master_id)
+    assert stored_master.email == "ivan@romashka.ru"
+    assert stored_master.city == "Казань"
+    assert sorted(stored_master.tags_json) == ["a", "b"]
+    assert stored_master.updated_at is not None
+
+    stored_duplicate = await _reread(db, Lead, duplicate_id)
+    assert stored_duplicate.archived_at is not None
+    assert stored_duplicate.merged_into_id == master_id

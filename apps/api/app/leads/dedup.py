@@ -165,4 +165,8 @@ async def merge_leads(
     )
 
     await db.flush()
+    # `updated_at` (onupdate=func.now()) протухает на flush, а роутер отдаёт
+    # этот же объект в LeadOut уже после commit — без refresh сериализация
+    # уходит в ленивую догрузку вне транзакции (ARCH-DELTA-004).
+    await db.refresh(master)
     return master
