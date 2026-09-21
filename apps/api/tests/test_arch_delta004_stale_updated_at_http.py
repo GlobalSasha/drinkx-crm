@@ -242,3 +242,95 @@ async def test_patch_contact_stays_green(db, workspace):
     assert status == 200, body
     stored = await _reread(db, Contact, contact_id)
     assert stored.name == "Пётр"
+
+
+# --- вторая волна: те же грабли, найдены на независимом ревью ----------------
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_patch_template_returns_200_and_persists(db, workspace):
+    from app.template.models import MessageTemplate
+
+    admin = await _user(db, workspace.id, "admin", "admin")
+    template = MessageTemplate(
+        workspace_id=workspace.id, name="Шаблон", channel="email", text="было", created_by=admin.id
+    )
+    db.add(template)
+    await db.flush()
+    template_id = template.id
+
+    status, body = await call(db, admin, "PATCH", f"/templates/{template_id}", {"text": "стало"})
+
+    assert status == 200, body
+    assert body["text"] == "стало", body
+    assert body["updated_at"] is not None, body
+
+    stored = await _reread(db, MessageTemplate, template_id)
+    assert stored.text == "стало"
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_restore_lead_returns_200_and_persists(db, workspace):
+    from app.leads import repositories as lead_repo
+    from app.leads.models import Lead
+
+    head = await _user(db, workspace.id, "head", "head")
+    lead = await lead_repo.create_lead(
+        db,
+        workspace.id,
+        {"company_name": "Из корзины"},
+        assigned_to=head.id,
+        assignment_status="assigned",
+    )
+    await lead_repo.soft_delete_lead(db, lead, head.id)
+    lead_id = lead.id
+
+    status, body = await call(db, head, "POST", f"/leads/{lead_id}/restore")
+
+    assert status == 200, body
+    assert body["updated_at"] is not None, body
+
+    stored = await _reread(db, Lead, lead_id)
+    assert stored.deleted_at is None
+    assert stored.deleted_by is None
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_move_stage_returns_200_and_persists(db, workspace, pipeline):
+    from app.leads import repositories as lead_repo
+    from app.leads.models import Lead
+    from app.pipelines.models import Stage
+
+    pipe, first_stage = pipeline
+    second_stage = Stage(
+        pipeline_id=pipe.id, name="Контакт", position=2, color="#aabbcc", rot_days=14
+    )
+    db.add(second_stage)
+    await db.flush()
+    # id забираем заранее: `_reread` делает `expire_all()`, после которого
+    # обращение к атрибуту любого другого объекта сессии ушло бы в ленивую
+    # догрузку — вне транзакции это тот же MissingGreenlet, только в тесте.
+    second_stage_id = second_stage.id
+    head = await _user(db, workspace.id, "head", "head")
+    lead = await lead_repo.create_lead(
+        db,
+        workspace.id,
+        {"company_name": "Переезд", "pipeline_id": pipe.id, "stage_id": first_stage.id},
+        assigned_to=head.id,
+        assignment_status="assigned",
+    )
+    lead_id = lead.id
+
+    status, body = await call(
+        db, head, "POST", f"/leads/{lead_id}/move-stage", {"stage_id": str(second_stage_id)}
+    )
+
+    assert status == 200, body
+    assert body["stage_id"] == str(second_stage_id), body
+    assert body["updated_at"] is not None, body
+
+    stored = await _reread(db, Lead, lead_id)
+    assert stored.stage_id == second_stage_id

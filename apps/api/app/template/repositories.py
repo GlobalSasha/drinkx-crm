@@ -108,6 +108,9 @@ async def update(
     if text is not None:
         template.text = text
     await db.flush()
+    # `updated_at` (onupdate=func.now()) протухает на flush — без refresh
+    # ответ досериализуется уже после commit роутера (ARCH-DELTA-004).
+    await db.refresh(template)
     return template
 
 

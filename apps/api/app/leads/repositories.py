@@ -573,6 +573,9 @@ async def restore_lead(db: AsyncSession, lead: Lead) -> None:
     lead.deleted_at = None
     lead.deleted_by = None
     await db.flush()
+    # Роутер отдаёт этот же объект в LeadOut уже после commit —
+    # без refresh `updated_at` протух бы на flush (ARCH-DELTA-004).
+    await db.refresh(lead)
 
 
 async def list_trash(
