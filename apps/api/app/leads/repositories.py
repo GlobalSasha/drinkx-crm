@@ -779,6 +779,16 @@ async def assign_leads_by_ids(
         assigned.append(lead)
 
     await db.flush()
+    if assigned:
+        # После flush `updated_at` протухает (`onupdate=func.now()`), и
+        # ленивая догрузка в async уже невозможна — ответ роутера падал на
+        # сериализации с MissingGreenlet. Перечитываем выданные строки одним
+        # SELECT, как это делает выдача по фильтру.
+        await db.execute(
+            select(Lead)
+            .where(Lead.id.in_([lead.id for lead in assigned]))
+            .execution_options(populate_existing=True)
+        )
     return assigned, len(lead_ids) - len(assigned)
 
 
