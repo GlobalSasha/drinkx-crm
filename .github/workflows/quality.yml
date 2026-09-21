@@ -89,6 +89,20 @@ jobs:
       - name: Install dependencies (incl. dev)
         run: uv sync
 
+      # ENV-LOCK-03 checks that two *different* allowlisted databases on the
+      # same server do not share an advisory-lock key. drinkx_ci is created by
+      # the suite's own probe fixture; the second one has no owner, and the
+      # service container can only be told about a single POSTGRES_DB — so it
+      # is created here. Without it the test dies on InvalidCatalogNameError
+      # instead of checking anything.
+      - name: Create the second allowlisted database
+        env:
+          PGPASSWORD: dev
+        run: |
+          set -euo pipefail
+          createdb -h localhost -U drinkx drinkx_migrations_test
+          psql -h localhost -U drinkx -d drinkx_migrations_test -v ON_ERROR_STOP=1 -c 'SELECT 1'
+
       - name: Run pytest
         run: uv run pytest -q
 
