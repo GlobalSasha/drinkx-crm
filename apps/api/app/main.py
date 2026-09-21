@@ -11,6 +11,15 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import get_settings
 
+# Реестр моделей: наполняет Base.metadata всеми доменными моделями ДО того,
+# как роутеры соберут mapper'ы. Прод-энтрипоинт — `uvicorn app.main:app`
+# (Dockerfile CMD), и без этого импорта строковые ForeignKey из
+# app/leads/models.py на utm_sources/utm_mediums/utm_campaigns остаются без
+# таблиц-целей в metadata (app.main их модуль не импортирует) — первый
+# POST /leads падает на flush с NoReferencedTableError. Тот же приём уже
+# применён в app/scheduled/celery_app.py.
+import app.models_registry  # noqa: F401, E402
+
 
 class PublicFormsCORSMiddleware(BaseHTTPMiddleware):
     """Wildcard-CORS for `/api/public/*` (Sprint 2.2 WebForms).
