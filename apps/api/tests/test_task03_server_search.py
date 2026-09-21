@@ -375,3 +375,33 @@ async def test_without_q_rows_and_order_are_unchanged(db, workspace):
     assert all(not d for d in done_flags[:first_done_index]), "open tasks must precede done tasks"
     assert len(ids_in_order) == 12
     assert body["counts"]["total"] == 12
+
+
+# ---------------------------------------------------------------------------
+# QA addendum -- empty / whitespace-only q is "no filter", same rows and
+# order as omitting q entirely (TASK_SELECTION_CONTRACT.md §3: "Пустой или
+# пробельный `q` -- это отсутствие фильтра, а не поиск пустой строки").
+# ---------------------------------------------------------------------------
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_blank_q_is_treated_as_no_filter(db, workspace):
+    manager = await _user(db, workspace.id, "manager", "Менеджер")
+    for i in range(9):
+        db.add(_task(
+            workspace_id=workspace.id, user_id=manager.id,
+            text=f"Задача {i}", due=NOW + timedelta(hours=i), done=(i % 3 == 0),
+        ))
+    await db.flush()
+
+    baseline = await _get(db, manager, "/tasks?limit=50")
+    baseline_body = baseline.json()
+
+    for blank in ("", "   ", "\t\n "):
+        res = await _get(db, manager, "/tasks", params={"limit": 50, "q": blank})
+        assert res.status_code == 200, res.text
+        body = res.json()
+        assert [i["id"] for i in body["items"]] == [i["id"] for i in baseline_body["items"]], (
+            f"blank q={blank!r} must not narrow or reorder the selection"
+        )
+        assert body["counts"] == baseline_body["counts"]
