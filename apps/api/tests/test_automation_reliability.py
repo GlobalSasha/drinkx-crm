@@ -222,6 +222,11 @@ async def test_transient_failure_retries_with_backoff():
     async def fake_list_due(_db, **kw):
         return [step_run]
 
+    async def fake_claim(_db, **kw):
+        # ARCH-05b: перед обработкой строка перезахватывается в своей
+        # транзакции. Здесь сессия — мок, захват всегда удаётся.
+        return step_run
+
     lead_result = MagicMock()
     lead_result.scalar_one_or_none = MagicMock(return_value=lead)
     parent_result = MagicMock()
@@ -237,6 +242,9 @@ async def test_transient_failure_retries_with_backoff():
     with patch(
         "app.automation_builder.repositories.list_due_step_runs",
         new=fake_list_due,
+    ), patch(
+        "app.automation_builder.repositories.claim_step_run",
+        new=fake_claim,
     ):
         result = await svc.execute_due_step_runs(db)
 
@@ -267,6 +275,11 @@ async def test_transient_failure_becomes_failed_after_max_attempts():
     async def fake_list_due(_db, **kw):
         return [step_run]
 
+    async def fake_claim(_db, **kw):
+        # ARCH-05b: перед обработкой строка перезахватывается в своей
+        # транзакции. Здесь сессия — мок, захват всегда удаётся.
+        return step_run
+
     lead_result = MagicMock()
     lead_result.scalar_one_or_none = MagicMock(return_value=lead)
     parent_result = MagicMock()
@@ -282,6 +295,9 @@ async def test_transient_failure_becomes_failed_after_max_attempts():
     with patch(
         "app.automation_builder.repositories.list_due_step_runs",
         new=fake_list_due,
+    ), patch(
+        "app.automation_builder.repositories.claim_step_run",
+        new=fake_claim,
     ):
         result = await svc.execute_due_step_runs(db)
 
@@ -311,6 +327,11 @@ async def test_terminal_failure_does_not_retry():
     async def fake_list_due(_db, **kw):
         return [step_run]
 
+    async def fake_claim(_db, **kw):
+        # ARCH-05b: перед обработкой строка перезахватывается в своей
+        # транзакции. Здесь сессия — мок, захват всегда удаётся.
+        return step_run
+
     lead_result = MagicMock()
     lead_result.scalar_one_or_none = MagicMock(return_value=lead)
     parent_result = MagicMock()
@@ -326,6 +347,9 @@ async def test_terminal_failure_does_not_retry():
     with patch(
         "app.automation_builder.repositories.list_due_step_runs",
         new=fake_list_due,
+    ), patch(
+        "app.automation_builder.repositories.claim_step_run",
+        new=fake_claim,
     ):
         result = await svc.execute_due_step_runs(db)
 

@@ -270,13 +270,18 @@ async def test_q1_control_repeat_on_terminal_status_is_skipped(db):
 
 # ===========================================================================
 # Q-9 (P1, ARCH-JOB-01/04). Наложение двух тиков `execute_due_step_runs`
-# на один и тот же шаг.
+# на очередь из нескольких шагов.
 # БЫЛО: выборка без блокировки → оба тика брали строку, письмо уходило
-# дважды. СТАЛО (S-3): `FOR UPDATE SKIP LOCKED` — второй тик строку не
-# видит, письмо одно.
+# дважды. S-3 добавил `FOR UPDATE SKIP LOCKED` в выборку — но цикл коммитит
+# построчно, и первый же commit снимал блокировку с ОСТАЛЬНЫХ строк тика:
+# наложившийся тик видел строки 2..N свободными и слал по ним второе письмо.
+# СТАЛО (ARCH-05b): каждая строка перезахватывается в своей транзакции —
+# на каждую строку ровно одно письмо, кто бы из двух тиков её ни взял.
 # ===========================================================================
 
-async def _automation_with_email_step(db, ws, lead):
+async def _automation_with_email_steps(db, ws, leads):
+    """Одна автоматизация + по одному отложенному шагу `send_template`
+    на каждый лид. Возвращает список step-run'ов в порядке исполнения."""
     from app.automation_builder.models import Automation, AutomationRun, AutomationStepRun
     from app.template.models import MessageTemplate
 
@@ -293,23 +298,27 @@ async def _automation_with_email_step(db, ws, lead):
     db.add(automation)
     await db.flush()
 
-    run = AutomationRun(automation_id=automation.id, lead_id=lead.id, status="success")
-    db.add(run)
-    await db.flush()
+    step_runs = []
+    for position, lead in enumerate(leads):
+        run = AutomationRun(automation_id=automation.id, lead_id=lead.id, status="success")
+        db.add(run)
+        await db.flush()
 
-    step_run = AutomationStepRun(
-        automation_run_id=run.id,
-        lead_id=lead.id,
-        step_index=1,
-        step_json={"type": "send_template", "config": {"template_id": str(template.id)}},
-        scheduled_at=datetime.now(tz=timezone.utc) - timedelta(minutes=1),
-        executed_at=None,
-        status="pending",
-        attempt_count=0,
-    )
-    db.add(step_run)
-    await db.flush()
-    return step_run
+        step_run = AutomationStepRun(
+            automation_run_id=run.id,
+            lead_id=lead.id,
+            step_index=1,
+            step_json={"type": "send_template", "config": {"template_id": str(template.id)}},
+            # Разные `scheduled_at` — порядок обхода строк детерминирован.
+            scheduled_at=datetime.now(tz=timezone.utc) - timedelta(minutes=10 - position),
+            executed_at=None,
+            status="pending",
+            attempt_count=0,
+        )
+        db.add(step_run)
+        await db.flush()
+        step_runs.append(step_run)
+    return step_runs
 
 
 @skip_no_pg
@@ -319,58 +328,81 @@ async def test_q9_overlapping_scheduler_ticks_send_second_email(db, monkeypatch)
 
     from app.activity.models import Activity
     from app.automation_builder import services as automation_svc
+    from app.automation_builder.models import AutomationStepRun
 
     ws = await _workspace(db, "Q9")
     await _default_pipeline(db, ws)
-    lead = await _lead(db, ws.id, "Компания Q9", email="lead-q9@example.com")
-    step_run = await _automation_with_email_step(db, ws, lead)
+    emails = [f"lead-q9-{i}@example.com" for i in range(3)]
+    leads = [
+        await _lead(db, ws.id, f"Компания Q9-{i}", email=emails[i])
+        for i in range(3)
+    ]
+    step_runs = await _automation_with_email_steps(db, ws, leads)
     await db.commit()
 
     sent_emails: list[str] = []
+    # Первый тик успел закоммитить свою первую строку — ровно в этот момент
+    # старая блокировка со строк 2..3 снята. Отсюда и стартует второй тик:
+    # без такой синхронизации оба SELECT'а уходят одновременно, второй тик
+    # по SKIP LOCKED видит пустую выборку и гонку не воспроизводит.
+    first_row_committed = asyncio.Event()
 
     async def _fake_send_email(*, to, subject, body):
         sent_emails.append(to)
+        if not first_row_committed.is_set():
+            # `flush_pending_email_dispatches` вызывается уже ПОСЛЕ commit'а
+            # строки, так что здесь окно открыто.
+            first_row_committed.set()
+            await asyncio.sleep(0.5)
         return True
 
     monkeypatch.setattr(
         "app.automation_builder.dispatch.send_email", _fake_send_email
     )
 
+    async def _second_tick(session):
+        await asyncio.wait_for(first_row_committed.wait(), timeout=10)
+        return await automation_svc.execute_due_step_runs(session)
+
     other = await _fresh_session()
     try:
-        # `list_due_step_runs` берёт `FOR UPDATE SKIP LOCKED` (S-3).
-        # Нужен настоящий параллелизм: последовательные вызовы ничего не
-        # докажут — вторая сессия просто увидит уже исполненную строку.
-        # `asyncio.gather` даёт обеим сессиям сделать SELECT одновременно —
-        # ровно та гонка, которую блокировка и должна гасить.
         result_a, result_b = await asyncio.gather(
             automation_svc.execute_due_step_runs(db),
-            automation_svc.execute_due_step_runs(other),
+            _second_tick(other),
         )
     finally:
         await other.close()
 
-    # было: (1, 1) — оба тика отрабатывали шаг. Стало: строку берёт ровно
-    # один тик, второй пропускает её по SKIP LOCKED. Какой именно из двух
-    # успеет первым — дело планировщика asyncio, поэтому сравниваем пару
-    # без учёта порядка.
-    assert sorted([result_a["fired"], result_b["fired"]]) == [0, 1], (
-        "шаг исполняет ровно один тик из двух"
+    # Три строки, два тика. Как именно строки поделятся между тиками —
+    # дело планировщика asyncio, поэтому проверяем сумму, а не раскладку.
+    assert result_a["fired"] + result_b["fired"] == 3, (
+        "каждая строка исполняется ровно один раз суммарно по двум тикам"
     )
 
-    await db.refresh(step_run)
-    assert step_run.status == "success"
+    # было: 4+ письма (строки 2..3 уходили дважды).
+    assert sorted(sent_emails) == sorted(emails), (
+        "по одному письму на строку, без дублей"
+    )
 
-    # Два отдельных Activity(type='comment') с одним и тем же письмом —
-    # видимый пользователю дубль.
-    activities = (
+    statuses = (
         await db.execute(
-            select(Activity).where(Activity.lead_id == lead.id, Activity.type == "comment")
+            select(AutomationStepRun.status).where(
+                AutomationStepRun.id.in_([sr.id for sr in step_runs])
+            )
         )
     ).scalars().all()
-    # было: 2 (дубль в ленте) и 2 письма.
-    assert len(activities) == 1, "одно письмо — одна Activity"
-    assert sent_emails == ["lead-q9@example.com"], "SMTP-заглушка звонит один раз"
+    assert sorted(statuses) == ["success", "success", "success"]
+
+    # Два Activity(type='comment') на одном лиде — видимый пользователю дубль.
+    for lead in leads:
+        activities = (
+            await db.execute(
+                select(Activity).where(
+                    Activity.lead_id == lead.id, Activity.type == "comment"
+                )
+            )
+        ).scalars().all()
+        assert len(activities) == 1, "одно письмо — одна Activity"
 
 
 # ===========================================================================

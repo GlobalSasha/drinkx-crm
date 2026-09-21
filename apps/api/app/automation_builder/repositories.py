@@ -278,3 +278,29 @@ async def list_due_step_runs(
         .with_for_update(skip_locked=True)
     )
     return list(res.scalars().all())
+
+
+async def claim_step_run(
+    db: AsyncSession, *, step_run_id: uuid.UUID
+) -> AutomationStepRun | None:
+    """Повторный захват одной строки внутри её собственной транзакции
+    (ARCH-05b).
+
+    `list_due_step_runs` берёт `FOR UPDATE SKIP LOCKED` один раз на весь
+    тик, но `execute_due_step_runs` коммитит построчно — первый же commit
+    снимает блокировку со ВСЕХ оставшихся строк выборки. Наложившийся тик
+    видит строки 2..N незанятыми (`executed_at IS NULL`) и отправляет
+    письмо второй раз. Поэтому каждая строка перезахватывается прямо перед
+    обработкой, уже в своей транзакции: `None` означает, что строку либо
+    держит другой тик (SKIP LOCKED), либо он её уже исполнил
+    (`executed_at` проставлен), либо её удалили — во всех случаях строку
+    нужно пропустить."""
+    res = await db.execute(
+        select(AutomationStepRun)
+        .where(
+            AutomationStepRun.id == step_run_id,
+            AutomationStepRun.executed_at.is_(None),
+        )
+        .with_for_update(skip_locked=True)
+    )
+    return res.scalar_one_or_none()

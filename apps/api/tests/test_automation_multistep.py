@@ -498,6 +498,11 @@ async def test_execute_due_step_runs_fires_pending_step():
     async def fake_list_due(_db, **kw):
         return [step_run]
 
+    async def fake_claim(_db, **kw):
+        # ARCH-05b: перед обработкой строка перезахватывается в своей
+        # транзакции. Здесь сессия — мок, захват всегда удаётся.
+        return step_run
+
     # Two execute() calls: lead lookup, then parent run lookup.
     lead_result = MagicMock()
     lead_result.scalar_one_or_none = MagicMock(return_value=lead)
@@ -512,6 +517,9 @@ async def test_execute_due_step_runs_fires_pending_step():
     with patch(
         "app.automation_builder.repositories.list_due_step_runs",
         new=fake_list_due,
+    ), patch(
+        "app.automation_builder.repositories.claim_step_run",
+        new=fake_claim,
     ), patch(
         "app.automation_builder.services.Activity", new=MagicMock
     ):
@@ -549,6 +557,11 @@ async def test_execute_due_step_runs_skips_orphan_lead():
     async def fake_list_due(_db, **kw):
         return [step_run]
 
+    async def fake_claim(_db, **kw):
+        # ARCH-05b: перед обработкой строка перезахватывается в своей
+        # транзакции. Здесь сессия — мок, захват всегда удаётся.
+        return step_run
+
     # Lead lookup returns None (deleted)
     lead_result = MagicMock()
     lead_result.scalar_one_or_none = MagicMock(return_value=None)
@@ -560,6 +573,9 @@ async def test_execute_due_step_runs_skips_orphan_lead():
     with patch(
         "app.automation_builder.repositories.list_due_step_runs",
         new=fake_list_due,
+    ), patch(
+        "app.automation_builder.repositories.claim_step_run",
+        new=fake_claim,
     ):
         result = await svc.execute_due_step_runs(db)
 
