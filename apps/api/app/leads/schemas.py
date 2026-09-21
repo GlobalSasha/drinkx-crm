@@ -197,6 +197,13 @@ class LeadListItemOut(LeadBase):
     # Sprint 3.7 G1 — set TRUE on AI auto-created leads, FALSE everywhere
     # else (form submissions, manual creates, CSV imports, claim-from-pool).
     needs_review: bool = False
+    # Уверенность AI при автосоздании — `ai_data["auto_create_confidence"]`,
+    # одно скалярное число вместо всего payload'а. Бейдж «AI создал · N%» на
+    # /leads-pool читал его из `ai_data`, которого в этой схеме нет, и потому
+    # показывал 0% на каждой карточке (ARCH-03 DRIFT-1). Считается в SQL
+    # (`app/leads/repositories.py::_ai_confidence_column`), ai_data остаётся
+    # deferred.
+    ai_confidence: float | None = None
     created_at: datetime
     updated_at: datetime
 

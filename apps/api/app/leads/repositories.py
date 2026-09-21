@@ -37,6 +37,16 @@ _FACET_COLUMNS = {
 }
 
 
+def _ai_confidence_column():
+    """`ai_data["auto_create_confidence"]` отдельным числом.
+
+    Списки не тянут `ai_data` целиком (он бывает и 50 КБ на лид, см. defer()
+    ниже), а бейджу «AI создал · N%» нужно ровно одно число из него. Берём
+    его в SQL — так ai_data остаётся deferred, а ответ не растёт.
+    """
+    return Lead.ai_data["auto_create_confidence"].as_float()
+
+
 def parse_form_slug_from_source(source: str | None) -> str | None:
     """Extract the form slug from `lead.source` if it carries one.
 
@@ -179,10 +189,14 @@ async def _populate_extras(
     transient DB error is caught and logged rather than surfacing a 500.
     """
     leads: list[Lead] = []
-    for lead, contact_name, open_tasks, open_followups in rows:
+    for row in rows:
+        lead, contact_name, open_tasks, open_followups = row[0], row[1], row[2], row[3]
         lead.primary_contact_name = contact_name  # type: ignore[attr-defined]
         lead.open_tasks_count = open_tasks  # type: ignore[attr-defined]
         lead.open_followups_count = open_followups  # type: ignore[attr-defined]
+        # Пятая колонка есть только у списков (см. `_ai_confidence_column`).
+        # Карточка лида отдаёт `ai_data` целиком и в ней не нуждается.
+        lead.ai_confidence = row[4] if len(row) > 4 else None  # type: ignore[attr-defined]
         # Defaults so Pydantic doesn't complain even if `db` is None.
         lead.source_form_id = None  # type: ignore[attr-defined]
         lead.source_form_name = None  # type: ignore[attr-defined]
@@ -333,6 +347,7 @@ async def list_leads(
             Contact.name.label("primary_contact_name"),
             _open_count_subquery(_TASK_KINDS).label("open_tasks_count"),
             _open_count_subquery(_FOLLOWUP_KINDS).label("open_followups_count"),
+            _ai_confidence_column().label("ai_confidence"),
         )
         .outerjoin(Contact, Contact.id == Lead.primary_contact_id)
         .options(defer(Lead.ai_data), defer(Lead.agent_state))
@@ -377,6 +392,7 @@ async def list_pool(
             Contact.name.label("primary_contact_name"),
             _open_count_subquery(_TASK_KINDS).label("open_tasks_count"),
             _open_count_subquery(_FOLLOWUP_KINDS).label("open_followups_count"),
+            _ai_confidence_column().label("ai_confidence"),
         )
         .outerjoin(Contact, Contact.id == Lead.primary_contact_id)
         .options(defer(Lead.ai_data), defer(Lead.agent_state))
@@ -585,6 +601,7 @@ async def list_trash(
             Contact.name.label("primary_contact_name"),
             _open_count_subquery(_TASK_KINDS).label("open_tasks_count"),
             _open_count_subquery(_FOLLOWUP_KINDS).label("open_followups_count"),
+            _ai_confidence_column().label("ai_confidence"),
         )
         .outerjoin(Contact, Contact.id == Lead.primary_contact_id)
         .options(defer(Lead.ai_data), defer(Lead.agent_state))
