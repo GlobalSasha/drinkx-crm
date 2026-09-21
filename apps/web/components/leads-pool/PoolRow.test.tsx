@@ -8,7 +8,7 @@ const { push } = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
 import { PoolRow } from "./PoolRow";
-import type { LeadOut } from "@/lib/types";
+import type { LeadListItem } from "@/lib/types";
 
 const lead = {
   id: "lead-1",
@@ -20,7 +20,8 @@ const lead = {
   assignment_status: "pool",
   source_form_name: null,
   needs_review: false,
-} as unknown as LeadOut;
+  ai_confidence: null,
+} as unknown as LeadListItem;
 
 const noop = () => {};
 

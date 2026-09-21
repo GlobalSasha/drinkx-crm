@@ -4,10 +4,10 @@ import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
-import type { LeadOut } from "@/lib/types";
+import type { LeadListItem } from "@/lib/types";
 
 interface Props {
-  lead: LeadOut;
+  lead: LeadListItem;
 }
 
 /**
@@ -18,10 +18,11 @@ interface Props {
 export function NeedsReviewRow({ lead }: Props) {
   const qc = useQueryClient();
   const [confirmingDismiss, setConfirmingDismiss] = useState(false);
-  const confidence = Number(
-    (lead.ai_data as Record<string, unknown> | null)?.auto_create_confidence ?? 0,
-  );
-  const percent = Math.round(confidence * 100);
+  // Уверенность приходит отдельным полем списка (`ai_confidence`). Раньше
+  // здесь читался `ai_data.auto_create_confidence`, которого в списочном
+  // ответе нет вовсе, и бейдж показывал 0% на каждой карточке.
+  const percent =
+    lead.ai_confidence == null ? null : Math.round(lead.ai_confidence * 100);
 
   const confirm = useMutation({
     mutationFn: () =>
@@ -51,7 +52,7 @@ export function NeedsReviewRow({ lead }: Props) {
         title="AI создал этого лида автоматически из входящего письма"
       >
         <Sparkles size={10} aria-hidden />
-        AI создал · {percent}%
+        {percent == null ? "AI создал" : `AI создал · ${percent}%`}
       </span>
       <button
         type="button"

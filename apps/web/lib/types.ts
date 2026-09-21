@@ -315,8 +315,30 @@ export interface LeadUpdate {
   company_profile?: string | null;
 }
 
+/**
+ * Одна строка списочного ответа (`GET /leads`, `/leads/pool`, `/leads/trash`)
+ * — backend отдаёт там `LeadListItemOut`, а не полный `LeadOut`.
+ *
+ * Тонкая схема специально: `ai_data` (до 50 КБ на лид), `agent_state` и
+ * `current_stage_days` в списке не приходят. Раньше `items` был типизирован
+ * как `LeadOut[]`, и компонент, читавший из строки `ai_data`, компилировался
+ * молча, а в рантайме получал undefined (ARCH-03 DRIFT-1). Поля, которых нет
+ * в ответе, не должны быть в типе — тогда следующий такой читатель упадёт на
+ * typecheck, а не в глазах у руководителя.
+ *
+ * Полную карточку даёт `GET /leads/{id}`.
+ */
+export type LeadListItem = Omit<LeadOut, "ai_data" | "pilot_contract_json" | "current_stage_days"> & {
+  /**
+   * `ai_data.auto_create_confidence` отдельным числом — всё, что списку
+   * нужно от AI-payload'а (бейдж «AI создал · N%»). `null` — карточку
+   * создал не AI.
+   */
+  ai_confidence: number | null;
+};
+
 export interface LeadListOut {
-  items: LeadOut[];
+  items: LeadListItem[];
   total: number;
   page: number;
   page_size: number;

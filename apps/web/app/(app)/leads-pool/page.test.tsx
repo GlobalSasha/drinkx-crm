@@ -56,7 +56,7 @@ vi.mock("@/lib/hooks/use-users", () => ({
 }));
 
 import LeadsPoolPage from "./page";
-import type { LeadOut } from "@/lib/types";
+import type { LeadListItem } from "@/lib/types";
 
 const mockLeads = [
   {
@@ -106,7 +106,7 @@ const mockLeads = [
     deal_equipment: null,
     priority_label: "Высокий",
     needs_review: false,
-    current_stage_days: null,
+    ai_confidence: null,
     created_at: "2026-09-01T09:00:00Z",
     updated_at: "2026-09-01T09:00:00Z",
   },
@@ -157,11 +157,11 @@ const mockLeads = [
     deal_equipment: null,
     priority_label: "Средний",
     needs_review: false,
-    current_stage_days: null,
+    ai_confidence: null,
     created_at: "2026-09-02T10:00:00Z",
     updated_at: "2026-09-02T10:00:00Z",
   },
-] satisfies LeadOut[];
+] satisfies LeadListItem[];
 
 function renderPage() {
   const queryClient = new QueryClient();

@@ -11,7 +11,7 @@ import {
   closestCorners,
 } from "@dnd-kit/core";
 import { useState, useCallback } from "react";
-import type { Stage, LeadOut } from "@/lib/types";
+import type { Stage, LeadListItem } from "@/lib/types";
 import { useMoveStage } from "@/lib/hooks/use-leads";
 import { ApiError } from "@/lib/api-client";
 import { PipelineColumn } from "./PipelineColumn";
@@ -20,7 +20,7 @@ import { Toast } from "@/components/ui/Toast";
 
 interface Props {
   stages: Stage[];
-  leads: LeadOut[];
+  leads: LeadListItem[];
 }
 
 interface ToastState {
@@ -139,9 +139,9 @@ export function PipelineBoard({ stages, leads }: Props) {
 
 function buildLeadsPerStage(
   stages: Stage[],
-  leads: LeadOut[]
-): Record<string, LeadOut[]> {
-  const map: Record<string, LeadOut[]> = {};
+  leads: LeadListItem[]
+): Record<string, LeadListItem[]> {
+  const map: Record<string, LeadListItem[]> = {};
   stages.forEach((s) => (map[s.id] = []));
 
   leads.forEach((lead) => {

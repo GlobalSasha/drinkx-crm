@@ -6,11 +6,11 @@ import { Loader2, Globe } from "lucide-react";
 import { NeedsReviewRow } from "@/components/leads-pool/NeedsReviewRow";
 import { T } from "@/lib/design-system";
 import { tierFromScore } from "@/lib/types";
-import type { LeadOut } from "@/lib/types";
+import type { LeadListItem } from "@/lib/types";
 import { segmentLabel } from "@/lib/i18n";
 
 interface Props {
-  lead: LeadOut;
+  lead: LeadListItem;
   onClaim: (id: string) => void;
   claiming: boolean;
   /** G2: показывать чекбокс выделения (только head/admin). */

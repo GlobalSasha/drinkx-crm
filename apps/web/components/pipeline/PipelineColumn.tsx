@@ -2,13 +2,13 @@
 import { memo } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import type { Stage, LeadOut } from "@/lib/types";
+import type { Stage, LeadListItem } from "@/lib/types";
 import { PipelineLeadCard } from "./PipelineLeadCard";
 import { C } from "@/lib/design-system";
 
 interface Props {
   stage: Stage;
-  leads: LeadOut[];
+  leads: LeadListItem[];
 }
 
 function PipelineColumnImpl({ stage, leads }: Props) {

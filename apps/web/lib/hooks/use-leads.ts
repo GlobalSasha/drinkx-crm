@@ -11,6 +11,7 @@ import {
   type PoolFilterState,
 } from "@/lib/leads-pool-filters";
 import type {
+  LeadListItem,
   LeadListOut,
   LeadOut,
   PoolFacets,
@@ -138,7 +139,7 @@ export function useMoveStage() {
   return useMutation<
     LeadOut,
     ApiError,
-    { leadId: string; body: MoveStageIn; previousLead?: LeadOut }
+    { leadId: string; body: MoveStageIn; previousLead?: LeadListItem }
   >({
     mutationFn: ({ leadId, body }) =>
       api.post<LeadOut>(`/leads/${leadId}/move-stage`, body),
