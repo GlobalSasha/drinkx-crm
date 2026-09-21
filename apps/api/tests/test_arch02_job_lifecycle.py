@@ -654,7 +654,8 @@ async def test_q12_bonus_add_contact_op_maps_contact_field_names(db):
 
     contact_payload = {
         "name": "Новый ЛПР", "title": "CEO", "role_type": "economic_buyer",
-        "email": "new-lpr@example.com", "phone": None, "telegram": None, "linkedin": None,
+        "email": "new-lpr@example.com", "phone": None,
+        "telegram": "@new_lpr", "linkedin": "https://linkedin.com/in/new-lpr",
     }
     conflict = IngestConflict(
         ingest_job_id=job.id, ingest_record_id=record.id,
@@ -676,10 +677,12 @@ async def test_q12_bonus_add_contact_op_maps_contact_field_names(db):
     ).scalars().one()
     assert created.name == "Новый ЛПР"
     assert created.email == "new-lpr@example.com"
-    # Поля-псевдонимы доезжают до колонок модели (в этом payload они None,
-    # но важно, что аргумент принят, а не отвергнут конструктором).
-    assert created.telegram_url is None
-    assert created.linkedin_url is None
+    # Поля-псевдонимы доезжают до колонок модели: не только «конструктор не
+    # падает», но и значения из решения реально записаны в telegram_url/
+    # linkedin_url — а не потеряны и не осели под сырыми именами
+    # `telegram`/`linkedin`, которых у модели Contact нет.
+    assert created.telegram_url == "@new_lpr"
+    assert created.linkedin_url == "https://linkedin.com/in/new-lpr"
     assert created.source == "base_update"
 
     await db.refresh(record)
@@ -784,3 +787,143 @@ async def test_q3_bulk_import_interrupted_mid_run_leaves_job_stuck(db, no_queue)
         "ожидаемое по контракту: должен быть путь возобновления/перезапуска — "
         "сейчас 409 и тупик (F-1/F-7)"
     )
+
+
+# ===========================================================================
+# S-6 (P1, ARCH-JOB-03). `receive()` откладывает постановку задач до после
+# коммита — вызывающий (вебхук) гоняет `after_commit` строго после
+# `db.commit()`. БЫЛО: задача уходила в очередь до коммита; откат оставлял
+# её в очереди навсегда, а worker мог прийти за сообщением, которого в базе
+# ещё (или уже) нет.
+# ===========================================================================
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_s6_enqueue_happens_after_commit_not_before(db, monkeypatch, no_queue):
+    from app.inbox import message_services as msg_svc
+    from app.inbox.schemas import WebhookPayload
+
+    ws = await _workspace(db, "S6-happy")
+    await db.commit()
+
+    payload = WebhookPayload(
+        channel="phone",
+        direction="inbound",
+        external_id="s6-call-1",
+        sender_id="79161112233",
+        body="Входящий звонок",
+        media_url="https://mango.example/rec-s6.mp3",
+        call_duration=90,
+        call_status="answered",
+    )
+
+    msg, created, after_commit = await msg_svc.receive(
+        db, workspace_id=ws.id, payload=payload
+    )
+    assert created is True
+    assert len(after_commit) == 1, "звонок с записью откладывает ровно одну постановку"
+
+    order: list[str] = []
+    real_commit = db.commit
+
+    async def _commit_and_record():
+        await real_commit()
+        order.append("commit")
+
+    monkeypatch.setattr(db, "commit", _commit_and_record)
+
+    # Тот же порядок, что в `phone_webhook`: сначала commit, потом очередь.
+    await db.commit()
+    for enqueue in after_commit:
+        enqueue()
+        order.append("send_task")
+
+    assert order == ["commit", "send_task"], "задача ставится строго после коммита"
+    assert len(no_queue) == 1
+    assert no_queue[0][0] == "app.scheduled.jobs.transcribe_call"
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_s6_failed_commit_leaves_queue_empty(db, monkeypatch, no_queue):
+    from app.inbox import message_services as msg_svc
+    from app.inbox.schemas import WebhookPayload
+
+    ws = await _workspace(db, "S6-fail")
+    await db.commit()
+
+    payload = WebhookPayload(
+        channel="phone",
+        direction="inbound",
+        external_id="s6-call-2",
+        sender_id="79161112244",
+        body="Входящий звонок",
+        media_url="https://mango.example/rec-s6-2.mp3",
+        call_duration=90,
+        call_status="answered",
+    )
+
+    msg, created, after_commit = await msg_svc.receive(
+        db, workspace_id=ws.id, payload=payload
+    )
+    assert len(after_commit) == 1
+
+    async def _boom():
+        raise RuntimeError("симуляция сбоя commit")
+
+    monkeypatch.setattr(db, "commit", _boom)
+
+    # Ровно то, что делает вебхук: `await db.commit()` без try/except —
+    # исключение уходит наружу ДО цикла постановки задач.
+    with pytest.raises(RuntimeError):
+        await db.commit()
+        for enqueue in after_commit:
+            enqueue()
+
+    assert no_queue == [], "commit упал — задача в очередь не попала"
+
+
+# ===========================================================================
+# S-4 (P1, ARCH-JOB-05). Повтор `run_enrichment` на терминальном run (Q-8)
+# не должен идти в LLM второй раз — докстрока обещала идемпотентность, но
+# статус на входе не проверялся: второй счёт за токены, второе списание в
+# бюджет дня, вторая карточка `enrichment_done`.
+# ===========================================================================
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_s4_terminal_enrichment_run_skips_llm(db, monkeypatch):
+    from app.enrichment import orchestrator as orch
+    from app.enrichment.models import EnrichmentRun
+
+    ws = await _workspace(db, "S4")
+    await _default_pipeline(db, ws)
+    owner = await _user(db, ws.id, "Owner")
+    lead = await _lead(db, ws.id, "Компания S4", owner_id=owner.id)
+    await db.commit()
+
+    run = EnrichmentRun(
+        lead_id=lead.id, user_id=owner.id, status="succeeded",
+        finished_at=datetime.now(tz=timezone.utc),
+    )
+    db.add(run)
+    await db.commit()
+
+    def _boom(*a, **kw):
+        raise AssertionError(
+            "run_enrichment не должен строить запросы для терминального run"
+        )
+
+    # `_build_queries` — первый вызов внутри пайплайна ПОСЛЕ guard'а по
+    # статусу (orchestrator.py:695). Если бы охранник S-4 пропустил
+    # терминальный run дальше, тест упал бы здесь, а не прошёл молча.
+    monkeypatch.setattr(orch, "_build_queries", _boom)
+
+    await orch.run_enrichment(db=db, run_id=run.id)
+
+    await db.refresh(run)
+    # было бы (без охранника): второй прогон — LLM/бюджет/уведомление ещё
+    # раз, run перезаписан. Стало: терминальный run не тронут.
+    assert run.status == "succeeded"
+    assert run.result_json is None
+
