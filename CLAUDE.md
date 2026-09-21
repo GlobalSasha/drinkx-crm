@@ -74,8 +74,12 @@ CLAUDE.md      # this file
   Plus Jakarta Sans + JetBrains Mono with double-bezel cards (see prototype
   `index-soft-full.html` for the pattern)
 - Mobile-first responsive — desktop-only is not acceptable
-- Routes mirror the IA: `/today`, `/pipeline`, `/leads/[id]`, `/inbox`, `/team`,
-  `/knowledge`, `/segments`, `/settings`, `/onboarding`
+- Маршруты — по `apps/web/app/(app)/`, а не по плану IA: `/today`, `/triage`,
+  `/incoming`, `/pipeline`, `/leads/[id]`, `/leads-pool`, `/forecast`, `/tasks`,
+  `/team`, `/companies`, `/automations`, `/forms`, `/knowledge`, `/audit`,
+  `/guide`, `/settings`. Маршрутов `/inbox`, `/segments`, `/onboarding` нет
+- Контракты выборок и списков описаны не здесь: база лидов —
+  `docs/LEAD_POOL_SELECTION.md`, задачи — `docs/TASK_LISTS.md`
 
 ## Anti-patterns — do NOT introduce
 
@@ -101,8 +105,12 @@ CLAUDE.md      # this file
 | Google OAuth | Sign-in | env: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
 | Sentry | Errors | env: `SENTRY_DSN` |
 
-Local dev uses `.env.local` files. Production env vars live on the bare-metal
-server in `/opt/drinkx-crm/.env` and on GitHub Actions secrets — see
+Локально фронтенд читает `apps/web/.env.local` (конвенция Next.js), а API —
+`apps/api/.env`: `pydantic-settings` подхватывает файл ровно с этим именем
+(`app/config.py`), и `.env.local` рядом с ним молча не читается — настройки
+тогда остаются дефолтными, без единого предупреждения. Production env vars
+live on the bare-metal server in `/opt/drinkx-crm/.env` and on GitHub Actions
+secrets — see
 `infra/production/`. NEVER commit real keys.
 
 ## Deployment
