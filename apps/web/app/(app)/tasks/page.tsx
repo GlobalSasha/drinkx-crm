@@ -522,7 +522,8 @@ export default function TasksPage() {
           taskId={editingRow.id}
           initialTitle={editingRow.name}
           initialDueIso={editingRow.due}
-          initialAssigneeId={editingRow.assigneeId}
+          initialAssigneeId={editingRow.explicitAssigneeId}
+          effectiveAssigneeName={editingRow.assigneeName}
           onClose={() => setEditingRow(null)}
         />
       )}

@@ -81,6 +81,11 @@ import type { MyTaskOut } from "@/lib/types";
 // task-implicit: лидовая задача, явного исполнителя нет — «эффективный»
 // (assignee_user_id) — владелец лида ("owner-1"). Это ровно случай, который
 // TaskRow/TaskEditModal видят как единственное значение.
+//
+// ПОСЛЕ ПРАВКИ TASK-02: `TaskRow.explicitAssigneeId` несёт explicit, модалка
+// получает его как `initialAssigneeId`, а вычисленного человека показывает
+// подписью пустого пункта («По умолчанию: <имя>»). Ожидания ниже помечены
+// «было/стало».
 // task-standalone: задача без лида (lead_id=null), явного исполнителя нет —
 // эффективный резолвится в автора ("head-1" сам себе поставил).
 const mockTasks = [
@@ -111,6 +116,23 @@ const mockTasks = [
     assignee_user_id: "head-1",
     assignee_name: "Руководитель",
     explicit_assignee_user_id: null,
+    author_user_id: "head-1",
+    author_name: "Руководитель",
+  },
+  {
+    id: "task-explicit",
+    lead_id: "lead-2",
+    lead_company_name: "Бета Опт",
+    text: "Согласовать отсрочку",
+    task_due_at: null,
+    task_done: false,
+    task_completed_at: null,
+    created_at: "2026-09-09T09:00:00Z",
+    // Явно поручено помощнику: эффективный и явный совпадают, но это
+    // именно явное назначение — его и должно быть видно в селекторе.
+    assignee_user_id: "helper-1",
+    assignee_name: "Помощник",
+    explicit_assignee_user_id: "helper-1",
     author_user_id: "head-1",
     author_name: "Руководитель",
   },
@@ -146,11 +168,11 @@ describe("TASK-EXPLICIT-01 — правка текста без прикосно
     await openEditModalFor("Позвонить закупщику");
 
     const selector = await screen.findByRole("combobox", { name: "Исполнитель" });
-    // Контрпример: селектор уже показывает "owner-1" (эффективного
-    // владельца лида) как выбранное значение — хотя в задаче явного
-    // исполнителя нет (explicit_assignee_user_id === null). У головы нет
-    // возможности увидеть, что это не явное назначение.
-    expect((selector as HTMLSelectElement).value).toBe("owner-1");
+    // БЫЛО: селектор показывал "owner-1" (вычисленного владельца лида) —
+    // визуально неотличимо от явного назначения. СТАЛО: пустое значение,
+    // то есть «по умолчанию», а имя вычисленного человека — в подписи
+    // пустого пункта (см. TASK-EXPLICIT-04 ниже).
+    expect((selector as HTMLSelectElement).value).toBe("");
 
     const titleInput = screen.getByPlaceholderText("Название задачи");
     await userEvent.type(titleInput, " ещё раз");
@@ -158,13 +180,9 @@ describe("TASK-EXPLICIT-01 — правка текста без прикосно
 
     await waitFor(() => expect(apiPatch).toHaveBeenCalledTimes(1));
     const [, body] = apiPatch.mock.calls[0];
-    // Фактическое поведение сегодняшнего кода: сравнение assigneeId с тем
-    // же initialAssigneeId (оба — эффективный "owner-1") не даёт разницы,
-    // поэтому assignee_user_id в PATCH отсутствует. Явный исполнитель
-    // ПОКА не проставляется случайно этим конкретным путём — записываем
-    // это как факт, а не как гарантию: initialAssigneeId в принципе не тот
-    // источник (эффективный, а не explicit_assignee_user_id), и любая
-    // логика, которая станет сравнивать иначе, тихо сломает этот инвариант.
+    // Ключа нет — и теперь по правильной причине: сравнение идёт
+    // explicit-с-explicit (null против null). Верни маппинг
+    // effective→value формы — и здесь снова появится assignee_user_id.
     expect(body).not.toHaveProperty("assignee_user_id");
     expect(body).toEqual({ text: "Позвонить закупщику ещё раз" });
   });
@@ -203,13 +221,13 @@ describe("TASK-EXPLICIT-02 — явный выбор исполнителя", ()
   });
 });
 
-describe("TASK-EXPLICIT-03 — «снять» явного исполнителя невозможно через эту модалку", () => {
+describe("TASK-EXPLICIT-03 — «снять» явного исполнителя через модалку", () => {
   afterEach(() => {
     apiPatch.mockReset();
     meMock.mockReset();
   });
 
-  it("UserSelect в TaskEditModal не предлагает пустой пункт — allowEmpty не передан", async () => {
+  it("у UserSelect есть пустой пункт — allowEmpty передан", async () => {
     meMock.mockReturnValue({ data: { id: "head-1", role: "head" } });
     renderPage();
 
@@ -218,11 +236,59 @@ describe("TASK-EXPLICIT-03 — «снять» явного исполнител�
     const optionValues = Array.from(selector.querySelectorAll("option")).map(
       (o) => (o as HTMLOptionElement).value,
     );
-    // Контрпример: нет пункта со значением "" ("— не выбран —" / «по
-    // умолчанию»), поэтому явное присвоение нельзя вернуть к null через
-    // эту форму — только выбрать другого конкретного человека, что снова
-    // не совпадает с "снять" (по контракту backend — вернуть к автору,
-    // см. apps/api/tests/test_task_contract.py::test_clearing_a_standalone_task_returns_it_to_its_author).
-    expect(optionValues).not.toContain("");
+    // было: пункта "" не было вовсе, снять явное назначение было нечем.
+    expect(optionValues).toContain("");
+  });
+
+  it("clear через модалку уходит как assignee_user_id: null", async () => {
+    meMock.mockReturnValue({ data: { id: "head-1", role: "head" } });
+    apiPatch.mockResolvedValue({ ...mockTasks[2], explicit_assignee_user_id: null });
+    renderPage();
+
+    // Задача с ЯВНЫМ исполнителем ("helper-1"): голова снимает его и
+    // возвращает задачу к «по умолчанию». По контракту backend это null,
+    // а не omitted и не чужой UUID
+    // (apps/api/tests/test_task_contract.py::
+    //  test_null_clears_the_explicit_assignee_back_to_the_lead_owner).
+    await openEditModalFor("Согласовать отсрочку");
+    const selector = await screen.findByRole("combobox", { name: "Исполнитель" });
+    expect((selector as HTMLSelectElement).value).toBe("helper-1");
+
+    await userEvent.selectOptions(selector, "");
+    await userEvent.click(screen.getByRole("button", { name: "Сохранить" }));
+
+    await waitFor(() => expect(apiPatch).toHaveBeenCalledTimes(1));
+    const [, body] = apiPatch.mock.calls[0];
+    expect(body).toEqual({ assignee_user_id: null });
+  });
+});
+
+describe("TASK-EXPLICIT-04 — «по умолчанию» видно, а не угадывается", () => {
+  afterEach(() => {
+    apiPatch.mockReset();
+    meMock.mockReset();
+  });
+
+  it("пустой пункт подписан именем вычисленного исполнителя", async () => {
+    meMock.mockReturnValue({ data: { id: "head-1", role: "head" } });
+    renderPage();
+
+    await openEditModalFor("Позвонить закупщику");
+    const selector = await screen.findByRole("combobox", { name: "Исполнитель" });
+    const empty = Array.from(selector.querySelectorAll("option")).find(
+      (o) => (o as HTMLOptionElement).value === "",
+    );
+    // Задача лидовая, explicit пуст, вычисленный — владелец лида «Владелец».
+    expect(empty?.textContent).toBe("По умолчанию: Владелец");
+    expect((selector as HTMLSelectElement).value).toBe("");
+  });
+
+  it("у задачи с явным исполнителем выбран он сам, а не вычисленный", async () => {
+    meMock.mockReturnValue({ data: { id: "head-1", role: "head" } });
+    renderPage();
+
+    await openEditModalFor("Согласовать отсрочку");
+    const selector = await screen.findByRole("combobox", { name: "Исполнитель" });
+    expect((selector as HTMLSelectElement).value).toBe("helper-1");
   });
 });

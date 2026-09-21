@@ -17,8 +17,17 @@ interface Props {
   taskId: string;
   initialTitle: string;
   initialDueIso: string | null;
-  /** Текущий исполнитель — селект показываем только head/admin. */
+  /**
+   * ЯВНЫЙ исполнитель задачи (`explicit_assignee_user_id`), а не
+   * вычисленный. Пусто = «по умолчанию». Селект показываем только
+   * head/admin.
+   */
   initialAssigneeId?: string | null;
+  /**
+   * Имя вычисленного исполнителя — показываем в пустом пункте, чтобы
+   * «по умолчанию» читалось как конкретный человек.
+   */
+  effectiveAssigneeName?: string | null;
   onClose: () => void;
   onSaved?: () => void;
 }
@@ -38,6 +47,7 @@ export function TaskEditModal({
   initialTitle,
   initialDueIso,
   initialAssigneeId = null,
+  effectiveAssigneeName = null,
   onClose,
   onSaved,
 }: Props) {
@@ -153,6 +163,12 @@ export function TaskEditModal({
                 onChange={setAssigneeId}
                 users={usersData?.items ?? []}
                 meId={me?.id}
+                allowEmpty
+                emptyLabel={
+                  effectiveAssigneeName
+                    ? `По умолчанию: ${effectiveAssigneeName}`
+                    : "По умолчанию: владелец лида"
+                }
                 aria-label="Исполнитель"
                 className="mt-1"
               />

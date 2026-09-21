@@ -16,8 +16,16 @@ export interface TaskRow {
   company: string | null;
   due: string | null; // real task_due_at, manager-set
   done: boolean;
+  /** Уже разрешённый исполнитель: явный, иначе владелец лида, иначе автор. */
   assigneeId: string | null;
   assigneeName: string | null;
+  /**
+   * Исполнитель, записанный в самой задаче. Пусто = «по умолчанию»
+   * (владелец лида, иначе автор). Форма правки работает именно с ним:
+   * подставишь туда вычисленного — первое же сохранение превратит
+   * неявное назначение в явное.
+   */
+  explicitAssigneeId: string | null;
   authorId: string | null;
   authorName: string | null;
 }
@@ -32,6 +40,7 @@ export function myTaskToRow(t: MyTaskOut): TaskRow {
     done: t.task_done,
     assigneeId: t.assignee_user_id,
     assigneeName: t.assignee_name,
+    explicitAssigneeId: t.explicit_assignee_user_id,
     authorId: t.author_user_id,
     authorName: t.author_name,
   };
