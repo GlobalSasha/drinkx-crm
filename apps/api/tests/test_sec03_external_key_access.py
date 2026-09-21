@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import uuid
+from unittest.mock import AsyncMock
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -477,7 +478,7 @@ async def test_mcp_refuses_a_revoked_key_and_a_wrong_scope(db, two_workspaces):
 
 @skip_no_pg
 @pytest.mark.asyncio
-async def test_malformed_cursor_is_a_bad_request_not_a_wider_selection(db, two_workspaces):
+async def test_malformed_cursor_is_a_bad_request_not_a_wider_selection(db, two_workspaces, monkeypatch):
     """Регрессия SEC-03-5: битый курсор — ошибка ввода, а не сбой.
 
     Было: разбор курсора не обёрнут, наружу летел `binascii.Error` или
@@ -486,7 +487,21 @@ async def test_malformed_cursor_is_a_bad_request_not_a_wider_selection(db, two_w
     чужих строк в ответе нет.
 
     Проверяются обе страницы с курсором: лиды и компании.
+
+    DEV-FIX-02: этот тест один ключ бьёт ~10 запросами (4 битых курсора ×
+    2 маршрута + контрольные страницы), а `_check_rate_limit`
+    (app/external/dependencies.py) — общий лимитер 10 rps на ключ, который
+    без Redis деградирует в in-memory бакет. На медленной машине/при
+    параллельном запуске тест зависит от скорости выполнения и может
+    словить 429 вместо ожидаемых 400/200. Здесь проверяется парсинг курсора
+    и границы выборки, а не сам лимитер — поэтому лимитер глушится no-op'ом
+    только в этом тесте (grep по `tests/test_external*.py` не нашёл для
+    лимитера отдельного теста, который эта подмена могла бы обессмыслить).
     """
+    monkeypatch.setattr(
+        "app.external.dependencies._check_rate_limit",
+        AsyncMock(return_value=None),
+    )
     s = two_workspaces
     for path in ("/external/v1/leads", "/external/v1/companies"):
         for bad in ("not-base64", "%%%", "YWJj", "0KLQtdGB0YI="):
