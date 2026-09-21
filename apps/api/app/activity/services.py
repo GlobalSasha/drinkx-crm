@@ -888,6 +888,8 @@ async def archive_task(
     if activity.archived_at is not None:
         return activity  # already archived — no-op (idempotent)
     activity.archived_at = datetime.now(timezone.utc)
+    await db.flush()
+    await db.refresh(activity)
     return activity
 
 
@@ -909,6 +911,8 @@ async def restore_task(
     if activity.type != ActivityType.task.value:
         raise ValueError("only task activities can be restored via this endpoint")
     activity.archived_at = None
+    await db.flush()
+    await db.refresh(activity)
     return activity
 
 

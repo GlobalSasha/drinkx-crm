@@ -117,6 +117,9 @@ async def update_company(
         )
 
     await db.flush()
+    # `updated_at` (onupdate=func.now()) протухает на flush — без refresh
+    # сериализация CompanyOut уходит в ленивую догрузку уже после commit.
+    await db.refresh(company)
     return company
 
 

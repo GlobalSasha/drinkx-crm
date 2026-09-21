@@ -131,6 +131,9 @@ async def update(
     if is_active is not None:
         automation.is_active = is_active
     await db.flush()
+    # flush протухляет `updated_at` (onupdate=func.now()) — без refresh
+    # AutomationOut досериализуется уже после commit роутера.
+    await db.refresh(automation)
     return automation
 
 

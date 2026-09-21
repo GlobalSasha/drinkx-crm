@@ -120,4 +120,6 @@ async def merge_into(
     )
 
     await db.flush()
+    # target мог получить inn/kpp — его `updated_at` протух на flush.
+    await db.refresh(target)
     return target
