@@ -406,6 +406,89 @@ async def test_q9_overlapping_scheduler_ticks_send_second_email(db, monkeypatch)
 
 
 # ===========================================================================
+# QA-доп. к ARCH-05b: `repo.claim_step_run` перезахватывает строку по
+# `id` + `executed_at IS NULL` — БЕЗ проверки `scheduled_at <= now`.
+# Ретрай (транзиентная ошибка) двигает `scheduled_at` на +5 минут вперёд,
+# но НЕ трогает `executed_at`. Если строка уже попала в `row_ids`
+# наложившегося тика ДО того, как первый тик закоммитил ретрай, второй
+# тик всё равно успешно её перезахватит и обработает — раньше, чем
+# истечёт бэкофф. Это не тот баг, что чинил ARCH-05b (тот был про
+# дублирование ОДНОГО исхода), а соседний: перезахват не проверяет,
+# actually-due ли строка сейчас. Тест фиксирует факт как есть — не баг
+# ARCH-05b, но повод для отдельного WORK ORDER (координатор оформляет).
+# ===========================================================================
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_claim_step_run_does_not_check_scheduled_at_after_retry(db):
+    """`claim_step_run` игнорирует retry-бэкофф — задокументированный пробел,
+    не задача ARCH-05b (та закрывала дублирование уже отправленного письма)."""
+    from app.automation_builder import repositories as automation_repo
+    from app.automation_builder.models import Automation, AutomationRun, AutomationStepRun
+    from app.template.models import MessageTemplate
+
+    ws = await _workspace(db, "ClaimRetry")
+    await _default_pipeline(db, ws)
+    lead = await _lead(db, ws.id, "Компания ClaimRetry", email="claim-retry@example.com")
+
+    template = MessageTemplate(
+        workspace_id=ws.id, name="Follow-up", channel="email", text="Здравствуйте",
+    )
+    db.add(template)
+    await db.flush()
+    automation = Automation(
+        workspace_id=ws.id, name="ClaimRetry", trigger="stage_change",
+        action_type="send_template", action_config_json={"template_id": str(template.id)},
+    )
+    db.add(automation)
+    await db.flush()
+    run = AutomationRun(automation_id=automation.id, lead_id=lead.id, status="success")
+    db.add(run)
+    await db.flush()
+    step_run = AutomationStepRun(
+        automation_run_id=run.id,
+        lead_id=lead.id,
+        step_index=1,
+        step_json={"type": "send_template", "config": {"template_id": str(template.id)}},
+        scheduled_at=datetime.now(tz=timezone.utc) - timedelta(minutes=1),
+        executed_at=None,
+        status="pending",
+        attempt_count=0,
+    )
+    db.add(step_run)
+    await db.commit()
+
+    # Первый «тик» захватывает строку — как в начале execute_due_step_runs.
+    claimed = await automation_repo.claim_step_run(db, step_run_id=step_run.id)
+    assert claimed is not None, "строка была due и свободна — первый захват должен пройти"
+
+    # Симулируем исход «транзиентная ошибка, ретрай»: scheduled_at уходит на
+    # +5 минут в будущее, executed_at остаётся NULL (см. services.py
+    # execute_due_step_runs, ветка _is_transient_step_error).
+    claimed.status = "pending"
+    claimed.attempt_count = 1
+    claimed.scheduled_at = datetime.now(tz=timezone.utc) + timedelta(minutes=5)
+    await db.commit()
+
+    # Второй, наложившийся тик уже держал этот id в своём row_ids (снятом
+    # ДО ретрая) — и пробует перезахватить его по тому же контракту, что
+    # использует execute_due_step_runs.
+    reclaimed = await automation_repo.claim_step_run(db, step_run_id=step_run.id)
+
+    # Текущее поведение: reclaimed НЕ None — claim_step_run смотрит только на
+    # executed_at, не на scheduled_at. Строка, которую только что отодвинули
+    # на 5 минут бэкоффом, всё равно доступна к немедленному повторному
+    # захвату. ARCH-05b это не чинил (не входило в его acceptance) — тест
+    # фиксирует факт для WORK ORDER, а не как одобрение поведения.
+    assert reclaimed is not None, (
+        "claim_step_run не проверяет scheduled_at — ретрай-бэкофф не защищён "
+        "от немедленного повторного захвата наложившимся тиком (не баг ARCH-05b, "
+        "отдельный WORK ORDER)"
+    )
+    assert reclaimed.id == step_run.id
+
+
+# ===========================================================================
 # Q-10 (P1, ARCH-JOB-01). Наложение двух тиков followup-напоминалок.
 # БЫЛО: выборка без блокировки → второй тик заводил вторую напоминалку.
 # СТАЛО (S-3): `FOR UPDATE SKIP LOCKED` — followup обрабатывает один тик.
