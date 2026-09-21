@@ -405,3 +405,56 @@ async def test_blank_q_is_treated_as_no_filter(db, workspace):
             f"blank q={blank!r} must not narrow or reorder the selection"
         )
         assert body["counts"] == baseline_body["counts"]
+
+
+# ---------------------------------------------------------------------------
+# Hardening addendum -- naive `due_from`/`due_to` are read as UTC, and `q` has
+# the same 200-character ceiling as the lead search (docs/TASK_LISTS.md §6).
+# ---------------------------------------------------------------------------
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_naive_due_bounds_are_read_as_utc(db, workspace):
+    """A bound without an offset (`2026-09-21T00:00:00`) is valid ISO but
+    means nothing until someone reads a timezone into it. The server reads
+    UTC -- so the naive bound selects exactly what the same instant with an
+    explicit `+00:00` selects, and no 422."""
+    manager = await _user(db, workspace.id, "manager", "Менеджер")
+    inside = _task(
+        workspace_id=workspace.id, user_id=manager.id,
+        text=f"В окне {MARKER}", due=NOW + timedelta(hours=2),
+    )
+    before = _task(
+        workspace_id=workspace.id, user_id=manager.id,
+        text=f"До окна {MARKER}", due=NOW - timedelta(hours=2),
+    )
+    after = _task(
+        workspace_id=workspace.id, user_id=manager.id,
+        text=f"После окна {MARKER}", due=NOW + timedelta(days=2),
+    )
+    db.add_all([inside, before, after])
+    await db.flush()
+
+    lo, hi = NOW, NOW + timedelta(days=1)
+    aware = await _get(db, manager, "/tasks", params={
+        "q": MARKER, "due_from": lo.isoformat(), "due_to": hi.isoformat(),
+    })
+    naive = await _get(db, manager, "/tasks", params={
+        "q": MARKER,
+        "due_from": lo.replace(tzinfo=None).isoformat(),
+        "due_to": hi.replace(tzinfo=None).isoformat(),
+    })
+    assert naive.status_code == 200, naive.text
+    assert {i["id"] for i in naive.json()["items"]} == {str(inside.id)}
+    assert [i["id"] for i in naive.json()["items"]] == [i["id"] for i in aware.json()["items"]]
+    assert naive.json()["counts"] == aware.json()["counts"]
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_overlong_q_is_rejected(db, workspace):
+    manager = await _user(db, workspace.id, "manager", "Менеджер")
+    ok = await _get(db, manager, "/tasks", params={"q": "я" * 200})
+    assert ok.status_code == 200, ok.text
+    too_long = await _get(db, manager, "/tasks", params={"q": "я" * 201})
+    assert too_long.status_code == 422

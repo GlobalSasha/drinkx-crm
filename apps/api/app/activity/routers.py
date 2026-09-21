@@ -1,11 +1,12 @@
 """Activity REST endpoints — nested under /leads/{lead_id}/activities."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import AfterValidator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activity import repositories, services
@@ -537,13 +538,26 @@ def _unknown_assignee() -> HTTPException:
     )
 
 
+def _as_utc(value: datetime | None) -> datetime | None:
+    """Срок без смещения считаем UTC.
+
+    Границы интервала присылает клиент и обычно со смещением своего пояса
+    (`docs/TASK_LISTS.md` §6). Но `2026-09-21T00:00:00` без хвоста — валидный
+    ISO, и молча сравнивать его с `timestamptz` нельзя: смысл границы тогда
+    зависит от пояса сессии в базе. Достраиваем UTC явно.
+    """
+    if value is not None and value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
+
 @tasks_router.get("", response_model=TaskListOut)
 async def list_tasks(
     assignee_user_id: UUID | None = Query(None),
     author_user_id: UUID | None = Query(None),
-    q: str | None = Query(None),
-    due_from: datetime | None = Query(None),
-    due_to: datetime | None = Query(None),
+    q: str | None = Query(None, max_length=200),
+    due_from: Annotated[datetime | None, Query(), AfterValidator(_as_utc)] = None,
+    due_to: Annotated[datetime | None, Query(), AfterValidator(_as_utc)] = None,
     status_filter: str = Query("all", alias="status", pattern="^(all|open|done|overdue)$"),
     cursor: str | None = Query(None),
     limit: int = Query(50, ge=1, le=200),
@@ -553,9 +567,10 @@ async def list_tasks(
     """Список задач. Руководитель и админ видят всю команду и могут
     фильтровать по исполнителю; менеджер — только свои и поставленные им.
 
-    `q` — подстрока в тексте задачи или названии компании лида, `due_from` /
-    `due_to` — полуоткрытый интервал по сроку (ISO, UTC; календарные границы
-    считает клиент в своём поясе). Оба отбираются в базе до счётчиков и до
+    `q` — подстрока в тексте задачи или названии компании лида (не длиннее
+    200 символов), `due_from` / `due_to` — полуоткрытый интервал по сроку
+    (ISO; календарные границы считает клиент в своём поясе, значение без
+    смещения трактуется как UTC). Оба отбираются в базе до счётчиков и до
     среза страницы, поэтому дальнее совпадение находится с первой страницы.
 
     Постранично, курсором. Потолок страницы — 200: список длиннее читают
