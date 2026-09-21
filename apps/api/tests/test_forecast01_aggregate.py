@@ -346,3 +346,362 @@ async def test_fc03_amount_is_number_parseable_without_precision_loss(db, worksp
         f"pipeline_total round-tripped to {parsed}, expected 1234.56 -- "
         "check for float drift or truncation in the aggregate"
     )
+
+
+# ---------------------------------------------------------------------------
+# QA additions (sonnet-qa, FORECAST-01 verification pass) -- an INDEPENDENT
+# oracle that recomputes the contract formula in Python from raw rows,
+# deliberately not sharing a single line of SQL with
+# `app/leads/analytics.py::forecast_summary` (or its `_FORECAST_*_SQL` text
+# blocks). If both this oracle and the production aggregate agree, the
+# formula is very unlikely to be coincidentally wrong the same way twice.
+# ---------------------------------------------------------------------------
+
+from datetime import datetime, timedelta, timezone  # noqa: E402
+
+
+async def _independent_oracle(db, workspace_id, assigned_to=None) -> dict:
+    """Recompute FORECAST_CONTRACT.md §3 from raw rows, in Python, using
+    plain per-table SELECTs -- no shared SQL text with analytics.py."""
+    from sqlalchemy import text as _text
+
+    lead_rows = (
+        await db.execute(
+            _text(
+                """
+                SELECT id, stage_id, deal_amount, last_activity_at, created_at,
+                       company_name
+                FROM leads
+                WHERE workspace_id = :wid
+                  AND assignment_status = 'assigned'
+                  AND deleted_at IS NULL
+                  AND (CAST(:assigned_to AS uuid) IS NULL OR assigned_to = CAST(:assigned_to AS uuid))
+                """
+            ),
+            {"wid": str(workspace_id), "assigned_to": str(assigned_to) if assigned_to else None},
+        )
+    ).mappings().all()
+
+    stage_rows = (
+        await db.execute(
+            _text(
+                """
+                SELECT s.id, s.probability, s.is_won, s.is_lost, s.rot_days, s.name, s.position
+                FROM stages s
+                JOIN pipelines p ON p.id = s.pipeline_id
+                WHERE p.workspace_id = :wid
+                """
+            ),
+            {"wid": str(workspace_id)},
+        )
+    ).mappings().all()
+    stages_by_id = {str(r["id"]): r for r in stage_rows}
+
+    open_history_rows = (
+        await db.execute(
+            _text(
+                """
+                SELECT lsh.lead_id, lsh.stage_id, lsh.entered_at
+                FROM lead_stage_history lsh
+                JOIN leads l ON l.id = lsh.lead_id
+                WHERE l.workspace_id = :wid AND lsh.exited_at IS NULL
+                """
+            ),
+            {"wid": str(workspace_id)},
+        )
+    ).mappings().all()
+    open_history_by_lead = {}
+    for r in open_history_rows:
+        open_history_by_lead[(str(r["lead_id"]), str(r["stage_id"]))] = r["entered_at"]
+
+    now = datetime.now(timezone.utc)
+    pipeline_total = 0.0
+    weighted_total = 0.0
+    at_risk_total = 0.0
+    won_recent = 0.0
+    # Every non-won/lost stage starts at zero -- stages with no matching
+    # lead still appear in the output (FORECAST_CONTRACT.md §3 stageBars).
+    stage_bars: dict[str, dict] = {
+        str(r["id"]): {"total": 0.0, "count": 0, "position": r["position"]}
+        for r in stage_rows
+        if not r["is_won"] and not r["is_lost"]
+    }
+
+    for lead in lead_rows:
+        stage_id = str(lead["stage_id"]) if lead["stage_id"] else None
+        stage = stages_by_id.get(stage_id) if stage_id else None
+        if stage is None:
+            continue  # lead without a stage contributes to nothing (§3)
+        amount = float(lead["deal_amount"] or 0)
+
+        if stage["is_won"]:
+            touched = lead["last_activity_at"]
+            if touched is not None and touched >= now - timedelta(days=90):
+                won_recent += amount
+            continue
+        if stage["is_lost"]:
+            continue
+
+        pipeline_total += amount
+        weighted_total += amount * float(stage["probability"] or 0) / 100
+
+        entered_at = open_history_by_lead.get((str(lead["id"]), stage_id))
+        anchor = entered_at if entered_at is not None else lead["created_at"]
+        stage_days = max(0.0, (now - anchor).total_seconds() / 86400)
+        rot = stage["rot_days"] or 0
+        if rot > 0 and stage_days > rot and amount > 0:
+            at_risk_total += amount
+
+        bar = stage_bars[stage_id]
+        bar["total"] += amount
+        bar["count"] += 1
+
+    return {
+        "pipeline_total": pipeline_total,
+        "weighted_total": weighted_total,
+        "at_risk_total": at_risk_total,
+        "won_recent": won_recent,
+        "stage_bars": stage_bars,
+    }
+
+
+async def _stage(db, pipeline_id, *, name, position, probability=10, rot_days=7, is_won=False, is_lost=False):
+    from app.pipelines.models import Stage
+
+    s = Stage(
+        pipeline_id=pipeline_id,
+        name=name,
+        position=position,
+        color="#a1a1a6",
+        rot_days=rot_days,
+        probability=probability,
+        is_won=is_won,
+        is_lost=is_lost,
+    )
+    db.add(s)
+    await db.flush()
+    return s
+
+
+async def _open_history(db, lead_id, stage_id, entered_at):
+    from app.leads.models import LeadStageHistory
+
+    h = LeadStageHistory(lead_id=lead_id, stage_id=stage_id, entered_at=entered_at, exited_at=None)
+    db.add(h)
+    await db.flush()
+    return h
+
+
+def _assert_close(actual, expected, label):
+    assert actual == pytest.approx(expected, abs=1e-6), (
+        f"{label}: server={actual!r} vs independent-oracle={expected!r}"
+    )
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_qa_full_formula_cross_check_matches_independent_oracle_across_roles(
+    db, workspace, admin_user, pipeline
+):
+    """>1200 leads, multiple stages (active/won/lost), stage-dwell history,
+    checked under manager/head/admin scopes against a from-scratch Python
+    oracle -- not the production SQL. Covers pipeline_total, weighted_total,
+    won_recent and at_risk_total simultaneously, plus stage_bars sums/counts.
+    """
+    p, active = pipeline  # active: probability=10 (default), rot_days=14
+    won = await _stage(db, p.id, name="Выиграно", position=90, probability=100, is_won=True)
+    lost = await _stage(db, p.id, name="Проиграно", position=91, is_lost=True)
+    active2 = await _stage(db, p.id, name="Discovery", position=2, probability=25, rot_days=5)
+
+    head = await _user(db, workspace.id, "head", "Head")
+    mgr_a = await _user(db, workspace.id, "manager", "MgrA")
+    mgr_b = await _user(db, workspace.id, "manager", "MgrB")
+
+    now = datetime.now(timezone.utc)
+
+    # Bulk of the volume: > 1200 leads split across two managers, well past
+    # any historical page_size boundary (200/500).
+    N_A, N_B = 700, 601
+    for i in range(N_A):
+        await _lead(
+            db, workspace.id, name=f"A{i}", assigned_to=mgr_a.id,
+            pipeline_id=p.id, stage_id=active.id, deal_amount=100 + i,
+        )
+    for i in range(N_B):
+        await _lead(
+            db, workspace.id, name=f"B{i}", assigned_to=mgr_b.id,
+            pipeline_id=p.id, stage_id=active2.id, deal_amount=50 + i,
+        )
+    assert N_A + N_B > 1200
+
+    # A handful of leads on mgr_a exercising every other branch of the
+    # formula at once.
+    won_lead = await _lead(db, workspace.id, name="WonRecent", assigned_to=mgr_a.id, pipeline_id=p.id, stage_id=won.id, deal_amount=9000)
+    won_lead.last_activity_at = now - timedelta(days=5)
+    won_old_lead = await _lead(db, workspace.id, name="WonOld", assigned_to=mgr_a.id, pipeline_id=p.id, stage_id=won.id, deal_amount=5000)
+    won_old_lead.last_activity_at = now - timedelta(days=120)  # outside 90d window
+    lost_lead = await _lead(db, workspace.id, name="Lost", assigned_to=mgr_a.id, pipeline_id=p.id, stage_id=lost.id, deal_amount=7777)
+    stageless_lead = await _lead(db, workspace.id, name="NoStage", assigned_to=mgr_a.id, pipeline_id=None, stage_id=None, deal_amount=123456)
+
+    # Open stage-history row older than rot_days (14) -> at-risk.
+    at_risk_lead = await _lead(db, workspace.id, name="AtRisk", assigned_to=mgr_a.id, pipeline_id=p.id, stage_id=active.id, deal_amount=4321)
+    await _open_history(db, at_risk_lead.id, active.id, now - timedelta(days=20))
+
+    # Open stage-history row younger than rot_days -> NOT at-risk.
+    not_at_risk_lead = await _lead(db, workspace.id, name="NotAtRisk", assigned_to=mgr_a.id, pipeline_id=p.id, stage_id=active.id, deal_amount=1111)
+    await _open_history(db, not_at_risk_lead.id, active.id, now - timedelta(days=2))
+
+    # No stage-history row at all -> fallback to created_at, old enough to
+    # be at-risk under active's rot_days=14.
+    fallback_lead = await _lead(db, workspace.id, name="FallbackCreatedAt", assigned_to=mgr_b.id, pipeline_id=p.id, stage_id=active.id, deal_amount=6543)
+    fallback_lead.created_at = now - timedelta(days=30)
+
+    await db.flush()
+
+    for role_label, actor, scope in (
+        ("manager mgr_a", mgr_a, mgr_a.id),
+        ("manager mgr_b", mgr_b, mgr_b.id),
+        ("head (workspace-wide)", head, None),
+        ("admin (workspace-wide)", admin_user, None),
+    ):
+        oracle = await _independent_oracle(db, workspace.id, assigned_to=scope)
+        resp = await _call(db, actor, "GET", FORECAST_PATH)
+        assert resp.status_code == 200, f"[{role_label}] got {resp.status_code}: {resp.text[:200]}"
+        body = resp.json()
+
+        _assert_close(body["pipeline_total"], oracle["pipeline_total"], f"[{role_label}] pipeline_total")
+        _assert_close(body["weighted_total"], oracle["weighted_total"], f"[{role_label}] weighted_total")
+        _assert_close(body["won_recent"], oracle["won_recent"], f"[{role_label}] won_recent")
+        _assert_close(body["at_risk_total"], oracle["at_risk_total"], f"[{role_label}] at_risk_total")
+
+        server_bars = {b["stage_id"]: b for b in body["stage_bars"]}
+        assert set(server_bars) == set(oracle["stage_bars"]), (
+            f"[{role_label}] stage_bars stage set mismatch: "
+            f"server={sorted(server_bars)} oracle={sorted(oracle['stage_bars'])}"
+        )
+        for sid, obar in oracle["stage_bars"].items():
+            sbar = server_bars[sid]
+            _assert_close(sbar["total"], obar["total"], f"[{role_label}] stage_bars[{sid}].total")
+            assert sbar["count"] == obar["count"], (
+                f"[{role_label}] stage_bars[{sid}].count: server={sbar['count']} oracle={obar['count']}"
+            )
+
+    # Cross-check: manager totals must be strict subsets, never equal to the
+    # workspace-wide head/admin total (guards against scope leaking).
+    a_only = await _independent_oracle(db, workspace.id, assigned_to=mgr_a.id)
+    whole = await _independent_oracle(db, workspace.id, assigned_to=None)
+    assert a_only["pipeline_total"] < whole["pipeline_total"]
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_qa_lead_without_stage_excluded_from_every_metric(db, workspace, admin_user, pipeline):
+    """A lead with `stage_id IS NULL` must not contribute to pipeline_total,
+    weighted_total, at_risk_total, won_recent or any stage_bars entry --
+    it is skipped outright (FORECAST_CONTRACT.md §3), not bucketed anywhere."""
+    p, s = pipeline
+    await _lead(db, workspace.id, name="Real", assigned_to=admin_user.id, pipeline_id=p.id, stage_id=s.id, deal_amount=1000)
+    await _lead(db, workspace.id, name="Stageless", assigned_to=admin_user.id, pipeline_id=None, stage_id=None, deal_amount=999_999)
+
+    resp = await _call(db, admin_user, "GET", FORECAST_PATH)
+    assert resp.status_code == 200, f"got {resp.status_code}: {resp.text[:200]}"
+    body = resp.json()
+    assert body["pipeline_total"] == 1000, (
+        f"stageless lead's 999999 leaked into pipeline_total={body['pipeline_total']}"
+    )
+    total_bar_count = sum(b["count"] for b in body["stage_bars"])
+    assert total_bar_count == 1, (
+        f"stageless lead must not appear in any stage_bars bucket (count total={total_bar_count})"
+    )
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_qa_open_stage_history_older_than_rot_days_is_at_risk(db, workspace, admin_user, pipeline):
+    """A lead whose open lead_stage_history row is older than the stage's
+    rot_days must show up in at_risk_total AND in the top-10 at_risk_deals
+    list (FC-DELTA-001 -- the whole point of computing stage_days server
+    side instead of relying on the never-populated list-response field)."""
+    p, s = pipeline  # rot_days=14
+    lead = await _lead(db, workspace.id, name="Overdue Co", assigned_to=admin_user.id, pipeline_id=p.id, stage_id=s.id, deal_amount=8000)
+    entered = datetime.now(timezone.utc) - timedelta(days=20)
+    await _open_history(db, lead.id, s.id, entered)
+
+    resp = await _call(db, admin_user, "GET", FORECAST_PATH)
+    assert resp.status_code == 200, f"got {resp.status_code}: {resp.text[:200]}"
+    body = resp.json()
+    assert body["at_risk_total"] == 8000
+    deal_ids = {d["id"] for d in body["at_risk_deals"]}
+    assert str(lead.id) in deal_ids, f"overdue lead missing from at_risk_deals: {body['at_risk_deals']}"
+    overdue = next(d for d in body["at_risk_deals"] if d["id"] == str(lead.id))
+    # 20 days in stage - 14 rot_days = 6 days overdue (within the same day
+    # the test runs; allow a 1-day slack for FLOOR/wall-clock edges).
+    assert overdue["overdue_days"] in (5, 6), overdue
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_qa_lead_without_any_stage_history_falls_back_to_created_at(db, workspace, admin_user, pipeline):
+    """A lead that has never appeared in lead_stage_history (no row at all,
+    open or closed) must fall back to `created_at` for its stage-dwell
+    clock -- not silently read as zero days (which would make it
+    impossible for an old, never-transitioned lead to ever be at-risk)."""
+    p, s = pipeline  # rot_days=14
+    lead = await _lead(db, workspace.id, name="NeverMoved", assigned_to=admin_user.id, pipeline_id=p.id, stage_id=s.id, deal_amount=3000)
+    lead.created_at = datetime.now(timezone.utc) - timedelta(days=30)
+    await db.flush()
+
+    resp = await _call(db, admin_user, "GET", FORECAST_PATH)
+    assert resp.status_code == 200, f"got {resp.status_code}: {resp.text[:200]}"
+    body = resp.json()
+    assert body["at_risk_total"] == 3000, (
+        f"lead with no stage-history row and created_at 30d ago (rot_days=14) "
+        f"must be at-risk via the created_at fallback; got at_risk_total={body['at_risk_total']}"
+    )
+    deal_ids = {d["id"] for d in body["at_risk_deals"]}
+    assert str(lead.id) in deal_ids
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_qa_archived_duplicates_are_included_per_contract(db, workspace, admin_user, pipeline):
+    """FORECAST_CONTRACT.md §3 explicitly records that `archived_at`
+    (merged-away duplicate) leads are NOT excluded on /forecast, unlike
+    /leads/utm-stats which does filter them out -- this locks in that this
+    is a deliberate as-is replication, not an oversight. If a future change
+    starts filtering archived_at here, this test documents the behavior
+    change so it can't happen silently."""
+    p, s = pipeline
+    kept = await _lead(db, workspace.id, name="Kept", assigned_to=admin_user.id, pipeline_id=p.id, stage_id=s.id, deal_amount=1000)
+    dup = await _lead(db, workspace.id, name="ArchivedDuplicate", assigned_to=admin_user.id, pipeline_id=p.id, stage_id=s.id, deal_amount=2000)
+    dup.archived_at = datetime.now(timezone.utc)
+    await db.flush()
+
+    resp = await _call(db, admin_user, "GET", FORECAST_PATH)
+    assert resp.status_code == 200, f"got {resp.status_code}: {resp.text[:200]}"
+    body = resp.json()
+    assert body["pipeline_total"] == 3000, (
+        f"expected archived_at duplicate to be INCLUDED (contract §3 'reproduce as-is'), "
+        f"got pipeline_total={body['pipeline_total']} (looks like it was excluded)"
+    )
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_qa_pool_lead_not_assigned_is_excluded(db, workspace, admin_user, pipeline):
+    """A lead sitting in the shared pool (`assignment_status='pool'`,
+    `assigned_to IS NULL`) must never contribute to the forecast -- the
+    browser formula this replicates only ever saw `GET /leads`, which
+    filters to `assignment_status == 'assigned'` at the SQL level
+    (FORECAST_CONTRACT.md §3). Regression guard: dropping that filter from
+    the new aggregate's scoped CTE makes this fail (mutation-tested)."""
+    p, s = pipeline
+    await _lead(db, workspace.id, name="Assigned", assigned_to=admin_user.id, pipeline_id=p.id, stage_id=s.id, deal_amount=1000)
+    await _lead(db, workspace.id, name="InPool", pool=True, pipeline_id=p.id, stage_id=s.id, deal_amount=999_999)
+
+    resp = await _call(db, admin_user, "GET", FORECAST_PATH)
+    assert resp.status_code == 200, f"got {resp.status_code}: {resp.text[:200]}"
+    body = resp.json()
+    assert body["pipeline_total"] == 1000, (
+        f"pool (unassigned) lead's 999999 leaked into pipeline_total={body['pipeline_total']}"
+    )
