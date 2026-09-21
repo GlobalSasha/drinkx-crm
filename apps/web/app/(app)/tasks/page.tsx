@@ -523,7 +523,12 @@ export default function TasksPage() {
           initialTitle={editingRow.name}
           initialDueIso={editingRow.due}
           initialAssigneeId={editingRow.explicitAssigneeId}
-          effectiveAssigneeName={editingRow.assigneeName}
+          // Имя показываем только когда исполнитель НЕ задан явно: иначе
+          // вычисленный равен явному и пункт читался бы «По умолчанию:
+          // <тот, кто и так выбран>».
+          effectiveAssigneeName={
+            editingRow.explicitAssigneeId ? null : editingRow.assigneeName
+          }
           onClose={() => setEditingRow(null)}
         />
       )}

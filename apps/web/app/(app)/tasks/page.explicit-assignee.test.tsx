@@ -291,4 +291,22 @@ describe("TASK-EXPLICIT-04 — «по умолчанию» видно, а не �
     const selector = await screen.findByRole("combobox", { name: "Исполнитель" });
     expect((selector as HTMLSelectElement).value).toBe("helper-1");
   });
+
+  it("у задачи с явным исполнителем пустой пункт не подписан его же именем", async () => {
+    meMock.mockReturnValue({ data: { id: "head-1", role: "head" } });
+    renderPage();
+
+    // UX-DELTA-002. «Согласовать отсрочку» явно поручена Помощнику, и
+    // вычисленный исполнитель равен явному. Подпись «По умолчанию:
+    // Помощник» читалась бы как «снимешь выбор — останется тот же
+    // человек», хотя по умолчанию задача уйдёт владельцу лида.
+    await openEditModalFor("Согласовать отсрочку");
+    const selector = await screen.findByRole("combobox", { name: "Исполнитель" });
+    const empty = Array.from(selector.querySelectorAll("option")).find(
+      (o) => (o as HTMLOptionElement).value === "",
+    );
+    expect(empty?.textContent).not.toContain("Помощник");
+    // Задача лидовая — кто именно владелец, строка списка не знает.
+    expect(empty?.textContent).toBe("По умолчанию: владелец лида");
+  });
 });
