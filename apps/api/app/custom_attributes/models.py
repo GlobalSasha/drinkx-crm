@@ -26,7 +26,6 @@ from sqlalchemy import (
     JSON,
     Numeric,
     String,
-    UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -49,8 +48,8 @@ class CustomAttributeDefinition(Base, UUIDPrimaryKeyMixin):
         # `key` is what code references (e.g. lead-import column header).
         # Unique per workspace — re-using the same key in another workspace
         # is fine; the EAV table joins via definition_id, not by key.
-        UniqueConstraint(
-            "workspace_id", "key", name="uq_custom_attr_def_workspace_key"
+        Index(
+            "uq_custom_attr_def_workspace_key", "workspace_id", "key", unique=True
         ),
         Index("ix_custom_attr_def_workspace", "workspace_id", "position"),
     )
@@ -93,8 +92,8 @@ class LeadCustomValue(Base, UUIDPrimaryKeyMixin):
     only the one matching the definition's kind is populated."""
     __tablename__ = "lead_custom_values"
     __table_args__ = (
-        UniqueConstraint(
-            "lead_id", "definition_id", name="uq_lead_custom_value_lead_def"
+        Index(
+            "uq_lead_custom_value_lead_def", "lead_id", "definition_id", unique=True
         ),
         Index("ix_lead_custom_values_def", "definition_id"),
     )

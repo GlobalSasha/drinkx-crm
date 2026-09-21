@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -71,7 +71,7 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
         nullable=False,
         index=True,
     )
-    email: Mapped[str] = mapped_column(String(254), nullable=False, unique=True, index=True)
+    email: Mapped[str] = mapped_column(String(254), nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String(120), default="", nullable=False)
     role: Mapped[str] = mapped_column(String(20), default="manager", nullable=False)
 
@@ -82,7 +82,7 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     max_active_deals: Mapped[int] = mapped_column(Integer, default=20, nullable=False)
 
     # External identity (Supabase user id) — set on first sign-in
-    supabase_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
+    supabase_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True)
 
     onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -152,8 +152,8 @@ class UserInvite(Base, UUIDPrimaryKeyMixin):
     )
 
     __table_args__ = (
-        UniqueConstraint(
-            "workspace_id", "email", name="ix_user_invites_workspace_email"
+        Index(
+            "ix_user_invites_workspace_email", "workspace_id", "email", unique=True
         ),
     )
 

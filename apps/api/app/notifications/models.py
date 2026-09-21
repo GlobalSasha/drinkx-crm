@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -29,7 +29,7 @@ class NotificationKind(str, Enum):
 class Notification(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     __tablename__ = "notifications"
     __table_args__ = (
-        Index("ix_notifications_user_created", "user_id", "created_at"),
+        Index("ix_notifications_user_created", "user_id", text("created_at DESC")),
         Index("ix_notifications_user_read", "user_id", "read_at"),
     )
 

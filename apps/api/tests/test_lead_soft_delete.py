@@ -194,9 +194,13 @@ async def test_soft_delete_restore_destroy_each_write_audit_row(db, workspace, u
     await db.flush()
 
     result = await db.execute(
-        select(AuditLog.action)
-        .where(AuditLog.workspace_id == workspace.id, AuditLog.entity_id == lead.id)
-        .order_by(AuditLog.created_at.asc())
+        select(AuditLog.action).where(
+            AuditLog.workspace_id == workspace.id, AuditLog.entity_id == lead.id
+        )
     )
     actions = [row[0] for row in result.all()]
-    assert actions == ["lead.soft_delete", "lead.restore", "lead.destroy"]
+    # All three rows are written in one transaction, so PostgreSQL now() gives them
+    # the same created_at. Verify one row per action, not an undefined tie order.
+    assert sorted(actions) == sorted(
+        ["lead.soft_delete", "lead.restore", "lead.destroy"]
+    )

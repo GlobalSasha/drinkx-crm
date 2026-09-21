@@ -20,6 +20,7 @@ from sqlalchemy import (
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -101,7 +102,7 @@ class FormSubmission(Base, UUIDPrimaryKeyMixin):
     submissions are append-only — no `updated_at` makes sense."""
     __tablename__ = "form_submissions"
     __table_args__ = (
-        Index("ix_form_submissions_form", "web_form_id", "created_at"),
+        Index("ix_form_submissions_form", "web_form_id", text("created_at DESC")),
         Index("ix_form_submissions_lead", "lead_id"),
     )
 

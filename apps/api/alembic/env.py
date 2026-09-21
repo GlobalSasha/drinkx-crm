@@ -14,6 +14,11 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 # здесь вручную и отставал от дерева. target_metadata — тот же Base.metadata.
 from app.config import get_settings
 from app.models_registry import Base  # noqa: F401 — импорт наполняет metadata
+from scripts.alembic_drift_policy import (
+    compare_server_default,
+    compare_type,
+    include_object,
+)
 
 config = context.config
 
@@ -35,8 +40,9 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        compare_type=True,
-        compare_server_default=True,
+        compare_type=compare_type,
+        compare_server_default=compare_server_default,
+        include_object=include_object,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -81,8 +87,9 @@ def do_run_migrations(connection: Connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
-        compare_type=True,
-        compare_server_default=True,
+        compare_type=compare_type,
+        compare_server_default=compare_server_default,
+        include_object=include_object,
     )
     with context.begin_transaction():
         context.run_migrations()

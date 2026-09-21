@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, JSON, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, JSON, String, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -88,7 +88,7 @@ class InboxItem(Base, UUIDPrimaryKeyMixin):
             "ix_inbox_items_workspace_status",
             "workspace_id",
             "status",
-            "received_at",
+            text("received_at DESC"),
         ),
         Index("ix_inbox_items_user_status", "user_id", "status"),
     )
@@ -155,7 +155,7 @@ class InboxMessage(Base, UUIDPrimaryKeyMixin):
         Index(
             "ix_inbox_msg_lead",
             "lead_id",
-            "created_at",
+            text("created_at DESC"),
         ),
         Index("ix_inbox_msg_sender", "channel", "sender_id"),
     )
