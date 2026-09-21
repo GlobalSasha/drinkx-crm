@@ -91,7 +91,7 @@ describe("poolFilterBody", () => {
     // Тело и параметры описывают одну выборку. Проверяем это по именам:
     // множественные — во множественном числе, остальные один в один.
     const params = poolQueryParams(FULL);
-    const body = poolFilterBody(FULL);
+    const body = poolFilterBody(FULL) as Record<string, unknown>;
     const pairs: [string, string][] = [
       ["city", "cities"],
       ["segment", "segments"],

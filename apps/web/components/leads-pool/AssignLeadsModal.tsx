@@ -9,7 +9,7 @@ import { useMe } from "@/lib/hooks/use-me";
 import { useAssignLeads } from "@/lib/hooks/use-leads";
 import { apiErrorDetail } from "@/lib/api-error";
 import { C } from "@/lib/design-system";
-import type { LeadAssignOut } from "@/lib/types";
+import type { LeadAssignOut, LeadSelectionBody } from "@/lib/types";
 
 interface Props {
   open: boolean;
@@ -22,7 +22,7 @@ interface Props {
    * фильтру» означало «первые N из того, что браузер успел загрузить и
    * отфильтровать» (аудит G6).
    */
-  filterBody: Record<string, unknown>;
+  filterBody: LeadSelectionBody;
   /** Сколько карточек подходит под фильтр НА СЕРВЕРЕ. */
   matchingCount: number;
   onDone: (result: LeadAssignOut, recipientName: string) => void;

@@ -12,6 +12,8 @@
  * живёт в `app/leads/selection.py`, и второй реализации быть не должно.
  */
 
+import type { LeadSelectionBody } from "@/lib/types";
+
 /** Состояние фильтров экрана. Ровно то, что человек выбрал. */
 export interface PoolFilterState {
   cities: string[];
@@ -98,8 +100,8 @@ export function poolQueryParams(f: PoolFilterState): URLSearchParams {
  * Пустые значения не отправляются: пустой список — это отсутствие фильтра,
  * а не «поле равно пустоте».
  */
-export function poolFilterBody(f: PoolFilterState): Record<string, unknown> {
-  const body: Record<string, unknown> = { assignment_status: "pool" };
+export function poolFilterBody(f: PoolFilterState): LeadSelectionBody {
+  const body: LeadSelectionBody = { assignment_status: "pool" };
   if (f.cities.length) body.cities = f.cities;
   if (f.segments.length) body.segments = f.segments;
   if (f.priorities.length) body.priorities = f.priorities;

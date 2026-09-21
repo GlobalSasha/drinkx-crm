@@ -609,19 +609,51 @@ export type TaskStatusFilter = "all" | "open" | "done" | "overdue";
 
 // ---- Раздача лидов из базы (POST /leads/assign) ----
 
-export interface LeadAssignIn {
+/**
+ * Описание выборки базы лидов в теле запроса — то, что backend читает
+ * `LeadSelection.from_json` (`app/leads/selection.py`). Один и тот же набор
+ * у экспорта и у «Выдать по фильтру»: тринадцать полей, а не три.
+ *
+ * Собирает его `poolFilterBody()` из состояния экрана — единственное место,
+ * где фильтры превращаются в запрос (`lib/leads-pool-filters.ts`).
+ */
+export interface LeadSelectionBody {
+  /** Область выборки. У базы лидов всегда `"pool"`. */
+  assignment_status?: string;
+  cities?: string[];
+  segments?: string[];
+  priorities?: string[];
+  tiers?: string[];
+  deal_types?: string[];
+  sources?: string[];
+  tags?: string[];
+  fit_min?: number | null;
+  has_email?: boolean;
+  has_phone?: boolean;
+  form_id?: string | null;
+  needs_review?: boolean;
+  q?: string | null;
+}
+
+/**
+ * Тело `POST /leads/assign`.
+ *
+ * Фильтр здесь — тот же `LeadSelectionBody`, что у списка и экспорта. До
+ * этого тип описывал контракт до аудита G6 (`cities`, одиночный `segment`,
+ * `fit_min`) — экран слал другое, потому что собирал payload через
+ * `Record<string, unknown>` и типом не проверялся вовсе. Читающий `types.ts`
+ * видел выборку, которой давно нет (ARCH-03 DRIFT-2).
+ */
+export type LeadAssignIn = LeadSelectionBody & {
   to_user_id: string;
   /** Явный режим: `ids` требует непустой `lead_ids`, `filter` — хотя бы один фильтр или limit. */
   mode: "ids" | "filter";
   /** В режиме `ids` пропускать карточки, которые уже кто-то взял (по умолчанию true). */
   only_pool?: boolean;
   lead_ids?: string[];
-  cities?: string[];
-  segment?: string | null;
-  fit_min?: number | null;
   limit?: number | null;
   comment?: string | null;
-}
+};
 
 export interface LeadAssignOut {
   assigned_count: number;
@@ -1377,7 +1409,8 @@ export interface ExportJobOut {
 
 export interface ExportRequestIn {
   format: ExportJobFormat;
-  filters?: Record<string, unknown>;
+  /** База лидов шлёт сюда `LeadSelectionBody`, воронка — свой набор. */
+  filters?: LeadSelectionBody | Record<string, unknown>;
   include_ai_brief?: boolean;
 }
 
