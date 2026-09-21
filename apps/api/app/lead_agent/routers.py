@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.dependencies import current_user
 from app.auth.models import User
 from app.db import get_db
+from app.leads.access import lead_access_guard
 from app.lead_agent.runner import chat as agent_chat
 from app.lead_agent.schemas import (
     AgentSuggestion,
@@ -34,7 +35,15 @@ from app.lead_agent.schemas import (
 from app.leads import repositories as leads_repo
 from app.leads.models import Lead
 
-router = APIRouter(prefix="/leads/{lead_id}/agent", tags=["lead-agent"])
+# Страж доступа к лиду — тот же, что на роутере `/leads`. Этот роутер
+# подключается отдельно, поэтому зависимость надо назвать явно: без неё
+# менеджер, знающий UUID чужого лида, работал с ним через этот префикс
+# (аудит SEC-01).
+router = APIRouter(
+    prefix="/leads/{lead_id}/agent",
+    tags=["lead-agent"],
+    dependencies=[Depends(lead_access_guard)],
+)
 
 
 async def _get_workspace_lead(

@@ -368,9 +368,15 @@ async def test_receive_answered_call_with_recording_dispatches_transcribe():
     )
 
     with patch.object(msg_svc, "_enqueue_transcribe", _fake_transcribe):
-        msg, created = await msg_svc.receive(
+        msg, created, after_commit = await msg_svc.receive(
             db, workspace_id=WS, payload=payload
         )
+        # БЫЛО: receive ставил задачу сам, внутри незакоммиченной
+        # транзакции. СТАЛО (S-6): возвращает её вызывающему, который
+        # дёргает список после commit. Здесь коммит имитируем вызовом.
+        assert len(transcribe_calls) == 0, "до коммита очередь не трогаем"
+        for enqueue in after_commit:
+            enqueue()
 
     assert created is True
     assert len(transcribe_calls) == 1
@@ -410,7 +416,11 @@ async def test_receive_missed_call_does_not_dispatch_transcribe():
     )
 
     with patch.object(msg_svc, "_enqueue_transcribe", _fake_transcribe):
-        await msg_svc.receive(db, workspace_id=WS, payload=payload)
+        _, _, after_commit = await msg_svc.receive(
+            db, workspace_id=WS, payload=payload
+        )
+        for enqueue in after_commit:
+            enqueue()
 
     assert transcribe_calls == []
 
@@ -447,6 +457,10 @@ async def test_receive_answered_call_without_recording_skips_transcribe():
     )
 
     with patch.object(msg_svc, "_enqueue_transcribe", _fake_transcribe):
-        await msg_svc.receive(db, workspace_id=WS, payload=payload)
+        _, _, after_commit = await msg_svc.receive(
+            db, workspace_id=WS, payload=payload
+        )
+        for enqueue in after_commit:
+            enqueue()
 
     assert transcribe_calls == []

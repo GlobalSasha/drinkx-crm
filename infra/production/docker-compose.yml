@@ -57,19 +57,29 @@ services:
       retries: 5
 
   api:
+    # Explicit tag, identical to the name Compose derives for a built
+    # service (<project>-<service>, project `drinkx`). Spelling it out makes
+    # the service -> image mapping unambiguous in `config`, which the deploy
+    # gate reads by service key. Project name and volumes are unchanged.
+    image: drinkx-api
     build:
       # Repo-root context so the image can include `docs/` for the
       # Lead AI Agent's product-foundation + skill files (Sprint 3.1).
       # Dockerfile path is explicit since the context isn't apps/api.
       context: ../..
       dockerfile: apps/api/Dockerfile
+      args:
+        # Baked into the image as DRINKX_GIT_SHA; deploy.sh reads it back out of
+        # the running container to prove the new build is live. Never mirror it
+        # into `environment:` — that would let a stale image report a fresh SHA.
+        GIT_SHA: ${DEPLOY_SHA:-unknown}
     restart: unless-stopped
     logging: *default-logging
     environment: &api-env
       APP_ENV: production
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-drinkx}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-drinkx_crm}
       REDIS_URL: redis://redis:6379/0
-      CORS_ORIGINS: '["https://crm.drinkx.tech"]'
+      CORS_ORIGINS: '${CORS_ORIGINS:-["https://crm.drinkx.tech"]}'
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY}
       SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY}
@@ -114,12 +124,18 @@ services:
       start_period: 20s
 
   worker:
+    image: drinkx-worker
     build:
       # Repo-root context so the image can include `docs/` for the
       # Lead AI Agent's product-foundation + skill files (Sprint 3.1).
       # Dockerfile path is explicit since the context isn't apps/api.
       context: ../..
       dockerfile: apps/api/Dockerfile
+      args:
+        # Baked into the image as DRINKX_GIT_SHA; deploy.sh reads it back out of
+        # the running container to prove the new build is live. Never mirror it
+        # into `environment:` — that would let a stale image report a fresh SHA.
+        GIT_SHA: ${DEPLOY_SHA:-unknown}
     restart: unless-stopped
     logging: *default-logging
     command: ["uv", "run", "celery", "-A", "app.scheduled.celery_app", "worker", "-l", "INFO", "--concurrency=2"]
@@ -135,12 +151,18 @@ services:
         condition: service_healthy
 
   beat:
+    image: drinkx-beat
     build:
       # Repo-root context so the image can include `docs/` for the
       # Lead AI Agent's product-foundation + skill files (Sprint 3.1).
       # Dockerfile path is explicit since the context isn't apps/api.
       context: ../..
       dockerfile: apps/api/Dockerfile
+      args:
+        # Baked into the image as DRINKX_GIT_SHA; deploy.sh reads it back out of
+        # the running container to prove the new build is live. Never mirror it
+        # into `environment:` — that would let a stale image report a fresh SHA.
+        GIT_SHA: ${DEPLOY_SHA:-unknown}
     restart: unless-stopped
     logging: *default-logging
     command: ["uv", "run", "celery", "-A", "app.scheduled.celery_app", "beat", "-l", "INFO"]
@@ -156,6 +178,7 @@ services:
         condition: service_healthy
 
   web:
+    image: drinkx-web
     build:
       context: ../../apps/web
       dockerfile: Dockerfile
@@ -163,14 +186,15 @@ services:
       # build time. Runtime `environment:` below is kept as belt-and-suspenders
       # for any server-side code that reads from process.env at runtime.
       args:
-        NEXT_PUBLIC_API_URL: https://crm.drinkx.tech/api
+        GIT_SHA: ${DEPLOY_SHA:-unknown}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://crm.drinkx.tech/api}
         NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_URL}
         NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY}
         NEXT_PUBLIC_SENTRY_DSN: ${SENTRY_DSN_WEB}
     restart: unless-stopped
     logging: *default-logging
     environment:
-      NEXT_PUBLIC_API_URL: https://crm.drinkx.tech/api
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://crm.drinkx.tech/api}
       NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_URL}
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY}
       NEXT_PUBLIC_SENTRY_DSN: ${SENTRY_DSN_WEB}

@@ -8,6 +8,11 @@ from sqlalchemy import select
 
 from tests.conftest import POSTGRES_AVAILABLE
 
+# Пул целиком: с G6 выборка описывается одним объектом.
+from app.leads.selection import LeadSelection  # noqa: E402
+
+POOL = LeadSelection.pool()
+
 skip_no_pg = pytest.mark.skipif(
     not POSTGRES_AVAILABLE,
     reason="Requires a running Postgres at postgresql+asyncpg://drinkx:dev@localhost:5432/drinkx_test",
@@ -69,7 +74,7 @@ async def test_soft_deleted_lead_absent_from_list_and_pool(db, workspace, user):
     assert assigned.id not in {i.id for i in items}
     assert total == 0
 
-    pool_items, pool_total = await repo.list_pool(db, workspace.id)
+    pool_items, pool_total = await repo.list_pool(db, workspace.id, POOL)
     assert pooled.id not in {i.id for i in pool_items}
     assert pool_total == 0
 
@@ -189,9 +194,13 @@ async def test_soft_delete_restore_destroy_each_write_audit_row(db, workspace, u
     await db.flush()
 
     result = await db.execute(
-        select(AuditLog.action)
-        .where(AuditLog.workspace_id == workspace.id, AuditLog.entity_id == lead.id)
-        .order_by(AuditLog.created_at.asc())
+        select(AuditLog.action).where(
+            AuditLog.workspace_id == workspace.id, AuditLog.entity_id == lead.id
+        )
     )
     actions = [row[0] for row in result.all()]
-    assert actions == ["lead.soft_delete", "lead.restore", "lead.destroy"]
+    # All three rows are written in one transaction, so PostgreSQL now() gives them
+    # the same created_at. Verify one row per action, not an undefined tie order.
+    assert sorted(actions) == sorted(
+        ["lead.soft_delete", "lead.restore", "lead.destroy"]
+    )

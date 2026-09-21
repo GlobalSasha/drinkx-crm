@@ -10,7 +10,7 @@ import { useCreateTask } from "@/lib/hooks/use-tasks";
 import { UserSelect } from "@/components/ui/UserSelect";
 import { apiErrorDetail } from "@/lib/api-error";
 import { C } from "@/lib/design-system";
-import type { LeadOut, MyTaskOut, TaskCreateIn } from "@/lib/types";
+import type { LeadListItem, MyTaskOut, TaskCreateIn } from "@/lib/types";
 
 interface Props {
   open: boolean;
@@ -30,7 +30,7 @@ export function TaskCreateModal({ open, onClose, onCreated }: Props) {
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [leadQuery, setLeadQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [selectedLead, setSelectedLead] = useState<LeadOut | null>(null);
+  const [selectedLead, setSelectedLead] = useState<LeadListItem | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Дефолт исполнителя — сам постановщик, как только известен /me.

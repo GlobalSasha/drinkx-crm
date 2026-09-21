@@ -119,9 +119,12 @@ async def test_receive_dedups_by_external_id():
         body="duplicate",
     )
 
-    msg, created = await msg_svc.receive(
+    # S-6: receive теперь возвращает третьим элементом список задач,
+    # которые вызывающий ставит в очередь ПОСЛЕ коммита. Здесь он пуст.
+    msg, created, after_commit = await msg_svc.receive(
         db, workspace_id=WS, payload=payload
     )
+    assert after_commit == []
 
     assert msg is prior
     assert created is False
@@ -158,9 +161,12 @@ async def test_receive_creates_unmatched_when_no_lead():
         body="первое сообщение",
     )
 
-    msg, created = await msg_svc.receive(
+    # S-6: receive теперь возвращает третьим элементом список задач,
+    # которые вызывающий ставит в очередь ПОСЛЕ коммита. Здесь он пуст.
+    msg, created, after_commit = await msg_svc.receive(
         db, workspace_id=WS, payload=payload
     )
+    assert after_commit == []
 
     assert created is True
     # Only the InboxMessage row — no Activity because lead_id is None

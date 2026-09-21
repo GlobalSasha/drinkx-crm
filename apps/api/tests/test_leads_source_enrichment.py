@@ -244,10 +244,12 @@ async def test_list_pool_form_id_filter_short_circuits_for_unknown_form():
     db.execute = AsyncMock()
     db.execute.return_value = MagicMock(scalar_one_or_none=lambda: None)
 
+    from app.leads.selection import LeadSelection
+
     rows, total = await repo.list_pool(
         db,
-        workspace_id=uuid.uuid4(),
-        form_id=uuid.uuid4(),
+        uuid.uuid4(),
+        LeadSelection.pool(form_id=uuid.uuid4()),
     )
 
     assert rows == []
@@ -279,10 +281,12 @@ async def test_list_pool_needs_review_filter_applies():
         ]
     )
 
+    from app.leads.selection import LeadSelection
+
     rows, total = await repo.list_pool(
         db,
-        workspace_id=uuid.uuid4(),
-        needs_review=True,
+        uuid.uuid4(),
+        LeadSelection.pool(needs_review=True),
     )
 
     assert rows == []

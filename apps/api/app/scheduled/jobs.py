@@ -270,6 +270,26 @@ def base_update_apply(job_id: str) -> dict:
     return asyncio.run(_core())
 
 
+@celery_app.task(name="app.scheduled.jobs.expire_stuck_enrichment_runs")
+def expire_stuck_enrichment_runs() -> dict:
+    """S-2: сторож зависших обогащений. Каждые 5 минут гасит строки
+    `enrichment_runs` в `running` старше STUCK_RUN_TIMEOUT_SECONDS, освобождая
+    потолок конкурентности пространства."""
+    from app.enrichment.services import expire_stuck_runs
+
+    async def _core():
+        engine, factory = _build_task_engine_and_factory()
+        try:
+            async with factory() as db:
+                expired = await expire_stuck_runs(db)
+                await db.commit()
+            return {"job": "expire_stuck_enrichment_runs", "expired": expired}
+        finally:
+            await engine.dispose()
+
+    return asyncio.run(_core())
+
+
 @celery_app.task(name="app.scheduled.jobs.purge_orphan_storage_files")
 def purge_orphan_storage_files() -> dict:
     """Weekly: list the lead-files bucket, delete objects with no Activity backing them.
@@ -779,8 +799,87 @@ async def _run_bulk_update(job_id: UUID) -> dict:
             workspace_id = job.workspace_id
             user_id = job.user_id
 
+            # Права автора проверяются ещё раз, здесь. `diff_json` собран
+            # раньше и с тех пор мог устареть: карточку передали другому
+            # менеджеру, автора понизили в роли. Доверять разбору,
+            # сделанному в другой момент времени, для записи нельзя
+            # (аудит SEC-02-H).
+            from types import SimpleNamespace
+
+            from app.auth.models import User as _User
+            from app.leads.access import may_access_lead as _may_access
+            from app.leads.models import Lead as _Lead
+
+            async def _current_author():
+                """Действующий автор задания — заново, перед каждой строкой.
+
+                Раньше он читался один раз до цикла. Сессия живёт с
+                `expire_on_commit=False`, задание применяется построчно с
+                коммитом после каждой, и роль, отозванная между двумя уже
+                закоммиченными строками, worker'ом не замечалась
+                (ревью SEC2-F1).
+
+                Читаются скаляры, а не ORM-объект: повторный
+                `select(User)` вернул бы тот же экземпляр из карты
+                идентичности с прежними атрибутами, то есть ничего бы не
+                освежил.
+                """
+                if user_id is None:
+                    return None
+                row = (
+                    await session.execute(
+                        select(_User.id, _User.role, _User.workspace_id).where(
+                            _User.id == user_id
+                        )
+                    )
+                ).first()
+                if row is None:
+                    return None
+                return SimpleNamespace(
+                    id=row.id, role=row.role, workspace_id=row.workspace_id
+                )
+
+            async def _target_allowed(item) -> bool:
+                """Можно ли автору задания применить эту строку прямо сейчас."""
+                author = await _current_author()
+                if author is None:
+                    # Нет действующего автора — нет и полномочий. Это
+                    # относится и к созданию: раньше ветка `lead_id is
+                    # None` отвечала «можно» до всякой проверки, и задание
+                    # без автора заводило карточки. Подставлять вместо
+                    # него admin/head нельзя, отдельного системного актора
+                    # в этом worker нет.
+                    return False
+                if author.workspace_id != workspace_id:
+                    # Автора перевели в другое пространство — к этому
+                    # заданию он больше отношения не имеет.
+                    return False
+                if item.lead_id is None:
+                    return True  # создание новой карточки
+                target = (
+                    await session.execute(
+                        select(_Lead)
+                        .where(_Lead.id == UUID(str(item.lead_id)))
+                        .execution_options(populate_existing=True)
+                    )
+                ).scalar_one_or_none()
+                return _may_access(author, target)
+
             for idx, item in enumerate(items):
                 try:
+                    if not item.error and not await _target_allowed(item):
+                        session.add(ImportError(
+                            job_id=job.id,
+                            row_number=idx,
+                            field="access",
+                            message="нет доступа к этой карточке",
+                        ))
+                        job.failed += 1
+                        # `processed` и коммит — в `finally`: он
+                        # выполняется и после `continue`, поэтому
+                        # увеличивать счётчик здесь означало считать одну
+                        # строку дважды (ревью SEC2-F2).
+                        continue
                     if item.error:
                         # Resolution-time error — count as failed but
                         # don't try to apply.
@@ -876,6 +975,7 @@ async def _run_export(job_id: UUID) -> dict:
     )
     from app.import_export.redis_bytes import store_export_bytes
     from app.leads.models import Lead
+    from app.leads.selection import LeadSelection
     from app.pipelines.models import Stage
 
     engine, factory = _build_task_engine_and_factory()
@@ -901,42 +1001,35 @@ async def _run_export(job_id: UUID) -> dict:
                 filters = dict(job.filters_json or {})
                 include_ai_brief = bool(filters.pop("include_ai_brief", False))
 
-                # Build the lead query from saved filters. We mirror the
-                # filter set GET /api/leads accepts but DON'T limit by
-                # assignment_status — exporting "everything in workspace"
-                # is the common case and the manager can narrow via filters.
-                stmt = select(Lead).where(Lead.workspace_id == job.workspace_id)
-                if filters.get("stage_id"):
-                    stmt = stmt.where(Lead.stage_id == filters["stage_id"])
-                if filters.get("segment"):
-                    stmt = stmt.where(Lead.segment == filters["segment"])
-                if filters.get("city"):
-                    stmt = stmt.where(Lead.city == filters["city"])
-                if filters.get("priority"):
-                    stmt = stmt.where(Lead.priority == filters["priority"])
-                if filters.get("deal_type"):
-                    stmt = stmt.where(Lead.deal_type == filters["deal_type"])
-                if filters.get("assigned_to"):
-                    stmt = stmt.where(Lead.assigned_to == filters["assigned_to"])
-                if filters.get("assignment_status"):
-                    stmt = stmt.where(
-                        Lead.assignment_status == filters["assignment_status"]
-                    )
-                if filters.get("fit_min") is not None:
-                    try:
-                        stmt = stmt.where(
-                            Lead.fit_score >= float(filters["fit_min"])
-                        )
-                    except (TypeError, ValueError):
-                        pass
-                if filters.get("q"):
-                    stmt = stmt.where(
-                        Lead.company_name.ilike(f"%{filters['q']}%")
-                    )
-                stmt = stmt.order_by(Lead.created_at.desc())
+                # Выборка — тем же каноническим описанием, что у списка и у
+                # выдачи «по фильтру» (аудит G6). Здесь раньше жила своя
+                # сборка WHERE: она знала по одному значению на поле, искала
+                # `q` только по названию компании, не понимала tier, теги,
+                # источник, наличие почты и телефона — и не исключала
+                # удалённые карточки. Поэтому выгрузка расходилась с тем,
+                # что человек видел на экране, вплоть до карточек, которых
+                # на экране не было вовсе.
+                #
+                # Никакого ограничения страницей: экспорт отдаёт всю
+                # выборку целиком.
+                from app.leads.selection import (
+                    NoMatches,
+                    order_by as selection_order_by,
+                    selection_conditions,
+                )
 
-                leads_res = await session.execute(stmt)
-                leads = list(leads_res.scalars())
+                selection = LeadSelection.from_json(filters)
+                try:
+                    conds = await selection_conditions(
+                        session, selection, job.workspace_id
+                    )
+                    stmt = (
+                        select(Lead).where(*conds).order_by(*selection_order_by())
+                    )
+                    leads_res = await session.execute(stmt)
+                    leads = list(leads_res.scalars())
+                except NoMatches:
+                    leads = []
 
                 # Resolve relations the exporters need without N+1
                 stage_ids = {l.stage_id for l in leads if l.stage_id}
@@ -1028,7 +1121,7 @@ async def _run_bulk_import(job_id: UUID) -> dict:
         TAG_FIELD,
     )
     from app.import_export.models import ImportError, ImportJob, ImportJobStatus
-    from app.import_export.validators import parse_deal_amount
+    from app.import_export.validators import parse_deal_amount, validate_row
     from app.leads.models import Lead
     from app.pipelines import repositories as pipelines_repo
 
@@ -1070,8 +1163,66 @@ async def _run_bulk_import(job_id: UUID) -> dict:
             )
             pipeline_id, stage_id = first if first is not None else (None, None)
 
+            # Полномочия автора — заново перед каждой строкой. Задание
+            # применяется построчно с коммитом после каждой, и роль,
+            # отозванная между двумя уже закоммиченными строками, иначе
+            # остаётся незамеченной. Тот же приём, что в
+            # `_run_bulk_update` (ревью SEC2-F1); здесь его не было
+            # (аудит SEC-06-2, SEC-06-3).
+            from app.auth.models import User as _User
+
+            async def _author_may_write() -> bool:
+                """Есть ли у автора задания право писать прямо сейчас.
+
+                Читаются скаляры, а не ORM-объект: повторный
+                `select(User)` вернул бы тот же экземпляр из карты
+                идентичности с прежними атрибутами.
+
+                Автора нет (удалён, `ON DELETE SET NULL`) — писать
+                некому. Продолжать от его имени молча нельзя, отдельного
+                системного актора в этом worker нет.
+                """
+                if user_id is None:
+                    return False
+                row = (
+                    await session.execute(
+                        select(_User.id, _User.workspace_id).where(
+                            _User.id == user_id
+                        )
+                    )
+                ).first()
+                return row is not None and row.workspace_id == workspace_id
+
             for i, row in enumerate(mapped_rows):
                 try:
+                    if not await _author_may_write():
+                        session.add(
+                            ImportError(
+                                job_id=job.id,
+                                row_number=i,
+                                field="access",
+                                message="у автора задания нет прав на запись",
+                            )
+                        )
+                        job.failed += 1
+                        continue
+
+                    # Те же правила, что в предпросмотре: строка, которую
+                    # `confirm-mapping` посчитал пропущенной, не должна
+                    # заводиться здесь (аудит SEC-06-1).
+                    row_errors = validate_row(row)
+                    if row_errors:
+                        session.add(
+                            ImportError(
+                                job_id=job.id,
+                                row_number=i,
+                                field="validation",
+                                message="; ".join(row_errors)[:1000],
+                            )
+                        )
+                        job.failed += 1
+                        continue
+
                     company = (row.get("company_name") or "").strip()
                     if not company:
                         # confirmed_mapping shouldn't have let an empty

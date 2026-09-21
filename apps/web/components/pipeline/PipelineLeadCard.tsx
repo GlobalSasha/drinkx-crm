@@ -4,12 +4,12 @@ import { useRouter } from "next/navigation";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Bell, ClipboardList, Globe, Star } from "lucide-react";
-import type { LeadOut } from "@/lib/types";
+import type { LeadListItem } from "@/lib/types";
 import { C } from "@/lib/design-system";
 import { segmentShortLabel } from "@/lib/i18n";
 
 interface Props {
-  lead: LeadOut;
+  lead: LeadListItem;
 }
 
 /**

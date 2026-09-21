@@ -14,7 +14,16 @@ const { createTaskMock, meMock, setDoneMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/hooks/use-tasks", () => ({
-  useTasks: () => ({ data: mockTasks, isPending: false, isError: false }),
+  // С G5 хук отдаёт уже склеенные страницы плюс счётчики по всей выборке.
+  useTasks: () => ({
+    items: mockTasks,
+    counts: { total: mockTasks.length, open: mockTasks.length, done: 0, overdue: 0 },
+    isPending: false,
+    isError: false,
+    hasNextPage: false,
+    fetchNextPage: vi.fn(),
+    isFetchingNextPage: false,
+  }),
   useSetTaskDone: () => ({ mutate: setDoneMock, isPending: false }),
   useCreateTask: () => ({ mutateAsync: createTaskMock, isPending: false }),
 }));
@@ -49,6 +58,7 @@ const mockTasks = [
     created_at: "2026-09-09T08:00:00Z",
     assignee_user_id: "me-1",
     assignee_name: "Анна",
+    explicit_assignee_user_id: "me-1",
     author_user_id: "head-1",
     author_name: "Руководитель",
   },
@@ -63,6 +73,7 @@ const mockTasks = [
     created_at: "2026-09-09T08:30:00Z",
     assignee_user_id: "me-1",
     assignee_name: "Анна",
+    explicit_assignee_user_id: null,
     author_user_id: "me-1",
     author_name: "Анна",
   },

@@ -347,4 +347,7 @@ async def move_stage(
         await action(ctx, db)
 
     await db.flush()
+    # Перенос по этапам отдаёт лид в ответе после commit — `updated_at`
+    # протухает на flush и без refresh валит сериализацию (ARCH-DELTA-004).
+    await db.refresh(lead)
     return lead

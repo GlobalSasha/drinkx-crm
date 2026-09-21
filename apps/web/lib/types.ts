@@ -315,8 +315,30 @@ export interface LeadUpdate {
   company_profile?: string | null;
 }
 
+/**
+ * Одна строка списочного ответа (`GET /leads`, `/leads/pool`, `/leads/trash`)
+ * — backend отдаёт там `LeadListItemOut`, а не полный `LeadOut`.
+ *
+ * Тонкая схема специально: `ai_data` (до 50 КБ на лид), `agent_state` и
+ * `current_stage_days` в списке не приходят. Раньше `items` был типизирован
+ * как `LeadOut[]`, и компонент, читавший из строки `ai_data`, компилировался
+ * молча, а в рантайме получал undefined (ARCH-03 DRIFT-1). Поля, которых нет
+ * в ответе, не должны быть в типе — тогда следующий такой читатель упадёт на
+ * typecheck, а не в глазах у руководителя.
+ *
+ * Полную карточку даёт `GET /leads/{id}`.
+ */
+export type LeadListItem = Omit<LeadOut, "ai_data" | "pilot_contract_json" | "current_stage_days"> & {
+  /**
+   * `ai_data.auto_create_confidence` отдельным числом — всё, что списку
+   * нужно от AI-payload'а (бейдж «AI создал · N%»). `null` — карточку
+   * создал не AI.
+   */
+  ai_confidence: number | null;
+};
+
 export interface LeadListOut {
-  items: LeadOut[];
+  items: LeadListItem[];
   total: number;
   page: number;
   page_size: number;
@@ -343,6 +365,32 @@ export interface StageDwellStat {
   median_days: number | null;
   p90_days: number | null;
   stuck_count: number;
+}
+
+/** Прогноз по всей доступной выборке (`GET /leads/forecast`).
+ *  Суммы считает сервер — страница их не пересобирает из списка лидов. */
+export interface ForecastStageBar {
+  stage_id: string;
+  name: string;
+  total: number;
+  count: number;
+}
+
+export interface ForecastAtRiskDeal {
+  id: string;
+  company_name: string;
+  amount: number;
+  overdue_days: number;
+  stage_name: string;
+}
+
+export interface ForecastSummary {
+  pipeline_total: number;
+  weighted_total: number;
+  at_risk_total: number;
+  won_recent: number;
+  stage_bars: ForecastStageBar[];
+  at_risk_deals: ForecastAtRiskDeal[];
 }
 
 /** A manager's active-deal portfolio (`GET /team/{id}/portfolio`). */
@@ -517,8 +565,31 @@ export interface MyTaskOut {
   /** Уже разрешённый исполнитель: явный, иначе владелец лида, иначе автор. */
   assignee_user_id: string | null;
   assignee_name: string | null;
+  /**
+   * Исполнитель, записанный в самой задаче, до применения лестницы. Пусто =
+   * «делает владелец лида». Селектор «Поручить» работает именно с ним:
+   * подставь туда вычисленного владельца — и первое же сохранение
+   * превратит неявное назначение в явное.
+   */
+  explicit_assignee_user_id: string | null;
   author_user_id: string | null;
   author_name: string | null;
+}
+
+/** Размеры полной серверной выборки, а не загруженной страницы. */
+export interface TaskCounts {
+  total: number;
+  open: number;
+  done: number;
+  overdue: number;
+}
+
+/** Ответ `/tasks`, `/me/tasks` и `/leads/{id}/tasks`. */
+export interface TaskListOut {
+  items: MyTaskOut[];
+  /** Пусто — страница последняя. Курсор непрозрачный: вернуть как есть. */
+  next_cursor: string | null;
+  counts: TaskCounts;
 }
 
 export interface TaskCreateIn {
@@ -538,19 +609,51 @@ export type TaskStatusFilter = "all" | "open" | "done" | "overdue";
 
 // ---- Раздача лидов из базы (POST /leads/assign) ----
 
-export interface LeadAssignIn {
+/**
+ * Описание выборки базы лидов в теле запроса — то, что backend читает
+ * `LeadSelection.from_json` (`app/leads/selection.py`). Один и тот же набор
+ * у экспорта и у «Выдать по фильтру»: тринадцать полей, а не три.
+ *
+ * Собирает его `poolFilterBody()` из состояния экрана — единственное место,
+ * где фильтры превращаются в запрос (`lib/leads-pool-filters.ts`).
+ */
+export interface LeadSelectionBody {
+  /** Область выборки. У базы лидов всегда `"pool"`. */
+  assignment_status?: string;
+  cities?: string[];
+  segments?: string[];
+  priorities?: string[];
+  tiers?: string[];
+  deal_types?: string[];
+  sources?: string[];
+  tags?: string[];
+  fit_min?: number | null;
+  has_email?: boolean;
+  has_phone?: boolean;
+  form_id?: string | null;
+  needs_review?: boolean;
+  q?: string | null;
+}
+
+/**
+ * Тело `POST /leads/assign`.
+ *
+ * Фильтр здесь — тот же `LeadSelectionBody`, что у списка и экспорта. До
+ * этого тип описывал контракт до аудита G6 (`cities`, одиночный `segment`,
+ * `fit_min`) — экран слал другое, потому что собирал payload через
+ * `Record<string, unknown>` и типом не проверялся вовсе. Читающий `types.ts`
+ * видел выборку, которой давно нет (ARCH-03 DRIFT-2).
+ */
+export type LeadAssignIn = LeadSelectionBody & {
   to_user_id: string;
   /** Явный режим: `ids` требует непустой `lead_ids`, `filter` — хотя бы один фильтр или limit. */
   mode: "ids" | "filter";
   /** В режиме `ids` пропускать карточки, которые уже кто-то взял (по умолчанию true). */
   only_pool?: boolean;
   lead_ids?: string[];
-  cities?: string[];
-  segment?: string | null;
-  fit_min?: number | null;
   limit?: number | null;
   comment?: string | null;
-}
+};
 
 export interface LeadAssignOut {
   assigned_count: number;
@@ -726,6 +829,32 @@ export const DEFAULT_GATE_CRITERIA: Record<number, string[]> = {
   10: [],
 };
 
+/** Одно значение фильтра и его размер в серверной выборке. */
+export interface FacetValue {
+  value: string;
+  count: number;
+}
+
+/**
+ * Значения фильтров базы лидов и их размеры — GET /leads/pool/facets.
+ * Считаются на сервере по всей базе, а не по загруженной странице.
+ */
+export interface PoolFacets {
+  cities: FacetValue[];
+  segments: FacetValue[];
+  priorities: FacetValue[];
+  tiers: FacetValue[];
+  deal_types: FacetValue[];
+  sources: FacetValue[];
+  tags: FacetValue[];
+  total: number;
+}
+
+/**
+ * Порог tier для показа. Источник правды — бэкенд
+ * (`app/leads/selection.py`), он же отбирает по tier; здесь значения
+ * нужны только чтобы нарисовать бейдж у уже полученной строки.
+ */
 export function tierFromScore(score: number): "A" | "B" | "C" | "D" {
   if (score >= 80) return "A";
   if (score >= 60) return "B";
@@ -1280,7 +1409,8 @@ export interface ExportJobOut {
 
 export interface ExportRequestIn {
   format: ExportJobFormat;
-  filters?: Record<string, unknown>;
+  /** База лидов шлёт сюда `LeadSelectionBody`, воронка — свой набор. */
+  filters?: LeadSelectionBody | Record<string, unknown>;
   include_ai_brief?: boolean;
 }
 

@@ -1323,12 +1323,27 @@ async def execute_due_step_runs(
         now = datetime.now(tz=timezone.utc)
 
     rows = await repo.list_due_step_runs(db, now=now, limit=limit)
+    # Только идентификаторы: ниже мы коммитим построчно, после первого же
+    # commit объекты выборки протухают, и обращение к их полям сходило бы
+    # в базу лишний раз.
+    row_ids = [row.id for row in rows]
 
     fired = 0
     failed = 0
     retried = 0
     skipped = 0
-    for step_run in rows:
+    for step_run_id in row_ids:
+        # ARCH-05b. `list_due_step_runs` заблокировала строки один раз на
+        # весь тик, но цикл коммитит после каждой строки — первый commit
+        # снимает `FOR UPDATE SKIP LOCKED` со всех остальных. Наложившийся
+        # тик (тик живёт до 9 минут при расписании раз в 5) видел бы строки
+        # 2..N свободными и слал письмо второй раз. Поэтому каждая строка
+        # перезахватывается уже в своей транзакции; не получили — значит её
+        # держит или уже исполнил другой тик, пропускаем.
+        step_run = await repo.claim_step_run(db, step_run_id=step_run_id)
+        if step_run is None:
+            continue
+
         # Re-fetch the lead — it may have been deleted between the
         # parent run and now. SET NULL on `lead_id` would already
         # null it; we double-check here.

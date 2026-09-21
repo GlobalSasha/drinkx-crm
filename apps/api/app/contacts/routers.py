@@ -12,9 +12,18 @@ from app.auth.models import User
 from app.contacts import services
 from app.contacts.schemas import ContactCreate, ContactOut, ContactUpdate
 from app.db import get_db
+from app.leads.access import lead_access_guard
 from app.leads.services import LeadNotFound
 
-router = APIRouter(prefix="/leads/{lead_id}/contacts", tags=["contacts"])
+# Страж доступа к лиду — тот же, что на роутере `/leads`. Этот роутер
+# подключается отдельно, поэтому зависимость надо назвать явно: без неё
+# менеджер, знающий UUID чужого лида, работал с ним через этот префикс
+# (аудит SEC-01).
+router = APIRouter(
+    prefix="/leads/{lead_id}/contacts",
+    tags=["contacts"],
+    dependencies=[Depends(lead_access_guard)],
+)
 
 
 @router.get("", response_model=list[ContactOut])

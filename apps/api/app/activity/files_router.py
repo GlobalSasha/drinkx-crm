@@ -18,9 +18,28 @@ from app.activity.services import _get_lead_or_raise
 from app.auth.dependencies import current_user
 from app.auth.models import User
 from app.db import get_db
+from app.leads.access import lead_access_guard
 from app.leads.models import Lead
 
-router = APIRouter(tags=["activity-files"])
+
+async def _get_task_or_raise(db: AsyncSession, task_id: uuid.UUID, lead_id: uuid.UUID) -> None:
+    """Задача из пути должна принадлежать лиду из того же пути.
+
+    Без этой сверки принимался любой UUID: файл ложился в каталог своего
+    лида, но привязывался к чужой задаче и всплывал в её панели. Право
+    на лид проверено выше, поэтому здесь речь о согласованности пути.
+    """
+    exists = (
+        await db.execute(
+            select(Activity.id).where(
+                Activity.id == task_id,
+                Activity.lead_id == lead_id,
+                Activity.type == ActivityType.task.value,
+            )
+        )
+    ).scalar_one_or_none()
+    if exists is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="task not found")
 
 
 class TaskFileOut(BaseModel):
@@ -72,6 +91,51 @@ async def _get_file_activity_workspace_scoped(
         )
     )
     return (await db.execute(stmt)).scalar_one_or_none()
+
+
+async def activity_file_access_guard(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> None:
+    """Право на файл — это право на лид, к которому он прикреплён.
+
+    У скачивания и удаления в пути только `activity_id`, поэтому страж по
+    `lead_id` до них не достаёт, а сами обработчики сверяли лишь рабочее
+    пространство (аудит SEC-01-J). Проверка стоит зависимостью роутера, то
+    есть до обработчика: при отказе подписанная ссылка не выдаётся и в
+    хранилище ничего не удаляется.
+
+    Файлов без лида на этом пути не бывает: выборка соединяется с `leads`
+    внутренним join. Поэтому отдельной политики для standalone-задач здесь
+    не нужно — их файлы сюда просто не попадают.
+    """
+    from app.leads.access import ensure_lead_access
+
+    activity_id = request.path_params.get("activity_id")
+    if activity_id is None:
+        return
+    try:
+        activity_uuid = uuid.UUID(str(activity_id))
+    except ValueError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="file not found")
+    activity = await _get_file_activity_workspace_scoped(
+        db, activity_id=activity_uuid, workspace_id=user.workspace_id
+    )
+    if activity is None:
+        # Обработчик ответит своим 404 — здесь не раскрываем, есть ли файл.
+        return
+    await ensure_lead_access(db, lead_id=activity.lead_id, user=user)
+
+
+# Страж доступа к лиду — тот же, что на роутере `/leads`. Этот роутер
+# подключается отдельно, поэтому зависимость надо назвать явно: без неё
+# менеджер, знающий UUID чужого лида, работал с ним через этот префикс
+# (аудит SEC-01).
+router = APIRouter(
+    tags=["activity-files"],
+    dependencies=[Depends(lead_access_guard), Depends(activity_file_access_guard)],
+)
 
 
 @router.post(
@@ -160,6 +224,7 @@ async def upload(
     caption: Annotated[str | None, Form()] = None,
 ) -> TaskFileOut:
     await _get_lead_or_raise(db, lead_id, user.workspace_id)
+    await _get_task_or_raise(db, task_id, lead_id)
 
     # Cheap early-bail before Starlette buffers the multipart body to disk/memory.
     # Nginx caps externally at 25MB; this is defense-in-depth for internal callers.
@@ -234,6 +299,7 @@ async def list_files(
     q: str | None = None,
 ) -> list[TaskFileOut]:
     await _get_lead_or_raise(db, lead_id, user.workspace_id)
+    await _get_task_or_raise(db, task_id, lead_id)
     rows = await find_files_by_parent_task(
         db, lead_id=lead_id, task_id=task_id, q=q
     )

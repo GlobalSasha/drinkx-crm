@@ -11,7 +11,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, JSON, String, func
+from sqlalchemy import DateTime, ForeignKey, Index, JSON, String, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -21,7 +21,7 @@ from app.common.models import Base, UUIDPrimaryKeyMixin
 class AuditLog(Base, UUIDPrimaryKeyMixin):
     __tablename__ = "audit_log"
     __table_args__ = (
-        Index("ix_audit_workspace_created", "workspace_id", "created_at"),
+        Index("ix_audit_workspace_created", "workspace_id", text("created_at DESC")),
         Index("ix_audit_entity", "entity_type", "entity_id"),
     )
 

@@ -35,13 +35,20 @@ async def run_followup_dispatch(session: AsyncSession) -> int:
     came due at once.
     """
     now = datetime.now(timezone.utc)
+    # S-3: `FOR UPDATE SKIP LOCKED`. Тик берёт одну транзакцию на всю
+    # пачку, а расписание (15 минут) не гарантирует, что предыдущий тик
+    # уже закончился. Без блокировки два тика читали бы один и тот же
+    # `dispatched_at IS NULL` и заводили по второму напоминанию на каждый
+    # followup; со `SKIP LOCKED` второй тик их просто не видит.
     res = await session.execute(
-        select(Followup).where(
+        select(Followup)
+        .where(
             Followup.dispatched_at.is_(None),
             Followup.due_at.is_not(None),
             Followup.due_at <= now + _LOOKAHEAD,
             Followup.status.in_(("pending", "active")),
         )
+        .with_for_update(skip_locked=True)
     )
     followups = list(res.scalars().all())
 

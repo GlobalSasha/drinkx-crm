@@ -8,12 +8,13 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import current_user, require_admin_or_head
 from app.auth.models import User
 from app.db import get_db
+from app.leads.access import lead_access_guard
 from app.quote import services
 from app.quote.schemas import (
     ProductCreate,
@@ -107,7 +108,43 @@ async def deactivate_product(
 # Quotes (КП Phase 2) — open to all authed roles, workspace-scoped.
 # ---------------------------------------------------------------------------
 
-quotes_router = APIRouter(tags=["quotes"])
+# Страж доступа к лиду — тот же, что на роутере `/leads`. Этот роутер
+# подключается отдельно, поэтому зависимость надо назвать явно: без неё
+# менеджер, знающий UUID чужого лида, работал с ним через этот префикс
+# (аудит SEC-01).
+async def quote_access_guard(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> None:
+    """Право на КП — это право на лид, к которому оно относится.
+
+    У половины маршрутов этого роутера в пути только `quote_id`, поэтому
+    страж по `lead_id` до них не достаёт. Без этой проверки хватало знать
+    UUID коммерческого предложения, чтобы прочитать суммы и состав, сменить
+    статус, перенести в сделку и удалить (аудит SEC-01-K).
+    """
+    from app.leads.access import ensure_lead_access
+
+    quote_id = request.path_params.get("quote_id")
+    if quote_id is None:
+        return
+    try:
+        quote_uuid = uuid.UUID(str(quote_id))
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Quote not found")
+    try:
+        quote = await services.get_quote_or_raise(db, user.workspace_id, quote_uuid)
+    except services.QuoteNotFound:
+        # Обработчик ответит тем же 404 — здесь не раскрываем, есть ли КП.
+        return
+    await ensure_lead_access(db, lead_id=quote.lead_id, user=user)
+
+
+quotes_router = APIRouter(
+    tags=["quotes"],
+    dependencies=[Depends(lead_access_guard), Depends(quote_access_guard)],
+)
 
 
 @quotes_router.get("/api/leads/{lead_id}/quotes", response_model=list[QuoteListItemOut])

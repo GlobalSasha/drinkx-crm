@@ -17,7 +17,7 @@ import { C } from "@/lib/design-system";
 import { useCreateExport, useExportJob } from "@/lib/hooks/use-export";
 import { ApiError } from "@/lib/api-client";
 import { downloadAuthed } from "@/lib/download";
-import type { ExportJobFormat } from "@/lib/types";
+import type { ExportJobFormat, LeadSelectionBody } from "@/lib/types";
 
 type Phase = "idle" | "loading" | "polling" | "done" | "error";
 
@@ -38,8 +38,9 @@ const FORMATS: {
 interface Props {
   /** Filters to send with the export request. Same shape as GET /api/leads
    *  (subset accepted by backend). Pass {} to export everything in the
-   *  workspace. */
-  filters: Record<string, unknown>;
+   *  workspace. Тело уходит на сервер как есть, поэтому подойдёт и
+   *  `LeadSelectionBody` базы лидов, и точечный набор экрана воронки. */
+  filters: LeadSelectionBody | Record<string, unknown>;
   /** Lead count for the "Область" caption. Falsy → don't render the count. */
   leadCount?: number;
   /** Optional class to override the trigger button styling. Defaults

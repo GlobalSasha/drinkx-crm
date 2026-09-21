@@ -31,6 +31,23 @@ COPY apps/api/knowledge ./knowledge
 # 7k-char product context.
 COPY docs ./docs
 
+# Build-time version stamp. Read back by infra/production/deploy.sh (via
+# `printenv DRINKX_GIT_SHA` inside the running container) and by GET /health,
+# to prove the release that is running is the one that was shipped.
+#
+# Deliberately baked into the image and NOT set as a compose `environment:`
+# value: a runtime variable can be attached to a stale image and would make the
+# check pass without anything being rebuilt. Declared here, after the COPYs, so
+# a new SHA does not invalidate the dependency layer.
+ARG GIT_SHA=unknown
+ENV DRINKX_GIT_SHA=${GIT_SHA}
+
+# The same revision as an image LABEL. The deploy gate reads THIS, not the
+# container's environment: `docker run -e DRINKX_GIT_SHA=...` can override an
+# ENV at start-up, so a container's environment proves nothing about which
+# image it came from. Labels belong to the image and cannot be set at run time.
+LABEL org.opencontainers.image.revision=${GIT_SHA}
+
 EXPOSE 8000
 
 # Run migrations on startup, then boot the API.

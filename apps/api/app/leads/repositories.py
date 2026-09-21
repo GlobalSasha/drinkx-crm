@@ -3,16 +3,20 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
-from sqlalchemy import and_, func, nullslast, select, text, update
+from sqlalchemy import and_, cast, func, nullslast, select, text, true, update
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
 from app.contacts.models import Contact
 from app.followups.models import Followup
 from app.leads.models import Lead
+
+if TYPE_CHECKING:  # pragma: no cover - импорт только для аннотаций
+    from app.leads.selection import LeadSelection
 
 log = structlog.get_logger()
 
@@ -21,6 +25,26 @@ log = structlog.get_logger()
 # (automated touch). Pre-flight decision — see Sprint spec.
 _TASK_KINDS = ("manager",)
 _FOLLOWUP_KINDS = ("auto_email", "ai_hint")
+
+# Фасеты, которые считаются обычной группировкой по колонке. Tier и теги
+# считаются отдельно: первый — вычисляемый, вторые лежат массивом.
+_FACET_COLUMNS = {
+    "cities": Lead.city,
+    "segments": Lead.segment,
+    "priorities": Lead.priority,
+    "deal_types": Lead.deal_type,
+    "sources": Lead.source,
+}
+
+
+def _ai_confidence_column():
+    """`ai_data["auto_create_confidence"]` отдельным числом.
+
+    Списки не тянут `ai_data` целиком (он бывает и 50 КБ на лид, см. defer()
+    ниже), а бейджу «AI создал · N%» нужно ровно одно число из него. Берём
+    его в SQL — так ai_data остаётся deferred, а ответ не растёт.
+    """
+    return Lead.ai_data["auto_create_confidence"].as_float()
 
 
 def parse_form_slug_from_source(source: str | None) -> str | None:
@@ -165,10 +189,14 @@ async def _populate_extras(
     transient DB error is caught and logged rather than surfacing a 500.
     """
     leads: list[Lead] = []
-    for lead, contact_name, open_tasks, open_followups in rows:
+    for row in rows:
+        lead, contact_name, open_tasks, open_followups = row[0], row[1], row[2], row[3]
         lead.primary_contact_name = contact_name  # type: ignore[attr-defined]
         lead.open_tasks_count = open_tasks  # type: ignore[attr-defined]
         lead.open_followups_count = open_followups  # type: ignore[attr-defined]
+        # Пятая колонка есть только у списков (см. `_ai_confidence_column`).
+        # Карточка лида отдаёт `ai_data` целиком и в ней не нуждается.
+        lead.ai_confidence = row[4] if len(row) > 4 else None  # type: ignore[attr-defined]
         # Defaults so Pydantic doesn't complain even if `db` is None.
         lead.source_form_id = None  # type: ignore[attr-defined]
         lead.source_form_name = None  # type: ignore[attr-defined]
@@ -319,6 +347,7 @@ async def list_leads(
             Contact.name.label("primary_contact_name"),
             _open_count_subquery(_TASK_KINDS).label("open_tasks_count"),
             _open_count_subquery(_FOLLOWUP_KINDS).label("open_followups_count"),
+            _ai_confidence_column().label("ai_confidence"),
         )
         .outerjoin(Contact, Contact.id == Lead.primary_contact_id)
         .options(defer(Lead.ai_data), defer(Lead.agent_state))
@@ -333,36 +362,27 @@ async def list_leads(
 async def list_pool(
     db: AsyncSession,
     workspace_id: uuid.UUID,
+    selection: "LeadSelection",
     *,
-    city: str | None = None,
-    segment: str | None = None,
-    fit_min: float | None = None,
-    form_id: uuid.UUID | None = None,
-    needs_review: bool | None = None,
     page: int = 1,
     page_size: int = 50,
 ) -> tuple[list[Lead], int]:
-    """Return pool leads ordered by fit_score DESC NULLS LAST, created_at ASC."""
-    base = select(Lead).where(
-        Lead.workspace_id == workspace_id,
-        Lead.assignment_status == "pool",
-        Lead.deleted_at.is_(None),
-    )
-    if form_id is not None:
-        slug = await _slug_for_form_id(db, form_id, workspace_id)
-        if slug is None:
-            return [], 0  # unknown / deleted form → nothing matches
-        base = base.where(Lead.source == f"form:{slug}")
-    if city is not None:
-        base = base.where(Lead.city == city)
-    if segment is not None:
-        base = base.where(Lead.segment == segment)
-    if fit_min is not None:
-        base = base.where(Lead.fit_score >= fit_min)
-    if needs_review is True:
-        base = base.where(Lead.needs_review.is_(True))
-    elif needs_review is False:
-        base = base.where(Lead.needs_review.is_(False))
+    """Страница базы лидов по каноническому описанию выборки (аудит G6).
+
+    Отбор целиком в базе. До G6 сюда доходили только город, сегмент,
+    fit_min, форма и needs_review — по одному значению, — а приоритет,
+    tier, тип сделки, источник, теги, наличие почты с телефоном и
+    текстовый поиск применял браузер к первым 500 строкам. Карточка
+    за этой границей не находилась ничем.
+    """
+    from app.leads.selection import NoMatches, order_by, selection_conditions
+
+    try:
+        conds = await selection_conditions(db, selection, workspace_id)
+    except NoMatches:
+        return [], 0
+
+    base = select(Lead).where(*conds)
 
     count_result = await db.execute(select(func.count()).select_from(base.subquery()))
     total: int = count_result.scalar_one()
@@ -372,15 +392,101 @@ async def list_pool(
             Contact.name.label("primary_contact_name"),
             _open_count_subquery(_TASK_KINDS).label("open_tasks_count"),
             _open_count_subquery(_FOLLOWUP_KINDS).label("open_followups_count"),
+            _ai_confidence_column().label("ai_confidence"),
         )
         .outerjoin(Contact, Contact.id == Lead.primary_contact_id)
         .options(defer(Lead.ai_data), defer(Lead.agent_state))
-        .order_by(nullslast(Lead.fit_score.desc()), Lead.created_at.asc())
+        .order_by(*order_by())
         .offset((page - 1) * page_size)
         .limit(page_size)
     )
     rows_result = await db.execute(list_stmt)
     return await _populate_extras(list(rows_result.all()), db=db), total
+
+
+async def list_selection_ids(
+    db: AsyncSession, workspace_id: uuid.UUID, selection: "LeadSelection"
+) -> list[uuid.UUID]:
+    """Все идентификаторы выборки, в порядке списка и без страниц.
+
+    Нужен там, где ответ обязан совпасть со списком целиком: проверки
+    «экспорт = то, что на экране» сравнивают именно идентификаторы.
+    """
+    from app.leads.selection import NoMatches, order_by, selection_conditions
+
+    try:
+        conds = await selection_conditions(db, selection, workspace_id)
+    except NoMatches:
+        return []
+    rows = await db.execute(select(Lead.id).where(*conds).order_by(*order_by()))
+    return [row[0] for row in rows.all()]
+
+
+async def pool_facets(
+    db: AsyncSession, workspace_id: uuid.UUID, selection: "LeadSelection"
+) -> dict[str, list[dict]]:
+    """Значения фасетов и их размеры по всей выборке на сервере.
+
+    Считается по `selection.scope_only()` — по форме и needs_review, но без
+    остальных фильтров. Это семантика, которая была в интерфейсе: число
+    рядом с «Кофейни и кафе» говорит, сколько таких карточек в пуле, а не
+    сколько их осталось после уже выбранных фасетов. Иначе каждый
+    невыбранный фасет показывал бы ноль.
+
+    Шесть группировок плюс одна по тегам — фиксированное число запросов,
+    а не по запросу на значение.
+    """
+    from app.leads.selection import NoMatches, selection_conditions, tier_case
+
+    scope = selection.scope_only()
+    try:
+        conds = await selection_conditions(db, scope, workspace_id)
+    except NoMatches:
+        return {k: [] for k in _FACET_COLUMNS} | {"tiers": [], "tags": []}
+
+    out: dict[str, list[dict]] = {}
+    for key, column in _FACET_COLUMNS.items():
+        rows = await db.execute(
+            select(column, func.count())
+            .where(*conds, column.isnot(None), column != "")
+            .group_by(column)
+            .order_by(column)
+        )
+        out[key] = [{"value": value, "count": count} for value, count in rows.all()]
+
+    tier_expr = tier_case()
+    tier_rows = await db.execute(
+        select(tier_expr.label("tier"), func.count())
+        .where(*conds)
+        .group_by(tier_expr)
+        .order_by(tier_expr)
+    )
+    out["tiers"] = [{"value": v, "count": c} for v, c in tier_rows.all()]
+
+    # Теги лежат массивом в JSON-колонке: раскладываем её элементами и
+    # группируем — одним запросом, а не по запросу на тег.
+    # LATERAL: функция раскладывает массив КАЖДОЙ строки, поэтому она
+    # обязана стоять в FROM после `leads` и видеть их колонки. Без явного
+    # join SQLAlchemy ставит её первой и получается декартово произведение
+    # (а Postgres — «missing FROM-clause entry for table leads»).
+    # render_derived: без него алиас получает только имя, а колонка
+    # набора остаётся безымянной — `AS t(tag)` вместо `AS t`.
+    tags_lateral = (
+        func.jsonb_array_elements_text(cast(Lead.tags_json, JSONB))
+        .table_valued("tag")
+        .render_derived(name="lead_tag", with_types=False)
+        .lateral()
+    )
+    tag_rows = await db.execute(
+        select(tags_lateral.c.tag, func.count())
+        .select_from(Lead)
+        .join(tags_lateral, true())
+        .where(*conds)
+        .group_by(tags_lateral.c.tag)
+        .order_by(tags_lateral.c.tag)
+    )
+    out["tags"] = [{"value": v, "count": c} for v, c in tag_rows.all()]
+    return out
 
 
 async def get_pool_leads_needing_enrichment(
@@ -467,6 +573,9 @@ async def restore_lead(db: AsyncSession, lead: Lead) -> None:
     lead.deleted_at = None
     lead.deleted_by = None
     await db.flush()
+    # Роутер отдаёт этот же объект в LeadOut уже после commit —
+    # без refresh `updated_at` протух бы на flush (ARCH-DELTA-004).
+    await db.refresh(lead)
 
 
 async def list_trash(
@@ -495,6 +604,7 @@ async def list_trash(
             Contact.name.label("primary_contact_name"),
             _open_count_subquery(_TASK_KINDS).label("open_tasks_count"),
             _open_count_subquery(_FOLLOWUP_KINDS).label("open_followups_count"),
+            _ai_confidence_column().label("ai_confidence"),
         )
         .outerjoin(Contact, Contact.id == Lead.primary_contact_id)
         .options(defer(Lead.ai_data), defer(Lead.agent_state))
@@ -672,6 +782,16 @@ async def assign_leads_by_ids(
         assigned.append(lead)
 
     await db.flush()
+    if assigned:
+        # После flush `updated_at` протухает (`onupdate=func.now()`), и
+        # ленивая догрузка в async уже невозможна — ответ роутера падал на
+        # сериализации с MissingGreenlet. Перечитываем выданные строки одним
+        # SELECT, как это делает выдача по фильтру.
+        await db.execute(
+            select(Lead)
+            .where(Lead.id.in_([lead.id for lead in assigned]))
+            .execution_options(populate_existing=True)
+        )
     return assigned, len(lead_ids) - len(assigned)
 
 
@@ -679,42 +799,40 @@ async def assign_pool_by_filter(
     db: AsyncSession,
     workspace_id: uuid.UUID,
     to_user_id: uuid.UUID,
+    selection: "LeadSelection",
     *,
-    cities: list[str],
-    segment: str | None,
-    fit_min: float | None,
     limit: int,
 ) -> list[Lead]:
-    """Выдать до `limit` карточек ИЗ ПУЛА по фильтру.
+    """Выдать до `limit` карточек ИЗ ПУЛА по той же выборке, что на экране.
 
-    Тот же приём, что в claim_sprint: FOR UPDATE SKIP LOCKED на выборе
-    кандидатов, затем адресный UPDATE с повторной проверкой
-    `assignment_status = 'pool'` — параллельный «взять в работу»
-    менеджера не может быть перезаписан.
+    Фильтр приходит каноническим описанием (аудит G6). До этого здесь жил
+    свой набор из трёх условий — города, сегмент, fit_min, — поэтому
+    действие с названием «по фильтру» работало не по тому фильтру, который
+    видел человек.
+
+    Порядок и защита от гонки прежние: кандидаты выбираются
+    `FOR UPDATE SKIP LOCKED`, затем каждый обновляется адресно с повторной
+    проверкой `assignment_status = 'pool'`, так что параллельное «взять в
+    работу» не перезаписывается. Сырой SQL заменён на тот же построитель
+    условий — один источник правды, без потери SKIP LOCKED.
     """
-    where_parts = [
-        "workspace_id = :workspace_id",
-        "assignment_status = 'pool'",
-        "deleted_at IS NULL",
-    ]
-    params: dict[str, Any] = {"workspace_id": workspace_id, "limit": limit}
+    from app.leads.selection import NoMatches, order_by, selection_conditions
 
-    if cities:
-        where_parts.append("city = ANY(:cities)")
-        params["cities"] = cities
-    if segment is not None:
-        where_parts.append("segment = :segment")
-        params["segment"] = segment
-    if fit_min is not None:
-        where_parts.append("fit_score >= :fit_min")
-        params["fit_min"] = fit_min
+    # Выдача всегда идёт из пула, чем бы ни было заполнено описание.
+    selection = selection.with_(assignment_status="pool")
+    try:
+        conds = await selection_conditions(db, selection, workspace_id)
+    except NoMatches:
+        return []
 
-    sql = text(
-        f"SELECT id FROM leads WHERE {' AND '.join(where_parts)} "
-        "ORDER BY fit_score DESC NULLS LAST, created_at ASC "
-        "LIMIT :limit FOR UPDATE SKIP LOCKED"
+    candidate_stmt = (
+        select(Lead.id)
+        .where(*conds)
+        .order_by(*order_by())
+        .limit(limit)
+        .with_for_update(skip_locked=True, of=Lead)
     )
-    candidate_ids = [row[0] for row in (await db.execute(sql, params)).fetchall()]
+    candidate_ids = [row[0] for row in (await db.execute(candidate_stmt)).fetchall()]
 
     assigned: list[Lead] = []
     for lead_id in candidate_ids:

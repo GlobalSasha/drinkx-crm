@@ -6,8 +6,9 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.leads.models import ASSIGNMENT_STATUSES
 from app.leads.models import (  # noqa: F401 — imported for OpenAPI clarity
     AssignmentStatus,
     CommercialModel,
@@ -76,6 +77,20 @@ class LeadUpdate(BaseModel):
     company_profile: str | None = None
     # Sprint 3.7 G4 — auto-created lead dismissal
     assignment_status: str | None = None
+
+    @field_validator("assignment_status")
+    @classmethod
+    def _known_assignment_status(cls, value: str | None) -> str | None:
+        """Статус — это инвариант, по которому вся система делит карточки на
+        пул и закреплённые (`app/team`, `app/company`, `app/daily_plan`…).
+        Раньше PATCH писал в колонку любую присланную строку, и такая
+        карточка молча выпадала из обоих представлений."""
+        if value is not None and value not in ASSIGNMENT_STATUSES:
+            raise ValueError(
+                "Недопустимое значение assignment_status: "
+                f"{value!r}. Допустимы: {', '.join(ASSIGNMENT_STATUSES)}"
+            )
+        return value
 
 
 class LeadOut(LeadBase):
@@ -182,6 +197,13 @@ class LeadListItemOut(LeadBase):
     # Sprint 3.7 G1 — set TRUE on AI auto-created leads, FALSE everywhere
     # else (form submissions, manual creates, CSV imports, claim-from-pool).
     needs_review: bool = False
+    # Уверенность AI при автосоздании — `ai_data["auto_create_confidence"]`,
+    # одно скалярное число вместо всего payload'а. Бейдж «AI создал · N%» на
+    # /leads-pool читал его из `ai_data`, которого в этой схеме нет, и потому
+    # показывал 0% на каждой карточке (ARCH-03 DRIFT-1). Считается в SQL
+    # (`app/leads/repositories.py::_ai_confidence_column`), ai_data остаётся
+    # deferred.
+    ai_confidence: float | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -191,6 +213,33 @@ class LeadListOut(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class FacetValueOut(BaseModel):
+    """Одно значение фасета и его размер в серверной выборке."""
+
+    value: str
+    count: int
+
+
+class PoolFacetsOut(BaseModel):
+    """Значения фильтров и их размеры по всей базе лидов (аудит G6).
+
+    Считаются по области пула (форма и needs_review), а не по уже
+    выбранным фасетам, — так число рядом с «Кофейни и кафе» означает
+    «столько их в пуле», как и до G6. И, в отличие от прежнего варианта,
+    считаются на сервере: раньше числа описывали первые 500 загруженных
+    строк.
+    """
+
+    cities: list[FacetValueOut] = Field(default_factory=list)
+    segments: list[FacetValueOut] = Field(default_factory=list)
+    priorities: list[FacetValueOut] = Field(default_factory=list)
+    tiers: list[FacetValueOut] = Field(default_factory=list)
+    deal_types: list[FacetValueOut] = Field(default_factory=list)
+    sources: list[FacetValueOut] = Field(default_factory=list)
+    tags: list[FacetValueOut] = Field(default_factory=list)
+    total: int = 0
 
 
 class SprintCreateIn(BaseModel):
@@ -224,25 +273,56 @@ class LeadAssignIn(BaseModel):
     mode: Literal["ids", "filter"]
     only_pool: bool = True
     lead_ids: list[UUID] = Field(default_factory=list, max_length=500)
-    # filter mode only
+    # --- filter mode only -------------------------------------------------
+    # Тот же набор, что принимает GET /leads/pool. До G6 здесь было три
+    # поля из тринадцати, поэтому действие «Выдать по фильтру» работало по
+    # выборке, которой человек на экране не видел.
     cities: list[str] = Field(default_factory=list)
-    segment: str | None = None
+    segments: list[str] = Field(default_factory=list)
+    priorities: list[str] = Field(default_factory=list)
+    tiers: list[str] = Field(default_factory=list)
+    deal_types: list[str] = Field(default_factory=list)
+    sources: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
     fit_min: float | None = None
+    has_email: bool = False
+    has_phone: bool = False
+    form_id: UUID | None = None
+    needs_review: bool | None = None
+    q: str | None = Field(None, max_length=200)
     limit: int | None = Field(None, ge=1, le=500)
     comment: str | None = Field(None, max_length=500)
+
+    def to_selection(self):
+        """Каноническое описание выборки — то же, что у списка и экспорта."""
+        from app.leads.selection import LeadSelection
+
+        return LeadSelection.from_params(
+            cities=self.cities,
+            segments=self.segments,
+            priorities=self.priorities,
+            tiers=self.tiers,
+            deal_types=self.deal_types,
+            sources=self.sources,
+            tags=self.tags,
+            fit_min=self.fit_min,
+            has_email=self.has_email,
+            has_phone=self.has_phone,
+            form_id=self.form_id,
+            needs_review=self.needs_review,
+            q=self.q,
+            assignment_status="pool",
+        )
 
     @model_validator(mode="after")
     def _check_mode_matches_payload(self) -> "LeadAssignIn":
         if self.mode == "ids" and not self.lead_ids:
             raise ValueError("mode=ids требует непустой lead_ids")
-        if (
-            self.mode == "filter"
-            and not self.cities
-            and self.segment is None
-            and self.fit_min is None
-            and self.limit is None
-        ):
-            raise ValueError("mode=filter требует хотя бы один фильтр или limit")
+        if self.mode == "filter":
+            selection = self.to_selection()
+            has_filter = selection != selection.__class__(assignment_status="pool")
+            if not has_filter and self.limit is None:
+                raise ValueError("mode=filter требует хотя бы один фильтр или limit")
         return self
 
 
@@ -371,6 +451,38 @@ class UtmSourceStatOut(BaseModel):
     won: int
     won_sum: Decimal          # sale (one-off) revenue — plan 025
     won_rental_mrr: Decimal = Decimal(0)  # rental monthly recurring — plan 025
+
+
+class ForecastStageBarOut(BaseModel):
+    """Один столбец «воронки по сумме» — активный этап и что на нём стоит."""
+    stage_id: UUID
+    name: str
+    total: float
+    count: int
+
+
+class ForecastAtRiskOut(BaseModel):
+    """Сделка, стоящая на этапе дольше его `rot_days`."""
+    id: UUID
+    company_name: str
+    amount: float
+    overdue_days: int
+    stage_name: str
+
+
+class ForecastOut(BaseModel):
+    """Прогноз по всей доступной актору выборке.
+
+    Суммы — JSON-числа, а не строки: страница и так приводит их через
+    `Number(...)`, а `Decimal` уехал бы строкой и добавил бы разбор на
+    ровном месте. Точности `Numeric(12,2)` double хватает с запасом.
+    """
+    pipeline_total: float
+    weighted_total: float
+    at_risk_total: float
+    won_recent: float
+    stage_bars: list[ForecastStageBarOut]
+    at_risk_deals: list[ForecastAtRiskOut]
 
 
 class LeadPipelineChangeIn(BaseModel):

@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from sqlalchemy import (
     Boolean, Date, DateTime, ForeignKey, Index, Integer, JSON,
-    Numeric, String, Text, UniqueConstraint, func,
+    Numeric, String, Text, UniqueConstraint, func, text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -19,7 +19,7 @@ class DailyPlan(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     __tablename__ = "daily_plans"
     __table_args__ = (
         UniqueConstraint("user_id", "plan_date", name="uq_daily_plans_user_date"),
-        Index("ix_daily_plans_user_date", "user_id", "plan_date"),
+        Index("ix_daily_plans_user_date", "user_id", text("plan_date DESC")),
     )
 
     workspace_id: Mapped[uuid.UUID] = mapped_column(
@@ -87,7 +87,7 @@ class DailyPlanItem(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
 class ScheduledJob(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     __tablename__ = "scheduled_jobs"
     __table_args__ = (
-        Index("ix_scheduled_jobs_name_started", "job_name", "started_at"),
+        Index("ix_scheduled_jobs_name_started", "job_name", text("started_at DESC")),
     )
 
     job_name: Mapped[str] = mapped_column(String(80), nullable=False)

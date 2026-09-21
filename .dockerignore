@@ -1,0 +1,20 @@
+# Build context for apps/api/Dockerfile is the repository root (see
+# infra/production/docker-compose.yml). Since G4 that context is a tree
+# unpacked from `git archive <sha>`, so nothing untracked should be there at
+# all — this file is the second layer: on a developer machine, or if the
+# release tree is ever prepared some other way, none of the below may reach
+# an image.
+.git/
+.github/
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules/
+**/.next/
+**/__pycache__/
+**/*.pyc
+**/.venv/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+**/.DS_Store

@@ -9,10 +9,10 @@ import { MultiSelectDropdown } from "@/components/ui/MultiSelectDropdown";
 import { SEGMENT_OPTIONS } from "@/lib/i18n";
 import { Button } from "@/components/ui/Button";
 import { C } from "@/lib/design-system";
-import type { LeadOut } from "@/lib/types";
+import type { LeadListItem } from "@/lib/types";
 
 interface Props {
-  leads: LeadOut[];
+  leads: LeadListItem[];
   totalCount: number;
 }
 

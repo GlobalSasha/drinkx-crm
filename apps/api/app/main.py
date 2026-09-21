@@ -1,6 +1,7 @@
 """FastAPI app factory."""
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 
 import structlog
@@ -102,13 +103,19 @@ def create_app() -> FastAPI:
     # before the restrictive global CORSMiddleware sees it.
     app.add_middleware(PublicFormsCORSMiddleware)
 
+    # DRINKX_GIT_SHA is baked into the image at build time (apps/api/Dockerfile,
+    # GIT_SHA build arg). Reporting it here lets the deploy workflow confirm over
+    # HTTPS that the release it just shipped is the one answering, instead of
+    # treating any HTTP 200 as a successful deploy.
+    build_sha = os.getenv("DRINKX_GIT_SHA", "unknown")
+
     @app.get("/health", tags=["meta"])
     async def health() -> dict[str, str]:
-        return {"status": "ok"}
+        return {"status": "ok", "sha": build_sha}
 
     @app.get("/version", tags=["meta"])
     async def version() -> dict[str, str]:
-        return {"version": "0.1.0", "env": s.app_env}
+        return {"version": "0.1.0", "env": s.app_env, "sha": build_sha}
 
     # Domain routers — see AUTOPILOT.md
     from app.auth.routers import router as auth_router
@@ -123,12 +130,14 @@ def create_app() -> FastAPI:
     from app.activity.routers import router as activity_router
     from app.activity.routers import feed_router as activity_feed_router
     from app.activity.routers import me_router as activity_me_router
+    from app.activity.routers import lead_tasks_router as activity_lead_tasks_router
     from app.activity.routers import tasks_router as activity_tasks_router
     from app.activity.files_router import router as activity_files_router
     app.include_router(activity_router)
     app.include_router(activity_feed_router)
     app.include_router(activity_me_router)
     app.include_router(activity_tasks_router)
+    app.include_router(activity_lead_tasks_router)
     app.include_router(activity_files_router)
 
     from app.followups.routers import (

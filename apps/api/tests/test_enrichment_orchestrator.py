@@ -124,6 +124,47 @@ from app.enrichment.schemas import FoundContact  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
+# DEV-FIX-01: block real network in this file.
+#
+# `RssFeedSource` is imported lazily inside `run_enrichment` (see
+# app/enrichment/orchestrator.py, "from app.enrichment.sources.rss_feed
+# import RssFeedSource"), so a module-level `monkeypatch.setattr(
+# "app.enrichment.orchestrator.RssFeedSource...")` never sees it -- the name
+# doesn't exist in that module's namespace until the function runs. Patching
+# the class itself (`app.enrichment.sources.rss_feed.RssFeedSource`) instead
+# catches it regardless of when/where it's imported. Six tests in this file
+# were hitting real RSS feeds over the network (~12s/test, up to the 12s
+# HTTP timeout) before this fixture existed.
+#
+# autouse + file-local: every test in this file gets it for free, and it
+# can't leak into other test files.
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(autouse=True)
+def _block_real_network(monkeypatch):
+    from app.enrichment.sources.rss_feed import RssFeedSource
+
+    monkeypatch.setattr(
+        RssFeedSource, "fetch_segment_news", AsyncMock(return_value=[])
+    )
+
+    # Belt-and-suspenders: if any *other* lazily-imported source ever slips
+    # through un-mocked, fail fast instead of silently blocking on a real
+    # network call. A test that genuinely needs httpx must patch it back
+    # itself (none currently do).
+    import httpx
+
+    async def _no_network(*_args, **_kwargs):
+        raise AssertionError(
+            "test_enrichment_orchestrator.py must not perform real network "
+            "I/O -- mock the relevant source's .fetch()/.fetch_segment_news()"
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", _no_network)
+    monkeypatch.setattr(httpx.AsyncClient, "post", _no_network)
+
+
+# ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 

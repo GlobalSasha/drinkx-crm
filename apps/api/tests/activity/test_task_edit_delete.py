@@ -139,7 +139,7 @@ async def test_archive_task_raises_when_not_found(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_archive_task_sets_archived_at(monkeypatch):
-    db = MagicMock()
+    db = AsyncMock()
     activity = _fake_activity()
     activity.archived_at = None
     monkeypatch.setattr(svc, "_get_lead_or_raise", AsyncMock(return_value=None))
@@ -179,7 +179,7 @@ async def test_archive_task_is_idempotent(monkeypatch):
 async def test_restore_task_clears_archived_at(monkeypatch):
     from datetime import datetime, timezone
 
-    db = MagicMock()
+    db = AsyncMock()
     activity = _fake_activity()
     activity.archived_at = datetime.now(timezone.utc)
     monkeypatch.setattr(svc, "_get_lead_or_raise", AsyncMock(return_value=None))

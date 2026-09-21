@@ -43,6 +43,17 @@ class AssignmentStatus(str, Enum):
     transferred = "transferred"
 
 
+# Что на самом деле может стоять в колонке `leads.assignment_status`.
+# Enum выше — историческое объявление «для ясности OpenAPI»: `transferred`
+# в него записан, но никогда никем не пишется (перевод карточки между
+# менеджерами оставляет статус `assigned`), а `deleted`, которым интерфейс
+# отклоняет авто-созданную карточку, в нём отсутствует. Валидатором служит
+# этот кортеж: он один и тот же для выборки (`app/leads/selection.py`) и для
+# записи (`LeadUpdate` в `app/leads/schemas.py`), чтобы значения не
+# расходились.
+ASSIGNMENT_STATUSES: tuple[str, ...] = ("pool", "assigned", "deleted")
+
+
 class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     __tablename__ = "leads"
 
@@ -50,7 +61,7 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
         UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True
     )
     company_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("companies.id", ondelete="SET NULL"), nullable=True, index=True
+        UUID(as_uuid=True), ForeignKey("companies.id", ondelete="SET NULL"), nullable=True
     )
     pipeline_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("pipelines.id", ondelete="SET NULL"), nullable=True
@@ -102,17 +113,27 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     inn: Mapped[str | None] = mapped_column(String(20), nullable=True)
     source: Mapped[str | None] = mapped_column(String(60), nullable=True)
     # UTM attribution dimensions (Odoo utm pattern) — resolved from form params
-    # via app.utm.services.resolve_utm. The real FK (SET NULL) lives in migration
-    # 0044; the ORM column stays a plain UUID so the leads model doesn't depend
-    # on the utm models being imported first (avoids mapper-config coupling).
-    utm_source_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
-    utm_medium_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
-    utm_campaign_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    # via app.utm.services.resolve_utm. Migration 0044 owns the physical FKs.
+    # String ForeignKey targets keep the domain modules decoupled while making
+    # Base.metadata accurately describe the schema for Alembic comparison.
+    utm_source_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("utm_sources.id", ondelete="SET NULL"), nullable=True
+    )
+    utm_medium_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("utm_mediums.id", ondelete="SET NULL"), nullable=True
+    )
+    utm_campaign_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("utm_campaigns.id", ondelete="SET NULL"), nullable=True
+    )
     # «Откуда появился лид» — FK into the admin-curated lead_sources dictionary
-    # (Sprint CEO G1). Plain UUID like the utm_*_id columns above to avoid
-    # mapper-config coupling; the real FK (SET NULL) lives in migration 0051.
-    # The legacy free-text `source` above stays for form-slug parsing + backfill.
-    source_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    # (Sprint CEO G1). The legacy free-text `source` above stays for form-slug
+    # parsing + backfill. Migration 0051 owns the physical FK + index.
+    source_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("lead_sources.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     tags_json: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
 
     # B2B (ADR-004, ADR-016)
@@ -247,6 +268,7 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     )
 
     __table_args__ = (
+        sa.Index("idx_leads_company_id", "company_id"),
         sa.Index("ix_leads_workspace_stage", "workspace_id", "stage_id"),
         sa.Index("ix_leads_workspace_assignment", "workspace_id", "assignment_status"),
         sa.Index("ix_leads_rotting", "is_rotting_stage", "is_rotting_next_step"),
@@ -276,7 +298,6 @@ class LeadStageHistory(Base, UUIDPrimaryKeyMixin):
         UUID(as_uuid=True),
         ForeignKey("leads.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
     stage_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

@@ -9,6 +9,11 @@ import pytest
 
 from tests.conftest import POSTGRES_AVAILABLE
 
+# Пул целиком: с G6 выборка описывается одним объектом.
+from app.leads.selection import LeadSelection  # noqa: E402
+
+POOL = LeadSelection.pool()
+
 skip_no_pg = pytest.mark.skipif(
     not POSTGRES_AVAILABLE,
     reason="Requires a running Postgres at postgresql+asyncpg://drinkx:dev@localhost:5432/drinkx_test",
@@ -259,7 +264,7 @@ async def test_list_pool_only_returns_pool_status(db, workspace, user):
 
     from app.leads import repositories as repo
 
-    items, total = await repo.list_pool(db, workspace.id)
+    items, total = await repo.list_pool(db, workspace.id, POOL)
     assert total == 2
     assert all(i.assignment_status == "pool" for i in items)
 
@@ -284,7 +289,7 @@ async def test_list_pool_orders_by_fit_score_then_created(db, workspace):
 
     from app.leads import repositories as repo
 
-    items, _ = await repo.list_pool(db, workspace.id)
+    items, _ = await repo.list_pool(db, workspace.id, POOL)
     names = [i.company_name for i in items]
     assert names.index("High") < names.index("Low")
     assert names.index("Low") < names.index("Null")

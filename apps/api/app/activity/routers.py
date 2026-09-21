@@ -1,10 +1,12 @@
 """Activity REST endpoints — nested under /leads/{lead_id}/activities."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import AfterValidator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activity import repositories, services
@@ -18,38 +20,143 @@ from app.activity.schemas import (
     FeedItemOut,
     FeedListOut,
     MyTaskOut,
+    TaskCountsOut,
     TaskCreateIn,
+    TaskListOut,
     TaskPatchIn,
     TaskUpdateIn,
 )
 from app.auth.dependencies import current_user
 from app.auth.models import User
 from app.db import get_db
+from app.leads.access import lead_access_guard
 from app.leads.services import LeadNotFound
 
-router = APIRouter(prefix="/leads/{lead_id}/activities", tags=["activities"])
+# Тот же страж, что на роутере `/leads` и на задачах лида. Лента и всё, что
+# под ней — чтение, создание, правка, удаление, восстановление, — это работа
+# по конкретному лиду, и право на неё ровно одно: руководитель и админ видят
+# любой лид своего пространства, менеджер — только закреплённый за ним. Роутер
+# подключается отдельно от `/leads`, поэтому страж надо назвать явно; иначе
+# менеджер, знающий UUID, читает и правит ленту чужого лида.
+router = APIRouter(
+    prefix="/leads/{lead_id}/activities",
+    tags=["activities"],
+    dependencies=[Depends(lead_access_guard)],
+)
 
 # Cross-lead aggregate for the manager's own tasks (Today widget +
 # /tasks page). Not lead-scoped, so it sits on its own router.
 me_router = APIRouter(tags=["activities"])
 
 
-@me_router.get("/me/tasks", response_model=list[MyTaskOut])
+def _task_page(result) -> TaskListOut:
+    rows, next_cursor, counts = result
+    return TaskListOut(
+        items=[MyTaskOut.model_validate(r) for r in rows],
+        next_cursor=next_cursor,
+        counts=TaskCountsOut(**counts),
+    )
+
+
+def _bad_cursor() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Некорректный курсор постраничной выдачи",
+    )
+
+
+@me_router.get("/me/tasks", response_model=TaskListOut)
 async def list_my_tasks(
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(current_user)],
-) -> list[MyTaskOut]:
-    """All manager-created tasks across the user's leads. Manager-only,
-    no AI ordering."""
-    rows = await services.list_my_tasks(
-        db, workspace_id=user.workspace_id, user_id=user.id
-    )
-    return [MyTaskOut.model_validate(r) for r in rows]
+    status_filter: str = Query("all", alias="status", pattern="^(all|open|done|overdue)$"),
+    cursor: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=200),
+) -> TaskListOut:
+    """Задачи, которые числятся за этим человеком. Без AI.
+
+    Открытые идут первыми — до G5 сортировка начиналась со срока, и
+    пятьсот закрытых задач с более ранними датами вытесняли из ответа
+    единственную незакрытую (G5, дефект B). `counts` считаются по всей
+    выборке, а не по странице.
+    """
+    try:
+        result = await services.list_my_tasks(
+            db,
+            workspace_id=user.workspace_id,
+            user_id=user.id,
+            status=status_filter,
+            cursor=cursor,
+            limit=limit,
+        )
+    except services.TaskCursorInvalid:
+        raise _bad_cursor()
+    return _task_page(result)
+
+# Задачи одного лида — вкладка «Задачи» в карточке. Отдельный роутер, а не
+# `?type=task` у ленты: у списка задач своя сортировка (открытые первыми, потом
+# по сроку) и свои счётчики, а лента упорядочена по времени события. До G5
+# карточка брала задачи из ленты с `limit=200` и не читала курсор, поэтому
+# открытая задача, заведённая раньше двухсот других записей, в интерфейс
+# просто не попадала (G5, дефект A).
+#
+# Доступ к самому лиду — тем же стражем, что стоит на роутере `/leads`. Он
+# подключён отдельно, поэтому страж на него не распространялся: менеджер мог
+# прочитать задачи чужого лида, зная UUID. Правило не переписано здесь заново,
+# а взято из `app/leads/access.py` — один источник для обоих роутеров.
+lead_tasks_router = APIRouter(
+    prefix="/leads/{lead_id}/tasks",
+    tags=["tasks"],
+    dependencies=[Depends(lead_access_guard)],
+)
+
+
+@lead_tasks_router.get("", response_model=TaskListOut)
+async def list_lead_tasks(
+    lead_id: UUID,
+    status_filter: str = Query("all", alias="status", pattern="^(all|open|done|overdue)$"),
+    cursor: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> TaskListOut:
+    """Все задачи лида, открытые первыми.
+
+    Выборка не сужается до задач читателя: кто открыл карточку, тот видит всю
+    работу по лиду — ровно как раньше во вкладке. Но саму карточку надо иметь
+    право открыть: руководитель и админ — любую в своём пространстве, менеджер
+    — только свою. Это проверяет `lead_access_guard` на роутере, и чужой лид
+    неотличим от несуществующего (404, не 403), включая счётчики.
+    """
+    try:
+        await services._get_lead_or_raise(db, lead_id, user.workspace_id)
+    except LeadNotFound:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+    try:
+        result = await services.list_lead_tasks(
+            db,
+            workspace_id=user.workspace_id,
+            lead_id=lead_id,
+            status=status_filter,
+            cursor=cursor,
+            limit=limit,
+        )
+    except services.TaskCursorInvalid:
+        raise _bad_cursor()
+    return _task_page(result)
+
 
 # Separate router mounted at /leads/{lead_id}/feed — the unified
 # activity feed (Sprint «Unified Activity Feed»). Lives in the same
 # module because it shares the same service/repository layer.
-feed_router = APIRouter(prefix="/leads/{lead_id}/feed", tags=["feed"])
+# Лента — та же работа по лиду, что и карточка, и закрыта тем же стражем.
+# Роутер подключается отдельно от `/leads`, поэтому зависимость названа
+# явно: без неё менеджер читал ленту чужого лида, зная UUID (SEC-01-D).
+feed_router = APIRouter(
+    prefix="/leads/{lead_id}/feed",
+    tags=["feed"],
+    dependencies=[Depends(lead_access_guard)],
+)
 
 
 def _to_feed_item(activity, author_name: str | None) -> FeedItemOut:
@@ -431,27 +538,61 @@ def _unknown_assignee() -> HTTPException:
     )
 
 
-@tasks_router.get("", response_model=list[MyTaskOut])
+def _as_utc(value: datetime | None) -> datetime | None:
+    """Срок без смещения считаем UTC.
+
+    Границы интервала присылает клиент и обычно со смещением своего пояса
+    (`docs/TASK_LISTS.md` §6). Но `2026-09-21T00:00:00` без хвоста — валидный
+    ISO, и молча сравнивать его с `timestamptz` нельзя: смысл границы тогда
+    зависит от пояса сессии в базе. Достраиваем UTC явно.
+    """
+    if value is not None and value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
+
+@tasks_router.get("", response_model=TaskListOut)
 async def list_tasks(
     assignee_user_id: UUID | None = Query(None),
     author_user_id: UUID | None = Query(None),
+    q: str | None = Query(None, max_length=200),
+    due_from: Annotated[datetime | None, Query(), AfterValidator(_as_utc)] = None,
+    due_to: Annotated[datetime | None, Query(), AfterValidator(_as_utc)] = None,
     status_filter: str = Query("all", alias="status", pattern="^(all|open|done|overdue)$"),
-    limit: int = Query(500, ge=1, le=1000),
+    cursor: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
     user: Annotated[User, Depends(current_user)] = ...,
-) -> list[MyTaskOut]:
+) -> TaskListOut:
     """Список задач. Руководитель и админ видят всю команду и могут
-    фильтровать по исполнителю; менеджер — только свои и поставленные им."""
-    rows = await services.list_tasks(
-        db,
-        workspace_id=user.workspace_id,
-        actor=user,
-        assignee_user_id=assignee_user_id,
-        author_user_id=author_user_id,
-        status=status_filter,
-        limit=limit,
-    )
-    return [MyTaskOut.model_validate(r) for r in rows]
+    фильтровать по исполнителю; менеджер — только свои и поставленные им.
+
+    `q` — подстрока в тексте задачи или названии компании лида (не длиннее
+    200 символов), `due_from` / `due_to` — полуоткрытый интервал по сроку
+    (ISO; календарные границы считает клиент в своём поясе, значение без
+    смещения трактуется как UTC). Оба отбираются в базе до счётчиков и до
+    среза страницы, поэтому дальнее совпадение находится с первой страницы.
+
+    Постранично, курсором. Потолок страницы — 200: список длиннее читают
+    страницами, а не одним ответом на тысячу строк.
+    """
+    try:
+        result = await services.list_tasks(
+            db,
+            workspace_id=user.workspace_id,
+            actor=user,
+            assignee_user_id=assignee_user_id,
+            author_user_id=author_user_id,
+            q=q,
+            due_from=due_from,
+            due_to=due_to,
+            status=status_filter,
+            cursor=cursor,
+            limit=limit,
+        )
+    except services.TaskCursorInvalid:
+        raise _bad_cursor()
+    return _task_page(result)
 
 
 @tasks_router.post("", response_model=MyTaskOut, status_code=status.HTTP_201_CREATED)
@@ -492,6 +633,9 @@ async def update_task(
         "task_due_at" in payload.model_fields_set
         and payload.task_due_at is None
     )
+    # Отсутствие поля и явный null — разные намерения, и по значению их не
+    # различить. Передаём факт наличия отдельно (BUG-02).
+    assignee_provided = "assignee_user_id" in payload.model_fields_set
     try:
         await services.update_task_by_id(
             db,
@@ -502,6 +646,7 @@ async def update_task(
             task_due_at=payload.task_due_at,
             assignee_user_id=payload.assignee_user_id,
             clear_due=clear_due,
+            assignee_provided=assignee_provided,
         )
     except services.ActivityNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Задача не найдена")

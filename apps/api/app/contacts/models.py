@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from enum import Enum
 
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
@@ -27,12 +27,16 @@ class VerifiedStatus(str, Enum):
 
 class Contact(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     __tablename__ = "contacts"
+    __table_args__ = (
+        Index("idx_contacts_workspace", "workspace_id"),
+        Index("idx_contacts_company_id", "company_id"),
+    )
 
     workspace_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False
     )
     company_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("companies.id", ondelete="SET NULL"), nullable=True, index=True
+        UUID(as_uuid=True), ForeignKey("companies.id", ondelete="SET NULL"), nullable=True
     )
     lead_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("leads.id", ondelete="CASCADE"), nullable=False, index=True

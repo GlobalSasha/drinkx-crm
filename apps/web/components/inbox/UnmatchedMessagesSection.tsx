@@ -20,7 +20,7 @@ import {
   useInboxUnmatchedMessages,
 } from "@/lib/hooks/use-inbox";
 import { useLeads } from "@/lib/hooks/use-leads";
-import type { InboxMessageOut, LeadOut } from "@/lib/types";
+import type { InboxMessageOut, LeadListItem } from "@/lib/types";
 
 function getMeta(channel: string): {
   icon: typeof Mail;
@@ -68,7 +68,7 @@ function LeadSearchPicker({
   onPick,
   onClose,
 }: {
-  onPick: (lead: LeadOut) => void;
+  onPick: (lead: LeadListItem) => void;
   onClose: () => void;
 }) {
   const [q, setQ] = useState("");
@@ -131,7 +131,7 @@ function UnmatchedRow({ msg }: { msg: InboxMessageOut }) {
       `${msg.direction === "outbound" ? "Исходящий" : "Входящий"} звонок, ${formatCallDuration(msg.call_duration)}`
     : msg.body || "(пустое сообщение)";
 
-  function handlePick(lead: LeadOut) {
+  function handlePick(lead: LeadListItem) {
     setPickerOpen(false);
     assign.mutate(
       { id: msg.id, lead_id: lead.id },

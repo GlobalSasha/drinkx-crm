@@ -1,12 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
 import Link from "next/link";
 import { TrendingUp, Wallet, AlertTriangle, Trophy, ArrowUpRight, Radio, Timer } from "lucide-react";
-import { usePipelines } from "@/lib/hooks/use-pipelines";
 import { pageContainerVariants } from "@/components/ui/PageContainer";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { useLeads } from "@/lib/hooks/use-leads";
+import { useForecast } from "@/lib/hooks/use-forecast";
 import { useUtmStats } from "@/lib/hooks/use-utm-stats";
 import { useStageDwell } from "@/lib/hooks/use-stage-dwell";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -16,8 +14,6 @@ import { ChartContainer, ChartTooltip, BRAND_CHART_COLORS, CHART_GRID_COLOR, CHA
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { C } from "@/lib/design-system";
 
-const FORECAST_LEADS_FILTER = { page_size: 500 } as const;
-
 function fmtMoney(n: number): string {
   if (!Number.isFinite(n) || n === 0) return "0 ₽";
   if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} млн ₽`;
@@ -26,109 +22,27 @@ function fmtMoney(n: number): string {
 }
 
 export default function ForecastPage() {
-  const { data: pipelines } = usePipelines();
-  const { data: leadsData, isLoading } = useLeads(FORECAST_LEADS_FILTER);
+  // Суммы, столбцы воронки и список «под угрозой» приходят одним серверным
+  // агрегатом: страница ничего не пересчитывает из списка лидов и потому не
+  // зависит от того, сколько строк поместилось в одну страницу.
+  const { data: forecast, isLoading, isError } = useForecast();
   const { data: utmStats, isLoading: utmLoading } = useUtmStats();
   const { data: dwell, isLoading: dwellLoading } = useStageDwell();
 
-  const { pipelineTotal, weightedTotal, atRiskTotal, atRiskDeals, wonRecent, stageBars } =
-    useMemo(() => {
-      // All pipelines, not just the first — stage ids are globally unique
-      // UUIDs, so a flat map can't collide (plan 008).
-      const stages = (pipelines ?? []).flatMap((p) => p.stages ?? []);
-      const stageById = new Map(stages.map((s) => [s.id, s]));
-      const leads = leadsData?.items ?? [];
+  const pipelineTotal = forecast?.pipeline_total ?? 0;
+  const weightedTotal = forecast?.weighted_total ?? 0;
+  const atRiskTotal = forecast?.at_risk_total ?? 0;
+  const wonRecent = forecast?.won_recent ?? 0;
+  const stageBars = forecast?.stage_bars ?? [];
+  const atRiskDeals = forecast?.at_risk_deals ?? [];
 
-      let pipelineTotal = 0;
-      let weightedTotal = 0;
-      let atRiskTotal = 0;
-      const atRiskDeals: {
-        id: string;
-        company: string;
-        amount: number;
-        overdueDays: number;
-        stageName: string;
-      }[] = [];
-
-      // Won in the last 90 days
-      const NOW = Date.now();
-      const NINETY_DAYS_AGO = NOW - 90 * 24 * 60 * 60 * 1000;
-      let wonRecent = 0;
-
-      // Stage bars (by money + by count)
-      const stageBarMap = new Map<
-        string,
-        { name: string; position: number; total: number; count: number }
-      >();
-      stages
-        .filter((s) => !s.is_won && !s.is_lost)
-        .forEach((s) =>
-          stageBarMap.set(s.id, {
-            name: s.name,
-            position: s.position,
-            total: 0,
-            count: 0,
-          }),
-        );
-
-      for (const lead of leads) {
-        const amount = Number(lead.deal_amount ?? 0);
-        const stage = lead.stage_id ? stageById.get(lead.stage_id) : null;
-
-        // Active pipeline = assigned + not in won/lost stage
-        if (lead.assignment_status === "assigned" && stage && !stage.is_won && !stage.is_lost) {
-          pipelineTotal += amount;
-          weightedTotal += (amount * (stage.probability ?? 0)) / 100;
-
-          const bar = stageBarMap.get(stage.id);
-          if (bar) {
-            bar.total += amount;
-            bar.count += 1;
-          }
-
-          // At-risk: current_stage_days exceeds the stage's rot_days
-          const days = lead.current_stage_days ?? 0;
-          const rot = stage.rot_days ?? 0;
-          if (rot > 0 && days > rot && amount > 0) {
-            atRiskTotal += amount;
-            atRiskDeals.push({
-              id: lead.id,
-              company: lead.company_name,
-              amount,
-              overdueDays: days - rot,
-              stageName: stage.name,
-            });
-          }
-        }
-
-        // Won recent: any closed-won where the assigned_at fell in the 90-day window
-        // (using last_activity_at as the closest proxy for "deal touched"; closed_at would
-        // be more accurate but isn't reliably populated on every lead)
-        if (stage?.is_won) {
-          const touchedAt = lead.last_activity_at
-            ? new Date(lead.last_activity_at).getTime()
-            : null;
-          if (touchedAt && touchedAt >= NINETY_DAYS_AGO) {
-            wonRecent += amount;
-          }
-        }
-      }
-
-      atRiskDeals.sort((a, b) => b.amount - a.amount);
-
-      const stageBars = Array.from(stageBarMap.values())
-        .sort((a, b) => a.position - b.position)
-        .map((b) => ({ name: b.name, total: b.total, count: b.count }));
-
-      return {
-        pipelineTotal,
-        weightedTotal,
-        atRiskTotal,
-        atRiskDeals: atRiskDeals.slice(0, 10),
-        wonRecent,
-        stageBars,
-      };
-    }, [pipelines, leadsData]);
+  // Ошибка запроса — это ошибка, а не ноль: молчаливые нули читаются как
+  // «сделок нет», и именно так выглядел баг с недоступным списком лидов.
+  const failed = (
+    <p className="type-body text-rose py-6 text-center" role="alert">
+      Не удалось загрузить прогноз
+    </p>
+  );
 
   return (
     <div className={pageContainerVariants({ surface: "data" })}>
@@ -137,14 +51,10 @@ export default function ForecastPage() {
         subtitle="Активная воронка, взвешенный прогноз по вероятностям этапов, риски и закрытые сделки."
       />
 
-      {/* Truncation notice — the page sums only the fetched leads (capped),
-          so a workspace with more leads gets a partial total (plan 008). */}
-      {(leadsData?.total ?? 0) > (leadsData?.items?.length ?? 0) && (
-        <p className="text-xs text-brand-muted mb-4 -mt-2">
-          Показаны первые {leadsData?.items?.length ?? 0} из {leadsData?.total ?? 0} лидов — суммы частичные.
-        </p>
-      )}
-
+      {isError ? (
+        failed
+      ) : (
+      <>
       {/* KPI row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
         <Kpi
@@ -219,6 +129,8 @@ export default function ForecastPage() {
           </ChartContainer>
         )}
       </Card>
+      </>
+      )}
 
       {/* Acquisition channels — leads grouped by UTM source */}
       <Card className="mb-6">
@@ -361,7 +273,9 @@ export default function ForecastPage() {
         <CardHeader>
           <CardTitle>Под угрозой — топ-10</CardTitle>
         </CardHeader>
-        {atRiskDeals.length === 0 ? (
+        {isError ? (
+          failed
+        ) : atRiskDeals.length === 0 ? (
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon"><AlertTriangle /></EmptyMedia>
@@ -380,11 +294,11 @@ export default function ForecastPage() {
                   className="flex items-center gap-3 px-3 py-2.5 rounded-card bg-brand-bg hover:bg-brand-bg/70 transition-colors group"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="type-body text-brand-primary truncate">{d.company}</p>
+                    <p className="type-body text-brand-primary truncate">{d.company_name}</p>
                     <span className="inline-flex items-center gap-2 type-caption text-brand-muted mt-0.5">
-                      <span>{d.stageName}</span>
+                      <span>{d.stage_name}</span>
                       <Badge variant="rose">
-                        +{d.overdueDays} {d.overdueDays === 1 ? "день" : d.overdueDays < 5 ? "дня" : "дней"}
+                        +{d.overdue_days} {d.overdue_days === 1 ? "день" : d.overdue_days < 5 ? "дня" : "дней"}
                       </Badge>
                     </span>
                   </div>

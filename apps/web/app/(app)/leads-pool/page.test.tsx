@@ -14,10 +14,31 @@ const { claimMock, meMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/hooks/use-leads", () => ({
+  POOL_PAGE_SIZE: 50,
   usePoolLeads: () => ({
-    data: { items: mockLeads, total: mockLeads.length },
+    data: {
+      items: mockLeads,
+      total: mockLeads.length,
+      page: 1,
+      page_size: 50,
+    },
     isLoading: false,
     isError: false,
+    isFetching: false,
+  }),
+  // Значения фильтров и их размеры приходят с сервера (аудит G6).
+  usePoolFacets: () => ({
+    data: {
+      cities: [{ value: "Москва", count: 1 }],
+      segments: [{ value: "Ритейл", count: 1 }],
+      priorities: [{ value: "A", count: 1 }],
+      tiers: [{ value: "A", count: 1 }],
+      deal_types: [],
+      sources: [{ value: "Выставка", count: 1 }],
+      tags: [{ value: "сеть", count: 1 }],
+      total: 1,
+    },
+    isLoading: false,
   }),
   useClaimLead: () => ({ mutate: claimMock }),
 }));
@@ -35,7 +56,7 @@ vi.mock("@/lib/hooks/use-users", () => ({
 }));
 
 import LeadsPoolPage from "./page";
-import type { LeadOut } from "@/lib/types";
+import type { LeadListItem } from "@/lib/types";
 
 const mockLeads = [
   {
@@ -85,7 +106,7 @@ const mockLeads = [
     deal_equipment: null,
     priority_label: "Высокий",
     needs_review: false,
-    current_stage_days: null,
+    ai_confidence: null,
     created_at: "2026-09-01T09:00:00Z",
     updated_at: "2026-09-01T09:00:00Z",
   },
@@ -136,11 +157,11 @@ const mockLeads = [
     deal_equipment: null,
     priority_label: "Средний",
     needs_review: false,
-    current_stage_days: null,
+    ai_confidence: null,
     created_at: "2026-09-02T10:00:00Z",
     updated_at: "2026-09-02T10:00:00Z",
   },
-] satisfies LeadOut[];
+] satisfies LeadListItem[];
 
 function renderPage() {
   const queryClient = new QueryClient();

@@ -1,3 +1,11 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# Пакеты, которым разрешён postinstall. В pnpm 10 настройка живёт здесь, а не
+# в package.json: в `apps/web/package.json` она была no-op и ругалась на
+# каждый вызов pnpm.
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
+  - unrs-resolver

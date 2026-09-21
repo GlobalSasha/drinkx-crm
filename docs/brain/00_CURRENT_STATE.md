@@ -1,5 +1,14 @@
 # DrinkX CRM — Current State
 
+> **Актуализация 2026-09-22 (аудит).** Строка «Alembic head still 0045» ниже
+> описывает июнь. На сегодня в `apps/api/alembic/versions/` 58 файлов; цепочка
+> идёт `0056 → 0058 → 0057`, поэтому Alembic head — `0057_user_invite_expires_at`
+> (а не `0058`, хотя номер у него больше). В проде накатан `0057` — то есть
+> актуальный head. История ниже
+> не переписана намеренно: это запись того, что было, а не снимок «сейчас».
+> Что реально в проде — git log и `docs/brain/04_NEXT_SPRINT.md`.
+
+
 Last updated: 2026-06-04 — **Odoo-reuse follow-ups sprint** (PRs #110–#114, all in prod/main).
 Completed `04_NEXT_SPRINT.md`: **G1** dedup-merge UI on LeadCard (`DuplicatesModal` + «объединён из N» note);
 **G2** UTM channel analytics (`GET /leads/utm-stats` + «Каналы привлечения» card on `/forecast`);

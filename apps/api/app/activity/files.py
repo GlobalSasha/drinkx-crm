@@ -165,6 +165,10 @@ async def upload_lead_file(
         filename=filename,
     )
     activity.file_url = key  # storage PATH, not signed URL
+    # Отправить ключ в базу сразу. Ниже стоит `db.refresh`, а он перечитывает
+    # строку и отбросил бы неотправленное присваивание — в базе оставался NULL,
+    # объект в хранилище становился сиротой, а скачивание падало.
+    await db.flush()
     try:
         client = get_storage_client()
         await client.upload(key=key, content=content, content_type=content_type)

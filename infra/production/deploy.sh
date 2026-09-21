@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 # Deploy / update script — run on the server as the `deploy` user.
-# Pulls latest main, rebuilds containers, restarts.
+# Rebuilds the images from the code on disk, restarts, and refuses to report
+# success unless the expected build is the one actually running.
 #
 # Usage (on server):
-#   /opt/drinkx-crm/infra/production/deploy.sh
+#   DEPLOY_SHA=<git sha> /opt/drinkx-crm/infra/production/deploy.sh
+#
+# Exit codes: 0 only on a fully verified release. Any build, start, health or
+# version failure exits non-zero. The last line is always DEPLOY_RESULT=<state>.
+#
+# Regression tests: infra/production/tests/test_deploy_release_gate.py
 
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -19,50 +25,268 @@ cd "$(dirname "$0")/../.."
 #
 # Don't read the commit from .git — rsync leaves it untouched, so it still
 # points at whatever was last fetched here and would lie about what is live.
-echo "==> Deploying ${DEPLOY_SHA:-working tree on disk (no SHA passed)}"
+#
+# Identity is proven from the IMAGES, not from the containers' environment.
+# `docker run -e DRINKX_GIT_SHA=...` can override an ENV at start-up, so a
+# container that answers with the right string proves nothing. Each image
+# instead carries the OCI label org.opencontainers.image.revision, set from the
+# GIT_SHA build arg; labels belong to the image and cannot be set at run time.
+# The gate records the image IDs produced by this build, then checks that every
+# running container was started from exactly those images and that their labels
+# match the requested commit.
+#
+# That proves WHICH BUILD is running. What it cannot prove on its own is that
+# the build context was clean: before G4 the code was rsynced into a single
+# long-lived directory without --delete, so a file deleted from git survived on
+# the server and the Dockerfile's directory-level COPYs could still pick it up.
+# A matching label said "built with this GIT_SHA", not "built from this tree".
+#
+# G4 closes that: a verified release is unpacked from `git archive <sha>` into
+# its own empty directory under <deploy root>/releases/<sha>, and this script
+# refuses to call a build verified unless it is running from exactly that
+# directory. See infra/production/remote_prepare_release.sh.
+
+# Where this copy of the repository lives, and where the server keeps its
+# per-release state. A prepared release sits at <deploy root>/releases/<sha>;
+# anything else (a hand-made checkout, the legacy /opt/drinkx-crm tree) is
+# treated as its own root and can only ever produce an unverified deploy.
+RELEASE_TREE="$(pwd -P)"
+if [ -n "${DRINKX_DEPLOY_ROOT:-}" ]; then
+  DEPLOY_ROOT="$DRINKX_DEPLOY_ROOT"
+elif [ "$(basename "$(dirname "$RELEASE_TREE")")" = "releases" ]; then
+  DEPLOY_ROOT="$(cd "$RELEASE_TREE/../.." && pwd -P)"
+else
+  DEPLOY_ROOT="$RELEASE_TREE"
+fi
+
+DEPLOY_SHA="${DEPLOY_SHA:-}"
+if [ -n "$DEPLOY_SHA" ]; then
+  VERIFY_VERSION=1
+  echo "==> Deploying $DEPLOY_SHA"
+else
+  VERIFY_VERSION=0
+  echo "==> Deploying working tree on disk (no DEPLOY_SHA passed)"
+  echo "⚠ Without DEPLOY_SHA the running build cannot be verified."
+  echo "  This run can report 'unverified' at best, never 'success'."
+fi
+
+# Bound every probe so a hung daemon or socket cannot stall the release.
+# `timeout` is coreutils — present on the Ubuntu server, absent on stock macOS,
+# where the tests run. Degrade to an unbounded call rather than failing there.
+run_bounded() {
+  local secs="$1"; shift
+  if command -v timeout > /dev/null 2>&1; then
+    timeout "$secs" "$@"
+  else
+    "$@"
+  fi
+}
+
+# Compose project name — `name: drinkx` in docker-compose.yml. Used only as a
+# fallback when `compose config --images` is unavailable.
+COMPOSE_PROJECT="${COMPOSE_PROJECT_NAME:-drinkx}"
+BUILT_SERVICES="api web worker beat"
+
+# Image reference Compose will use for a service, looked up BY SERVICE KEY.
+#
+# Not `config --images <svc> | head -n 1`. That command prints the images of
+# the selected services *including their dependencies*, so the first line
+# belongs to whatever Compose resolved first: for api that is postgres, and
+# for web it is the api image. Reading it positionally attributed the wrong
+# image to the service and rejected perfectly good releases (finding R2).
+#
+# The resolved configuration is keyed by service name, which is a contract;
+# line order is not.
+compose_image_ref() {
+  local svc="$1" cfg=""
+  cfg="$(run_bounded 60 docker compose --env-file "$ENV_FILE" config --format json 2>/dev/null || true)"
+  [ -n "$cfg" ] || return 0
+  printf '%s' "$cfg" | python3 -c '
+import json, sys
+try:
+    cfg = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+image = ((cfg.get("services") or {}).get(sys.argv[1]) or {}).get("image")
+if not image:
+    sys.exit(1)
+print(image)
+' "$svc" 2>/dev/null || true
+}
+
+# Full image ID for a reference or ID.
+image_id_of() {
+  run_bounded 30 docker image inspect --format '{{.Id}}' "$1" \
+    2>/dev/null | head -n 1 | tr -d '\r' || true
+}
+
+# Revision recorded IN THE IMAGE at build time.
+image_revision_of() {
+  run_bounded 30 docker image inspect \
+    --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$1" \
+    2>/dev/null | head -n 1 | tr -d '\r' || true
+}
+
+# Image ID a running container was actually started from.
+container_image_of() {
+  local svc="$1" cid=""
+  cid="$(run_bounded 30 docker compose --env-file "$ENV_FILE" ps -q "$svc" \
+           2>/dev/null | head -n 1 | tr -d '\r' || true)"
+  [ -n "$cid" ] || return 0
+  run_bounded 30 docker inspect --format '{{.Image}}' "$cid" \
+    2>/dev/null | head -n 1 | tr -d '\r' || true
+}
+
+# The service -> image lookup parses Compose's resolved configuration, so the
+# gate needs python3 present. Missing interpreter is a hard failure: silently
+# falling back to a positional guess is the bug this replaced.
+if [ "$VERIFY_VERSION" -eq 1 ] && ! command -v python3 > /dev/null 2>&1; then
+  echo "✗ python3 is required to resolve service images for the release gate" >&2
+  echo "DEPLOY_RESULT=failed"
+  exit 1
+fi
+
+fail() {
+  echo "✗ $1" >&2
+  echo "--- container state at failure ---" >&2
+  docker compose ps >&2 || true
+  echo "DEPLOY_RESULT=failed"
+  exit 1
+}
+
+# ---------------------------------------------------------------------------
+# 0. Build context. A verified release must come from a tree that was unpacked
+#    from `git archive <sha>` into an empty directory — not from a directory
+#    that accumulates. Without this check the rest of the gate still passes
+#    while a file deleted from git, or a file never in git at all, rides along
+#    inside the image (audit DEBT-01 / G4).
+# ---------------------------------------------------------------------------
+if [ "$VERIFY_VERSION" -eq 1 ]; then
+  expected_tree="$DEPLOY_ROOT/releases/$DEPLOY_SHA"
+  if [ "$RELEASE_TREE" != "$(cd "$expected_tree" 2>/dev/null && pwd -P || echo "")" ]; then
+    echo "✗ a verified release must be built from $expected_tree, this run is in $RELEASE_TREE" >&2
+    echo "  prepare the tree first: ssh <host> \"DEPLOY_ROOT=$DEPLOY_ROOT bash -s -- $DEPLOY_SHA\" < infra/production/remote_prepare_release.sh" >&2
+    echo "DEPLOY_RESULT=failed"
+    exit 1
+  fi
+  echo "==> Build context: $RELEASE_TREE (unpacked from git archive $DEPLOY_SHA)"
+fi
+
+# The environment file is server-owned state and deliberately outside every
+# release tree: a release directory holds exactly the tracked tree of its
+# commit, and secrets are not in git. shared/.env is the layout G4 introduces;
+# the legacy in-place path is still accepted so an existing server keeps
+# working without a manual migration step.
+ENV_FILE=""
+for candidate in "${DRINKX_ENV_FILE:-}" "$DEPLOY_ROOT/shared/.env" "$DEPLOY_ROOT/infra/production/.env"; do
+  if [ -n "$candidate" ] && [ -f "$candidate" ]; then ENV_FILE="$candidate"; break; fi
+done
+if [ -z "$ENV_FILE" ]; then
+  echo "✗ no environment file: looked for $DEPLOY_ROOT/shared/.env and $DEPLOY_ROOT/infra/production/.env" >&2
+  echo "DEPLOY_RESULT=failed"
+  exit 1
+fi
+echo "==> Environment file: $ENV_FILE"
 
 echo "==> Cleanup orphan rename stubs from prior partial runs"
 docker ps -a --format '{{.Names}}' | grep -E '^[a-f0-9]+_drinkx-' | xargs -r docker rm -f || true
 
-echo "==> Build + up"
 cd infra/production
-UP_RC=0
-docker compose --env-file .env up -d --build --remove-orphans || UP_RC=$?
 
-echo "==> Self-heal: start any containers left in Created state"
-docker compose --env-file .env up -d || true
-
-if [ "$UP_RC" -ne 0 ]; then
-  echo "⚠ Initial 'up' exited with $UP_RC — self-heal attempted; falling through to health check"
+# ---------------------------------------------------------------------------
+# 1. Build. A failed build is a failed release, full stop.
+#
+# Before G1 this was fused with `up` as `up -d --build || UP_RC=$?`, and a
+# non-zero result only printed a warning. The old containers then answered
+# every health check and the script exited 0 — a green deploy of the previous
+# release. Build is now its own step and its failure is terminal.
+# ---------------------------------------------------------------------------
+echo "==> Build images"
+if ! docker compose --env-file "$ENV_FILE" build \
+       --build-arg GIT_SHA="${DEPLOY_SHA:-unknown}"; then
+  fail "image build failed — the previous release is still running, nothing was replaced"
 fi
 
+# Record what the build produced, before anything is started. If `up` later
+# leaves an old container in place, the comparison below catches it.
+if [ "$VERIFY_VERSION" -eq 1 ]; then
+  echo "==> Record images produced by this build"
+  for svc in $BUILT_SERVICES; do
+    ref="$(compose_image_ref "$svc")"
+    if [ -z "$ref" ]; then
+      fail "Compose config does not name an image for service '$svc' — cannot identify what was built"
+    fi
+    built_id="$(image_id_of "$ref")"
+    if [ -z "$built_id" ]; then
+      fail "could not resolve the image built for '$svc' (looked for '$ref')"
+    fi
+    built_rev="$(image_revision_of "$built_id")"
+    if [ -z "$built_rev" ] || [ "$built_rev" = "unknown" ]; then
+      fail "image for '$svc' carries no usable org.opencontainers.image.revision label"
+    fi
+    if [ "$built_rev" != "$DEPLOY_SHA" ]; then
+      fail "image for '$svc' is labelled '$built_rev', expected '$DEPLOY_SHA' — this build is not the requested release"
+    fi
+    eval "EXPECTED_IMAGE_${svc}=\$built_id"
+    echo "  ✓ $svc built as $built_id"
+  done
+fi
+
+# ---------------------------------------------------------------------------
+# 2. Start the freshly built images.
+# ---------------------------------------------------------------------------
+echo "==> Start containers"
+if ! docker compose --env-file "$ENV_FILE" up -d --remove-orphans; then
+  echo "⚠ First 'up' failed — retrying once for containers left in Created state"
+  if ! docker compose --env-file "$ENV_FILE" up -d; then
+    fail "containers could not be started"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# 3. Health. Every probe below is mandatory: exhausting the retry budget is a
+#    failure, not a warning. Web used to warn and continue, and the API loop
+#    used to fall through silently once its five attempts were spent.
+# ---------------------------------------------------------------------------
 echo "==> Health check"
 sleep 5
-for i in 1 2 3 4 5; do
-  if curl -fsS http://127.0.0.1:8000/health > /dev/null 2>&1; then
+
+API_OK=0
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  if curl -fsS --max-time 10 http://127.0.0.1:8000/health > /dev/null 2>&1; then
     echo "✓ API healthy"
+    API_OK=1
     break
   fi
-  echo "  waiting for API ($i/5)..."
+  echo "  waiting for API ($i/10)..."
   sleep 5
 done
+[ "$API_OK" -eq 1 ] || fail "API did not become healthy on :8000/health"
 
-if curl -fsS http://127.0.0.1:3000 > /dev/null 2>&1; then
-  echo "✓ Web reachable on :3000"
-else
-  echo "⚠ Web not yet reachable (may still be building)"
-fi
+# "/" is an entry point, not a page: middleware 307s it to /today or /sign-in
+# depending on the session, and `curl -f` treats a 3xx as success. Probing it
+# would accept a redirect as proof the app renders. /sign-in returns a real 200.
+WEB_OK=0
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  if curl -fsS --max-time 10 http://127.0.0.1:3000/sign-in > /dev/null 2>&1; then
+    echo "✓ Web reachable on :3000"
+    WEB_OK=1
+    break
+  fi
+  echo "  waiting for Web ($i/10)..."
+  sleep 5
+done
+[ "$WEB_OK" -eq 1 ] || fail "Web did not become reachable on :3000"
 
 # Plan 027: the API can be healthy while the Celery worker/beat silently failed
 # to start (bad migration, import error in a task module, Redis misconfig) —
 # which stops enrichment, follow-ups, daily plans and automations. Probe the
 # worker with `celery inspect ping` (retried, since a cold worker boots slowly)
-# and confirm the beat container is running. Fail the deploy if the worker
-# never answers.
+# and confirm the beat container is running.
 echo "==> Worker/beat health check"
 WORKER_OK=0
 for i in 1 2 3 4 5 6 7 8 9 10; do
-  if docker compose --env-file .env exec -T worker \
+  if run_bounded 30 docker compose --env-file "$ENV_FILE" exec -T worker \
       uv run celery -A app.scheduled.celery_app inspect ping -t 5 > /dev/null 2>&1; then
     echo "✓ Celery worker responds to ping"
     WORKER_OK=1
@@ -71,19 +295,69 @@ for i in 1 2 3 4 5 6 7 8 9 10; do
   echo "  waiting for worker ($i/10)..."
   sleep 6
 done
-if [ "$WORKER_OK" -ne 1 ]; then
-  echo "✗ Celery worker did not respond to inspect ping — background jobs are down" >&2
-  docker compose ps
-  exit 1
-fi
+[ "$WORKER_OK" -eq 1 ] || fail "Celery worker did not respond to inspect ping — background jobs are down"
 
-if docker compose --env-file .env ps --status running beat | grep -q beat; then
+if run_bounded 30 docker compose --env-file "$ENV_FILE" ps --status running beat | grep -q beat; then
   echo "✓ Celery beat container running"
 else
-  echo "✗ Celery beat container is not running" >&2
-  docker compose ps
-  exit 1
+  fail "Celery beat container is not running"
+fi
+
+# ---------------------------------------------------------------------------
+# 4. Identity. Healthy is not the same as new: every check above is satisfied
+#    by the previous release. Confirm each running container was started from
+#    the image this build produced, and that the image's own label names the
+#    requested commit. Deliberately NOT read from the container environment,
+#    which a runtime -e flag can set to anything.
+# ---------------------------------------------------------------------------
+if [ "$VERIFY_VERSION" -eq 1 ]; then
+  echo "==> Verify running images"
+  for svc in $BUILT_SERVICES; do
+    eval "expected_id=\$EXPECTED_IMAGE_${svc}"
+    running_id="$(container_image_of "$svc")"
+    if [ -z "$running_id" ]; then
+      fail "no running container for '$svc' — cannot verify which image is live"
+    fi
+    running_rev="$(image_revision_of "$running_id")"
+    if [ "$running_id" != "$expected_id" ]; then
+      fail "'$svc' runs image $running_id (revision '${running_rev:-none}'), not the image built for this release ($expected_id)"
+    fi
+    if [ -z "$running_rev" ] || [ "$running_rev" = "unknown" ]; then
+      fail "'$svc' runs an image with no usable revision label — cannot prove the release"
+    fi
+    if [ "$running_rev" != "$DEPLOY_SHA" ]; then
+      fail "'$svc' runs revision '$running_rev', expected '$DEPLOY_SHA' — the new release is NOT live"
+    fi
+    echo "  ✓ $svc runs $running_rev"
+  done
+fi
+
+# ---------------------------------------------------------------------------
+# 5. Publish which release is live. The containers are already running from
+#    the verified images, so this symlink is a record, not a switch: it is what
+#    an operator follows to find the tree production was built from, and what
+#    the pruner protects from deletion. It moves only after every check above
+#    has passed, so a failed preparation or a failed build leaves it pointing
+#    at the release that is still serving traffic.
+#
+#    Written as rm + ln rather than `mv -T`: -T is GNU-only, and a plain `mv`
+#    of a symlink onto a symlink-to-directory moves it *into* that directory.
+#    Nothing reads `current` during a deploy, so the brief gap is harmless.
+# ---------------------------------------------------------------------------
+if [ "$VERIFY_VERSION" -eq 1 ] && [ "$RELEASE_TREE" != "$DEPLOY_ROOT" ]; then
+  if rm -f "$DEPLOY_ROOT/current" && ln -s "$RELEASE_TREE" "$DEPLOY_ROOT/current"; then
+    echo "==> current -> $RELEASE_TREE"
+  else
+    echo "⚠ could not update $DEPLOY_ROOT/current — the release IS live, the pointer is stale"
+  fi
 fi
 
 echo "==> Done"
-docker compose ps
+docker compose ps || true
+
+if [ "$VERIFY_VERSION" -eq 1 ]; then
+  echo "DEPLOY_RESULT=success"
+else
+  echo "DEPLOY_RESULT=unverified"
+  exit 0
+fi

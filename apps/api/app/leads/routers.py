@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import current_user, require_admin_or_head
@@ -12,14 +12,19 @@ from app.auth.models import User
 from app.automation.stage_change import StageTransitionBlocked, StageTransitionInvalid
 from app.db import get_db
 from app.leads import services
+# Правило «кто может открыть этот лид» переехало в свой модуль: его же
+# подключает /leads/{id}/tasks, который висит на другом роутере.
+from app.leads.access import lead_access_guard
 from app.leads.schemas import (
     DealPatchIn,
+    ForecastOut,
     GateViolationOut,
     LeadAssignIn,
     LeadAssignOut,
     LeadCreate,
     LeadListOut,
     LeadOut,
+    PoolFacetsOut,
     LeadUpdate,
     LeadPipelineChangeIn,
     MergeLeadsIn,
@@ -89,38 +94,10 @@ def _resolve_assignee_scope(
         return user_id
 
 
-async def _lead_access_guard(
-    request: Request,
-    db: Annotated[AsyncSession, Depends(get_db)] = ...,
-    user: Annotated[User, Depends(current_user)] = ...,
-) -> None:
-    """Router-wide guard: every current and future `/{lead_id}` endpoint is
-    covered by construction, so a manager cannot open a colleague's lead even
-    by direct link (404, not 403)."""
-    lead_id = request.path_params.get("lead_id")
-    if lead_id is None:
-        return
-    if user.role in ("admin", "head"):
-        return
-    from app.leads.repositories import get_by_id
-
-    try:
-        lead_uuid = UUID(str(lead_id))
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found"
-        )
-    lead = await get_by_id(db, lead_uuid, user.workspace_id)
-    if lead is None or lead.assigned_to != user.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found"
-        )
-
-
 router = APIRouter(
     prefix="/leads",
     tags=["leads"],
-    dependencies=[Depends(_lead_access_guard)],
+    dependencies=[Depends(lead_access_guard)],
 )
 
 
@@ -177,29 +154,110 @@ async def create_lead(
     return lead  # type: ignore[return-value]
 
 
+# Повторяющиеся параметры для множественного выбора: ?city=Москва&city=Казань.
+# Одна кодировка на все списки — и в запросе списка, и в запросе счётчиков.
+_MULTI = Annotated[list[str] | None, Query()]
+
+
+def _pool_selection(
+    *,
+    city: list[str] | None,
+    segment: list[str] | None,
+    priority: list[str] | None,
+    tier: list[str] | None,
+    deal_type: list[str] | None,
+    source: list[str] | None,
+    tag: list[str] | None,
+    fit_min: float | None,
+    has_email: bool,
+    has_phone: bool,
+    form_id: UUID | None,
+    needs_review: bool | None,
+    q: str | None,
+):
+    from app.leads.selection import LeadSelection
+
+    return LeadSelection.from_params(
+        cities=city,
+        segments=segment,
+        priorities=priority,
+        tiers=tier,
+        deal_types=deal_type,
+        sources=source,
+        tags=tag,
+        fit_min=fit_min,
+        has_email=has_email,
+        has_phone=has_phone,
+        form_id=form_id,
+        needs_review=needs_review,
+        q=q,
+        assignment_status="pool",
+    )
+
+
 @router.get("/pool", response_model=LeadListOut)
 async def list_pool(
-    city: str | None = None,
-    segment: str | None = None,
+    city: _MULTI = None,
+    segment: _MULTI = None,
+    priority: _MULTI = None,
+    tier: _MULTI = None,
+    deal_type: _MULTI = None,
+    source: _MULTI = None,
+    tag: _MULTI = None,
     fit_min: float | None = None,
+    has_email: bool = Query(False),
+    has_phone: bool = Query(False),
+    q: str | None = Query(None, max_length=200),
     form_id: UUID | None = Query(None),
     needs_review: bool | None = Query(None),
     page: int = Query(1, ge=1),
-    # Hotfix 2026-05-08: cap raised 200 → 500 to match the frontend's
-    # intent. /leads-pool fetches the whole pool once and filters
-    # client-side (commit 480d0a9 on 2026-05-07 set page_size=500),
-    # but the cap still rejected with 422 every request — production
-    # has been silently broken on /leads-pool since the 480d0a9 deploy.
-    # 500 keeps a sane safety rail; longer-term fix is server-side
-    # filtering when the workspace pool exceeds this.
-    page_size: int = Query(50, ge=1, le=500),
+    # Страница снова страница. До G6 фронтенд просил 500 строк и решал
+    # принадлежность к выборке у себя, поэтому карточка за этой границей не
+    # находилась ничем (аудит G6). Отбор целиком ушёл в базу, и держать
+    # потолок в пятьсот больше незачем.
+    page_size: int = Query(50, ge=1, le=200),
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
     # Unassigned pool is management-only after the 2026-09-14 policy change.
     user: Annotated[User, Depends(require_admin_or_head)] = ...,
 ) -> LeadListOut:
-    filters = dict(city=city, segment=segment, fit_min=fit_min, form_id=form_id, needs_review=needs_review, page=page, page_size=page_size)
-    items, total = await services.list_pool(db, user.workspace_id, filters)
+    """Страница базы лидов. Весь отбор и порядок — на сервере.
+
+    Множественный выбор кодируется повторением параметра. Между разными
+    фильтрами И, внутри одного ИЛИ; теги — И, карточка обязана нести
+    каждый выбранный.
+    """
+    selection = _pool_selection(
+        city=city, segment=segment, priority=priority, tier=tier,
+        deal_type=deal_type, source=source, tag=tag, fit_min=fit_min,
+        has_email=has_email, has_phone=has_phone, form_id=form_id,
+        needs_review=needs_review, q=q,
+    )
+    items, total = await services.list_pool(
+        db, user.workspace_id, selection, page=page, page_size=page_size
+    )
     return LeadListOut(items=items, total=total, page=page, page_size=page_size)
+
+
+@router.get("/pool/facets", response_model=PoolFacetsOut)
+async def pool_facets(
+    form_id: UUID | None = Query(None),
+    needs_review: bool | None = Query(None),
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(require_admin_or_head)] = ...,
+) -> PoolFacetsOut:
+    """Значения фильтров и их размеры по всей базе лидов.
+
+    Отдельным запросом, а не полем в списке: числа зависят только от
+    области пула (форма и needs_review) и не меняются при листании и при
+    выборе фасетов, поэтому клиент кэширует их отдельно, и переход на
+    следующую страницу стоит двух запросов, а не девяти.
+    """
+    from app.leads.selection import LeadSelection
+
+    selection = LeadSelection.pool(form_id=form_id, needs_review=needs_review)
+    facets = await services.pool_facets(db, user.workspace_id, selection)
+    total = sum(item["count"] for item in facets.get("tiers", []))
+    return PoolFacetsOut(**facets, total=total)
 
 
 @router.post("/assign", response_model=LeadAssignOut)
@@ -222,9 +280,10 @@ async def assign_leads(
             mode=payload.mode,
             only_pool=payload.only_pool,
             lead_ids=payload.lead_ids,
-            cities=payload.cities,
-            segment=payload.segment,
-            fit_min=payload.fit_min,
+            # Тот же контракт выборки, что у списка и экспорта: действие с
+            # названием «по фильтру» обязано работать по тому фильтру,
+            # который человек видит на экране (аудит G6).
+            selection=payload.to_selection(),
             limit=payload.limit,
             comment=payload.comment,
         )
@@ -293,6 +352,32 @@ async def lead_utm_stats(
 
     rows = await utm_source_stats(db, user.workspace_id)
     return [UtmSourceStatOut(**r) for r in rows]
+
+
+@router.get("/forecast", response_model=ForecastOut)
+async def lead_forecast(
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(current_user)] = ...,
+) -> ForecastOut:
+    """«Прогноз» — суммы по ВСЕЙ доступной выборке, посчитанные в базе.
+
+    Раньше страница складывала одну страницу `GET /leads`, прося 500 строк
+    при потолке роута 200: запрос отбивался валидацией, и прогноз молча
+    показывал нули. Агрегату страницы не нужны — ни `page`, ни `page_size`
+    на него не влияют.
+
+    Менеджер видит свои сделки, руководитель и админ — весь workspace. Это
+    сознательное отличие от `GET /leads`, где по умолчанию даже админу
+    отдаются только его лиды: прогноз без команды руководителю бесполезен.
+
+    Объявлено ДО `/{lead_id}`, иначе литеральный путь перехватит
+    маршрут с параметром и ответит 404.
+    """
+    from app.leads.analytics import forecast_summary
+
+    scope = None if user.role in ("admin", "head") else user.id
+    data = await forecast_summary(db, user.workspace_id, assigned_to=scope)
+    return ForecastOut(**data)
 
 
 @router.get("/trash", response_model=LeadListOut)

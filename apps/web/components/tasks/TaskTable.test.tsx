@@ -22,6 +22,7 @@ function rowWithLead(): TaskRow {
     done: false,
     assigneeId: "user-1",
     assigneeName: "Иван",
+    explicitAssigneeId: null,
     authorId: "user-2",
     authorName: "Пётр",
   };
@@ -37,6 +38,7 @@ function rowWithoutLead(): TaskRow {
     done: false,
     assigneeId: "user-1",
     assigneeName: "Иван",
+    explicitAssigneeId: null,
     authorId: "user-2",
     authorName: "Пётр",
   };

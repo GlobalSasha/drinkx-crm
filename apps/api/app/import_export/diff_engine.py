@@ -296,11 +296,20 @@ async def compute_diff(
     *,
     workspace_id: UUID,
     updates: list[dict[str, Any]],
+    actor=None,
 ) -> list[DiffItem]:
     """Resolve every parsed update item to a DiffItem. Performs three
     batched queries (by inn / by name / by id) instead of N round-trips.
     Returns DiffItems even when the resolution failed — frontend
-    surfaces them in an errors panel."""
+    surfaces them in an errors panel.
+
+    `actor` — от чьего имени готовится обновление. Своё задание не даёт
+    прав на чужие карточки: цель, к которой у автора нет доступа, попадает
+    в ошибки разбора и не обновляется. Проверка идёт по РАЗРЕШЁННОЙ цели, а
+    не по тому, как её нашли, поэтому сопоставление по ИНН и по названию
+    закрыто так же, как явный UUID (аудит SEC-02-H).
+    """
+    from app.leads.access import may_access_lead
     inns: set[str] = set()
     names: set[str] = set()
     ids: set[UUID] = set()
@@ -345,6 +354,16 @@ async def compute_diff(
         if u["action"] == "update":
             if lead is None:
                 item.error = err or "Лид не найден"
+                out.append(item)
+                continue
+            if actor is not None and not may_access_lead(actor, lead):
+                # Тот же текст, что и у ненайденного: существование чужой
+                # карточки подтверждать незачем. По той же причине сбрасываем
+                # match_confidence в "not_found" — иначе "exact_inn" рядом с
+                # ошибкой «Лид не найден» отличал бы «есть, но не ваш» от
+                # «такого нет» (SEC-DELTA-002).
+                item.match_confidence = "not_found"
+                item.error = "Лид не найден"
                 out.append(item)
                 continue
             item.lead_id = str(lead.id)

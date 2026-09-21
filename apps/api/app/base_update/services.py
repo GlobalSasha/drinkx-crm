@@ -28,6 +28,13 @@ from app.leads.models import Lead
 from app.pipelines import repositories as pipelines_repo
 
 
+# Имена полей контакта в извлечённой карточке (`ExtractedContact`) и в модели
+# `Contact` расходятся: `telegram`/`linkedin` против `telegram_url`/`linkedin_url`.
+# ARCH-DELTA-001: исполнитель конфликтов этого не учитывал — `add_contact` падал
+# с `TypeError`, а `update_contact_field` тихо писал атрибут мимо колонки.
+CONTACT_FIELD_ALIASES = {"telegram": "telegram_url", "linkedin": "linkedin_url"}
+
+
 @dataclass
 class CompanyMatch:
     action: str  # "create" | "update" | "ambiguous"
@@ -379,12 +386,7 @@ async def apply_record(
                 incoming_v = getattr(ctc, field_name, None)
                 # For Contact model fields that differ in name (telegram_url, linkedin_url),
                 # map them when reading from the existing contact object.
-                if field_name == "telegram":
-                    base_v = getattr(base, "telegram_url", None)
-                elif field_name == "linkedin":
-                    base_v = getattr(base, "linkedin_url", None)
-                else:
-                    base_v = getattr(base, field_name, None)
+                base_v = getattr(base, CONTACT_FIELD_ALIASES.get(field_name, field_name), None)
                 if not (incoming_v or "") or not str(incoming_v).strip():
                     continue
                 if not (base_v or "") or _norm(base_v) == _norm(incoming_v):
@@ -502,6 +504,21 @@ def _decide_apply(cf: IngestConflict) -> tuple[str, dict]:
     return ("deferred", {})
 
 
+async def _in_workspace(db: AsyncSession, model, obj_id, workspace_id) -> bool:
+    """Принадлежит ли объект пространству задания.
+
+    Идентификаторы в решении конфликта приходят снаружи, из тела запроса.
+    Без этой проверки карточка одного пространства могла сослаться на
+    компанию другого: содержимое чужого пространства не раскрывалось, но
+    ссылка в базе оставалась.
+    """
+    return (
+        await db.execute(
+            select(model.id).where(model.id == obj_id, model.workspace_id == workspace_id)
+        )
+    ).scalar_one_or_none() is not None
+
+
 async def _execute_op(db: AsyncSession, *, workspace_id, cf: IngestConflict, op: str, args: dict) -> bool:
     """Run the op chosen by _decide_apply. Returns True on success, False on failure
     (caller flips conflict status accordingly)."""
@@ -527,11 +544,15 @@ async def _execute_op(db: AsyncSession, *, workspace_id, cf: IngestConflict, op:
             return False
     if op == "set_match_company":
         try:
-            cf.record.match_company_id = uuid.UUID(args["company_id"])
-            return True
-        except (ValueError, TypeError):
+            company_id = uuid.UUID(str(args["company_id"]))
+        except (ValueError, TypeError, KeyError):
             cf.record.error = f"invalid company id: {args.get('company_id')!r}"
             return False
+        if not await _in_workspace(db, Company, company_id, workspace_id):
+            cf.record.error = "company does not belong to this workspace"
+            return False
+        cf.record.match_company_id = company_id
+        return True
     if op == "set_record_error":
         cf.record.error = args["message"]
         return True
@@ -548,7 +569,7 @@ async def _execute_op(db: AsyncSession, *, workspace_id, cf: IngestConflict, op:
                 workspace_id=workspace_id,
                 lead_id=cf.record.match_lead_id,
                 contact_id=uuid.UUID(str(contact_id)),
-                patch_dict={field: value},
+                patch_dict={CONTACT_FIELD_ALIASES.get(field, field): value},
             )
             return True
         except Exception as exc:  # noqa: BLE001
@@ -557,14 +578,22 @@ async def _execute_op(db: AsyncSession, *, workspace_id, cf: IngestConflict, op:
             return False
     if op == "set_match_lead":
         try:
-            cf.record.match_lead_id = uuid.UUID(str(args["lead_id"]))
-            return True
-        except (ValueError, TypeError):
+            lead_id = uuid.UUID(str(args["lead_id"]))
+        except (ValueError, TypeError, KeyError):
             cf.record.error = f"invalid lead id: {args.get('lead_id')!r}"
             return False
+        if not await _in_workspace(db, Lead, lead_id, workspace_id):
+            cf.record.error = "lead does not belong to this workspace"
+            return False
+        cf.record.match_lead_id = lead_id
+        return True
     if op == "create_new_lead":
         if not cf.record.match_company_id:
             cf.record.error = "create_new_lead: record has no match_company_id"
+            return False
+        # Ссылка могла попасть в запись и раньше — проверяем перед записью.
+        if not await _in_workspace(db, Company, cf.record.match_company_id, workspace_id):
+            cf.record.error = "create_new_lead: company does not belong to this workspace"
             return False
         first = await pipelines_repo.get_default_first_stage(db, workspace_id)
         if first is None:
@@ -609,8 +638,8 @@ async def _execute_op(db: AsyncSession, *, workspace_id, cf: IngestConflict, op:
                     "role_type": data.get("role_type"),
                     "email": data.get("email"),
                     "phone": data.get("phone"),
-                    "telegram": data.get("telegram"),
-                    "linkedin": data.get("linkedin"),
+                    "telegram_url": data.get("telegram"),
+                    "linkedin_url": data.get("linkedin"),
                     "source": "base_update",
                     "verified_status": "to_verify",
                 },
@@ -841,4 +870,9 @@ async def mark_resolving(
         raise ValueError(f"cannot apply: job is in status {job.status!r}")
     job.status = c.JOB_RESOLVING
     await db.flush()
+    # На UPDATE у `updated_at` серверный onupdate=now(), и после flush поле
+    # помечено устаревшим. Ручка читает его уже после коммита, вне
+    # greenlet-контекста, и ленивая дозагрузка падала — 202 превращался в
+    # 500 при том, что статус переведён и задача поставлена в очередь.
+    await db.refresh(job)
     return job

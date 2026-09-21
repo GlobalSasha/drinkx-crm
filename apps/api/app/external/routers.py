@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
 from app.external import services as svc
 from app.external.dependencies import ServiceContext, require_service_key
+from app.external.repositories import InvalidCursor
 from app.external.schemas import (
     CompanyOut, CompanyPage, ContactOut, LeadOut, LeadPage, LeadSummaryOut,
     MetaOut, PipelineOut, PipelineSummaryOut,
@@ -33,10 +34,13 @@ async def list_leads(
     cursor: str | None = None,
     limit: int = Query(50, ge=1, le=100),
 ):
-    return await svc.list_leads(
-        db, ctx.workspace_id, pipeline_id=pipeline_id, stage_id=stage_id,
-        assigned_to=assigned_to, updated_since=updated_since, q=q, cursor=cursor, limit=limit,
-    )
+    try:
+        return await svc.list_leads(
+            db, ctx.workspace_id, pipeline_id=pipeline_id, stage_id=stage_id,
+            assigned_to=assigned_to, updated_since=updated_since, q=q, cursor=cursor, limit=limit,
+        )
+    except InvalidCursor:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="bad cursor")
 
 
 @router.get("/leads/{lead_id}", response_model=LeadOut)
@@ -63,7 +67,12 @@ async def list_companies(
     cursor: str | None = None,
     limit: int = Query(50, ge=1, le=100),
 ):
-    return await svc.list_companies(db, ctx.workspace_id, q=q, updated_since=updated_since, cursor=cursor, limit=limit)
+    try:
+        return await svc.list_companies(
+            db, ctx.workspace_id, q=q, updated_since=updated_since, cursor=cursor, limit=limit,
+        )
+    except InvalidCursor:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="bad cursor")
 
 
 @router.get("/companies/{company_id}", response_model=CompanyOut)

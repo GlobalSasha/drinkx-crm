@@ -10,7 +10,6 @@ from sqlalchemy import (
     Index,
     String,
     Text,
-    UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -33,11 +32,12 @@ class MessageTemplate(Base, UUIDPrimaryKeyMixin):
     __table_args__ = (
         # Same name across channels (email + sms «Followup #1») is OK;
         # duplicating in the same channel is the 409.
-        UniqueConstraint(
+        Index(
+            "uq_message_templates_workspace_name_channel",
             "workspace_id",
             "name",
             "channel",
-            name="uq_message_templates_workspace_name_channel",
+            unique=True,
         ),
         Index(
             "ix_message_templates_workspace_channel",

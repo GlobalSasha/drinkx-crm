@@ -131,6 +131,9 @@ async def update(
     if is_active is not None:
         automation.is_active = is_active
     await db.flush()
+    # flush протухляет `updated_at` (onupdate=func.now()) — без refresh
+    # AutomationOut досериализуется уже после commit роутера.
+    await db.refresh(automation)
     return automation
 
 
@@ -260,7 +263,13 @@ async def list_due_step_runs(
     """Beat-scheduler picker. Returns step rows whose scheduled time
     is in the past and which haven't fired yet. Bounded by `limit`
     so a single tick can't run away with the worker — leftovers
-    catch up on the next tick."""
+    catch up on the next tick.
+
+    S-3: строки берутся с `FOR UPDATE SKIP LOCKED`. Тик живёт до 9 минут
+    (`task_soft_time_limit=540`) при расписании раз в 5 минут, так что два
+    тика законно накладываются. Без блокировки оба видели бы один и тот же
+    `executed_at IS NULL` и отправляли письмо дважды; со `SKIP LOCKED`
+    второй тик просто пропускает занятые строки."""
     res = await db.execute(
         select(AutomationStepRun)
         .where(
@@ -269,5 +278,32 @@ async def list_due_step_runs(
         )
         .order_by(AutomationStepRun.scheduled_at.asc())
         .limit(limit)
+        .with_for_update(skip_locked=True)
     )
     return list(res.scalars().all())
+
+
+async def claim_step_run(
+    db: AsyncSession, *, step_run_id: uuid.UUID
+) -> AutomationStepRun | None:
+    """Повторный захват одной строки внутри её собственной транзакции
+    (ARCH-05b).
+
+    `list_due_step_runs` берёт `FOR UPDATE SKIP LOCKED` один раз на весь
+    тик, но `execute_due_step_runs` коммитит построчно — первый же commit
+    снимает блокировку со ВСЕХ оставшихся строк выборки. Наложившийся тик
+    видит строки 2..N незанятыми (`executed_at IS NULL`) и отправляет
+    письмо второй раз. Поэтому каждая строка перезахватывается прямо перед
+    обработкой, уже в своей транзакции: `None` означает, что строку либо
+    держит другой тик (SKIP LOCKED), либо он её уже исполнил
+    (`executed_at` проставлен), либо её удалили — во всех случаях строку
+    нужно пропустить."""
+    res = await db.execute(
+        select(AutomationStepRun)
+        .where(
+            AutomationStepRun.id == step_run_id,
+            AutomationStepRun.executed_at.is_(None),
+        )
+        .with_for_update(skip_locked=True)
+    )
+    return res.scalar_one_or_none()

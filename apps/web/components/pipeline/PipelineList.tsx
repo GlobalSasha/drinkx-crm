@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import type { LeadOut, Stage } from "@/lib/types";
+import type { LeadListItem, Stage } from "@/lib/types";
 import { priorityChip } from "@/lib/ui/priority";
 import { C, T } from "@/lib/design-system";
 
 interface Props {
   stages: Stage[];
-  leads: LeadOut[];
+  leads: LeadListItem[];
 }
 
 /**
@@ -31,7 +31,7 @@ export function PipelineList({ stages, leads }: Props) {
   const [filterStageId, setFilterStageId] = useState<string | null>(null);
 
   const grouped = useMemo(() => {
-    const m: Record<string, LeadOut[]> = {};
+    const m: Record<string, LeadListItem[]> = {};
     stages.forEach((s) => (m[s.id] = []));
     leads.forEach((lead) => {
       const sid = lead.stage_id;

@@ -19,6 +19,7 @@ from sqlalchemy import (
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -55,7 +56,7 @@ class ImportJob(Base, UUIDPrimaryKeyMixin):
             "ix_import_jobs_workspace_status_created",
             "workspace_id",
             "status",
-            "created_at",
+            text("created_at DESC"),
         ),
         Index("ix_import_jobs_user_status", "user_id", "status"),
     )
@@ -126,7 +127,7 @@ class ExportJob(Base, UUIDPrimaryKeyMixin):
     """
     __tablename__ = "export_jobs"
     __table_args__ = (
-        Index("ix_export_jobs_workspace", "workspace_id", "created_at"),
+        Index("ix_export_jobs_workspace", "workspace_id", text("created_at DESC")),
     )
 
     workspace_id: Mapped[uuid.UUID] = mapped_column(

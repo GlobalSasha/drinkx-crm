@@ -633,6 +633,13 @@ def _merge_append_only(existing: dict, incoming: dict) -> dict:
     return merged
 
 
+# Статусы, из которых запуск обогащения ещё имеет смысл. Создатель строки
+# (`enrichment/services.py::trigger_enrichment`) ставит "running"; "pending"
+# и "queued" перечислены на случай, если появится отложенная постановка.
+# Всё остальное ("succeeded"/"failed") — терминально.
+_RUNNABLE_RUN_STATUSES = frozenset({"running", "pending", "queued"})
+
+
 async def run_enrichment(
     *,
     db: AsyncSession,
@@ -654,6 +661,19 @@ async def run_enrichment(
     run: EnrichmentRun | None = run_result.scalar_one_or_none()
     if run is None:
         log.error("enrichment.run_not_found", run_id=str(run_id))
+        return
+
+    # S-4: у запуска, который уже пришёл к терминальному статусу, работы нет.
+    # Докстрока обещала идемпотентность, но проверки не было: повтор
+    # (перезапуск задачи, двойной клик, replay из очереди) шёл в LLM второй
+    # раз — второй счёт за токены, вторая запись в бюджет дня, второе
+    # уведомление и вторая карточка `enrichment_done` в ленте.
+    if run.status not in _RUNNABLE_RUN_STATUSES:
+        log.info(
+            "enrichment.skipped_terminal_run",
+            run_id=str(run_id),
+            status=run.status,
+        )
         return
 
     bound_log = log.bind(run_id=str(run_id), lead_id=str(run.lead_id))

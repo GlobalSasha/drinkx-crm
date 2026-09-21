@@ -21,15 +21,16 @@ import { UserSelect } from "@/components/ui/UserSelect";
 import { useMe } from "@/lib/hooks/use-me";
 import { useUsers } from "@/lib/hooks/use-users";
 import { useUpdateTask } from "@/lib/hooks/use-tasks";
+import { apiErrorDetail } from "@/lib/api-error";
 import { C } from "@/lib/design-system";
-import type { ActivityOut } from "@/lib/types";
+import type { MyTaskOut } from "@/lib/types";
 
 interface Props {
   leadId: string;
 }
 
-function taskTitle(a: ActivityOut): string {
-  return (a.payload_json?.title as string | undefined) ?? a.body ?? "Задача";
+function taskTitle(a: MyTaskOut): string {
+  return a.text || "Задача";
 }
 
 function formatDue(iso: string | null): string | null {
@@ -44,7 +45,15 @@ function formatDue(iso: string | null): string | null {
 // Manager-entered tasks only — no follow-ups, no AI. The manager sets
 // text and due date.
 export function TasksTab({ leadId }: Props) {
-  const { data: tasks, isLoading, isError } = useLeadTasks(leadId);
+  const {
+    items: tasks,
+    counts,
+    isLoading,
+    isError,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useLeadTasks(leadId);
   const createTask = useCreateLeadTask(leadId);
   const completeTask = useCompleteLeadTask(leadId);
   const reopenTask = useReopenLeadTask(leadId);
@@ -59,11 +68,29 @@ export function TasksTab({ leadId }: Props) {
 
   const update = useUpdateTask();
   const [delegatingId, setDelegatingId] = useState<string | null>(null);
+  // Что человек выбрал, пока запрос в пути, и в какой строке. На ошибке
+  // селектор остаётся открытым с этим значением — раньше он закрывался
+  // сразу после mutate, и при отказе выбор пропадал вместе с объяснением.
+  // Id задачи лежит рядом со значением: ожидание и ошибка принадлежат
+  // своей строке. Без него выбор и отказ по одной задаче протекали в
+  // селектор соседней.
+  const [pendingDelegate, setPendingDelegate] = useState<{
+    taskId: string;
+    value: string | null;
+  } | null>(null);
 
   const handleDelegate = (taskId: string, v: string | null) => {
-    // Пусто — задачу оставляем владельцу лида.
-    update.mutate({ taskId, body: { assignee_user_id: v }, leadId });
-    setDelegatingId(null);
+    // Пусто — снять явного исполнителя, задачу делает владелец лида.
+    setPendingDelegate({ taskId, value: v });
+    update.mutate(
+      { taskId, body: { assignee_user_id: v }, leadId },
+      {
+        onSuccess: () => {
+          setDelegatingId(null);
+          setPendingDelegate(null);
+        },
+      },
+    );
   };
 
   const [adding, setAdding] = useState(false);
@@ -72,7 +99,18 @@ export function TasksTab({ leadId }: Props) {
   const [due, setDue] = useState(""); // datetime-local: yyyy-mm-ddTHH:mm
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
-  const [editingTask, setEditingTask] = useState<ActivityOut | null>(null);
+  const [editingTask, setEditingTask] = useState<MyTaskOut | null>(null);
+
+  // Отметка «сделано», переоткрытие и архивация раньше молча ничего не
+  // делали при ошибке: у строки нет своего места под сообщение, поэтому
+  // показываем его над списком.
+  const rowActionError = completeTask.isError
+    ? apiErrorDetail(completeTask.error, "Не удалось закрыть задачу")
+    : reopenTask.isError
+      ? apiErrorDetail(reopenTask.error, "Не удалось вернуть задачу в работу")
+      : archiveTask.isError
+        ? apiErrorDetail(archiveTask.error, "Не удалось архивировать задачу")
+        : null;
 
   function assigneeName(id: string): string {
     if (id === me?.id) return "вам";
@@ -80,21 +118,14 @@ export function TasksTab({ leadId }: Props) {
     return u?.name || u?.email || id.slice(0, 8);
   }
 
-  // Open first, then by due date ascending (nulls last).
+  // Порядок задаёт база: не сделано → срок (пустые в конец) → id. Раньше
+  // список пересортировывался здесь, и это работало ровно до тех пор, пока
+  // всё помещалось в один ответ. Поиск по-прежнему клиентский — он сужает
+  // загруженные страницы, о чём под списком написано прямо.
   const rows = useMemo(() => {
-    const sorted = [...(tasks ?? [])].sort((a, b) => {
-      if (a.task_done !== b.task_done) return a.task_done ? 1 : -1;
-      const ad = a.task_due_at ? new Date(a.task_due_at).getTime() : Infinity;
-      const bd = b.task_due_at ? new Date(b.task_due_at).getTime() : Infinity;
-      return ad - bd;
-    });
     const q = search.trim().toLowerCase();
-    if (!q) return sorted;
-    return sorted.filter((a) => {
-      const title = taskTitle(a).toLowerCase();
-      const body = (a.body ?? "").toLowerCase();
-      return title.includes(q) || body.includes(q);
-    });
+    if (!q) return tasks;
+    return tasks.filter((a) => taskTitle(a).toLowerCase().includes(q));
   }, [tasks, search]);
 
   function handleSubmit() {
@@ -208,6 +239,11 @@ export function TasksTab({ leadId }: Props) {
               <X size={14} />
             </button>
           </div>
+          {createTask.isError && (
+            <p role="alert" className="text-xs text-rose">
+              {apiErrorDetail(createTask.error, "Не удалось сохранить задачу")}
+            </p>
+          )}
         </div>
       )}
 
@@ -222,14 +258,24 @@ export function TasksTab({ leadId }: Props) {
         <p className="type-caption text-rose py-4">Не удалось загрузить задачи</p>
       )}
 
+      {rowActionError && (
+        <p role="alert" className="type-caption text-rose pb-2">
+          {rowActionError}
+        </p>
+      )}
+
       {!isLoading && !isError && rows.length === 0 && (
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon"><ListChecks /></EmptyMedia>
-            <EmptyTitle>{search.trim() ? "Ничего не найдено" : "Задач пока нет"}</EmptyTitle>
+            <EmptyTitle>
+              {/* «Задач пока нет» — только когда их нет на сервере, а не когда
+                  поиск или незагруженные страницы скрыли всё найденное. */}
+              {(counts?.total ?? 0) > 0 ? "Ничего не найдено" : "Задач пока нет"}
+            </EmptyTitle>
             <EmptyDescription>
-              {search.trim()
-                ? "Попробуйте другой запрос или очистите поиск."
+              {(counts?.total ?? 0) > 0
+                ? "Попробуйте другой запрос, очистите поиск или загрузите ещё задачи."
                 : "Поставьте первую задачу через кнопку «+ Добавить задачу»."}
             </EmptyDescription>
           </EmptyHeader>
@@ -241,6 +287,11 @@ export function TasksTab({ leadId }: Props) {
           {rows.map((a) => {
             const dueLabel = formatDue(a.task_due_at);
             const isExpanded = expanded.has(a.id);
+            // Ожидание и ошибка делегирования — только у той строки, из
+            // которой ушёл запрос.
+            const isDelegateOwner = pendingDelegate?.taskId === a.id;
+            const rowDelegatePending = isDelegateOwner && update.isPending;
+            const rowDelegateError = isDelegateOwner && update.isError;
             const toggle = () =>
               setExpanded((s) => {
                 const n = new Set(s);
@@ -282,23 +333,33 @@ export function TasksTab({ leadId }: Props) {
                         <Calendar size={11} /> до {dueLabel}
                       </span>
                     )}
-                    {a.assignee_user_id && (
+                    {a.explicit_assignee_user_id && (
                       <span className="inline-flex items-center gap-1 type-caption text-brand-muted mt-0.5">
-                        <UserRound size={11} /> поручено: {assigneeName(a.assignee_user_id)}
+                        <UserRound size={11} /> поручено:{" "}
+                        {assigneeName(a.explicit_assignee_user_id)}
                       </span>
                     )}
                     {delegatingId === a.id && (
                       <div className="mt-2 max-w-xs">
                         <UserSelect
-                          value={a.assignee_user_id}
+                          value={
+                            rowDelegateError || rowDelegatePending
+                              ? (pendingDelegate?.value ?? null)
+                              : a.explicit_assignee_user_id
+                          }
                           onChange={(v) => handleDelegate(a.id, v)}
                           users={users}
                           meId={me?.id}
                           allowEmpty
                           emptyLabel="Владелец лида"
-                          disabled={update.isPending}
+                          disabled={rowDelegatePending}
                           aria-label="Кому поручить задачу"
                         />
+                        {rowDelegateError && (
+                          <p role="alert" className="mt-1 type-caption text-brand-danger">
+                            {apiErrorDetail(update.error, "Не удалось поручить задачу")}
+                          </p>
+                        )}
                       </div>
                     )}
                   </ItemContent>
@@ -381,13 +442,40 @@ export function TasksTab({ leadId }: Props) {
         </ul>
       )}
 
+      {/* История не тянется сама: первая страница — то, что нужно сейчас.
+          Счётчик берётся с сервера, поэтому он про все задачи лида, а не
+          про загруженные. */}
+      {!isLoading && !isError && hasNextPage && (
+        <div className="pt-3 flex flex-col items-center gap-1">
+          <Button
+            variant="pill"
+            size="sm"
+            type="button"
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+          >
+            {isFetchingNextPage ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              "Показать ещё"
+            )}
+          </Button>
+          {counts && (
+            <span className="type-caption text-brand-muted">
+              показано {tasks.length} из {counts.total}
+              {search.trim() ? " — поиск идёт по загруженным" : ""}
+            </span>
+          )}
+        </div>
+      )}
+
       {editingTask && (
         <TaskEditModal
           leadId={leadId}
           taskId={editingTask.id}
           initialTitle={taskTitle(editingTask)}
           initialDueIso={editingTask.task_due_at}
-          initialAssigneeId={editingTask.assignee_user_id}
+          initialAssigneeId={editingTask.explicit_assignee_user_id}
           onClose={() => setEditingTask(null)}
         />
       )}

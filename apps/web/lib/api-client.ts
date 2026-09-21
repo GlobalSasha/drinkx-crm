@@ -1,6 +1,7 @@
 // Typed wrapper around fetch for the FastAPI backend.
 // Adds JWT from Supabase session and unwraps JSON.
 
+import { devAuthBypassEnabled } from "@/lib/dev-auth";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -19,7 +20,10 @@ async function request<T>(
   options: { body?: unknown; token?: string; signal?: AbortSignal } = {},
 ): Promise<T> {
   let token = options.token;
-  if (!token && typeof window !== "undefined") {
+  // В dev-режиме токена нет и взять его негде: Supabase-клиента без реального
+  // проекта не создать. Запрос уходит без заголовка — бэкенд в stub-режиме
+  // примет его под той же личностью.
+  if (!token && typeof window !== "undefined" && !devAuthBypassEnabled()) {
     const supabase = getSupabaseBrowserClient();
     const { data } = await supabase.auth.getSession();
     token = data.session?.access_token ?? undefined;
@@ -56,7 +60,7 @@ async function request<T>(
 
 async function postFormData<T>(path: string, form: FormData): Promise<T> {
   let token: string | undefined;
-  if (typeof window !== "undefined") {
+  if (typeof window !== "undefined" && !devAuthBypassEnabled()) {
     const supabase = getSupabaseBrowserClient();
     const { data } = await supabase.auth.getSession();
     token = data.session?.access_token ?? undefined;

@@ -1,0 +1,31 @@
+# Mandatory checks for every pull request.
+#
+# No path filters on purpose. A filtered workflow that never runs reports no
+# status at all, and the gaps are exactly the changes that matter here —
+# infra/production, the workflows themselves, both Dockerfiles, the root
+# lockfile and workspace manifests. Running everything is slower and
+# unambiguous; narrowing it is an optimisation for later, not a starting point.
+#
+# Secrets are deliberately not passed to the called workflow: pull request code
+# must never run with credentials that can reach production.
+
+name: PR checks
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Supersede the previous run for the same pull request; nothing here touches
+  # shared state, so cancelling an outdated run is free.
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    uses: ./.github/workflows/quality.yml
+    with:
+      # The head commit of the pull request, not the moving branch ref.
+      sha: ${{ github.event.pull_request.head.sha }}

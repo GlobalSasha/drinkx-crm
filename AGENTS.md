@@ -75,8 +75,12 @@ CLAUDE.md      # same context, for Claude Code
 - Next.js 15, App Router, TypeScript strict.
 - shadcn/ui + Tailwind, Zustand for client state, TanStack Query for server state.
 - Mobile-first responsive — desktop-only is not acceptable.
-- Routes mirror the IA: `/today`, `/pipeline`, `/leads/[id]`, `/inbox`, `/team`,
-  `/knowledge`, `/segments`, `/settings`, `/onboarding`.
+- Маршруты — по `apps/web/app/(app)/`, а не по плану IA: `/today`, `/triage`,
+  `/incoming`, `/pipeline`, `/leads/[id]`, `/leads-pool`, `/forecast`, `/tasks`,
+  `/team`, `/companies`, `/automations`, `/forms`, `/knowledge`, `/audit`,
+  `/guide`, `/settings`. Маршрутов `/inbox`, `/segments`, `/onboarding` нет
+- Контракты выборок и списков описаны не здесь: база лидов —
+  `docs/LEAD_POOL_SELECTION.md`, задачи — `docs/TASK_LISTS.md`.
 - Spacing scale: **4-8-12-16-24-32px only**, no arbitrary values.
 - Fonts: **no Inter, Roboto, or Arial.** Apple system fonts for service-grade screens;
   the taste-soft variant uses Plus Jakarta Sans + JetBrains Mono.
@@ -106,7 +110,10 @@ CLAUDE.md      # same context, for Claude Code
 | Google OAuth | Sign-in | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
 | Sentry | Errors | `SENTRY_DSN` |
 
-Local dev uses `.env.local` files. Production env vars live on the bare-metal server at
+Локально: фронтенд — `apps/web/.env.local` (конвенция Next.js), API —
+`apps/api/.env` (`pydantic-settings` читает файл ровно с этим именем, см.
+`app/config.py`; `.env.local` рядом с ним молча игнорируется, и настройки
+остаются дефолтными). Production env vars live on the bare-metal server at
 `/opt/drinkx-crm/.env` and in GitHub Actions secrets. **NEVER commit real keys.**
 
 ## Deployment
@@ -114,9 +121,12 @@ Local dev uses `.env.local` files. Production env vars live on the bare-metal se
 Production runs on a **bare-metal server** (`crm.drinkx.tech` / `77.105.168.227`), NOT
 Vercel/Railway.
 
-- **Trigger:** every push to `main` fires `.github/workflows/deploy.yml`. It SSHes into
-  the server and runs `infra/production/deploy.sh` — `git pull`, `docker compose build`
-  of `web`, `api`, `worker`, `beat`, then health-checks `/sign-in`.
+- **Trigger:** every push to `main` fires `.github/workflows/deploy.yml`, after
+  `quality.yml` passes on that exact commit. It ships a `git archive` of the commit,
+  unpacks it into a clean `/opt/drinkx-crm/releases/<sha>/`, and runs
+  `infra/production/deploy.sh` from there — `docker compose build` of `web`, `api`,
+  `worker`, `beat`, health checks, then an image-identity check. No `git pull` on the
+  server. Secrets: `/opt/drinkx-crm/shared/.env`. See `infra/production/RELEASE_GATE.md`.
 - **Frontend** (`apps/web`): Next.js 15 in the `web` container.
 - **Backend** (`apps/api`): FastAPI in `api`; Celery worker in `worker`; Celery beat in
   `beat` — all three share one image.

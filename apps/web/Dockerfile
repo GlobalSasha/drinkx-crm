@@ -48,6 +48,15 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
+# Build-time version stamp — see the note in apps/api/Dockerfile. ARG scope is
+# per-stage, so it is re-declared here rather than inherited from the builder.
+ARG GIT_SHA=unknown
+ENV DRINKX_GIT_SHA=${GIT_SHA}
+
+# Image-level revision — see the note in apps/api/Dockerfile. This is what the
+# deploy gate compares; the ENV above is only for convenience inside the app.
+LABEL org.opencontainers.image.revision=${GIT_SHA}
+
 USER nextjs
 EXPOSE 3000
 

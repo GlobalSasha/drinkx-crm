@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 import structlog
-from sqlalchemy import desc, select
+from sqlalchemy import desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enrichment.budget import has_budget_remaining, _daily_cap_usd, get_daily_spend_usd
@@ -104,6 +104,36 @@ async def trigger_enrichment(
         delta={"run_id": str(run.id)},
     )
     return run
+
+
+async def expire_stuck_runs(db: AsyncSession) -> int:
+    """S-2: погасить все зомби-строки `running` старше порога. Возвращает
+    число погашенных.
+
+    Ленивый сторож в `get_latest_run` трогает одну строку и только когда
+    кто-то открыл карточку именно этого лида. Пока никто не открыл, строка
+    занимает место в потолке `ai_max_parallel_jobs`
+    (`concurrency.count_running_for_workspace`) — и обогащение во всём
+    пространстве отвечает 429. Этот проход не зависит от того, смотрит ли
+    кто-то карточку.
+    """
+    cutoff = datetime.now(tz=timezone.utc) - timedelta(seconds=STUCK_RUN_TIMEOUT_SECONDS)
+    res = await db.execute(
+        update(EnrichmentRun)
+        .where(EnrichmentRun.status == "running", EnrichmentRun.started_at < cutoff)
+        .values(
+            status="failed",
+            finished_at=datetime.now(tz=timezone.utc),
+            error=func.coalesce(
+                EnrichmentRun.error,
+                f"stuck-run guard: no completion within {STUCK_RUN_TIMEOUT_SECONDS}s",
+            ),
+        )
+    )
+    expired = res.rowcount or 0
+    if expired:
+        log.warning("enrichment.stuck_runs_expired", count=expired)
+    return expired
 
 
 async def get_latest_run(

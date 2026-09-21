@@ -10,9 +10,12 @@ import base64
 import hashlib
 import hmac
 import os
+import secrets
 import time
 from urllib.parse import urlencode
 from uuid import UUID
+
+import structlog
 
 # Google returns extra scopes (openid, userinfo.*) on top of the requested
 # gmail.readonly when the user already granted them via Supabase sign-in.
@@ -23,7 +26,20 @@ from google_auth_oauthlib.flow import Flow  # noqa: E402
 
 from app.config import get_settings
 
+log = structlog.get_logger()
+
 _STATE_TTL_SECONDS = 600  # consent flow must complete within 10 min
+
+# Ключ на время жизни процесса — запасной вариант ТОЛЬКО для локальной
+# разработки, когда SUPABASE_JWT_SECRET не задан. Он случайный, поэтому
+# подписать state им снаружи нельзя; внутри одного процесса цикл
+# consent → callback (10 минут) отрабатывает как обычно.
+_EPHEMERAL_DEV_KEY = secrets.token_bytes(32)
+_warned_ephemeral = False
+
+
+class OAuthStateKeyError(Exception):
+    """Ключ подписи OAuth-state не настроен там, где он обязателен."""
 
 
 def _redirect_uri() -> str:
@@ -96,9 +112,40 @@ def exchange_code_for_credentials(code: str) -> dict:
 
 
 def _state_signing_key() -> bytes:
+    """Ключ подписи `state`.
+
+    `gmail/callback` не может опереться на `current_user` — браузер
+    приходит туда без нашего заголовка, — поэтому подпись state и есть
+    граница «чей ящик к чьей учётке». Зашитая в исходники константа в
+    роли ключа означала бы, что state за любого пользователя подпишет
+    каждый, кто читал репозиторий.
+
+    Поэтому: настроенный секрет — всегда; в production без секрета —
+    отказ (тот же fail-closed, что в `app/inbox/crypto.py`); вне
+    production — случайный ключ процесса и предупреждение в лог.
+    """
+    global _warned_ephemeral
     s = get_settings()
-    secret = s.supabase_jwt_secret or "drinkx-dev-state-key"
-    return secret.encode("utf-8")
+    secret = (s.supabase_jwt_secret or "").strip()
+    if secret:
+        return secret.encode("utf-8")
+    if s.app_env == "production":
+        log.error("inbox.oauth.state_key_missing_in_prod")
+        raise OAuthStateKeyError(
+            "SUPABASE_JWT_SECRET is not configured in production — refusing "
+            "to sign or verify Gmail OAuth state"
+        )
+    if not _warned_ephemeral:
+        _warned_ephemeral = True
+        log.warning(
+            "inbox.oauth.state_key_ephemeral",
+            message=(
+                "SUPABASE_JWT_SECRET not configured — Gmail OAuth state is "
+                "signed with a random per-process key. Set SUPABASE_JWT_SECRET "
+                "for anything other than local development."
+            ),
+        )
+    return _EPHEMERAL_DEV_KEY
 
 
 def sign_state(user_id: UUID) -> str:
@@ -125,6 +172,9 @@ def verify_state(state: str) -> UUID | None:
             return None
         return UUID(user_str)
     except (ValueError, TypeError):
+        return None
+    except OAuthStateKeyError:
+        # Проверить подпись нечем — значит state недействителен.
         return None
 
 

@@ -22,6 +22,7 @@ from app.auth.dependencies import current_user
 from app.auth.models import User
 from app.config import get_settings
 from app.db import get_db
+from app.leads.access import lead_access_guard
 from app.inbox import message_services
 from app.inbox import oauth as oauth_helpers
 from app.inbox.crypto import encrypt_credentials
@@ -57,7 +58,14 @@ async def connect_gmail(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="google_oauth_not_configured",
         )
-    state = oauth_helpers.sign_state(user.id)
+    try:
+        state = oauth_helpers.sign_state(user.id)
+    except oauth_helpers.OAuthStateKeyError as exc:
+        log.error("inbox.connect_gmail.state_key_missing", error=str(exc)[:200])
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="oauth_state_key_not_configured",
+        ) from exc
     consent_url = oauth_helpers.build_consent_url(state)
     return {"redirect_url": consent_url}
 
@@ -218,8 +226,14 @@ async def assign_unmatched_message(
 # router prefix is `/leads`, so this sub-router fits naturally next to it.
 # ---------------------------------------------------------------------------
 
+# Страж доступа к лиду — тот же, что на роутере `/leads`. Этот роутер
+# подключается отдельно, поэтому зависимость надо назвать явно: без неё
+# менеджер, знающий UUID чужого лида, работал с ним через этот префикс
+# (аудит SEC-01).
 lead_inbox_router = APIRouter(
-    prefix="/leads/{lead_id}/inbox", tags=["inbox"]
+    prefix="/leads/{lead_id}/inbox",
+    tags=["inbox"],
+    dependencies=[Depends(lead_access_guard)],
 )
 
 

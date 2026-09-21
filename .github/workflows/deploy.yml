@@ -1,3 +1,12 @@
+# Releasing commit S requires the mandatory checks of commit S to have passed.
+# Not "main was green yesterday", and not "a pull request with a different SHA
+# was green before the merge" — the exact commit being shipped.
+#
+# Before G2 this workflow ran on its own push event with no dependency on the
+# API or web checks at all, and those two had path filters of their own, so a
+# change to infra or the root lockfile could reach production having been
+# tested by nothing.
+
 name: Deploy to crm.drinkx.tech
 
 on:
@@ -5,12 +14,41 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
+  # Never two deploys mutating the same server at once, and never cancel one
+  # halfway through replacing containers.
   group: deploy-production
   cancel-in-progress: false
 
 jobs:
+  # Manual runs are for re-releasing main, not for shipping an arbitrary ref.
+  guard:
+    name: Release candidate guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Only main may be released
+        run: |
+          REF='${{ github.ref }}'
+          if [ "$REF" != "refs/heads/main" ]; then
+            echo "::error::production releases come from main only, got $REF"
+            exit 1
+          fi
+          echo "releasing ${{ github.sha }} from $REF"
+
+  # The same mandatory checks a pull request runs, against this exact commit.
+  # No secrets are passed: nothing in here can touch the server.
+  quality:
+    name: Quality
+    needs: guard
+    uses: ./.github/workflows/quality.yml
+    with:
+      sha: ${{ github.sha }}
+
   deploy:
+    needs: [guard, quality]
     runs-on: ubuntu-latest
     # 25m headroom: the web build alone runs ~10-15m and crept to 14m41s on the
     # Wave 2 deploy; the КП feature adds more frontend. 15m was cutting it close.
@@ -32,30 +70,76 @@ jobs:
       # (2026-07-14). The runner always has GitHub — so it ships the code and
       # the server never talks to GitHub at all.
       #
-      # No --delete: `git reset --hard` never removed untracked files either,
-      # and a stray --delete here would wipe infra/production/.env (the prod
-      # secrets, deliberately not in git). .env is excluded twice on purpose.
-      - name: Ship code to server
+      # Serialised by the concurrency group above, so by the time this runs a
+      # newer candidate may already have been merged and be queued behind us.
+      # Shipping now would put the older tree on the server and leave the newer
+      # run to fix it. Stop instead: this candidate was superseded, and the run
+      # for the newer commit is the one that should deploy.
+      - name: Refuse a superseded candidate
         run: |
-          rsync -az --timeout=60 \
-            -e "ssh -i ~/.ssh/deploy_key -o ServerAliveInterval=30 -o ServerAliveCountMax=10" \
-            --exclude='.git/' \
-            --exclude='.env' \
-            --exclude='.env.*' \
-            --exclude='infra/production/.env' \
-            --exclude='node_modules/' \
-            --exclude='.next/' \
-            --exclude='__pycache__/' \
-            --exclude='.venv/' \
-            ./ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/drinkx-crm/"
+          TIP="$(git ls-remote https://github.com/${{ github.repository }}.git refs/heads/main | cut -f1)"
+          if [ -z "$TIP" ]; then
+            echo "::error::could not read the current tip of main"
+            exit 1
+          fi
+          if [ "$TIP" != "${{ github.sha }}" ]; then
+            echo "::error::superseded: main is now $TIP, this run is for ${{ github.sha }} — not deploying an older tree"
+            exit 1
+          fi
+          echo "still the tip of main: $TIP"
+
+      # G4 / DEBT-01. This used to be `rsync` without --delete into one
+      # long-lived /opt/drinkx-crm. A file deleted from git therefore stayed on
+      # the server, and the Dockerfile copies whole directories
+      # (`COPY apps/api/app ./app`, `COPY docs ./docs`), so a removed module
+      # could still be baked into the image. --delete was not an option there:
+      # the same directory holds infra/production/.env, the production secrets,
+      # deliberately not in git.
+      #
+      # So the unit of delivery is now an archive of the commit's tree, not a
+      # sync of a working directory. `git archive` cannot emit an untracked or
+      # a deleted file, and the server unpacks it into an empty per-SHA
+      # directory. Secrets stay in shared/.env, outside every release tree, and
+      # nothing under /opt/drinkx-crm is deleted wholesale.
+      - name: Build release archive
+        run: |
+          infra/production/make_release_archive.sh \
+            "${{ github.sha }}" "$RUNNER_TEMP/${{ github.sha }}.tar.gz"
+
+      - name: Ship release archive to server
+        run: |
+          SSH_OPTS="-i ~/.ssh/deploy_key -o ConnectTimeout=30 -o ServerAliveInterval=30 -o ServerAliveCountMax=10"
+          # shellcheck disable=SC2086
+          ssh $SSH_OPTS "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "mkdir -p /opt/drinkx-crm/incoming"
+          # shellcheck disable=SC2086
+          scp $SSH_OPTS \
+            "$RUNNER_TEMP/${{ github.sha }}.tar.gz" \
+            "$RUNNER_TEMP/${{ github.sha }}.tar.gz.sha256" \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/drinkx-crm/incoming/"
+
+      # Piped over stdin rather than run from a path on the server: the tree
+      # that would hold such a script is exactly the thing this step creates.
+      # The version that runs is always the one from the commit being released.
+      - name: Prepare clean release tree
+        run: |
+          ssh -i ~/.ssh/deploy_key -o ConnectTimeout=30 -o ServerAliveInterval=30 \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "DEPLOY_ROOT=/opt/drinkx-crm bash -s -- '${{ github.sha }}'" \
+            < infra/production/remote_prepare_release.sh
 
       # ServerAliveInterval keeps the session alive across the ~12-15m build,
       # which prints nothing for minutes at a time.
+      #
+      # deploy.sh exits non-zero on a failed build, a failed start, an exhausted
+      # health-check budget, or containers running anything other than
+      # github.sha — so a non-zero here means the release did NOT land. Before
+      # G1 a failed build only printed a warning and the script exited 0.
       - name: Trigger deploy
         run: |
-          ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=20 \
+          ssh -o ConnectTimeout=30 -o ServerAliveInterval=30 -o ServerAliveCountMax=20 \
             -i ~/.ssh/deploy_key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
-            "DEPLOY_SHA='${{ github.sha }}' bash /opt/drinkx-crm/infra/production/deploy.sh"
+            "DEPLOY_SHA='${{ github.sha }}' bash /opt/drinkx-crm/releases/${{ github.sha }}/infra/production/deploy.sh"
 
       - name: Verify health
         run: |
@@ -84,3 +168,25 @@ jobs:
           check "API" https://crm.drinkx.tech/api/health || exit 1
 
           echo "✅ Deploy verified"
+
+      # HTTP 200 only proves something is answering — the previous release
+      # answers just as well. /health reports DRINKX_GIT_SHA, which is baked
+      # into the image at build time (see the GIT_SHA build arg), so a match
+      # here means the commit under test is the one serving traffic.
+      - name: Verify running version
+        run: |
+          EXPECTED='${{ github.sha }}'
+          BODY=$(curl -fsS --max-time 20 --retry 3 --retry-delay 5 \
+            https://crm.drinkx.tech/api/health) || {
+              echo "could not read /api/health" >&2; exit 1; }
+          echo "health: $BODY"
+          LIVE=$(printf '%s' "$BODY" | sed -n 's/.*"sha"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+          if [ -z "$LIVE" ]; then
+            echo "::error::/api/health did not report a build SHA — cannot confirm the release is live" >&2
+            exit 1
+          fi
+          if [ "$LIVE" != "$EXPECTED" ]; then
+            echo "::error::production is serving build $LIVE, expected $EXPECTED" >&2
+            exit 1
+          fi
+          echo "✅ Production is serving $LIVE"

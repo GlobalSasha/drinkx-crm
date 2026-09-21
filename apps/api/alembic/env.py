@@ -10,28 +10,15 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 # Import settings + Base + ALL models so metadata is populated.
+# Список моделей один на проект — app/models_registry.py. Раньше он дублировался
+# здесь вручную и отставал от дерева. target_metadata — тот же Base.metadata.
 from app.config import get_settings
-from app.common.models import Base
-from app.auth import models as _auth_models  # noqa: F401
-from app.base_update import models as _base_update_models  # noqa: F401
-from app.pipelines import models as _pipeline_models  # noqa: F401
-from app.leads import models as _leads_models        # noqa: F401
-from app.contacts import models as _contacts_models  # noqa: F401
-from app.activity import models as _activity_models  # noqa: F401
-from app.followups import models as _followups_models  # noqa: F401
-from app.enrichment import models as _enrichment_models  # noqa: F401
-from app.daily_plan import models as _daily_plan_models  # noqa: F401
-from app.notifications import models as _notifications_models  # noqa: F401
-from app.audit import models as _audit_models  # noqa: F401
-from app.inbox import models as _inbox_models  # noqa: F401
-from app.import_export import models as _import_export_models  # noqa: F401
-from app.forms import models as _forms_models  # noqa: F401
-from app.custom_attributes import models as _custom_attr_models  # noqa: F401
-from app.template import models as _template_models  # noqa: F401
-from app.automation_builder import models as _automation_builder_models  # noqa: F401
-from app.quotas import models as _quotas_models  # noqa: F401
-from app.utm import models as _utm_models  # noqa: F401
-from app.presence import models as _presence_models  # noqa: F401
+from app.models_registry import Base  # noqa: F401 — импорт наполняет metadata
+from scripts.alembic_drift_policy import (
+    compare_server_default,
+    compare_type,
+    include_object,
+)
 
 config = context.config
 
@@ -53,19 +40,56 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        compare_type=True,
-        compare_server_default=True,
+        compare_type=compare_type,
+        compare_server_default=compare_server_default,
+        include_object=include_object,
     )
     with context.begin_transaction():
         context.run_migrations()
 
 
+# Alembic's bookkeeping column is too narrow for this project's revision ids.
+# The reasoning, and why the check has to look before it writes, live in
+# scripts/alembic_version_table.py. `prepend_sys_path = .` in alembic.ini puts
+# apps/api on sys.path, which is how `app.config` above is importable too.
+from scripts.alembic_version_table import (  # noqa: E402
+    CREATED,
+    UNCHANGED,
+    ensure_version_table_width,
+)
+
+# Commands that only read. `alembic current` is a status query; it has no
+# business creating or altering tables on the way to answering (finding R3).
+READ_ONLY_COMMANDS = frozenset({"current", "heads", "history", "show", "branches"})
+
+
+def _alembic_command_name() -> str | None:
+    """The subcommand being run, or None when Alembic is driven in-process."""
+    cmd = getattr(getattr(config, "cmd_opts", None), "cmd", None)
+    if not cmd:
+        return None
+    return getattr(cmd[0], "__name__", None)
+
+
 def do_run_migrations(connection: Connection) -> None:
+    command_name = _alembic_command_name()
+    if command_name in READ_ONLY_COMMANDS:
+        # Read-only: report what is there, change nothing. A narrow column will
+        # be widened by the next command that actually writes.
+        pass
+    else:
+        action = ensure_version_table_width(connection)
+        if action != UNCHANGED:
+            verb = "created" if action == CREATED else "widened"
+            print(f"alembic: {verb} the {'' if action == CREATED else 'existing '}"
+                  f"version table so it can hold this project's revision ids")
+
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
-        compare_type=True,
-        compare_server_default=True,
+        compare_type=compare_type,
+        compare_server_default=compare_server_default,
+        include_object=include_object,
     )
     with context.begin_transaction():
         context.run_migrations()

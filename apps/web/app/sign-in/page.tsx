@@ -3,12 +3,17 @@
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { T } from "@/lib/design-system";
+import { DEV_STUB_USER, devAuthBypassEnabled } from "@/lib/dev-auth";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { safeNextPath } from "@/lib/safe-url";
 
 // Left unset in production, so the shortcut and its credentials never reach the prod bundle.
 const TEST_LOGIN_EMAIL = process.env.NEXT_PUBLIC_TEST_LOGIN_EMAIL;
 const TEST_LOGIN_PASSWORD = process.env.NEXT_PUBLIC_TEST_LOGIN_PASSWORD;
+
+// Локальный стенд без Supabase: флаг + не-production (см. lib/dev-auth.ts).
+// В production-сборке выражение схлопывается в false и кнопки нет.
+const DEV_AUTH_BYPASS = devAuthBypassEnabled();
 
 function SignInForm() {
   const router = useRouter();
@@ -29,6 +34,8 @@ function SignInForm() {
 
   // Redirect already-signed-in users
   useEffect(() => {
+    // В dev-режиме сессии нет и Supabase-клиента не существует.
+    if (DEV_AUTH_BYPASS) return;
     const supabase = getSupabaseBrowserClient();
     supabase.auth.getUser().then(({ data }) => {
       if (data.user) router.replace("/today");
@@ -176,6 +183,26 @@ function SignInForm() {
             {loading ? "Отправляем…" : "Получить ссылку"}
           </button>
         </form>
+      )}
+
+      {DEV_AUTH_BYPASS && (
+        <>
+          <div className={`my-6 flex items-center gap-3 ${T.mono} text-brand-muted`}>
+            <div className="flex-1 h-px bg-black/10" />
+            ИЛИ
+            <div className="flex-1 h-px bg-black/10" />
+          </div>
+
+          <button
+            onClick={() => router.replace(nextParam as never)}
+            className="w-full py-2.5 px-4 rounded-full border border-brand-border bg-transparent text-sm text-brand-muted hover:text-brand-primary transition duration-300 active:scale-[0.98]"
+          >
+            Войти локально (dev)
+          </button>
+          <p className="text-xs text-brand-muted mt-2 text-center">
+            Без Supabase, под личностью {DEV_STUB_USER.email}. Только локально.
+          </p>
+        </>
       )}
 
       {TEST_LOGIN_EMAIL && TEST_LOGIN_PASSWORD && (

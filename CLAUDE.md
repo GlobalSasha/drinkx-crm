@@ -58,6 +58,13 @@ CLAUDE.md      # this file
 - Pydantic schemas for AI outputs use `Optional` + defaults — never raise on missing
   fields. See PRD §7.2 for the canonical `ResearchOutput` example
 - Stage transitions go through `app/automation/stage_change.py` (pre/post hooks)
+- База лидов: выборка описывается одним `LeadSelection`
+  (`app/leads/selection.py`), им пользуются список, счётчики, экспорт и
+  выдача «по фильтру». Отбор и порядок — в базе. Подробности:
+  `docs/LEAD_POOL_SELECTION.md`
+- Списки задач (`/tasks`, `/me/tasks`, `/leads/{id}/tasks`) — один контракт:
+  отбор и сортировка в базе до среза, курсорная страница, счётчики по всей
+  выборке. Порядок и причины: `docs/TASK_LISTS.md`
 
 ## Frontend conventions (apps/web)
 
@@ -67,8 +74,12 @@ CLAUDE.md      # this file
   Plus Jakarta Sans + JetBrains Mono with double-bezel cards (see prototype
   `index-soft-full.html` for the pattern)
 - Mobile-first responsive — desktop-only is not acceptable
-- Routes mirror the IA: `/today`, `/pipeline`, `/leads/[id]`, `/inbox`, `/team`,
-  `/knowledge`, `/segments`, `/settings`, `/onboarding`
+- Маршруты — по `apps/web/app/(app)/`, а не по плану IA: `/today`, `/triage`,
+  `/incoming`, `/pipeline`, `/leads/[id]`, `/leads-pool`, `/forecast`, `/tasks`,
+  `/team`, `/companies`, `/automations`, `/forms`, `/knowledge`, `/audit`,
+  `/guide`, `/settings`. Маршрутов `/inbox`, `/segments`, `/onboarding` нет
+- Контракты выборок и списков описаны не здесь: база лидов —
+  `docs/LEAD_POOL_SELECTION.md`, задачи — `docs/TASK_LISTS.md`
 
 ## Anti-patterns — do NOT introduce
 
@@ -94,8 +105,12 @@ CLAUDE.md      # this file
 | Google OAuth | Sign-in | env: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
 | Sentry | Errors | env: `SENTRY_DSN` |
 
-Local dev uses `.env.local` files. Production env vars live on the bare-metal
-server in `/opt/drinkx-crm/.env` and on GitHub Actions secrets — see
+Локально фронтенд читает `apps/web/.env.local` (конвенция Next.js), а API —
+`apps/api/.env`: `pydantic-settings` подхватывает файл ровно с этим именем
+(`app/config.py`), и `.env.local` рядом с ним молча не читается — настройки
+тогда остаются дефолтными, без единого предупреждения. Production env vars
+live on the bare-metal server in `/opt/drinkx-crm/.env` and on GitHub Actions
+secrets — see
 `infra/production/`. NEVER commit real keys.
 
 ## Deployment
@@ -105,9 +120,15 @@ NOT Vercel/Railway. Earlier docs reflected the original plan — this section
 is the canonical truth.
 
 - **Trigger**: every push to `main` fires `.github/workflows/deploy.yml` (job
-  «Deploy to crm.drinkx.tech»). The workflow SSHes into the server and runs
-  `infra/production/deploy.sh` — which `git pull`s, `docker compose build`s
-  the `web`, `api`, `worker`, and `beat` services, then health-checks `/health`.
+  «Deploy to crm.drinkx.tech»), after the mandatory checks in `quality.yml` pass
+  on that exact commit. The workflow ships a `git archive` of the commit to the
+  server, unpacks it into a clean `/opt/drinkx-crm/releases/<sha>/`, and runs
+  `infra/production/deploy.sh` from there — `docker compose build` of `web`,
+  `api`, `worker`, `beat`, health checks, then a check that the running
+  containers came from the images this build produced. The server never talks
+  to GitHub and nothing is `git pull`ed there. Secrets live in
+  `/opt/drinkx-crm/shared/.env`, outside every release tree. Details and
+  rollback: `infra/production/RELEASE_GATE.md`.
 - **Frontend (`apps/web`)**: Next.js 15 inside the `web` container; built via
   `pnpm build` during `docker compose build`.
 - **Backend (`apps/api`)**: FastAPI in `api`; Celery worker in `worker`;

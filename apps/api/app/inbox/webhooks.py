@@ -112,10 +112,14 @@ async def telegram_webhook(
         log.error("inbox.webhook.telegram.no_workspace")
         return {"status": "ignored"}
 
-    await message_services.receive(
+    _, _, after_commit = await message_services.receive(
         db, workspace_id=workspace_id, payload=payload
     )
     await db.commit()
+    # S-6: очередь трогаем только после успешного коммита — иначе worker
+    # может прийти за сообщением, которого ещё (или уже) нет в базе.
+    for enqueue in after_commit:
+        enqueue()
     return {"status": "ok"}
 
 
@@ -193,8 +197,12 @@ async def phone_webhook(
         log.error("inbox.webhook.phone.no_workspace")
         return {"status": "ignored"}
 
-    await message_services.receive(
+    _, _, after_commit = await message_services.receive(
         db, workspace_id=workspace_id, payload=payload
     )
     await db.commit()
+    # S-6: очередь трогаем только после успешного коммита — иначе worker
+    # может прийти за сообщением, которого ещё (или уже) нет в базе.
+    for enqueue in after_commit:
+        enqueue()
     return {"status": "ok"}
