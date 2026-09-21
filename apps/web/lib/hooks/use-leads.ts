@@ -79,6 +79,16 @@ export function useLeads(filters: LeadFilters = {}) {
 export const POOL_PAGE_SIZE = 50;
 
 /**
+ * Ключ кэша счётчиков фасетов.
+ *
+ * Всё, что выводит карточки из пула (взять себе, выдать менеджеру, набрать
+ * спринт, вернуть в базу), обязано сбрасывать и его. Иначе на одном экране
+ * список уже пустой, а подпись у фильтра всё ещё обещает «Москва (12)» —
+ * до минуты, пока не истечёт `staleTime` (ARCH-03 DRIFT-3).
+ */
+export const POOL_FACETS_KEY = ["leads-pool-facets"] as const;
+
+/**
  * GET /leads/pool — одна страница базы лидов.
  *
  * Весь отбор на сервере. До G6 сюда уходили только форма и needs_review,
@@ -117,7 +127,7 @@ export function usePoolFacets(filters: PoolFilterState) {
   const qs = poolScopeParams(filters).toString();
   const path = qs ? `/leads/pool/facets?${qs}` : "/leads/pool/facets";
   return useQuery<PoolFacets>({
-    queryKey: ["leads-pool-facets", qs],
+    queryKey: [...POOL_FACETS_KEY, qs],
     queryFn: () => api.get<PoolFacets>(path),
     staleTime: 60_000,
   });
@@ -201,6 +211,7 @@ export function useCreateSprint() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["leads"] });
       qc.invalidateQueries({ queryKey: ["leads-pool"] });
+      qc.invalidateQueries({ queryKey: POOL_FACETS_KEY });
     },
   });
 }
@@ -286,6 +297,7 @@ export function useClaimLead() {
 
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["leads-pool"] });
+      qc.invalidateQueries({ queryKey: POOL_FACETS_KEY });
     },
   });
 }
@@ -301,6 +313,7 @@ export function useAssignLeads() {
     mutationFn: (body) => api.post<LeadAssignOut>("/leads/assign", body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["leads-pool"] });
+      qc.invalidateQueries({ queryKey: POOL_FACETS_KEY });
       qc.invalidateQueries({ queryKey: ["leads"] });
       qc.invalidateQueries({ queryKey: ["team-stats"] });
     },
@@ -318,6 +331,7 @@ export function useUnclaimLead() {
     onSuccess: (_data, leadId) => {
       qc.invalidateQueries({ queryKey: ["leads"] });
       qc.invalidateQueries({ queryKey: ["leads-pool"] });
+      qc.invalidateQueries({ queryKey: POOL_FACETS_KEY });
       qc.invalidateQueries({ queryKey: ["lead", leadId] });
     },
   });
