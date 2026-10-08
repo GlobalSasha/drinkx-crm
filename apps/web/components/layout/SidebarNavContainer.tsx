@@ -5,7 +5,6 @@ import {
   CalendarDays,
   Kanban,
   Target,
-  BookOpen,
   Users,
   Settings,
   Bell,
@@ -86,7 +85,6 @@ export function SidebarNavContainer({
       href: isAdminOrHead ? "/team" : "/settings?section=team",
       icon: <Users size={18} />,
     });
-    base.push({ id: "knowledge", label: "База знаний", href: "/knowledge", icon: <BookOpen size={18} /> });
     base.push({ id: "guide", label: "Руководство", href: "/guide", icon: <LifeBuoy size={18} /> });
     if (isAdmin) {
       base.push({ id: "audit", label: "Журнал", href: "/audit", icon: <History size={18} /> });
