@@ -1,6 +1,10 @@
 "use client";
 
-// /knowledge — placeholder until the full KB UI lands. Originally a Sprint 3.4 G4
+// /knowledge — placeholder until the full KB UI lands. С 08.10.2026 пункта нет
+// в сайдбаре: раздел полгода отвечал «в разработке», люди ходили сюда за
+// руководством и упирались в заглушку. Вернуть пункт в SidebarNavContainer,
+// когда здесь появится содержимое (плейбуки лежат в apps/api/knowledge/drinkx).
+// Originally a Sprint 3.4 G4
 // stub; expanded in Sprint 3.5 to give managers a clearer roadmap-style message
 // instead of a flat "Раздел в разработке." dead end.
 
