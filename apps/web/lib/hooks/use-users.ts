@@ -94,3 +94,20 @@ export function useChangeUserRole() {
     },
   });
 }
+
+/** Admin/head grants or revokes a manager's access to unassigned leads. */
+export function useChangeLeadPoolAccess() {
+  const qc = useQueryClient();
+  return useMutation<UserListItemOut, ApiError, { id: string; can_access_lead_pool: boolean }>({
+    mutationFn: ({ id, can_access_lead_pool }) =>
+      api.patch<UserListItemOut>(`/users/${id}/lead-pool-access`, { can_access_lead_pool }),
+    onSuccess: (updated) => {
+      qc.setQueryData<UserListOut>(["users"], (previous) => previous && ({
+        ...previous,
+        items: previous.items.map((user) => user.id === updated.id ? updated : user),
+      }));
+      qc.invalidateQueries({ queryKey: ["users"] });
+      qc.invalidateQueries({ queryKey: ["me"] });
+    },
+  });
+}

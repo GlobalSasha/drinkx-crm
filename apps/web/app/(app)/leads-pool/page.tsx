@@ -70,6 +70,8 @@ function LeadsPoolPageInner() {
   const meQuery = useMe();
   const canAssign = meQuery.data?.role === "admin" || meQuery.data?.role === "head";
 
+  const canAccessPool = canAssign || (meQuery.data?.role === "manager" && !!meQuery.data.can_access_lead_pool);
+
   /** Любая смена условия возвращает на первую страницу. */
   const updateFilters = useCallback(
     (patch: Partial<PoolFilterState>) => {
@@ -141,11 +143,11 @@ function LeadsPoolPageInner() {
   // этим строкам. Карточка за границей не находилась ничем, счётчики в
   // выпадающих списках описывали загруженный кусок, а экспорт получал
   // урезанный набор полей (аудит G6).
-  const poolQuery = usePoolLeads(filters, page);
-  const facetsQuery = usePoolFacets(filters);
+  const poolQuery = usePoolLeads(filters, page, { enabled: canAccessPool });
+  const facetsQuery = usePoolFacets(filters, canAccessPool);
   const { mutate: claimLead } = useClaimLead();
 
-  const formsQuery = useForms();
+  const formsQuery = useForms(canAssign);
   const forms = formsQuery.data?.items ?? [];
 
   const rows = poolQuery.data?.items ?? [];
@@ -275,8 +277,9 @@ function LeadsPoolPageInner() {
           return next;
         });
         const message =
-          err.status === 409
+          err.status === 409 || err.status === 404
             ? "Эту карточку только что взял другой менеджер"
+            : err.status === 403 ? "Доступ к базе отозван. Обратитесь к руководителю."
             : "Ошибка при взятии лида";
         addToast(message, "error");
       },
@@ -292,9 +295,10 @@ function LeadsPoolPageInner() {
   const rangeFrom = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const rangeTo = Math.min(page * pageSize, total);
 
-  // Пул — только руководителю и админу (доступ урезан 2026-09-14). Пункт меню
-  // у менеджера скрыт, но по прямой ссылке страница открывалась и валилась
-  // ошибкой API — вместо неё объясняющий экран.
+  // Only management and managers with explicit access may open the pool.
+  if (meQuery.isError) {
+    return <p role="alert" className="p-6 text-rose">Не удалось проверить доступ. Обновите страницу.</p>;
+  }
   if (meQuery.isLoading || !meQuery.data) {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
@@ -302,7 +306,7 @@ function LeadsPoolPageInner() {
       </div>
     );
   }
-  if (meQuery.data.role !== "admin" && meQuery.data.role !== "head") {
+  if (!canAccessPool) {
     return (
       <div className={pageContainerVariants({ surface: "reading" })}>
         <Empty>
@@ -310,8 +314,8 @@ function LeadsPoolPageInner() {
             <EmptyMedia variant="icon"><ShieldAlert /></EmptyMedia>
             <EmptyTitle>Раздел «База лидов»</EmptyTitle>
             <EmptyDescription>
-              Базу лидов раздаёт руководитель: новые карточки придут к вам сами
-              и будут ждать в разделе «Сегодня».
+              Доступ к свободной базе выдаёт админ или руководитель в настройках команды.
+              Ваши назначенные лиды доступны в разделе «Сегодня».
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
@@ -346,14 +350,14 @@ function LeadsPoolPageInner() {
                 базе, а не к загруженному куску. */}
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <button
+            {canAssign && <button
               onClick={() => setAiUpdateOpen(true)}
               className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition hover:bg-brand-panel active:scale-[0.96]"
               aria-label="Обновление через AI"
             >
               <Sparkles size={14} />
               AI Обновление
-            </button>
+            </button>}
             {canAssign && !isLoading && !isError && (
               <button
                 onClick={() => setAssignMode("topN")}
@@ -368,7 +372,7 @@ function LeadsPoolPageInner() {
                 приоритет, tier, теги, источник и галочки почты с
                 телефоном не уходили вовсе — выгрузка не совпадала с
                 экраном (аудит G6). */}
-            <ExportPopover filters={poolFilterBody(filters)} leadCount={total} />
+            {canAssign && <ExportPopover filters={poolFilterBody(filters)} leadCount={total} />}
             {/* "Только мой пул" placeholder toggle */}
             <label className="flex items-center gap-2 cursor-pointer opacity-50" title="Скоро">
               <span className="text-xs font-semibold text-brand-muted">Только мой пул</span>
@@ -376,10 +380,10 @@ function LeadsPoolPageInner() {
             </label>
           </div>
         </div>
-        <AIBulkUpdateModal
+        {canAssign && <AIBulkUpdateModal
           open={aiUpdateOpen}
           onClose={() => setAiUpdateOpen(false)}
-        />
+        />}
 
         <PoolFilterBar
           search={searchInput}
@@ -500,6 +504,7 @@ function LeadsPoolPageInner() {
                       lead={lead}
                       onClaim={handleClaim}
                       claiming={claimingIds.has(lead.id)}
+                      canReview={canAssign}
                       selectable={canAssign}
                       selected={selectedIds.has(lead.id)}
                       onToggleSelect={toggleSelect}

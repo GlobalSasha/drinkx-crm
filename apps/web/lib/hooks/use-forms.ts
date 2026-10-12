@@ -12,8 +12,9 @@ import type {
 } from "@/lib/types";
 
 /** List forms in the current workspace. */
-export function useForms() {
+export function useForms(enabled = true) {
   return useQuery<WebFormPageOut>({
+    enabled,
     queryKey: ["forms", "list"],
     queryFn: () => api.get<WebFormPageOut>("/api/forms?page=1&page_size=100"),
   });

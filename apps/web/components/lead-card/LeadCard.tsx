@@ -23,6 +23,7 @@ import { LostModal } from "./LostModal";
 import { TransferModal } from "./TransferModal";
 import { DuplicatesModal } from "./DuplicatesModal";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
+import { PoolLeadPreview } from "./PoolLeadPreview";
 import { LeadCardHeader } from "./LeadCardHeader";
 import { NextStepPrompt } from "./NextStepPrompt";
 import { useFeed } from "@/lib/hooks/use-feed";
@@ -48,6 +49,21 @@ interface Props {
 }
 
 export function LeadCard({ leadId }: Props) {
+  const me = useMe();
+  const query = useLead(leadId);
+  // Mount the editable card (including feed and mutation controls) only after
+  // assignment. Free pool cards use a separate preview without child queries.
+  if (me.isError) return <p role="alert" className="p-6 text-rose">Не удалось проверить доступ. Обновите страницу.</p>;
+  if (!me.data || query.isLoading) return <p className="p-6 text-brand-muted">Загружаем карточку…</p>;
+  if (query.isError || !query.data) return <p role="alert" className="p-6 text-rose">Лид недоступен или ошибка загрузки.</p>;
+  if (me.data.role === "manager" && query.data.assigned_to !== me.data.id) {
+    if (query.data.assigned_to || !me.data.can_access_lead_pool) return <p role="alert" className="p-6 text-rose">Нет доступа к этому лиду.</p>;
+    return <PoolLeadPreview lead={query.data} />;
+  }
+  return <EditableLeadCard leadId={leadId} />;
+}
+
+function EditableLeadCard({ leadId }: Props) {
   const { data: lead, isLoading, isError } = useLead(leadId);
   const pipelinesQuery = usePipelines();
   const updateLead = useUpdateLead(leadId);

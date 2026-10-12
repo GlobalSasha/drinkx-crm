@@ -629,6 +629,8 @@ async def claim_lead(
             Lead.id == lead_id,
             Lead.workspace_id == workspace_id,
             Lead.assignment_status == "pool",
+            Lead.assigned_to.is_(None),
+            Lead.deleted_at.is_(None),
         )
         .values(
             assigned_to=user_id,

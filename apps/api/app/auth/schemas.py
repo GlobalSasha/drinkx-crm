@@ -28,6 +28,7 @@ class UserOut(BaseModel):
     email: EmailStr
     name: str
     role: str
+    can_access_lead_pool: bool = False
     timezone: str
     max_active_deals: int
     specialization: list[str]
