@@ -466,9 +466,9 @@ function LeadsPoolPageInner() {
         {!isLoading && !isError && total > 0 && (
           <>
             <div className="overflow-x-auto rounded-xl border border-brand-border bg-white">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-brand-border">
+              <table className="block w-full text-left lg:table">
+                <thead className="block lg:table-header-group">
+                  <tr className={`grid lg:table-row ${canAssign ? "grid-cols-[4rem_minmax(0,1fr)]" : "grid-cols-1"} border-b border-brand-border`}>
                     {canAssign && (
                       <th scope="col" className="w-16 px-2 py-2 align-middle">
                         <label className="flex h-12 w-12 cursor-pointer items-center justify-center">
@@ -483,16 +483,16 @@ function LeadsPoolPageInner() {
                         </label>
                       </th>
                     )}
-                    {/* Город/Сегмент/Fit/Статус уходят под md: на телефоне они
-                        показываются подстрокой в первой ячейке PoolRow. */}
+                    {/* На телефоне данные и действие располагаются внутри одной
+                        колонки, рядом остаётся только чекбокс выделения. */}
                     {[
                       { h: "Компания", cls: "" },
-                      { h: "Город", cls: "hidden md:table-cell" },
-                      { h: "Сегмент", cls: "hidden md:table-cell" },
-                      { h: "Tier", cls: "" },
-                      { h: "Fit Score", cls: "hidden md:table-cell" },
-                      { h: "Статус", cls: "hidden md:table-cell" },
-                      { h: "", cls: "" },
+                      { h: "Город", cls: "hidden lg:table-cell" },
+                      { h: "Сегмент", cls: "hidden lg:table-cell" },
+                      { h: "Tier", cls: "hidden lg:table-cell" },
+                      { h: "Fit Score", cls: "hidden lg:table-cell" },
+                      { h: "Статус", cls: "hidden lg:table-cell" },
+                      { h: "", cls: "hidden lg:table-cell" },
                     ].map(({ h, cls }) => (
                       <th
                         key={h}
@@ -504,7 +504,7 @@ function LeadsPoolPageInner() {
                     ))}
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="block lg:table-row-group">
                   {rows.map((lead) => (
                     <PoolRow
                       key={lead.id}

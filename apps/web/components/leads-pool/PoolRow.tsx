@@ -62,10 +62,10 @@ function PoolRowInner({ lead, onClaim, claiming, selectable, canReview = true, s
       aria-label={`Открыть лид ${lead.company_name}`}
       onClick={openLead}
       onKeyDown={handleKey}
-      className={`border-b border-brand-border transition-opacity duration-300 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-inset ${claiming ? "opacity-40" : "hover:bg-brand-bg"} ${selectable && selected ? "bg-brand-soft/40" : ""}`}
+      className={`grid lg:table-row ${selectable ? "grid-cols-[4rem_minmax(0,1fr)]" : "grid-cols-1"} border-b border-brand-border transition-opacity duration-300 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-inset ${claiming ? "opacity-40" : "hover:bg-brand-bg"} ${selectable && selected ? "bg-brand-soft/40" : ""}`}
     >
       {selectable && (
-        <td className="w-16 px-2 py-3 align-middle">
+        <td className="row-span-2 w-16 px-2 py-3 align-middle">
           <label
             className="flex h-12 w-12 cursor-pointer items-center justify-center"
             onClick={stopRowActivation}
@@ -82,10 +82,15 @@ function PoolRowInner({ lead, onClaim, claiming, selectable, canReview = true, s
           </label>
         </td>
       )}
-      <td className="px-4 py-3">
-        <p className="font-semibold text-sm text-brand-primary">{lead.company_name}</p>
+      <td className="min-w-0 [overflow-wrap:anywhere] px-4 py-3">
+        <div className="flex items-start gap-2">
+          <p className="min-w-0 flex-1 font-semibold text-sm text-brand-primary">{lead.company_name}</p>
+          <span className={`lg:hidden shrink-0 text-xs font-bold px-1.5 py-0.5 rounded-md ${TIER_STYLE[tier]}`}>
+            {tier}
+          </span>
+        </div>
         {(lead.city || lead.segment) && (
-          <p className="md:hidden text-xs text-brand-muted mt-0.5">
+          <p className="lg:hidden text-xs text-brand-muted mt-0.5">
             {[lead.city, lead.segment ? segmentLabel(lead.segment) : null]
               .filter(Boolean)
               .join(" · ")}
@@ -93,33 +98,33 @@ function PoolRowInner({ lead, onClaim, claiming, selectable, canReview = true, s
         )}
         {lead.source_form_name && (
           <span
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-2xs font-mono text-brand-accent-text bg-brand-soft"
+            className="inline-flex max-w-full items-center gap-1 px-1.5 py-0.5 rounded text-2xs font-mono text-brand-accent-text bg-brand-soft"
             title="Источник заявки"
           >
-            <Globe size={9} aria-hidden />
-            {lead.source_form_name}
+            <Globe size={9} className="shrink-0" aria-hidden />
+            <span className="min-w-0">{lead.source_form_name}</span>
           </span>
         )}
         {lead.needs_review && canReview && (
           <NeedsReviewRow lead={lead} />
         )}
       </td>
-      <td className="hidden md:table-cell px-4 py-3 text-sm text-brand-muted">{lead.city ?? "—"}</td>
-      <td className="hidden md:table-cell px-4 py-3 text-sm text-brand-muted">{lead.segment ? segmentLabel(lead.segment) : "—"}</td>
-      <td className="px-4 py-3">
+      <td className="hidden lg:table-cell px-4 py-3 text-sm text-brand-muted">{lead.city ?? "—"}</td>
+      <td className="hidden lg:table-cell px-4 py-3 text-sm text-brand-muted">{lead.segment ? segmentLabel(lead.segment) : "—"}</td>
+      <td className="hidden lg:table-cell px-4 py-3">
         <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${TIER_STYLE[tier]}`}>
           {tier}
         </span>
       </td>
-      <td className="hidden md:table-cell px-4 py-3 type-amount text-brand-muted">
+      <td className="hidden lg:table-cell px-4 py-3 type-amount text-brand-muted">
         {lead.fit_score != null ? lead.fit_score : "—"}
       </td>
-      <td className="hidden md:table-cell px-4 py-3">
+      <td className="hidden lg:table-cell px-4 py-3">
         <span className={`${T.mono} bg-black/5 text-brand-muted px-1.5 py-0.5 rounded-md`}>
           {lead.assignment_status}
         </span>
       </td>
-      <td className="px-4 py-3 text-right whitespace-nowrap">
+      <td className="min-w-0 px-4 pb-4 text-left whitespace-nowrap lg:py-3 lg:text-right">
         {claiming ? (
           <span className="inline-flex items-center gap-1 text-xs text-brand-muted font-semibold">
             <Loader2 size={12} className="animate-spin" /> Взято
@@ -127,7 +132,7 @@ function PoolRowInner({ lead, onClaim, claiming, selectable, canReview = true, s
         ) : (
           <button
             onClick={handleClaim}
-            className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-full px-3 py-1.5 text-xs font-semibold transition duration-200 hover:bg-brand-accent/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+            className="inline-flex min-h-10 items-center justify-center gap-1.5 bg-brand-accent text-white rounded-full px-3 py-1.5 text-xs font-semibold transition duration-200 hover:bg-brand-accent/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
           >
             Взять в работу
           </button>
