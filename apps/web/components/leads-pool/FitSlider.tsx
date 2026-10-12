@@ -11,18 +11,19 @@ interface Props {
 
 export function FitSlider({ value, onChange }: Props) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex h-10 items-center gap-3 px-3">
       <span className={`${T.mono} uppercase text-brand-muted whitespace-nowrap`}>
         Fit ≥ {value}
       </span>
       <input
         type="range"
+        aria-label="Минимальный Fit Score"
         min={0}
         max={10}
         step={1}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-24 accent-accent"
+        className="w-24 accent-brand-accent"
       />
     </div>
   );

@@ -76,8 +76,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     >
       {/* Mobile top bar — only visible on < md */}
       <header className="md:hidden sticky top-0 z-20 bg-white border-b border-brand-border flex items-center justify-between px-4 py-3">
-        <Link href="/today" className={`type-body font-bold tracking-tight ${C.color.text}`}>
-          drinkx<span className={C.color.accent}>.</span>crm
+        <Link href="/today" className={`type-section-title font-bold tracking-tight ${C.color.text}`}>
+          DrinkX
         </Link>
         <button
           onClick={() => setMobileNavOpen(true)}
@@ -122,9 +122,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         >
           <Link
             href="/today"
-            className="type-body font-bold tracking-tight transition-opacity"
+            className="type-section-title font-bold tracking-tight transition-opacity"
           >
-            drinkx<span className={C.color.accent}>.</span>crm
+            DrinkX
           </Link>
           <button
             onClick={() => setMobileNavOpen(false)}

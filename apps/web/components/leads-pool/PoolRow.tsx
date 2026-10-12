@@ -65,9 +65,9 @@ function PoolRowInner({ lead, onClaim, claiming, selectable, canReview = true, s
       className={`border-b border-brand-border transition-opacity duration-300 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-inset ${claiming ? "opacity-40" : "hover:bg-brand-bg"} ${selectable && selected ? "bg-brand-soft/40" : ""}`}
     >
       {selectable && (
-        <td className="px-3 py-3">
+        <td className="w-16 px-2 py-3 align-middle">
           <label
-            className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center"
+            className="flex h-12 w-12 cursor-pointer items-center justify-center"
             onClick={stopRowActivation}
           >
             <input
@@ -77,7 +77,7 @@ function PoolRowInner({ lead, onClaim, claiming, selectable, canReview = true, s
               onClick={stopRowActivation}
               onKeyDown={stopRowActivation}
               aria-label={`Выбрать ${lead.company_name}`}
-              className="h-4 w-4 accent-brand-accent"
+              className="block h-4 w-4 shrink-0 cursor-pointer accent-brand-accent"
             />
           </label>
         </td>
