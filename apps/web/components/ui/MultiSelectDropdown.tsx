@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Check } from "lucide-react";
+import { cn } from "@/lib/cn";
 
 interface Props {
   label: string;
@@ -10,6 +11,7 @@ interface Props {
   counts?: Record<string, number>;
   align?: "left" | "right";
   emptyText?: string;
+  triggerClassName?: string;
 }
 
 export function MultiSelectDropdown({
@@ -20,6 +22,7 @@ export function MultiSelectDropdown({
   counts,
   align = "left",
   emptyText,
+  triggerClassName,
 }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -61,11 +64,11 @@ export function MultiSelectDropdown({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`h-8 inline-flex items-center gap-1.5 px-3 rounded-full text-xs font-semibold transition duration-300 ${
+        className={cn(`h-8 inline-flex items-center gap-1.5 px-3 rounded-full text-xs font-semibold transition duration-300 ${
           isActive
             ? "bg-brand-accent text-white"
             : "bg-brand-bg text-brand-muted hover:bg-brand-panel border border-brand-border"
-        }`}
+        }`, triggerClassName)}
         aria-haspopup="listbox"
         aria-expanded={open}
       >

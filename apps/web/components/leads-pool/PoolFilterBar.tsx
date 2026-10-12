@@ -52,7 +52,7 @@ interface Props {
   resetAllFilters: () => void;
 }
 
-// ---- Filter row — flex-wraps over 1-2 lines depending on viewport.
+// ---- Two filter rows: search/categories, then additional conditions.
 // Order: text search → categorical dropdowns → numeric/boolean
 // modifiers → reset. Categorical filters that have nothing to
 // offer (e.g. zero unique sources in the dataset) hide their
@@ -102,156 +102,172 @@ export function PoolFilterBar({
   resetAllFilters,
 }: Props) {
   return (
-    <div className="flex flex-wrap items-center gap-2 mt-3">
-      {/* Search — name + email + phone + INN. */}
-      <div className="relative">
-        <Search
-          size={14}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted pointer-events-none"
+    <div className="mt-4 space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Search — name + email + phone + INN. */}
+        <div className="relative w-full sm:w-80 sm:shrink-0">
+          <Search
+            size={14}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted pointer-events-none"
+          />
+          <input
+            type="text"
+            aria-label="Поиск по базе лидов"
+            placeholder="Поиск: имя, email, телефон, ИНН"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8 pr-3 h-10 text-sm bg-brand-bg border border-brand-border rounded-full outline-none focus:border-brand-accent/40 focus:bg-white transition duration-300 w-full"
+          />
+        </div>
+
+        <MultiSelectDropdown
+          triggerClassName="h-10 text-sm"
+          label="Сегмент"
+          options={segments}
+          selected={segmentFilters}
+          onChange={setSegmentFilters}
+          counts={segmentCounts}
         />
-        <input
-          type="text"
-          placeholder="Поиск: имя, email, телефон, ИНН"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-8 pr-3 py-1.5 text-sm bg-brand-bg border border-brand-border rounded-full outline-none focus:border-brand-accent/40 focus:bg-white transition duration-300 w-full sm:w-64"
+
+        <MultiSelectDropdown
+          triggerClassName="h-10 text-sm"
+          label="Город"
+          options={cities}
+          selected={cityFilters}
+          onChange={setCityFilters}
+          counts={cityCounts}
         />
+
+        <MultiSelectDropdown
+          triggerClassName="h-10 text-sm"
+          label="Приоритет"
+          options={PRIORITY_OPTIONS}
+          selected={priorityFilters}
+          onChange={setPriorityFilters}
+          counts={priorityCounts}
+        />
+
+        <MultiSelectDropdown
+          triggerClassName="h-10 text-sm"
+          label="Tier"
+          options={TIER_OPTIONS}
+          selected={tierFilters}
+          onChange={setTierFilters}
+          counts={tierCounts}
+        />
+
+        {dealTypes.length > 0 && (
+          <MultiSelectDropdown
+            triggerClassName="h-10 text-sm"
+            label="Тип сделки"
+            options={dealTypes}
+            selected={dealTypeFilters}
+            onChange={setDealTypeFilters}
+            counts={dealTypeCounts}
+          />
+        )}
+
+        {sources.length > 0 && (
+          <MultiSelectDropdown
+            triggerClassName="h-10 text-sm"
+            label="Источник"
+            options={sources}
+            selected={sourceFilters}
+            onChange={setSourceFilters}
+            counts={sourceCounts}
+          />
+        )}
+
+        <select
+          aria-label="Форма заявки"
+          value={formId ?? ""}
+          onChange={(e) => setFormId(e.target.value || undefined)}
+          className="h-10 max-w-full sm:max-w-64 text-sm px-3 rounded-full bg-brand-bg border border-brand-border outline-none focus:border-brand-accent"
+        >
+          <option value="">Все источники</option>
+          {forms
+            .filter((f) => f.is_active)
+            .map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+        </select>
+
       </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          aria-pressed={needsReview === true}
+          onClick={() => setNeedsReview((v) => (v === true ? undefined : true))}
+          className={`inline-flex h-10 items-center whitespace-nowrap rounded-full border px-3 text-sm font-semibold transition-colors ${
+            needsReview === true
+              ? "bg-warning border-warning text-white"
+              : "bg-brand-bg border border-brand-border text-brand-muted hover:border-warning"
+          }`}
+        >
+          Только AI-созданные
+        </button>
 
-      <MultiSelectDropdown
-        label="Сегмент"
-        options={segments}
-        selected={segmentFilters}
-        onChange={setSegmentFilters}
-        counts={segmentCounts}
-      />
+        {tags.length > 0 && (
+          <MultiSelectDropdown
+            triggerClassName="h-10 text-sm"
+            label="Теги"
+            options={tags}
+            selected={tagFilters}
+            onChange={setTagFilters}
+            counts={tagCounts}
+          />
+        )}
 
-      <MultiSelectDropdown
-        label="Город"
-        options={cities}
-        selected={cityFilters}
-        onChange={setCityFilters}
-        counts={cityCounts}
-      />
+        <span aria-hidden="true" className="hidden h-6 border-l border-brand-border sm:block" />
 
-      <MultiSelectDropdown
-        label="Приоритет"
-        options={PRIORITY_OPTIONS}
-        selected={priorityFilters}
-        onChange={setPriorityFilters}
-        counts={priorityCounts}
-      />
+        <FitSlider value={fitMin} onChange={setFitMin} />
 
-      <MultiSelectDropdown
-        label="Tier"
-        options={TIER_OPTIONS}
-        selected={tierFilters}
-        onChange={setTierFilters}
-        counts={tierCounts}
-      />
+        <span aria-hidden="true" className="hidden h-6 border-l border-brand-border sm:block" />
 
-      {dealTypes.length > 0 && (
-        <MultiSelectDropdown
-          label="Тип сделки"
-          options={dealTypes}
-          selected={dealTypeFilters}
-          onChange={setDealTypeFilters}
-          counts={dealTypeCounts}
-        />
-      )}
-
-      {sources.length > 0 && (
-        <MultiSelectDropdown
-          label="Источник"
-          options={sources}
-          selected={sourceFilters}
-          onChange={setSourceFilters}
-          counts={sourceCounts}
-        />
-      )}
-
-      <select
-        value={formId ?? ""}
-        onChange={(e) => setFormId(e.target.value || undefined)}
-        className="text-sm px-2 py-1.5 rounded-lg bg-brand-bg border border-brand-border outline-none focus:border-brand-accent"
-      >
-        <option value="">Все источники</option>
-        {forms
-          .filter((f) => f.is_active)
-          .map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name}
-            </option>
-          ))}
-      </select>
-
-      <button
-        type="button"
-        onClick={() => setNeedsReview((v) => (v === true ? undefined : true))}
-        className={`text-xs px-2 py-1 rounded ${
-          needsReview === true
-            ? "bg-warning text-white"
-            : "bg-brand-bg border border-brand-border text-brand-muted hover:border-warning"
-        }`}
-      >
-        Только AI-созданные
-      </button>
-
-      {tags.length > 0 && (
-        <MultiSelectDropdown
-          label="Теги"
-          options={tags}
-          selected={tagFilters}
-          onChange={setTagFilters}
-          counts={tagCounts}
-        />
-      )}
-
-      <span className="text-brand-muted text-xs">|</span>
-
-      <FitSlider value={fitMin} onChange={setFitMin} />
-
-      <span className="text-brand-muted text-xs">|</span>
-
-      {/* Boolean toggles — render as pill buttons with checked state. */}
-      <button
-        type="button"
-        onClick={() => setHasEmailOnly((v) => !v)}
-        aria-pressed={hasEmailOnly}
-        className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
-          hasEmailOnly
-            ? "bg-brand-soft text-brand-accent-text border-brand-accent/30"
-            : "bg-brand-bg text-brand-muted border-brand-border hover:border-brand-border"
-        }`}
-      >
-        С email
-      </button>
-      <button
-        type="button"
-        onClick={() => setHasPhoneOnly((v) => !v)}
-        aria-pressed={hasPhoneOnly}
-        className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
-          hasPhoneOnly
-            ? "bg-brand-soft text-brand-accent-text border-brand-accent/30"
-            : "bg-brand-bg text-brand-muted border-brand-border hover:border-brand-border"
-        }`}
-      >
-        С телефоном
-      </button>
-
-      {activeFilterCount > 0 && (
-        <>
-          <span className="text-brand-muted text-xs">|</span>
+        {/* Keep the two contact conditions together when rows wrap. */}
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={resetAllFilters}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold text-rose hover:bg-rose/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose focus-visible:ring-offset-1"
+            onClick={() => setHasEmailOnly((v) => !v)}
+            aria-pressed={hasEmailOnly}
+            className={`inline-flex h-10 items-center gap-2 px-3 rounded-full text-sm font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
+              hasEmailOnly
+                ? "bg-brand-soft text-brand-accent-text border-brand-accent/30"
+                : "bg-brand-bg text-brand-muted border-brand-border hover:border-brand-border"
+            }`}
           >
-            <X size={12} />
-            Сбросить ({activeFilterCount})
+            С email
           </button>
-        </>
-      )}
+          <button
+            type="button"
+            onClick={() => setHasPhoneOnly((v) => !v)}
+            aria-pressed={hasPhoneOnly}
+            className={`inline-flex h-10 items-center gap-2 px-3 rounded-full text-sm font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
+              hasPhoneOnly
+                ? "bg-brand-soft text-brand-accent-text border-brand-accent/30"
+                : "bg-brand-bg text-brand-muted border-brand-border hover:border-brand-border"
+            }`}
+          >
+            С телефоном
+          </button>
+        </div>
+
+        {activeFilterCount > 0 && (
+          <>
+            <span aria-hidden="true" className="hidden h-6 border-l border-brand-border sm:block" />
+            <button
+              type="button"
+              onClick={resetAllFilters}
+              className="inline-flex h-10 items-center gap-2 px-3 rounded-full text-sm font-semibold text-rose hover:bg-rose/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose focus-visible:ring-offset-1"
+            >
+              <X size={12} />
+              Сбросить ({activeFilterCount})
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

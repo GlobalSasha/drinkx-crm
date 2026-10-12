@@ -334,9 +334,9 @@ function LeadsPoolPageInner() {
   return (
     <>
       {/* Sticky header */}
-      <div className="sticky top-0 z-10 bg-white border-b border-brand-border px-6 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-baseline gap-2">
+      <div className="relative z-10 bg-white border-b border-brand-border px-4 py-4 md:sticky md:top-0 md:px-6">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-3">
             <h1 className="type-page-title">База лидов</h1>
             {/* Compact total — shown small next to title, the loud counts
                 live inside each chip below. */}
@@ -349,10 +349,10 @@ function LeadsPoolPageInner() {
                 листается страницами, а фильтры и поиск применяются ко всей
                 базе, а не к загруженному куску. */}
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             {canAssign && <button
               onClick={() => setAiUpdateOpen(true)}
-              className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition hover:bg-brand-panel active:scale-[0.96]"
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 text-sm font-semibold transition hover:bg-brand-panel active:scale-[0.96]"
               aria-label="Обновление через AI"
             >
               <Sparkles size={14} />
@@ -362,7 +362,7 @@ function LeadsPoolPageInner() {
               <button
                 onClick={() => setAssignMode("topN")}
                 disabled={total === 0}
-                className="inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition hover:bg-brand-panel active:scale-[0.96] disabled:opacity-40"
+                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 text-sm font-semibold transition hover:bg-brand-panel active:scale-[0.96] disabled:opacity-40"
               >
                 Выдать по фильтру
               </button>
@@ -372,9 +372,13 @@ function LeadsPoolPageInner() {
                 приоритет, tier, теги, источник и галочки почты с
                 телефоном не уходили вовсе — выгрузка не совпадала с
                 экраном (аудит G6). */}
-            {canAssign && <ExportPopover filters={poolFilterBody(filters)} leadCount={total} />}
+            {canAssign && <ExportPopover
+              filters={poolFilterBody(filters)}
+              leadCount={total}
+              triggerClassName="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-brand-border bg-brand-bg px-4 text-sm font-semibold text-brand-primary transition hover:bg-brand-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+            />}
             {/* "Только мой пул" placeholder toggle */}
-            <label className="flex items-center gap-2 cursor-pointer opacity-50" title="Скоро">
+            <label className="flex h-10 shrink-0 items-center gap-2 opacity-50" title="Скоро">
               <span className="text-xs font-semibold text-brand-muted">Только мой пул</span>
               <div className="w-8 h-4 rounded-full bg-black/10" />
             </label>
@@ -466,15 +470,17 @@ function LeadsPoolPageInner() {
                 <thead>
                   <tr className="border-b border-brand-border">
                     {canAssign && (
-                      <th className="px-3 py-2.5">
-                        <input
-                          ref={selectAllRef}
-                          type="checkbox"
-                          checked={allFilteredSelected}
-                          onChange={toggleSelectAll}
-                          aria-label="Выбрать все в списке"
-                          className="h-4 w-4 accent-brand-accent"
-                        />
+                      <th scope="col" className="w-16 px-2 py-2 align-middle">
+                        <label className="flex h-12 w-12 cursor-pointer items-center justify-center">
+                          <input
+                            ref={selectAllRef}
+                            type="checkbox"
+                            checked={allFilteredSelected}
+                            onChange={toggleSelectAll}
+                            aria-label="Выбрать все в списке"
+                            className="block h-4 w-4 shrink-0 cursor-pointer accent-brand-accent"
+                          />
+                        </label>
                       </th>
                     )}
                     {/* Город/Сегмент/Fit/Статус уходят под md: на телефоне они
@@ -490,7 +496,8 @@ function LeadsPoolPageInner() {
                     ].map(({ h, cls }) => (
                       <th
                         key={h}
-                        className={`px-4 py-2.5 type-table-header text-brand-muted whitespace-nowrap ${cls}`}
+                        scope="col"
+                        className={`px-4 py-4 type-table-header font-bold text-brand-primary whitespace-nowrap ${cls}`}
                       >
                         {h}
                       </th>
