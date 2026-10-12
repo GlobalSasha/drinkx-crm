@@ -121,6 +121,7 @@ function LeadsPoolPageInner() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeFilters = activeFilterCount(filters);
+  const selectedFilters = activeFilterCount({ ...filters, search: "" });
 
   function resetAllFilters() {
     setFilters(EMPTY_POOL_FILTERS);
@@ -430,6 +431,7 @@ function LeadsPoolPageInner() {
           hasPhoneOnly={filters.hasPhone}
           setHasPhoneOnly={setField("hasPhone")}
           activeFilterCount={activeFilters}
+          selectedFilterCount={selectedFilters}
           resetAllFilters={resetAllFilters}
         />
       </div>

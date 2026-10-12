@@ -224,4 +224,38 @@ describe("LeadsPoolPage — доступ к выдаче лидов", () => {
 
     expect(screen.getAllByRole("checkbox").length).toBeGreaterThanOrEqual(mockLeads.length + 1);
   });
+
+  it("сворачивание фильтров сохраняет выбранные условия и их счётчик", async () => {
+    meMock.mockReturnValue({ data: { id: "me-1", role: "admin" } });
+    renderPage();
+    const toggle = screen.getByRole("button", { name: /^Фильтры/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveAccessibleName("Фильтры (0)");
+    await userEvent.click(toggle);
+    await userEvent.click(screen.getByRole("button", { name: "С email" }));
+    await userEvent.click(screen.getByRole("button", { name: "С телефоном" }));
+    expect(toggle).toHaveAccessibleName("Фильтры (2)");
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveAccessibleName("Фильтры (2)");
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "С email" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "С телефоном" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(screen.getByRole("button", { name: "Сбросить (2)" }));
+    expect(toggle).toHaveAccessibleName("Фильтры (0)");
+  });
+
+  it("поиск сохраняется при сворачивании и не считается отдельным фильтром", async () => {
+    meMock.mockReturnValue({ data: { id: "me-1", role: "head" } });
+    renderPage();
+    const search = screen.getByRole("textbox", { name: "Поиск по базе лидов" });
+    const toggle = screen.getByRole("button", { name: /^Фильтры/ });
+    await userEvent.type(search, "Москва");
+    await userEvent.click(toggle);
+    await userEvent.click(toggle);
+    expect(search).toHaveValue("Москва");
+    expect(toggle).toHaveAccessibleName("Фильтры (0)");
+  });
+
 });
