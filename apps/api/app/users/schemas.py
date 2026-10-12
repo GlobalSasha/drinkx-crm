@@ -21,6 +21,7 @@ class UserListItemOut(BaseModel):
     email: EmailStr
     name: str
     role: str
+    can_access_lead_pool: bool = False
     last_login_at: datetime | None
 
 
@@ -57,3 +58,7 @@ class UserInviteOut(BaseModel):
 
 class UserRoleUpdateIn(BaseModel):
     role: Role = Field(..., description="admin / head / manager")
+
+
+class UserLeadPoolAccessUpdateIn(BaseModel):
+    can_access_lead_pool: bool

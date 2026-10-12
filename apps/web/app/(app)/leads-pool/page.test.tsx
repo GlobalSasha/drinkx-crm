@@ -187,6 +187,18 @@ describe("LeadsPoolPage — доступ к выдаче лидов", () => {
     expect(screen.queryByRole("region", { name: "Выделенные карточки" })).toBeNull();
   });
 
+  it("manager с разрешением видит свободные лиды и claim, без AI и выдачи", async () => {
+    meMock.mockReturnValue({ data: { id: "me-1", role: "manager", can_access_lead_pool: true } });
+    renderPage();
+    expect(screen.getByText("Альфа Ритейл")).toBeInTheDocument();
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    expect(screen.queryByRole("button", { name: "Обновление через AI" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Экспорт лидов" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Выдать по фильтру/ })).toBeNull();
+    await userEvent.click(screen.getAllByRole("button", { name: "Взять в работу" })[0]);
+    expect(claimMock).toHaveBeenCalledWith("lead-1", expect.any(Object));
+  });
+
   it("head видит чекбоксы и выдачу по фильтру", () => {
     meMock.mockReturnValue({ data: { id: "me-1", role: "head" } });
     renderPage();

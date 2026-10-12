@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import current_user, require_admin_or_head
+from app.auth.dependencies import current_user, require_admin_or_head, require_lead_pool_access
 from app.auth.models import User
 from app.automation.stage_change import StageTransitionBlocked, StageTransitionInvalid
 from app.db import get_db
@@ -217,8 +217,7 @@ async def list_pool(
     # потолок в пятьсот больше незачем.
     page_size: int = Query(50, ge=1, le=200),
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
-    # Unassigned pool is management-only after the 2026-09-14 policy change.
-    user: Annotated[User, Depends(require_admin_or_head)] = ...,
+    user: Annotated[User, Depends(require_lead_pool_access)] = ...,
 ) -> LeadListOut:
     """Страница базы лидов. Весь отбор и порядок — на сервере.
 
@@ -243,7 +242,7 @@ async def pool_facets(
     form_id: UUID | None = Query(None),
     needs_review: bool | None = Query(None),
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
-    user: Annotated[User, Depends(require_admin_or_head)] = ...,
+    user: Annotated[User, Depends(require_lead_pool_access)] = ...,
 ) -> PoolFacetsOut:
     """Значения фильтров и их размеры по всей базе лидов.
 
@@ -564,7 +563,7 @@ async def destroy_lead(
 async def claim_lead(
     lead_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)] = ...,
-    user: Annotated[User, Depends(current_user)] = ...,
+    user: Annotated[User, Depends(require_lead_pool_access)] = ...,
 ) -> LeadOut:
     try:
         lead = await services.claim_lead(db, user.workspace_id, user.id, lead_id)

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -7,9 +7,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 // Роль «Админ» в списке видит только админ (сервер откажет в любом случае,
 // селект просто не предлагает заведомо мёртвый вариант).
 
-const { meMock, inviteMock } = vi.hoisted(() => ({
+const { meMock, inviteMock, accessMock, accessState } = vi.hoisted(() => ({
   meMock: vi.fn(),
   inviteMock: vi.fn(),
+  accessMock: vi.fn(),
+  accessState: { pending: false, enabled: false },
 }));
 vi.mock("@/lib/hooks/use-me", () => ({
   useMe: () => meMock(),
@@ -26,13 +28,15 @@ vi.mock("@/lib/hooks/use-users", () => ({
           role: "head",
           last_login_at: null,
         },
+        { id: "manager-1", name: "Анна", email: "anna@drinkx.tech", role: "manager", last_login_at: null, can_access_lead_pool: accessState.enabled },
       ],
-      total: 1,
+      total: 2,
     },
   }),
   useUserInvites: () => ({ data: [] }),
   useInviteUser: () => ({ mutate: inviteMock, isPending: false }),
   useDeleteUser: () => ({ mutate: vi.fn(), isPending: false }),
+  useChangeLeadPoolAccess: () => ({ mutate: accessMock, isPending: accessState.pending }),
   useChangeUserRole: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
@@ -53,6 +57,9 @@ describe("TeamSection — кто может приглашать", () => {
   afterEach(() => {
     meMock.mockReset();
     inviteMock.mockReset();
+    accessMock.mockReset();
+    accessState.pending = false;
+    accessState.enabled = false;
   });
 
   it("руководитель видит кнопку «Пригласить»", () => {
@@ -78,7 +85,7 @@ describe("TeamSection — кто может приглашать", () => {
     renderSection();
     await userEvent.click(inviteButton()!);
 
-    const select = screen.getByRole("combobox");
+    const select = within(screen.getByRole("dialog")).getByRole("combobox");
     const options = Array.from(select.querySelectorAll("option")).map(
       (o) => o.textContent,
     );
@@ -90,7 +97,7 @@ describe("TeamSection — кто может приглашать", () => {
     renderSection();
     await userEvent.click(inviteButton()!);
 
-    const select = screen.getByRole("combobox");
+    const select = within(screen.getByRole("dialog")).getByRole("combobox");
     const options = Array.from(select.querySelectorAll("option")).map(
       (o) => o.textContent,
     );
@@ -117,5 +124,44 @@ describe("TeamSection — кто может приглашать", () => {
 
     expect(screen.getByText("Письмо отправлено")).toBeInTheDocument();
     expect(screen.getByText(/уже был аккаунт/)).toBeInTheDocument();
+  });
+});
+
+describe("TeamSection — доступ к базе лидов", () => {
+  afterEach(() => { accessMock.mockReset(); accessState.pending = false; accessState.enabled = false; });
+  it.each(["admin", "head"])("%s выдаёт доступ только менеджеру", async (role) => {
+    meMock.mockReturnValue({ data: { id: "me-1", role } });
+    renderSection();
+    expect(screen.getAllByRole("switch")).toHaveLength(1);
+    const toggle = screen.getByRole("switch", { name: "Доступ к базе лидов: Анна" });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    await userEvent.click(toggle);
+    expect(accessMock).toHaveBeenCalledWith({ id: "manager-1", can_access_lead_pool: true }, expect.any(Object));
+  });
+  it("руководитель отзывает доступ", async () => {
+    accessState.enabled = true;
+    meMock.mockReturnValue({ data: { id: "me-1", role: "head" } });
+    renderSection();
+    await userEvent.click(screen.getByRole("switch"));
+    expect(accessMock).toHaveBeenCalledWith({ id: "manager-1", can_access_lead_pool: false }, expect.any(Object));
+  });
+  it("менеджер не видит переключателя", () => {
+    meMock.mockReturnValue({ data: { id: "manager-1", role: "manager" } });
+    renderSection();
+    expect(screen.queryByRole("switch")).toBeNull();
+  });
+  it("блокирует повторный запрос пока сохраняет", () => {
+    accessState.pending = true;
+    meMock.mockReturnValue({ data: { id: "me-1", role: "head" } });
+    renderSection();
+    expect(screen.getByRole("switch")).toBeDisabled();
+  });
+  it("показывает ошибку без изменения состояния", async () => {
+    accessMock.mockImplementation((_args, options) => options.onError());
+    meMock.mockReturnValue({ data: { id: "me-1", role: "head" } });
+    renderSection();
+    await userEvent.click(screen.getByRole("switch"));
+    expect(screen.getByRole("alert")).toHaveTextContent("Не удалось изменить доступ");
+    expect(screen.getByRole("switch")).toHaveAttribute("aria-checked", "false");
   });
 });

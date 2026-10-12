@@ -84,4 +84,18 @@ async def lead_access_guard(
     # `/leads/{id}/inbox` отдавал переписку админу ЧУЖОГО пространства
     # (аудит SEC-01-L). Теперь пространство проверяется для всех ролей:
     # один лишний запрос против межпространственной утечки.
+    # Only the main card and self-claim may read a free lead. Child routes
+    # retain the existing ownership rule, including GET files/tasks/AI results.
+    route_path = getattr(request.scope.get("route"), "path", "")
+    pool_operation = (
+        (request.method == "GET" and route_path.endswith("/leads/{lead_id}"))
+        or (request.method == "POST" and route_path.endswith("/leads/{lead_id}/claim"))
+    )
+    if pool_operation and user.role == "manager" and user.can_access_lead_pool:
+        from app.leads.repositories import get_by_id
+
+        lead = await get_by_id(db, lead_uuid, user.workspace_id)
+        if (lead is not None and lead.deleted_at is None
+                and lead.assignment_status == "pool" and lead.assigned_to is None):
+            return
     await ensure_lead_access(db, lead_id=lead_uuid, user=user)

@@ -15,13 +15,14 @@ interface Props {
   claiming: boolean;
   /** G2: показывать чекбокс выделения (только head/admin). */
   selectable?: boolean;
+  canReview?: boolean;
   selected?: boolean;
   onToggleSelect?: (id: string) => void;
 }
 
 // ---- Row component ----
 
-function PoolRowInner({ lead, onClaim, claiming, selectable, selected, onToggleSelect }: Props) {
+function PoolRowInner({ lead, onClaim, claiming, selectable, canReview = true, selected, onToggleSelect }: Props) {
   const router = useRouter();
   const tier = tierFromScore(lead.score);
   const TIER_STYLE: Record<string, string> = {
@@ -99,7 +100,7 @@ function PoolRowInner({ lead, onClaim, claiming, selectable, selected, onToggleS
             {lead.source_form_name}
           </span>
         )}
-        {lead.needs_review && (
+        {lead.needs_review && canReview && (
           <NeedsReviewRow lead={lead} />
         )}
       </td>

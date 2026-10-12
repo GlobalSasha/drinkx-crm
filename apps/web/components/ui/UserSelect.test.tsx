@@ -6,9 +6,9 @@ import { UserSelect } from "./UserSelect";
 import type { UserListItemOut } from "@/lib/types";
 
 const users: UserListItemOut[] = [
-  { id: "u1", email: "anna@drinkx.tech", name: "Анна", role: "admin", last_login_at: null },
-  { id: "u2", email: "boris@drinkx.tech", name: "Борис", role: "head", last_login_at: null },
-  { id: "u3", email: "vera@drinkx.tech", name: "", role: "manager", last_login_at: null },
+  { id: "u1", email: "anna@drinkx.tech", name: "Анна", role: "admin", can_access_lead_pool: false, last_login_at: null },
+  { id: "u2", email: "boris@drinkx.tech", name: "Борис", role: "head", can_access_lead_pool: false, last_login_at: null },
+  { id: "u3", email: "vera@drinkx.tech", name: "", role: "manager", can_access_lead_pool: false, last_login_at: null },
 ];
 
 describe("UserSelect", () => {

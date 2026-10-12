@@ -10,14 +10,15 @@ import type { MeOut } from "@/lib/types";
  * JWT alone doesn't carry.
  *
  * staleTime is generous because role rarely changes mid-session and we
- * don't want a refetch on every page mount.
+ * don't want a refetch on every page mount. Focus refreshes permissions
+ * so changes from another session reach the navigation.
  */
 export function useMe() {
   return useQuery({
     queryKey: ["me"],
     queryFn: () => api.get<MeOut>("/auth/me"),
     staleTime: 5 * 60_000,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: "always",
     // Don't retry auth-decisive statuses: 403 (invite required) and 401
     // (session rejected) — the gate redirects on these, so retrying just
     // delays it (plan 026).

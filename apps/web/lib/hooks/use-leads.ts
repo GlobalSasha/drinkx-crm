@@ -99,7 +99,7 @@ export const POOL_FACETS_KEY = ["leads-pool-facets"] as const;
 export function usePoolLeads(
   filters: PoolFilterState,
   page: number,
-  options: { pageSize?: number } = {},
+  options: { pageSize?: number; enabled?: boolean } = {},
 ) {
   const pageSize = options.pageSize ?? POOL_PAGE_SIZE;
   const params = poolQueryParams(filters);
@@ -110,6 +110,7 @@ export function usePoolLeads(
   return useQuery<LeadListOut>({
     // Ключ включает фильтры и страницу: смена любого условия — другой
     // запрос, а не пересортировка уже загруженного.
+    enabled: options.enabled ?? true,
     queryKey: ["leads-pool", qs],
     queryFn: () => api.get<LeadListOut>(`/leads/pool?${qs}`),
     placeholderData: keepPreviousData,
@@ -123,10 +124,11 @@ export function usePoolLeads(
  * needs_review) и не меняются при листании и выборе фасетов, поэтому
  * переход на следующую страницу их не перезапрашивает.
  */
-export function usePoolFacets(filters: PoolFilterState) {
+export function usePoolFacets(filters: PoolFilterState, enabled = true) {
   const qs = poolScopeParams(filters).toString();
   const path = qs ? `/leads/pool/facets?${qs}` : "/leads/pool/facets";
   return useQuery<PoolFacets>({
+    enabled,
     queryKey: [...POOL_FACETS_KEY, qs],
     queryFn: () => api.get<PoolFacets>(path),
     staleTime: 60_000,
@@ -292,6 +294,7 @@ export function useClaimLead() {
 
     onSuccess: () => {
       // Newly claimed lead is now in the user's pipeline.
+      qc.invalidateQueries({ queryKey: ["lead"] });
       qc.invalidateQueries({ queryKey: ["leads"] });
     },
 

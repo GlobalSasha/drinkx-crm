@@ -20,6 +20,7 @@ import { relativeTime as relativeTimeBase } from "@/lib/relative-time";
 import { useMe } from "@/lib/hooks/use-me";
 import {
   useChangeUserRole,
+  useChangeLeadPoolAccess,
   useDeleteUser,
   useInviteUser,
   useUserInvites,
@@ -155,6 +156,9 @@ export function TeamSection() {
               <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[150px]`}>
                 Последний вход
               </th>
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold`}>
+                Доступ к базе лидов
+              </th>
               {isAdmin && (
                 <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[60px]`}>
                   {/* actions */}
@@ -165,7 +169,7 @@ export function TeamSection() {
           <tbody>
             {users.length === 0 && (
               <tr>
-                <td colSpan={isAdmin ? 4 : 3} className="px-4 py-12 text-center">
+                <td colSpan={isAdmin ? 5 : 4} className="px-4 py-12 text-center">
                   <p className="text-sm text-brand-muted">
                     Пользователей нет — это аномалия, как минимум вы
                     должны быть в списке.
@@ -178,6 +182,7 @@ export function TeamSection() {
                 key={u.id}
                 user={u}
                 editableRole={isAdmin && u.id !== meQuery.data?.id}
+                canManagePoolAccess={isAdminOrHead}
                 canDelete={isAdmin && u.id !== meQuery.data?.id}
                 onRequestDelete={(target) => {
                   setDeleteError(null);
@@ -268,15 +273,19 @@ export function TeamSection() {
 function UserRow({
   user,
   editableRole,
+  canManagePoolAccess,
   canDelete,
   onRequestDelete,
 }: {
   user: UserListItemOut;
   editableRole: boolean;
+  canManagePoolAccess: boolean;
   canDelete: boolean;
   onRequestDelete: (u: UserListItemOut) => void;
 }) {
   const change = useChangeUserRole();
+  const poolAccess = useChangeLeadPoolAccess();
+  const [poolAccessError, setPoolAccessError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function onRoleChange(newRole: string) {
@@ -370,6 +379,37 @@ function UserRow({
         <span className="text-xs text-brand-muted font-mono">
           {relativeTime(user.last_login_at)}
         </span>
+      </td>
+      <td className="px-4 py-3 align-middle">
+        {user.role !== "manager" ? (
+          <span className="text-xs text-brand-muted">Всегда доступна</span>
+        ) : canManagePoolAccess ? (
+          <div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={!!user.can_access_lead_pool}
+              aria-label={`Доступ к базе лидов: ${user.name || user.email}`}
+              aria-busy={poolAccess.isPending}
+              disabled={poolAccess.isPending}
+              onClick={() => {
+                setPoolAccessError(null);
+                poolAccess.mutate({ id: user.id, can_access_lead_pool: !user.can_access_lead_pool }, {
+                  onError: () => setPoolAccessError("Не удалось изменить доступ. Попробуйте ещё раз."),
+                });
+              }}
+              className="inline-flex min-h-12 items-center gap-2 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent disabled:opacity-50"
+            >
+              <span aria-hidden="true" className={`flex h-6 w-12 items-center rounded-full px-1 transition-colors ${user.can_access_lead_pool ? "bg-brand-accent" : "bg-brand-border"}`}>
+                <span className={`h-4 w-4 rounded-full bg-white transition-transform ${user.can_access_lead_pool ? "translate-x-6" : ""}`} />
+              </span>
+              <span className="text-xs text-brand-muted">{poolAccess.isPending ? "Сохраняем…" : user.can_access_lead_pool ? "Включён" : "Выключен"}</span>
+            </button>
+            {poolAccessError && <p role="alert" className="text-xs text-rose mt-1">{poolAccessError}</p>}
+          </div>
+        ) : (
+          <span className="text-xs text-brand-muted">{user.can_access_lead_pool ? "Включён" : "Выключен"}</span>
+        )}
       </td>
       {canDelete && (
         <td className="px-4 py-3 align-middle text-right">

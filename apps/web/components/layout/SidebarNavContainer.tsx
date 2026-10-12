@@ -46,6 +46,8 @@ export function SidebarNavContainer({
   const isAdmin = me?.role === "admin";
   const isAdminOrHead = me?.role === "admin" || me?.role === "head";
 
+  const canAccessPool = isAdminOrHead || (me?.role === "manager" && !!me.can_access_lead_pool);
+
   // Items list. Order matches what the sidebar renders top-to-bottom;
   // gating by role happens at build time so the active-route lookup
   // can't accidentally match a hidden row.
@@ -73,9 +75,10 @@ export function SidebarNavContainer({
       },
       { id: "triage",     label: "Мессенджеры", href: "/triage",    icon: <MessageCircle size={18} /> },
     ];
-    if (isAdminOrHead) {
-      // «База лидов» — только для руководства: доступ ограничен с 2026-09-14.
+    if (canAccessPool) {
       base.push({ id: "leads-pool", label: "База лидов", href: "/leads-pool", icon: <Target size={18} /> });
+    }
+    if (isAdminOrHead) {
       base.push({ id: "forms",       label: "Формы",         href: "/forms",       icon: <ClipboardList size={18} /> });
       base.push({ id: "automations", label: "Автоматизации", href: "/automations", icon: <Workflow size={18} /> });
     }
@@ -99,7 +102,7 @@ export function SidebarNavContainer({
     });
     base.push({ id: "settings", label: "Настройки", href: "/settings", icon: <Settings size={18} /> });
     return base;
-  }, [isAdmin, isAdminOrHead, unreadCount, incomingCount, onNotificationsClick, onSearchClick]);
+  }, [isAdmin, isAdminOrHead, canAccessPool, unreadCount, incomingCount, onNotificationsClick, onSearchClick]);
 
   // The active item is whichever route currently matches. Notifications
   // (no href) can never be "active" — only highlighted on hover.

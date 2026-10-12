@@ -33,6 +33,7 @@ from app.users.schemas import (
     UserListItemOut,
     UserListOut,
     UserRoleUpdateIn,
+    UserLeadPoolAccessUpdateIn,
 )
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -226,6 +227,32 @@ async def change_role_endpoint(
         entity_type="user",
         entity_id=target.id,
         delta={"email": target.email, "new_role": target.role},
+    )
+    await db.commit()
+    return UserListItemOut.model_validate(target)
+
+
+@router.patch("/{user_id}/lead-pool-access", response_model=UserListItemOut)
+async def change_lead_pool_access(
+    user_id: uuid.UUID,
+    payload: UserLeadPoolAccessUpdateIn,
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(require_admin_or_head)] = ...,
+) -> UserListItemOut:
+    from app.users.repositories import get_by_id
+
+    target = await get_by_id(db, user_id=user_id, workspace_id=user.workspace_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="пользователь не найден")
+    if target.role != "manager":
+        raise HTTPException(status_code=400, detail="Доступ настраивается только менеджерам")
+    previous = target.can_access_lead_pool
+    target.can_access_lead_pool = payload.can_access_lead_pool
+    await db.flush()
+    await log_audit_event(
+        db, workspace_id=user.workspace_id, user_id=user.id,
+        action="user.lead_pool_access_change", entity_type="user", entity_id=target.id,
+        delta={"old_value": previous, "new_value": target.can_access_lead_pool},
     )
     await db.commit()
     return UserListItemOut.model_validate(target)

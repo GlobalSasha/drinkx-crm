@@ -408,6 +408,8 @@ async def selection_conditions(
 
     if selection.assignment_status:
         conds.append(Lead.assignment_status == selection.assignment_status)
+        if selection.assignment_status == "pool":
+            conds.append(Lead.assigned_to.is_(None))
     if selection.stage_id is not None:
         conds.append(Lead.stage_id == selection.stage_id)
     if selection.assigned_to is not None:

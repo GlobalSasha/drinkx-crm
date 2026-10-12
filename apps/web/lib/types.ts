@@ -1016,6 +1016,7 @@ export interface WorkspaceOut {
 export type UserRole = "admin" | "head" | "manager";
 
 export interface MeOut {
+  can_access_lead_pool: boolean;
   id: string;
   email: string;
   name: string;
@@ -1503,6 +1504,7 @@ export interface FormSubmissionOut {
 // ---- Users domain (Sprint 2.4 G1 — Settings «Команда») ----
 
 export interface UserListItemOut {
+  can_access_lead_pool: boolean;
   id: string;
   email: string;
   name: string;

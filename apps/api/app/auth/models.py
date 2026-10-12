@@ -75,6 +75,10 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     name: Mapped[str] = mapped_column(String(120), default="", nullable=False)
     role: Mapped[str] = mapped_column(String(20), default="manager", nullable=False)
 
+    can_access_lead_pool: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False
+    )
+
     # Profile from onboarding step 2
     working_hours_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     specialization: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)

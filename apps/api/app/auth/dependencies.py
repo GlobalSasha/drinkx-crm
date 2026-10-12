@@ -76,3 +76,13 @@ async def require_admin_or_head(
             detail="admin or head role required",
         )
     return user
+
+
+async def require_lead_pool_access(
+    user: Annotated[User, Depends(current_user)],
+) -> User:
+    if user.role not in ("admin", "head") and not (
+        user.role == "manager" and user.can_access_lead_pool
+    ):
+        raise HTTPException(status_code=403, detail="Доступ к базе лидов не выдан")
+    return user
