@@ -121,8 +121,13 @@ function EditableLeadCard({ leadId }: Props) {
     [feed.data],
   );
 
+  // Stages of the lead's own pipeline — not simply the first one in the list,
+  // which showed another funnel's stages once the workspace had several.
+  const leadPipeline =
+    pipelinesQuery.data?.find((p) => p.id === lead?.pipeline_id) ??
+    pipelinesQuery.data?.[0];
   const stages: Stage[] =
-    pipelinesQuery.data?.[0]?.stages ??
+    leadPipeline?.stages ??
     DEFAULT_STAGES.map((s, i) => ({
       ...s,
       id: `fallback-${i}`,
