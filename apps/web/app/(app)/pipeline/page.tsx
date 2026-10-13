@@ -1,6 +1,6 @@
 "use client";
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { PipelineHeader } from "@/components/pipeline/PipelineHeader";
 import { PipelineBoard } from "@/components/pipeline/PipelineBoard";
@@ -50,6 +50,21 @@ function PipelinePageInner() {
   // `isPrivileged &&` guards on the `useLeads` params suppress it.
   const assignedParam = searchParams.get("assigned_to") ?? "";
   const [ownerScope, setOwnerScope] = useState<string>(assignedParam);
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // Mirror the scope into the URL so «назад» from a lead card lands on the
+  // same manager's board instead of resetting to «Мои».
+  function changeOwnerScope(value: string) {
+    setOwnerScope(value);
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) params.set("assigned_to", value);
+    else params.delete("assigned_to");
+    const qs = params.toString();
+    router.replace((qs ? `${pathname}?${qs}` : pathname) as never, {
+      scroll: false,
+    });
+  }
 
   // Resolve which pipeline to render the board for. The switcher
   // hydrates `selectedPipelineId` on mount; before that lands we
@@ -140,7 +155,7 @@ function PipelinePageInner() {
           <select
             id="owner-scope"
             value={ownerScope}
-            onChange={(e) => setOwnerScope(e.target.value)}
+            onChange={(e) => changeOwnerScope(e.target.value)}
             className="h-8 px-3 text-sm bg-brand-bg border border-brand-border rounded-full outline-none focus:border-brand-accent/40 focus:bg-white transition duration-300"
           >
             <option value="">Мои</option>
