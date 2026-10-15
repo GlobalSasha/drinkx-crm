@@ -269,10 +269,32 @@ async def trigger_lead_agent_refresh(
         )
 
 
+async def recompute_rotting_flags(
+    ctx: TransitionContext, db: AsyncSession
+) -> None:
+    """Пересчитать флаги застоя сразу при переезде, не дожидаясь
+    часового прохода (`app.leads.rotting`). На новом этапе лид только что,
+    дней на этапе 0 — значит, «застрял на этапе» снимается всегда.
+    Просроченный следующий шаг остаётся, если лид по-прежнему в работе."""
+    from app.leads.rotting import rotting_next_step
+
+    in_work = (
+        ctx.lead.assignment_status == "assigned"
+        and ctx.lead.deleted_at is None
+        and not ctx.to_stage.is_won
+        and not ctx.to_stage.is_lost
+    )
+    ctx.lead.is_rotting_stage = False
+    ctx.lead.is_rotting_next_step = rotting_next_step(
+        in_work=in_work, next_action_at=ctx.lead.next_action_at
+    )
+
+
 POST_ACTIONS: list[PostAction] = [
     set_won_lost_timestamps,
     log_stage_change_activity,
     record_stage_history,
+    recompute_rotting_flags,
     fan_out_automation_builder,
     trigger_lead_agent_refresh,
 ]

@@ -290,6 +290,14 @@ def expire_stuck_enrichment_runs() -> dict:
     return asyncio.run(_core())
 
 
+@celery_app.task(name="app.scheduled.jobs.recompute_lead_rotting")
+def recompute_lead_rotting() -> dict:
+    """Раз в час: выставить и снять флаги застоя лидов
+    (`is_rotting_stage`, `is_rotting_next_step`) — правила в app.leads.rotting."""
+    from app.leads.rotting import recompute_all_workspaces
+    return asyncio.run(_run("recompute_lead_rotting", recompute_all_workspaces))
+
+
 @celery_app.task(name="app.scheduled.jobs.purge_orphan_storage_files")
 def purge_orphan_storage_files() -> dict:
     """Weekly: list the lead-files bucket, delete objects with no Activity backing them.
