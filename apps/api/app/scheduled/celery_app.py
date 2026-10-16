@@ -89,6 +89,13 @@ celery_app.conf.beat_schedule = {
         "task": "app.scheduled.jobs.expire_stuck_enrichment_runs",
         "schedule": crontab(minute="*/5"),
     },
+    "recompute-lead-rotting": {
+        # Флаги застоя лидов (is_rotting_*) — виджет «Устаревает» на /today,
+        # метка на карточке, +20 к приоритету плана. Правила: app.leads.rotting.
+        "task": "app.scheduled.jobs.recompute_lead_rotting",
+        # :50 — за 10 минут до daily-plan-generator, который берёт +20 за застой.
+        "schedule": crontab(minute=50),
+    },
     "purge-orphan-storage-files": {
         "task": "app.scheduled.jobs.purge_orphan_storage_files",
         "schedule": crontab(hour=3, minute=30, day_of_week=0),  # Sundays 03:30 UTC
