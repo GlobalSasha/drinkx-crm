@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import select
 
+import app.models_registry  # noqa: F401 — FK service_api_keys.workspace_id → workspaces
 from app.db import get_session_factory
 from app.external import keys
 from app.external.models import ServiceApiKey

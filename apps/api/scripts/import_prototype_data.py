@@ -33,11 +33,9 @@ from app.db import get_session_factory
 from app.leads.models import Lead
 from app.pipelines.models import Pipeline, Stage
 
-# Side-effect imports so the SQLAlchemy mapper registry can resolve string-based
-# relationships from Lead -> Activity / Followup. Without these the very first
-# query against any model trips: "expression 'Activity' failed to locate a name".
-from app.activity import models as _activity_models  # noqa: F401
-from app.followups import models as _followups_models  # noqa: F401
+# Side-effect import: registers every model, so string relationships (Lead ->
+# Activity / Followup) and ForeignKeys (leads -> utm_*) resolve on first flush.
+import app.models_registry  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Constants
