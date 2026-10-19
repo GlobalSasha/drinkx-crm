@@ -100,8 +100,8 @@ def _fake_settings():
         _env_file=None,
         mimo_api_key="test-mimo-key",
         mimo_base_url="https://api.xiaomimimo.com/v1",
-        mimo_model_pro="mimo-v2-pro",
-        mimo_model_flash="mimo-v2-flash",
+        mimo_model_pro="mimo-v2.6-pro",
+        mimo_model_flash="mimo-v2.6-flash",
         anthropic_api_key="test-anthropic-key",
         anthropic_model="claude-sonnet-4-5",
         gemini_api_key="test-gemini-key",
@@ -112,7 +112,7 @@ def _fake_settings():
     )
 
 
-def _mimo_ok_body(model: str = "mimo-v2-flash", text: str = "hello") -> dict:
+def _mimo_ok_body(model: str = "mimo-v2.6-flash", text: str = "hello") -> dict:
     return {
         "choices": [{"message": {"content": text}}],
         "usage": {"prompt_tokens": 10, "completion_tokens": 5},
@@ -149,12 +149,12 @@ def _deepseek_ok_body(text: str = "hello deepseek") -> dict:
 
 @pytest.mark.asyncio
 async def test_mimo_calls_chat_completions_with_api_key_header(monkeypatch):
-    """Flash task → mimo-v2-flash; Pro task → mimo-v2-pro; api-key header present."""
+    """Use supported Flash/Pro models without spending the JSON budget on thinking."""
     import app.enrichment.providers.mimo as mimo_mod
 
     captured: list[dict] = []
     fake = _fake_httpx(
-        [(200, _mimo_ok_body("mimo-v2-flash")), (200, _mimo_ok_body("mimo-v2-pro"))],
+        [(200, _mimo_ok_body("mimo-v2.6-flash")), (200, _mimo_ok_body("mimo-v2.6-pro"))],
         captured,
     )
 
@@ -182,11 +182,38 @@ async def test_mimo_calls_chat_completions_with_api_key_header(monkeypatch):
         assert "authorization" not in req["headers"]
 
     # Check model selection
-    assert captured[0]["json"]["model"] == "mimo-v2-flash"
-    assert captured[1]["json"]["model"] == "mimo-v2-pro"
+    assert captured[0]["json"]["model"] == "mimo-v2.6-flash"
+    assert captured[1]["json"]["model"] == "mimo-v2.6-pro"
+    for req in captured:
+        assert req["json"]["thinking"] == {"type": "disabled"}
 
     assert result_flash.provider == "mimo"
     assert result_pro.provider == "mimo"
+
+
+def test_mimo_defaults_use_supported_models():
+    from app.config import Settings
+
+    assert Settings.model_fields["mimo_model_flash"].default == "mimo-v2.6-flash"
+    assert Settings.model_fields["mimo_model_pro"].default == "mimo-v2.6-pro"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("body,reason", [
+    ({"choices": [{"message": {"content": None, "reasoning_content": "reasoning only"}}]}, "empty completion"),
+    ({"choices": [{"message": {"content": "   "}}]}, "empty completion"),
+    ({"choices": [{"message": None}]}, "empty completion"),
+    ({"choices": [{"message": {"content": "partial JSON"}, "finish_reason": "length"}]}, "truncated"),
+    ({"choices": []}, "empty choices"),
+    ("upstream returned HTML", "invalid JSON"),
+])
+async def test_mimo_rejects_unusable_success_response(monkeypatch, body, reason):
+    import app.enrichment.providers.mimo as mimo_mod
+
+    monkeypatch.setattr(mimo_mod, "get_settings", lambda: _fake_settings())
+    monkeypatch.setattr(mimo_mod, "httpx", _fake_httpx([(200, body)], []))
+    with pytest.raises(LLMError, match=reason):
+        await mimo_mod.MiMoProvider().complete(system="s", user="u", task_type=TaskType.research_synthesis)
 
 
 @pytest.mark.asyncio
