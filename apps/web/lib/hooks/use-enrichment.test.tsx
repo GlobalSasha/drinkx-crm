@@ -21,6 +21,7 @@ describe("Обновление карточки после AI", () => {
     act(() => { qc.setQueryData(["enrichment", "lead-1", "latest"], { id: "run-1", status }); });
     await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ["lead", "lead-1"] }));
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["feed", "lead-1"] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["contacts", "lead-1"] });
     qc.clear();
   });
   it("обновляет быстрый запуск, завершившийся до первого опроса", async () => {

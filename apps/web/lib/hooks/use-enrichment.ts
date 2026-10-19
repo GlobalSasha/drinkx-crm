@@ -35,6 +35,7 @@ export function useLatestEnrichment(leadId: string | null | undefined) {
     ) {
       qc.invalidateQueries({ queryKey: ["lead", leadId] });
       qc.invalidateQueries({ queryKey: ["feed", leadId] });
+      qc.invalidateQueries({ queryKey: ["contacts", leadId] });
       qc.invalidateQueries({ queryKey: ["leads-pool"] });
     }
     if (query.data !== undefined) {
