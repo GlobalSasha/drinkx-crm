@@ -270,21 +270,26 @@ async def test_run_enrichment_happy_path(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_run_enrichment_handles_invalid_json_from_llm(monkeypatch):
-    """Falls back to ResearchOutput() defaults with raw text in notes."""
+@pytest.mark.parametrize("response", ["NOT JSON", "{}", '{"company_profile": "обрезано'])
+async def test_run_enrichment_preserves_card_on_unusable_json(monkeypatch, response):
+    """Invalid or empty output must not replace the existing brief or report success."""
     run = _make_run()
     lead = _make_lead()
+    previous = {"company_profile": "Исходное описание", "notes": "Заметка менеджера"}
+    lead.ai_data = previous.copy()
     db = _make_db(run, lead)
 
-    completion = CompletionResult(text="NOT JSON", model="m", provider="mimo", prompt_tokens=1, completion_tokens=1, cost_usd=0.0)
+    completion = CompletionResult(text=response, model="m", provider="mimo", prompt_tokens=1, completion_tokens=1, cost_usd=0.0)
     monkeypatch.setattr("app.enrichment.orchestrator.BraveSearch.fetch", AsyncMock(return_value=_sr("brave")))
     monkeypatch.setattr("app.enrichment.orchestrator.HHRu.fetch", AsyncMock(return_value=_sr("hh")))
     monkeypatch.setattr("app.enrichment.orchestrator.complete_with_fallback", AsyncMock(return_value=completion))
 
     await run_enrichment(db=db, run_id=run.id)
 
-    assert run.status == "succeeded"
-    assert "NOT JSON" in lead.ai_data["notes"]
+    assert run.status == "failed"
+    assert "Сведения карточки сохранены" in run.error
+    assert run.finished_at is not None
+    assert lead.ai_data == previous
 
 
 @pytest.mark.asyncio

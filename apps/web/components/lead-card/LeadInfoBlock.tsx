@@ -32,6 +32,7 @@ import {
 import { C } from "@/lib/design-system";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { PipelineMoveModal } from "@/components/lead-card/PipelineMoveModal";
+import { EnrichmentControl } from "./EnrichmentControl";
 
 interface Props {
   lead: LeadOut;
@@ -140,6 +141,8 @@ export function LeadInfoBlock({ lead }: Props) {
           <Loader2 size={12} className="animate-spin text-brand-muted" />
         )}
       </CardHeader>
+
+      <EnrichmentControl leadId={lead.id} />
 
       {/* Editable company narrative — "что это за клиент" */}
       <DescriptionField

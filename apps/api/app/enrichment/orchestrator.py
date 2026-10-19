@@ -5,7 +5,7 @@ Pipeline per ADR (01_ARCHITECTURE.md):
   2. Parallel fetch: Brave (N queries) + HH.ru + optional WebFetch
   3. Compose synthesis prompt
   4. Call LLM via complete_with_fallback(research_synthesis)
-  5. Parse ResearchOutput; fallback to defaults on parse failure
+  5. Parse ResearchOutput; reject unusable output without overwriting the card
   6. Persist result to lead.ai_data + update EnrichmentRun row
 
 The function never raises — all failures are caught and written to the run row.
@@ -784,7 +784,7 @@ async def run_enrichment(
             system=system_prompt,
             user=user_prompt,
             task_type=TaskType.research_synthesis,
-            max_tokens=2048,
+            max_tokens=4096,
             temperature=0.3,
             db=db,
             workspace_id=lead.workspace_id,
@@ -794,6 +794,9 @@ async def run_enrichment(
         research_output, parse_ok = _parse_research_output(completion.text)
         if not parse_ok:
             bound_log.warning("enrichment.output_parse_failed")
+            raise ValueError("AI вернул некорректный JSON. Сведения карточки сохранены; повторите обогащение.")
+        if research_output == ResearchOutput():
+            raise ValueError("AI вернул пустой результат. Сведения карточки сохранены; повторите обогащение.")
 
         # Merge sources_used from LLM output with our observed list
         if research_output.sources_used:

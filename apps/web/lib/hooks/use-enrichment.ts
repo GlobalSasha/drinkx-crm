@@ -7,10 +7,9 @@ import type { EnrichmentRun, EnrichmentTriggerResponse } from "@/lib/types";
 
 export function useLatestEnrichment(leadId: string | null | undefined) {
   const qc = useQueryClient();
-  // Track previous status so we only invalidate on the running→terminal
-  // edge — not on initial mount of a card whose run already finished
-  // (the lead prop is already current in that case).
-  const prevStatus = useRef<string | undefined>(undefined);
+  // Refresh after a running job finishes, including a new job that completed
+  // before the first poll. Opening an old finished run needs no invalidation.
+  const previous = useRef<{ leadId: string | null | undefined; id?: string; status?: string } | undefined>(undefined);
 
   const query = useQuery({
     queryKey: ["enrichment", leadId, "latest"],
@@ -27,15 +26,22 @@ export function useLatestEnrichment(leadId: string | null | undefined) {
   // state, the lead query is stale — refetch it so DealAndAITab re-renders
   // with the new `ai_data` instead of staying empty until a hard reload.
   useEffect(() => {
-    const curr = query.data?.status;
+    const curr = query.data;
+    const prev = previous.current;
     if (
-      prevStatus.current === "running" &&
-      (curr === "succeeded" || curr === "failed")
+      prev && prev.leadId === leadId &&
+      (prev.status === "running" || prev.id !== curr?.id) &&
+      (curr?.status === "succeeded" || curr?.status === "failed")
     ) {
       qc.invalidateQueries({ queryKey: ["lead", leadId] });
+      qc.invalidateQueries({ queryKey: ["feed", leadId] });
+      qc.invalidateQueries({ queryKey: ["contacts", leadId] });
+      qc.invalidateQueries({ queryKey: ["leads-pool"] });
     }
-    prevStatus.current = curr;
-  }, [query.data?.status, leadId, qc]);
+    if (query.data !== undefined) {
+      previous.current = { leadId, id: curr?.id, status: curr?.status };
+    }
+  }, [query.data, leadId, qc]);
 
   return query;
 }

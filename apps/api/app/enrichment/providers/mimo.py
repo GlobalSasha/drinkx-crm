@@ -38,10 +38,9 @@ class MiMoProvider:
         model = s.mimo_model_flash if is_flash_task(task_type) else s.mimo_model_pro
         url = f"{s.mimo_base_url.rstrip('/')}/chat/completions"
 
-        # MiMo strictly validates known fields (returns 400 on
-        # 'reasoning_effort' / 'thinking' which we tried earlier as
-        # defensive hints). Strip to OpenAI-spec basics; the synthesis
-        # prompt itself enforces "single JSON, no markdown, no preamble".
+        # MiMo 2.6 thinks by default. Disable it explicitly: CRM callers
+        # budget for the final JSON, not reasoning tokens, and send a custom
+        # temperature (only supported with thinking disabled).
         payload: dict = {
             "model": model,
             "messages": [
@@ -50,6 +49,7 @@ class MiMoProvider:
             ],
             "max_tokens": max_tokens,
             "temperature": temperature,
+            "thinking": {"type": "disabled"},
             "stream": False,
         }
         # MiMo uses 'api-key:' header, NOT 'Authorization: Bearer'
@@ -74,11 +74,21 @@ class MiMoProvider:
                 f"{resp.status_code}: {resp.text[:200]}", provider=self.name, status=resp.status_code
             )
 
-        data = resp.json()
+        try:
+            data = resp.json()
+        except ValueError as exc:
+            raise LLMError("invalid JSON response", provider=self.name) from exc
+        if not isinstance(data, dict):
+            raise LLMError("invalid response shape", provider=self.name)
         choices = data.get("choices", [])
-        if not choices:
+        if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
             raise LLMError("empty choices", provider=self.name)
-        text = choices[0].get("message", {}).get("content", "")
+        if choices[0].get("finish_reason") == "length":
+            raise LLMError("response truncated: output token limit reached", provider=self.name)
+        message = choices[0].get("message") or {}
+        text = message.get("content") if isinstance(message, dict) else None
+        if not isinstance(text, str) or not text.strip():
+            raise LLMError("empty completion content", provider=self.name)
         usage = data.get("usage", {})
         prompt_tokens = int(usage.get("prompt_tokens", 0))
         completion_tokens = int(usage.get("completion_tokens", 0))
