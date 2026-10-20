@@ -21,7 +21,7 @@ interface Props {
 }
 
 /**
- * Приветствие на /today: героиня DrinkX, «Доброе утро, Имя» и одна-две фразы
+ * Приветствие на /today: Люси, героиня DrinkX, говорит «Доброе утро, Имя» и одну-две фразы
  * сводки из реальных цифр. Без анимаций — экран открывают десятки раз в день.
  * На телефоне героиня скрыта: текст важнее, а картинка заняла бы полэкрана.
  */
@@ -32,7 +32,7 @@ export function TodayHero({ dateCaption, greeting, name, summary, primary, secon
         <div className="relative hidden sm:block" aria-hidden>
           <div className="absolute left-1/2 bottom-0 w-48 h-48 -translate-x-1/2 translate-y-1/3 rounded-full bg-brand-soft" />
           <Image
-            src="/today/heroine.webp"
+            src="/today/lucy.webp"
             alt=""
             width={448}
             height={560}
@@ -42,7 +42,9 @@ export function TodayHero({ dateCaption, greeting, name, summary, primary, secon
         </div>
 
         <div className="self-center p-6 sm:py-8 sm:pl-2 sm:pr-8">
-          <p className="type-caption text-brand-muted">{dateCaption}</p>
+          <p className="type-caption text-brand-muted">
+            <span className="font-semibold text-brand-accent-text">Люси</span> · {dateCaption}
+          </p>
           <h1 className={`type-page-title ${C.color.text} mt-2`}>
             {greeting}, <span className="text-brand-accent-text">{name}</span>!
           </h1>
