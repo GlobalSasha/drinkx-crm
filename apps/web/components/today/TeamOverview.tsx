@@ -12,7 +12,10 @@ import { Clock, ChevronRight, ArrowDown, ArrowUp } from "lucide-react";
 
 import { pageContainerVariants } from "@/components/ui/PageContainer";
 import { C } from "@/lib/design-system";
-import { useCompanyManagers } from "@/lib/hooks/use-company";
+import { useCompanyManagers, useCompanySummary } from "@/lib/hooks/use-company";
+import { useMe } from "@/lib/hooks/use-me";
+import { TodayHero } from "@/components/today/TodayHero";
+import { GREETING, dayPart, headSummary } from "@/lib/today-summary";
 import { relativeTime } from "@/lib/relative-time";
 import type { ManagerRow, ManagerPeriod, ManagerAlert } from "@/lib/types";
 import { LeadFlowBody } from "@/components/today/CeoOverview";
@@ -93,6 +96,21 @@ export function TeamOverview() {
   const [period, setPeriod] = useState<ManagerPeriod>("week");
   const { data, isLoading, isError } = useCompanyManagers(period);
   const managers = data?.managers ?? [];
+  const me = useMe();
+  const flow = useCompanySummary("week");
+
+  // Hero summary: today's inbound, stuck deals, the first silent manager.
+  const heroSummary = useMemo(() => {
+    if (flow.isLoading || isLoading) return null;
+    const silent = data?.alerts.find((a) => a.type === "silent");
+    return headSummary({
+      leadsToday: flow.data?.leads_today ?? null,
+      leadsYesterday: flow.data?.leads_yesterday ?? null,
+      stuck: flow.data?.stuck_count ?? null,
+      silent: silent ? { name: silent.name, days: silent.days ?? 0 } : null,
+    });
+  }, [flow.isLoading, flow.data, isLoading, data]);
+  const firstName = me.data?.name?.split(" ")[0] || "коллега";
 
   const dateCaption = useMemo(() => {
     const d = new Date();
@@ -104,12 +122,20 @@ export function TeamOverview() {
 
   return (
     <div className={pageContainerVariants({ surface: "data" })}>
+      <TodayHero
+        dateCaption={dateCaption}
+        greeting={GREETING[dayPart(new Date().getHours())]}
+        name={firstName}
+        summary={heroSummary}
+        primary={{ href: "/incoming", label: "Открыть заявки" }}
+        secondary={{ href: "/pipeline", label: "Воронка" }}
+      />
+
       {/* Header + period toggle */}
       <div className="bg-white border border-brand-border rounded-card p-6 mb-5">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
-            <div className="type-caption text-brand-muted">{dateCaption}</div>
-            <h1 className={`type-page-title ${C.color.text} mt-1`}>Команда</h1>
+            <h2 className={`type-page-title ${C.color.text}`}>Команда</h2>
             <p className={`type-caption ${C.color.mutedLight} mt-1`}>
               Кто сколько работает и что с их лидами
             </p>

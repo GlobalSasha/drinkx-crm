@@ -233,7 +233,7 @@ function EditableLeadCard({ leadId }: Props) {
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
       {/* Sticky header — 2 rows per spec */}
       <header className="sticky top-0 z-20 bg-white border-b border-brand-border">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-2.5 pb-2">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
           <LeadCardHeader
             lead={lead}
             stages={stages}
@@ -257,27 +257,26 @@ function EditableLeadCard({ leadId }: Props) {
             onDelete={() => setDeleteOpen(true)}
             onStageSelect={handleStageSelect}
             onRename={(name) => updateLead.mutate({ company_name: name })}
-          />
-
-          {/* Lead Card v2 — stages stepper + deal-value strip,
-              mounted between header pills and tabs. Both blocks are
-              self-fetching (their own queries) so they don't bloat
-              this component. */}
-          <div className="mt-2.5">
+          >
+            {/* Funnel progress — self-fetching, so it doesn't bloat this
+                component; sits in the title column of the header. */}
             <StagesStepper
               leadId={lead.id}
               currentStageDays={lead.current_stage_days}
+              isRotting={lead.is_rotting_stage}
             />
-          </div>
+          </LeadCardHeader>
         </div>
       </header>
 
       {/* Body — two columns: info (left, always visible) + activity (right, tabbed) */}
       {/* AppShell already provides the <main> landmark; this is a content wrapper. */}
       <div className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-4 sm:py-6">
-        <div className="grid grid-cols-1 md:grid-cols-[340px_minmax(0,1fr)] gap-4 md:gap-6">
+        {/* On md+ the tab strip takes its own row over the right column, so
+            the first left card lines up with the top of the tab content. */}
+        <div className="grid grid-cols-1 md:grid-cols-[340px_minmax(0,1fr)] gap-4 md:gap-x-6">
           {/* Left column — key info, always visible regardless of the active tab */}
-          <div className="min-w-0">
+          <div className="min-w-0 md:col-start-1 md:row-start-2">
             <LeadLeftColumn
               lead={lead}
               items={items}
@@ -290,8 +289,8 @@ function EditableLeadCard({ leadId }: Props) {
           </div>
 
           {/* Right column — tab switcher + the active tab's content */}
-          <div className="min-w-0">
-            <div className="sm:hidden mb-4">
+          <div className="min-w-0 md:col-start-2 md:row-start-1">
+            <div className="sm:hidden">
               <label className="sr-only" htmlFor="lead-tab-select">Раздел</label>
               <select
                 id="lead-tab-select"
@@ -304,14 +303,16 @@ function EditableLeadCard({ leadId }: Props) {
                 ))}
               </select>
             </div>
-            <TabsList className="hidden sm:flex mb-4">
+            <TabsList className="hidden sm:flex">
               {TABS.map((tab) => (
                 <TabsTrigger key={tab.key} value={tab.key}>
                   {tab.label}
                 </TabsTrigger>
               ))}
             </TabsList>
+          </div>
 
+          <div className="min-w-0 md:col-start-2 md:row-start-2">
             <TabsContent value="activity">
               <UnifiedFeed
                 leadId={lead.id}

@@ -42,6 +42,8 @@ import { relativeTime } from "@/lib/relative-time";
 import { TaskTable } from "@/components/tasks/TaskTable";
 import { RemindersWidget } from "@/components/today/RemindersWidget";
 import { TeamOverview } from "@/components/today/TeamOverview";
+import { TodayHero } from "@/components/today/TodayHero";
+import { GREETING, dayPart, managerSummary, type FocusLead } from "@/lib/today-summary";
 import { useMe } from "@/lib/hooks/use-me";
 import { myTaskToRow, isOverdue, isToday, type TaskRow } from "@/lib/tasks";
 
@@ -97,14 +99,6 @@ const WIDGET_SPAN: Record<WidgetId, string> = {
 const TODAY_LEADS_FILTER = { page_size: 200 } as const;
 
 // ─── Greeting ──────────────────────────────────────────────
-
-function getGreeting() {
-  const h = new Date().getHours();
-  if (h >= 5 && h < 12) return "Доброе утро";
-  if (h >= 12 && h < 18) return "Добрый день";
-  if (h >= 18) return "Добрый вечер";
-  return "Доброй ночи";
-}
 
 function getDateTimeCaption() {
   const d = new Date();
@@ -699,6 +693,48 @@ function TodayPageInner() {
     el?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [tabParam]);
 
+  // Hero summary — same queries the widgets below use (TanStack dedupes),
+  // so the greeting costs no extra requests.
+  const myTasks = useMyTasks();
+  const leadsQuery = useLeads(TODAY_LEADS_FILTER);
+  const hero = useMemo(() => {
+    if (myTasks.isLoading || leadsQuery.isLoading) return null;
+    if (myTasks.isError || leadsQuery.isError) {
+      return { summary: "Ваши задачи и клиенты на сегодня", focus: null };
+    }
+    const byDue = (a: TaskRow, b: TaskRow) => (a.due ?? "").localeCompare(b.due ?? "");
+    const open = myTasks.items.map(myTaskToRow).filter((r) => !r.done);
+    const overdue = open.filter(isOverdue).sort(byDue);
+    const today = open.filter((r) => isToday(r.due) && !isOverdue(r)).sort(byDue);
+    const rotting = (leadsQuery.data?.items ?? []).filter(
+      (l) => l.assignment_status === "assigned" && l.is_rotting_stage,
+    );
+    const firstTask = [...overdue, ...today].find((r) => r.leadId && r.company);
+    const focus: FocusLead | null = firstTask?.leadId && firstTask.company
+      ? { id: firstTask.leadId, name: firstTask.company }
+      : rotting[0]
+        ? { id: rotting[0].id, name: rotting[0].company_name }
+        : null;
+    const summary = managerSummary(
+      {
+        dueToday: today.length,
+        overdue: myTasks.counts?.overdue ?? overdue.length,
+        rotting: rotting.length,
+        focus,
+      },
+      dayPart(new Date().getHours()),
+    );
+    return { summary, focus };
+  }, [
+    myTasks.isLoading,
+    myTasks.isError,
+    myTasks.items,
+    myTasks.counts,
+    leadsQuery.isLoading,
+    leadsQuery.isError,
+    leadsQuery.data,
+  ]);
+
   // Load saved layout from localStorage.
   useEffect(() => {
     try {
@@ -775,11 +811,9 @@ function TodayPageInner() {
     });
   }
 
-  const greetingText = getGreeting();
+  const part = dayPart(new Date().getHours());
   const dateTimeCaption = getDateTimeCaption();
   const visible = order.filter((id) => !hidden.has(id));
-
-  const chakSummary = "Ваши задачи и клиенты на сегодня";
 
   function renderWidget(id: WidgetId) {
     switch (id) {
@@ -810,16 +844,18 @@ function TodayPageInner() {
 
   return (
     <div className={pageContainerVariants({ surface: "data" })}>
-      {/* Header */}
-      <div className="bg-white border border-brand-border rounded-card p-6 mb-6">
-          <div className="type-caption text-brand-muted">{dateTimeCaption}</div>
-          <h1 className={`type-page-title ${C.color.text} mt-1`}>
-            {greetingText}, <span className="text-brand-accent">{firstName}</span>
-          </h1>
-          <p className={`type-caption ${C.color.mutedLight} mt-1`}>
-            {chakSummary}
-          </p>
-        </div>
+      <TodayHero
+        dateCaption={dateTimeCaption}
+        greeting={GREETING[part]}
+        name={firstName}
+        summary={hero?.summary ?? null}
+        primary={
+          hero?.focus
+            ? { href: `/leads/${hero.focus.id}`, label: `Открыть «${hero.focus.name}»` }
+            : null
+        }
+        secondary={{ href: "/tasks", label: "Все задачи" }}
+      />
 
         {/* Configure row */}
         <div className="flex justify-end mb-4">

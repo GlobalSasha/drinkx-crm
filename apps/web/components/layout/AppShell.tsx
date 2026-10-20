@@ -13,6 +13,7 @@ import {
 } from "@/components/search/GlobalSearch";
 import { C } from "@/lib/design-system";
 import { SidebarNavContainer } from "./SidebarNavContainer";
+import { DrinkXLogo } from "./DrinkXLogo";
 import { TaskReminders } from "@/components/reminders/TaskReminders";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -76,8 +77,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     >
       {/* Mobile top bar — only visible on < md */}
       <header className="md:hidden sticky top-0 z-20 bg-white border-b border-brand-border flex items-center justify-between px-4 py-3">
-        <Link href="/today" className={`type-section-title font-bold tracking-tight ${C.color.text}`}>
-          DrinkX
+        <Link href="/today" aria-label="DrinkX — на главную" className={`rounded-full ${C.color.text} ${C.focusRing}`}>
+          <DrinkXLogo className="h-6 w-auto" />
         </Link>
         <button
           onClick={() => setMobileNavOpen(true)}
@@ -122,9 +123,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         >
           <Link
             href="/today"
-            className="type-section-title font-bold tracking-tight transition-opacity"
+            aria-label="DrinkX — на главную"
+            className={`rounded-full transition-opacity hover:opacity-80 ${C.focusRing}`}
           >
-            DrinkX
+            <DrinkXLogo className="h-6 w-auto" />
           </Link>
           <button
             onClick={() => setMobileNavOpen(false)}
