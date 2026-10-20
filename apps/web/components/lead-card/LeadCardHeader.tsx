@@ -1,10 +1,9 @@
 "use client";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  ArrowRight,
   ChevronDown,
   Globe,
   Loader2,
@@ -53,6 +52,10 @@ function priorityPillStyle(letter: string | null | undefined): string {
   }
 }
 
+// Every chip in the header shares one shape and type: 28px pill, caption caps.
+const CHIP =
+  "inline-flex items-center gap-1.5 h-7 px-3 rounded-full type-caption font-semibold whitespace-nowrap";
+
 function formatRelativeShort(iso: string | null | undefined): string {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -96,10 +99,14 @@ interface Props {
   onDelete: () => void;
   onStageSelect: (stage: Stage) => void;
   onRename: (name: string) => void;
+  // Rendered under the meta row, in the same column as the title
+  // (the funnel progress row).
+  children?: ReactNode;
 }
 
 /**
- * Sticky-header content for the Lead Card (rows 1–3 + the Won/Lost banner).
+ * Sticky-header content for the Lead Card (title row, meta row, the Won/Lost
+ * banner and the progress slot — all in one column under the title).
  * Extracted from LeadCard.tsx (BACKLOG #3 part B) — pure presentational split,
  * no behaviour change. Owns the header-local UI state (name editing + the stage
  * dropdown); everything else arrives via props.
@@ -127,6 +134,7 @@ export function LeadCardHeader({
   onDelete,
   onStageSelect,
   onRename,
+  children,
 }: Props) {
   const usersQuery = useUsers();
   const [editingName, setEditingName] = useState(false);
@@ -164,20 +172,38 @@ export function LeadCardHeader({
     setEditingName(false);
   }
 
-  return (
-    <>
-      {/* Row 1: back + company name + action buttons */}
-      <div className="flex items-start gap-3">
-        <button
-          type="button"
-          onClick={handleBack}
-          className="mt-0.5 p-2.5 -ml-1 rounded-full text-brand-muted hover:bg-brand-panel transition-colors shrink-0"
-          aria-label="Назад"
-        >
-          <ArrowLeft size={18} />
-        </button>
+  const owner = usersQuery.data?.items.find((u) => u.id === lead.assigned_to);
+  const isNobody = lead.assigned_to == null;
+  const isMine = !isNobody && lead.assigned_to === meId;
+  const ownerLabel = isNobody
+    ? "Ничей — свободен"
+    : isMine
+      ? "Ваш лид"
+      : owner
+        ? owner.name || owner.email
+        : (lead.assigned_to ?? "").slice(0, 8);
+  const ownerTone = isNobody
+    ? "bg-white text-brand-muted border border-dashed border-brand-border"
+    : isMine
+      ? "bg-brand-soft text-brand-accent-text"
+      : "bg-brand-panel text-brand-primary";
 
-        <div className="flex-1 min-w-0">
+  return (
+    <div>
+      {/* Row 1: back + company name + action buttons (stacked on phones so
+          the buttons never squeeze the name to zero width). The back arrow
+          sits inline with the name, so every row below starts at the same
+          left edge as the body columns. */}
+      <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+        <div className="flex flex-1 min-w-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={handleBack}
+            className={`-ml-2 w-9 h-9 inline-flex items-center justify-center rounded-full text-brand-muted hover:bg-brand-panel transition-colors shrink-0 ${C.focusRing}`}
+            aria-label="Назад"
+          >
+            <ArrowLeft size={18} />
+          </button>
           {editingName ? (
             <input
               ref={nameInputRef}
@@ -188,14 +214,12 @@ export function LeadCardHeader({
                 if (e.key === "Enter") commitName();
                 if (e.key === "Escape") setEditingName(false);
               }}
-              className="text-2xl sm:text-3xl font-bold tracking-tight text-brand-primary bg-transparent border-b-2 border-brand-accent outline-none w-full"
-              style={{ lineHeight: "1.15" }}
+              className="flex-1 min-w-0 type-page-title text-brand-primary bg-transparent border-b-2 border-brand-accent outline-none"
             />
           ) : (
             <h1
               onClick={startEditName}
-              className="text-2xl sm:text-3xl font-bold tracking-tight text-brand-primary cursor-text hover:text-brand-accent-text transition-colors truncate"
-              style={{ lineHeight: "1.15" }}
+              className="min-w-0 type-page-title text-brand-primary cursor-text hover:text-brand-accent-text transition-colors truncate"
               title="Нажмите для редактирования"
             >
               {lead.company_name}
@@ -203,17 +227,17 @@ export function LeadCardHeader({
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end sm:shrink-0">
           {lead.assignment_status === "pool" && (
             <Button
               variant="primary"
               size="sm"
               onClick={onClaim}
               disabled={claimPending}
-              className="font-semibold hover:bg-brand-accent/90 active:scale-[0.98]"
+              className="h-9 px-4 font-semibold"
             >
               {claimPending ? (
-                <Loader2 size={13} className="animate-spin" />
+                <Loader2 size={14} className="animate-spin" />
               ) : null}
               Взять в работу
             </Button>
@@ -224,7 +248,7 @@ export function LeadCardHeader({
               size="sm"
               onClick={onReturnToPool}
               disabled={unclaimPending}
-              className="font-semibold"
+              className="h-9 px-4 font-semibold"
             >
               Вернуть в базу
             </Button>
@@ -233,9 +257,9 @@ export function LeadCardHeader({
             variant="ghost"
             size="sm"
             onClick={onTransfer}
-            className="font-semibold"
+            className="h-9 px-4 font-semibold"
           >
-            <Send size={13} />
+            <Send size={14} />
             Передать
           </Button>
           <DropdownMenu>
@@ -244,11 +268,11 @@ export function LeadCardHeader({
                 variant="ghost"
                 size="sm"
                 disabled={isClosed}
-                className="font-semibold disabled:cursor-not-allowed"
+                className="h-9 px-4 font-semibold disabled:cursor-not-allowed"
               >
-                <Lock size={13} />
+                <Lock size={14} />
                 Закрыть сделку
-                <ChevronDown size={11} />
+                <ChevronDown size={14} />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">
@@ -292,67 +316,22 @@ export function LeadCardHeader({
         </div>
       </div>
 
-      {/* Row 2: meta — owner chip + primary LPR + key dates. */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 ml-9 type-caption text-brand-muted">
-        {(() => {
-          const owner = usersQuery.data?.items.find((u) => u.id === lead.assigned_to);
-          const isNobody = lead.assigned_to == null;
-          const isMine = !isNobody && lead.assigned_to === meId;
-          const label = isNobody
-            ? "Ничей — свободен"
-            : isMine
-              ? "Ваш лид"
-              : owner
-                ? owner.name || owner.email
-                : (lead.assigned_to ?? '').slice(0, 8);
-          const tone = isNobody
-            ? "bg-brand-bg text-brand-muted border border-dashed border-brand-border"
-            : isMine
-              ? "bg-brand-soft text-brand-accent"
-              : "bg-brand-bg text-brand-primary border border-brand-border";
-          return (
-            <span
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold max-w-[14rem] truncate ${tone}`}
-            >
-              <UserRound size={11} />
-              <span className="truncate">{label}</span>
-            </span>
-          );
-        })()}
-        {lead.primary_contact_name && (
-          <span className="inline-flex items-center gap-1">
-            <Star size={11} fill="currentColor" className="text-brand-accent" />
-            <span className="text-brand-primary font-semibold">
-              {lead.primary_contact_name}
-            </span>
-          </span>
-        )}
-        {(lead.assigned_at || lead.created_at) && (
-          <span className="inline-flex items-center gap-1">
-            <Calendar size={11} />
-            в работе с {formatRelativeShort(lead.assigned_at ?? lead.created_at)}
-          </span>
-        )}
-        {lead.last_activity_at && (
-          <span className="inline-flex items-center gap-1">
-            <ActivityIcon size={11} className="text-success" />
-            активность {formatRelativeShort(lead.last_activity_at)}
-          </span>
-        )}
-      </div>
-      {/* Row 3: stage / priority / segment pills */}
-      <div className="flex flex-wrap items-center gap-2 mt-2 ml-9">
+      {/* Row 2: stage selector, status chips, then plain-text meta. */}
+      <div className="flex flex-wrap items-center gap-2 mt-3">
         <DropdownMenu open={stageDropdownOpen} onOpenChange={setStageDropdownOpen}>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
               disabled={isClosed}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-semibold text-white text-xs bg-brand-primary hover:opacity-90 transition-opacity disabled:opacity-50"
-              style={{ backgroundColor: displayStage?.color ?? STAGE_COLOR_FALLBACK }}
+              className={`${CHIP} bg-white text-brand-primary border border-brand-border hover:bg-brand-bg transition-colors disabled:opacity-50 ${C.focusRing}`}
             >
-              <ArrowRight size={11} />
+              <span
+                className="w-2 h-2 rounded-full shrink-0"
+                style={{ backgroundColor: displayStage?.color ?? STAGE_COLOR_FALLBACK }}
+                aria-hidden
+              />
               {displayStage?.name ?? "—"}
-              <ChevronDown size={11} />
+              <ChevronDown size={12} className="text-brand-muted" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
@@ -376,38 +355,37 @@ export function LeadCardHeader({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <span className="w-px h-4 bg-brand-border" aria-hidden="true" />
+        <span className={`${CHIP} max-w-[14rem] ${ownerTone}`}>
+          <UserRound size={12} className="shrink-0" />
+          <span className="truncate">{ownerLabel}</span>
+        </span>
 
         {(lead.priority_label || lead.priority) && (
-          <span
-            className={`type-caption font-semibold px-2.5 py-0.5 rounded-full ${priorityClass}`}
-          >
+          <span className={`${CHIP} ${priorityClass}`}>
             {lead.priority_label ?? lead.priority}
           </span>
         )}
 
         {lead.segment && (
-          <span
-            className={`type-caption ${C.color.muted} bg-brand-panel px-2 py-0.5 rounded-full`}
-          >
+          <span className={`${CHIP} bg-brand-panel text-brand-muted-strong`}>
             {lead.segment}
+          </span>
+        )}
+
+        {(lead.is_rotting_stage || lead.is_rotting_next_step) && (
+          <span className={`${CHIP} bg-warning/10 text-warning`}>
+            <AlertTriangle size={12} />
+            Протухает
           </span>
         )}
 
         {mergedFromCount > 0 && (
           <span
-            className="inline-flex items-center gap-1 type-caption text-brand-muted bg-brand-panel px-2 py-0.5 rounded-full"
+            className={`${CHIP} bg-brand-panel text-brand-muted`}
             title="Этот лид поглотил дубликаты"
           >
-            <GitMerge size={11} />
+            <GitMerge size={12} />
             объединён из {mergedFromCount}
-          </span>
-        )}
-
-        {(lead.is_rotting_stage || lead.is_rotting_next_step) && (
-          <span className="flex items-center gap-1 type-caption text-warning">
-            <AlertTriangle size={11} />
-            Протухает
           </span>
         )}
 
@@ -415,27 +393,50 @@ export function LeadCardHeader({
           <Link
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             href={`/leads-pool?form_id=${lead.source_form_id}` as any}
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-soft text-brand-accent-text text-xs font-semibold hover:bg-brand-soft/80 transition-colors ${C.focusRing}`}
+            className={`${CHIP} bg-brand-soft text-brand-accent-text hover:bg-brand-soft/80 transition-colors ${C.focusRing}`}
             title="Открыть пул лидов этого лендинга"
           >
-            <Globe size={11} aria-hidden />
+            <Globe size={12} aria-hidden />
             Лендинг: {lead.source_form_name}
           </Link>
         )}
         {lead.source?.startsWith("form:") && !lead.source_form_name && (
           <span
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-panel text-brand-muted text-xs font-semibold"
+            className={`${CHIP} bg-brand-panel text-brand-muted`}
             title="Форма удалена"
           >
-            <Globe size={11} aria-hidden />
+            <Globe size={12} aria-hidden />
             Заявка с формы
           </span>
         )}
+
+        <span className="flex flex-wrap items-center gap-x-4 gap-y-1 ml-2 type-caption text-brand-muted">
+          {lead.primary_contact_name && (
+            <span className="inline-flex items-center gap-1.5">
+              <Star size={12} fill="currentColor" className="text-brand-accent" />
+              <span className="text-brand-primary font-semibold">
+                {lead.primary_contact_name}
+              </span>
+            </span>
+          )}
+          {(lead.assigned_at || lead.created_at) && (
+            <span className="inline-flex items-center gap-1.5">
+              <Calendar size={12} />
+              в работе с {formatRelativeShort(lead.assigned_at ?? lead.created_at)}
+            </span>
+          )}
+          {lead.last_activity_at && (
+            <span className="inline-flex items-center gap-1.5">
+              <ActivityIcon size={12} className="text-success" />
+              активность {formatRelativeShort(lead.last_activity_at)}
+            </span>
+          )}
+        </span>
       </div>
 
       {(isWon || isLost) && (
         <div
-          className={`mt-2 ml-9 flex items-center gap-2 px-3 py-1.5 rounded-card type-caption font-semibold ${
+          className={`mt-3 flex items-center gap-2 px-3 py-1.5 rounded-full type-caption font-semibold ${
             isWon ? "bg-success/10 text-success" : "bg-rose/10 text-rose"
           }`}
         >
@@ -447,6 +448,8 @@ export function LeadCardHeader({
           </span>
         </div>
       )}
-    </>
+
+      {children && <div className="mt-4">{children}</div>}
+    </div>
   );
 }

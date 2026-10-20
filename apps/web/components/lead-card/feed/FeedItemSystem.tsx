@@ -21,8 +21,10 @@ interface Props {
 export function FeedItemSystem({ item }: Props) {
   const { icon, text } = render(item);
   return (
-    <div className="flex items-center gap-2 type-caption text-brand-muted py-1.5">
-      <span className="shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-bg">
+    <div className="flex items-center gap-3 type-caption text-brand-muted">
+      {/* Same 28px icon column + 12px gap as every other feed row, so all
+          feed text starts on one vertical line. */}
+      <span className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full bg-brand-panel/60">
         {icon}
       </span>
       <span className="flex-1 min-w-0 truncate">{text}</span>
@@ -39,30 +41,30 @@ function render(item: FeedItemOut): { icon: React.ReactNode; text: string } {
       const from = (item.payload_json?.from_stage_name as string | null | undefined) || "—";
       const to = (item.payload_json?.to_stage_name as string | null | undefined) || "—";
       return {
-        icon: <ArrowRightLeft size={11} />,
+        icon: <ArrowRightLeft size={13} />,
         text: `Стадия изменена: ${from} → ${to}`,
       };
     }
     case "lead_assigned":
       return {
-        icon: <User size={11} />,
+        icon: <User size={13} />,
         text: "Лид взят в работу",
       };
     case "enrichment_done":
       return {
-        icon: <Sparkles size={11} />,
+        icon: <Sparkles size={13} />,
         text: "Обогащение AI завершено",
       };
     case "form_submission": {
       const form = item.payload_json?.form_name as string | undefined;
       return {
-        icon: <ClipboardList size={11} />,
+        icon: <ClipboardList size={13} />,
         text: form ? `Заявка с формы: ${form}` : "Заявка с формы",
       };
     }
     default:
       return {
-        icon: <Settings size={11} />,
+        icon: <Settings size={13} />,
         text: item.body || item.type,
       };
   }
