@@ -678,9 +678,13 @@ function TodayPageInner() {
   }, []);
 
   const userId = user?.id ?? "anon";
+  // Имя — из профиля CRM (его правят в «Настройки → Профиль»), как и на
+  // экране руководителя; имя из Google — только запасной вариант.
+  const me = useMe();
   const firstName =
-    (user?.user_metadata?.full_name as string | undefined)?.split(" ")[0] ??
-    user?.email?.split("@")[0] ??
+    me.data?.name?.trim().split(/\s+/)[0] ||
+    (user?.user_metadata?.full_name as string | undefined)?.split(" ")[0] ||
+    user?.email?.split("@")[0] ||
     "коллега";
 
   // Deep-link support: `/today?tab=tasks` scrolls the task-list widget
