@@ -110,6 +110,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: '${SMTP_FROM:-DrinkX CRM <noreply@crm.drinkx.tech>}'
+      DIGEST_RECIPIENTS: ${DIGEST_RECIPIENTS:-}
       # Structured JSON logs → /app/logs/app-<SERVICE_NAME>.log, read back by
       # GET /admin/logs. SERVICE_NAME is overridden per service below.
       LOG_DIR: /app/logs

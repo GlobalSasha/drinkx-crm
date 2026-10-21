@@ -284,3 +284,14 @@ async def test_digest_sends_when_plan_exists():
     assert "07.05.2026" in kwargs["subject"]
     assert "Acme" in kwargs["html"]
     assert "Beta" in kwargs["html"]
+
+
+def test_recipient_allowlist_parses_and_empty_means_everyone():
+    from app.scheduled.digest_runner import _recipient_allowlist
+
+    assert _recipient_allowlist("") is None
+    assert _recipient_allowlist(" , ") is None
+    assert _recipient_allowlist(" Kirill.V@drinkx.tech , a@b.c") == {
+        "kirill.v@drinkx.tech",
+        "a@b.c",
+    }

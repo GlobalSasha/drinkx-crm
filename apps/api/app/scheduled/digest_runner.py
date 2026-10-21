@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
+from app.config import get_settings
 from app.notifications.digest import build_digest_for_user
 
 log = structlog.get_logger()
@@ -33,6 +34,12 @@ def _local_hour_now(tz_name: str | None) -> int | None:
     return datetime.now(tz).hour
 
 
+def _recipient_allowlist(raw: str) -> set[str] | None:
+    """`DIGEST_RECIPIENTS` → lowercase emails; None means «everyone»."""
+    emails = {e.strip().lower() for e in raw.split(",") if e.strip()}
+    return emails or None
+
+
 async def run_daily_digest_for_all_users(session: AsyncSession) -> int:
     """Returns the count of digests that were sent (or stubbed)."""
     threshold = datetime.now(timezone.utc) - timedelta(days=_INACTIVITY_DAYS)
@@ -40,6 +47,9 @@ async def run_daily_digest_for_all_users(session: AsyncSession) -> int:
         select(User).where(User.last_login_at >= threshold)
     )
     users = list(res.scalars().all())
+    allow = _recipient_allowlist(get_settings().digest_recipients)
+    if allow is not None:
+        users = [u for u in users if (u.email or "").lower() in allow]
 
     sent_count = 0
     for u in users:

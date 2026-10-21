@@ -87,6 +87,9 @@ class Settings(BaseSettings):
     smtp_user: str = ""
     smtp_password: str = ""
     smtp_from: str = "DrinkX CRM <noreply@crm.drinkx.tech>"
+    # Comma-separated emails that get the daily digest. Empty = every
+    # active user. Lets the digest roll out to one person first.
+    digest_recipients: str = ""
 
     # Public-facing URLs — used to build OAuth redirect_uri and to send
     # the user back to the SPA after callback.
