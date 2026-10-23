@@ -37,6 +37,20 @@ class PipelineHasLeads(Exception):
         self.count = count
 
 
+class StageNotInPipeline(Exception):
+    """400 — a stage id in the payload isn't a stage of this pipeline."""
+
+
+class StageHasLeads(Exception):
+    """409 — refuse to remove a stage while leads are on it; removing it
+    would silently drop those leads out of their stage."""
+
+    def __init__(self, name: str, count: int) -> None:
+        super().__init__(f"stage {name!r} has {count} leads on it")
+        self.name = name
+        self.count = count
+
+
 class PipelineIsDefault(Exception):
     """409 — refuse to delete the workspace's current default pipeline.
     Forces the admin to set a new default first; otherwise the
@@ -105,13 +119,11 @@ async def update_pipeline(
     type_: str | None = None,
     stages: list[dict] | None = None,
 ) -> Pipeline:
-    """Rename + optionally replace the stage list. Caller commits.
+    """Rename + optionally apply the edited stage list. Caller commits.
 
-    Stage replacement is full — the editor sends the entire list back
-    on save. `leads.stage_id` is FK SET NULL so deleted stages don't
-    cascade-delete the leads, but a stale lead lands at stage=null
-    until the manager reassigns. The Settings UI surfaces this
-    explicitly («N лидов потеряют стадию»)."""
+    The editor sends the entire list back on save. Stages keep their
+    ids, so leads stay where they are; removing a stage that still has
+    leads raises StageHasLeads instead of dropping them out of it."""
     pipeline = await get_pipeline_or_404(
         session, pipeline_id=pipeline_id, workspace_id=workspace_id
     )
@@ -120,8 +132,17 @@ async def update_pipeline(
             session, pipeline=pipeline, name=name, type_=type_
         )
     if stages is not None:
-        pipeline = await repo.replace_stages(
-            session, pipeline=pipeline, stages=stages
+        existing = {s.id: s for s in pipeline.stages}
+        kept = {s["id"] for s in stages if s.get("id") is not None}
+        if kept - existing.keys():
+            raise StageNotInPipeline()
+        remove_ids = [sid for sid in existing if sid not in kept]
+        counts = await repo.count_leads_by_stage(session, stage_ids=remove_ids)
+        for sid in remove_ids:
+            if counts.get(sid):
+                raise StageHasLeads(existing[sid].name, counts[sid])
+        pipeline = await repo.sync_stages(
+            session, pipeline=pipeline, stages=stages, remove_ids=remove_ids
         )
     return pipeline
 

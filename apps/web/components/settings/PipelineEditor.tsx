@@ -3,9 +3,9 @@
 //
 // Modal for create-and-edit of a workspace pipeline. Stages live in a
 // dnd-kit sortable list; reordering rewrites `position` on save.
-// Stage replacement on update is full (PATCH /api/pipelines/{id} sends
-// the entire stages list back) — matches the backend's
-// `repositories.replace_stages` contract.
+// On update the full stage list goes back (PATCH /api/pipelines/{id});
+// existing rows carry their `id`, so the backend updates them in place
+// and leads keep their stage (`repositories.sync_stages`).
 //
 // Field-name note: the row's «Цель (дней)» binds to `rot_days` (the
 // rotting threshold from Sprint 1.2) — adding a separate
@@ -93,6 +93,7 @@ function stagesFromPipeline(p: Pipeline): StageRow[] {
 
 function buildStagesIn(rows: StageRow[]): StageIn[] {
   return rows.map((r, i) => ({
+    ...(r.id ? { id: r.id } : {}),
     name: r.name.trim(),
     position: i,
     color: r.color || DEFAULT_COLOR,

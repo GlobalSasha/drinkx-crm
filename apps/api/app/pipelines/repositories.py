@@ -194,30 +194,61 @@ async def rename_pipeline(
     return pipeline
 
 
-async def replace_stages(
+async def count_leads_by_stage(
+    db: AsyncSession, *, stage_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, int]:
+    """Live (not soft-deleted) leads per stage, for the remove-stage guard."""
+    from app.leads.models import Lead
+
+    if not stage_ids:
+        return {}
+    result = await db.execute(
+        select(Lead.stage_id, func.count(Lead.id))
+        .where(Lead.stage_id.in_(stage_ids), Lead.deleted_at.is_(None))
+        .group_by(Lead.stage_id)
+    )
+    return {sid: int(n) for sid, n in result.all()}
+
+
+async def sync_stages(
     db: AsyncSession,
     *,
     pipeline: Pipeline,
     stages: list[dict],
+    remove_ids: list[uuid.UUID],
 ) -> Pipeline:
-    """Replace the pipeline's stages with the provided list. Used by
-    the Settings PipelineEditor (Sprint 2.3 G3). Stage rows previously
-    on the pipeline are dropped — `leads.stage_id` is ON DELETE
-    SET NULL so leads stay in the pipeline but lose stage_id (manager
-    has to reassign). Caller commits."""
-    # Delete existing stages first (cascade-deletes any per-stage refs).
+    """Apply the Settings PipelineEditor's stage list in place.
+
+    Rows with an `id` update that stage, rows without one are inserted,
+    `remove_ids` are deleted. Existing stages are never dropped and
+    recreated: `leads.stage_id` is ON DELETE SET NULL and
+    `lead_stage_history` cascades, so a recreate silently threw every
+    lead back to the first column and wiped its stage history (23.10.2026).
+    The service has already checked ids and the leads on `remove_ids`.
+    Caller commits."""
     from sqlalchemy import delete
 
-    await db.execute(delete(Stage).where(Stage.pipeline_id == pipeline.id))
-    await db.flush()
+    if remove_ids:
+        await db.execute(delete(Stage).where(Stage.id.in_(remove_ids)))
+    existing = {s.id: s for s in pipeline.stages}
     for s in stages:
-        db.add(Stage(pipeline_id=pipeline.id, **s))
+        fields = dict(s)
+        stage_id = fields.pop("id", None)
+        if stage_id is None:
+            db.add(Stage(pipeline_id=pipeline.id, **fields))
+            continue
+        stage = existing[stage_id]
+        for key, value in fields.items():
+            setattr(stage, key, value)
     await db.flush()
-    # Re-fetch with stages eager-loaded.
+    # Re-fetch with stages eager-loaded. populate_existing: the identity
+    # map still holds the old collection (with removed stages) and the
+    # updated rows' expired `updated_at`, which async can't lazy-load.
     result = await db.execute(
         select(Pipeline)
         .where(Pipeline.id == pipeline.id)
         .options(selectinload(Pipeline.stages))
+        .execution_options(populate_existing=True)
     )
     return result.scalar_one()
 
