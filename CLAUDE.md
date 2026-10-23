@@ -133,7 +133,12 @@ is the canonical truth.
   `pnpm build` during `docker compose build`.
 - **Backend (`apps/api`)**: FastAPI in `api`; Celery worker in `worker`;
   Celery beat in `beat`. All three share the same image.
-- **DB**: Supabase (managed Postgres).
+- **DB**: Postgres in the `drinkx-postgres-1` container on the same
+  server (Supabase is used only for Auth).
+- **Backups**: `infra/production/backup-db.sh` — daily `pg_dump` at
+  03:15 UTC (cron, set up once with `backup-db.sh install`) into
+  `/opt/drinkx-crm/backups`, last 14 days kept. Same disk as the DB —
+  not an off-site copy.
 - **Redis**: Upstash (Celery broker + result backend).
 - **Logs / errors**: `docker compose logs <service>` on the server; Sentry
   captures runtime errors (`SENTRY_DSN`).
