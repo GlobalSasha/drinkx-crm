@@ -54,6 +54,9 @@ class PipelineOut(BaseModel):
 # ---------------------------------------------------------------------------
 
 class StageIn(BaseModel):
+    # Existing stage → its id, so the row is updated in place and the
+    # leads on it keep their stage. Omitted for a newly added stage.
+    id: UUID | None = None
     name: str = Field(min_length=1, max_length=120)
     position: int = Field(ge=0, le=99)
     color: str = Field(default="#a1a1a6", max_length=20)
@@ -83,10 +86,10 @@ class PipelineCreateIn(BaseModel):
 class PipelineUpdateIn(BaseModel):
     """PATCH /api/pipelines/{id} — rename + replace stages.
 
-    `stages` is omit-or-full-replace, not row-level merge. The Settings
-    UI sends the entire stage list back on save. Lead.stage_id stays
-    intact via stage IDs (not auto-assigned UUIDs); the editor produces
-    new IDs only for newly-added rows.
+    `stages` is the full list after the edit. Rows with an `id` update
+    that stage in place (leads stay on it); rows without one are new
+    stages; existing stages missing from the list are removed — refused
+    while leads are still on them.
     """
     name: str | None = Field(default=None, min_length=1, max_length=120)
     type: str | None = Field(default=None, max_length=40)

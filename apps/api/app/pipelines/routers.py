@@ -83,7 +83,7 @@ async def create_pipeline_endpoint(
         workspace_id=user.workspace_id,
         name=payload.name,
         type_=payload.type,
-        stages=[s.model_dump() for s in payload.stages],
+        stages=[s.model_dump(exclude={"id"}) for s in payload.stages],
     )
     await log_audit_event(
         db,
@@ -115,8 +115,13 @@ async def update_pipeline_endpoint(
             workspace_id=user.workspace_id,
             name=payload.name,
             type_=payload.type,
+            # Existing stages: only the fields the editor sent, so it
+            # doesn't reset probability / gate criteria it never shows.
             stages=(
-                [s.model_dump() for s in payload.stages]
+                [
+                    s.model_dump() if s.id is None else s.model_dump(exclude_unset=True)
+                    for s in payload.stages
+                ]
                 if payload.stages is not None
                 else None
             ),
@@ -124,6 +129,19 @@ async def update_pipeline_endpoint(
     except svc.PipelineNotFound as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="воронка не найдена"
+        ) from exc
+    except svc.StageNotInPipeline as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Стадия не из этой воронки — обновите страницу и повторите",
+        ) from exc
+    except svc.StageHasLeads as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"На стадии «{exc.name}» {exc.count} лидов — "
+                "сначала перенесите их, потом удаляйте стадию"
+            ),
         ) from exc
 
     await db.commit()

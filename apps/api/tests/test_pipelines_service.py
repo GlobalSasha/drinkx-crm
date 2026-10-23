@@ -544,3 +544,78 @@ async def test_form_create_no_target_skips_validation():
         target_stage_id=None,
     )
     assert db.execute.await_count == 0
+
+
+# ===========================================================================
+# update_pipeline — stages are synced in place, never dropped + recreated
+# ===========================================================================
+
+def _pipeline_with_stages(*names):
+    p = _make_pipeline()
+    p.stages = []
+    for name in names:
+        st = MagicMock()
+        st.id = uuid.uuid4()
+        st.name = name
+        p.stages.append(st)
+    return p
+
+
+@pytest.mark.asyncio
+async def test_update_keeps_existing_stages_and_removes_only_dropped_ones():
+    """Reorder + add + remove an empty stage: existing ids go to sync,
+    only the dropped empty stage is removed (23.10.2026 regression)."""
+    p = _pipeline_with_stages("Первый контакт", "Квалификация", "Пустая")
+    first, qual, empty = p.stages
+    captured: dict = {}
+
+    async def fake_sync(_session, **kwargs):
+        captured.update(kwargs)
+        return p
+
+    stages = [
+        {"id": qual.id, "name": "Квалификация", "position": 0},
+        {"id": first.id, "name": "Первый контакт", "position": 1},
+        {"name": "Новая", "position": 2},
+    ]
+    with patch("app.pipelines.repositories.get_by_id", new=AsyncMock(return_value=p)), \
+         patch("app.pipelines.repositories.count_leads_by_stage", new=AsyncMock(return_value={})), \
+         patch("app.pipelines.repositories.sync_stages", new=fake_sync):
+        await svc.update_pipeline(AsyncMock(), pipeline_id=p.id, workspace_id=WS, stages=stages)
+
+    assert captured["remove_ids"] == [empty.id]
+    assert captured["stages"] == stages
+
+
+@pytest.mark.asyncio
+async def test_update_refuses_to_remove_stage_with_leads():
+    p = _pipeline_with_stages("Первый контакт", "Квалификация")
+    first, qual = p.stages
+    sync = AsyncMock()
+
+    with patch("app.pipelines.repositories.get_by_id", new=AsyncMock(return_value=p)), \
+         patch("app.pipelines.repositories.count_leads_by_stage", new=AsyncMock(return_value={qual.id: 57})), \
+         patch("app.pipelines.repositories.sync_stages", new=sync):
+        with pytest.raises(svc.StageHasLeads) as exc:
+            await svc.update_pipeline(
+                AsyncMock(), pipeline_id=p.id, workspace_id=WS,
+                stages=[{"id": first.id, "name": "Первый контакт", "position": 0}],
+            )
+
+    assert exc.value.name == "Квалификация" and exc.value.count == 57
+    sync.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_rejects_stage_id_from_another_pipeline():
+    p = _pipeline_with_stages("Первый контакт")
+    sync = AsyncMock()
+
+    with patch("app.pipelines.repositories.get_by_id", new=AsyncMock(return_value=p)), \
+         patch("app.pipelines.repositories.sync_stages", new=sync):
+        with pytest.raises(svc.StageNotInPipeline):
+            await svc.update_pipeline(
+                AsyncMock(), pipeline_id=p.id, workspace_id=WS,
+                stages=[{"id": uuid.uuid4(), "name": "Чужая", "position": 0}],
+            )
+    sync.assert_not_called()

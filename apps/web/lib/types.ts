@@ -57,6 +57,8 @@ export interface Pipeline {
 // editor surfaces.
 
 export interface StageIn {
+  /** Existing stage — keeps its leads; omitted for a new stage. */
+  id?: string;
   name: string;
   position: number;
   color?: string;
