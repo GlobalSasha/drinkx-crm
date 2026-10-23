@@ -15,7 +15,7 @@ hardcoded until 2026-07-14; that account has since been retired.)
 Run inside the api container on prod:
 
     docker exec -e TEST_LOGIN_EMAIL='...' -e TEST_LOGIN_PASSWORD='...' \
-      -i drinkx-api-1 python scripts/create_test_user.py
+      -i drinkx-api-1 /app/.venv/bin/python scripts/create_test_user.py
 
 Requires SUPABASE_URL, SUPABASE_SECRET_KEY, DATABASE_URL in the env (already
 set on the production container).
@@ -121,7 +121,7 @@ async def main() -> int:
             "  They are deliberately not in the source — this repo is public.\n"
             "  Pass them on the command line:\n"
             "    docker exec -e TEST_LOGIN_EMAIL='...' -e TEST_LOGIN_PASSWORD='...' \\\n"
-            "      -i drinkx-api-1 python scripts/create_test_user.py",
+            "      -i drinkx-api-1 /app/.venv/bin/python scripts/create_test_user.py",
             file=sys.stderr,
         )
         return 2
