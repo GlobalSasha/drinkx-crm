@@ -103,6 +103,14 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       API_BASE_URL: ${API_BASE_URL}
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL}
+      # SMTP — daily email digest. Empty SMTP_HOST keeps the stub mode
+      # (rendered email goes to the worker log instead of being sent).
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: '${SMTP_FROM:-DrinkX CRM <noreply@crm.drinkx.tech>}'
+      DIGEST_RECIPIENTS: ${DIGEST_RECIPIENTS:-}
       # Structured JSON logs → /app/logs/app-<SERVICE_NAME>.log, read back by
       # GET /admin/logs. SERVICE_NAME is overridden per service below.
       LOG_DIR: /app/logs
