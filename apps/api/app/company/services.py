@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -86,6 +87,72 @@ async def summary(db: AsyncSession, *, workspace_id: uuid.UUID, period: str) -> 
         "ad_conversion_pct_prior": _ad_conversion(prior_sources),
         "sources": sources,
         "daily": daily,
+    }
+
+
+INFLOW_DAYS = 62  # two 30-day windows (current vs previous) plus today
+INFLOW_MONTHS = 12
+DEFAULT_TZ = "Europe/Moscow"
+
+
+def _tz(name: str | None) -> str:
+    try:
+        ZoneInfo(name or DEFAULT_TZ)
+        return name or DEFAULT_TZ
+    except (ZoneInfoNotFoundError, ValueError):
+        return DEFAULT_TZ
+
+
+def _month_start(d: date, back: int) -> date:
+    """First day of the month `back` months before `d`'s month."""
+    idx = d.year * 12 + (d.month - 1) - back
+    return date(idx // 12, idx % 12 + 1, 1)
+
+
+async def inflow(db: AsyncSession, *, workspace_id: uuid.UUID, tz: str | None) -> dict:
+    """New leads by local day (last 62 days) and month (last 12), per source.
+
+    One honest definition for the whole block: every new (non-archived) lead,
+    labelled by where it came from. Hand-typed leads and file loads share the
+    «Вручную и загрузка базы» label — the UI lets you hide it, since a base
+    load spikes a single day.
+    """
+    zone_name = _tz(tz)
+    zone = ZoneInfo(zone_name)
+    today = datetime.now(zone).date()
+    day_from = datetime.combine(today - timedelta(days=INFLOW_DAYS - 1), datetime.min.time(), zone)
+    month_from = datetime.combine(
+        _month_start(today, INFLOW_MONTHS - 1), datetime.min.time(), zone
+    )
+
+    days = await repo.inflow_points(db, workspace_id=workspace_id, from_=day_from, unit="day", tz=zone_name)
+    months = await repo.inflow_points(
+        db, workspace_id=workspace_id, from_=month_from, unit="month", tz=zone_name
+    )
+
+    totals: dict[str, dict] = {}
+    for p in months:
+        name = p["label"] or repo.MANUAL_SOURCE_LABEL
+        t = totals.setdefault(
+            name, {"name": name, "is_paid": False, "is_manual": p["label"] is None, "total": 0}
+        )
+        t["total"] += p["count"]
+        t["is_paid"] = t["is_paid"] or p["is_paid"]
+    # Biggest real sources first; the manual bucket always last.
+    sources = sorted(totals.values(), key=lambda t: (t["is_manual"], -t["total"], t["name"]))
+
+    def points(rows: list[dict]) -> list[dict]:
+        return [
+            {"bucket": p["bucket"], "source": p["label"] or repo.MANUAL_SOURCE_LABEL, "count": p["count"]}
+            for p in rows
+        ]
+
+    return {
+        "timezone": zone_name,
+        "today": today,
+        "days": points(days),
+        "months": points(months),
+        "sources": sources,
     }
 
 

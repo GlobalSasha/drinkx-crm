@@ -109,3 +109,50 @@ async def test_attention_stuck_and_managers(db, workspace, user):
     assert m["in_work"] == 2                 # L3 + L4
     assert m["stuck"] == 1                   # L3
     assert m["new_week"] == 1                # L4 (2d); L3 is 10d
+
+
+@skip_no_pg
+async def test_inflow_labels_forms_and_manual_and_uses_local_days(db, workspace, user):
+    from zoneinfo import ZoneInfo
+
+    from app.leads.models import Lead
+
+    leads = await _setup(db, workspace, user)
+    moscow = ZoneInfo("Europe/Moscow")
+    local_midnight = datetime.now(moscow).replace(hour=0, minute=0, second=0, microsecond=0)
+    # 00:30 Moscow = 21:30 UTC the day before — must count as «today» locally.
+    form_lead = Lead(
+        workspace_id=workspace.id, company_name="Form", pipeline_id=leads[0].pipeline_id,
+        stage_id=leads[0].stage_id, source="form:landing",
+        created_at=(local_midnight + timedelta(minutes=30)).astimezone(timezone.utc),
+    )
+    manual_lead = Lead(
+        workspace_id=workspace.id, company_name="Typed", pipeline_id=leads[0].pipeline_id,
+        stage_id=leads[0].stage_id,
+        created_at=datetime.now(timezone.utc) - timedelta(days=1),
+    )
+    db.add_all([form_lead, manual_lead])
+    await db.flush()
+
+    out = await svc.inflow(db, workspace_id=workspace.id, tz="Europe/Moscow")
+    today = out["today"]
+    assert today == local_midnight.date()
+
+    names = [s["name"] for s in out["sources"]]
+    assert "Сайт" in names
+    assert names[-1] == "Вручную и загрузка базы"          # manual bucket always last
+    assert next(s for s in out["sources"] if s["name"] == "Яндекс Директ")["total"] == 3
+    assert next(s for s in out["sources"] if s["name"] == "Вручную и загрузка базы")["is_manual"]
+
+    site_today = [p for p in out["days"] if p["source"] == "Сайт" and p["bucket"] == today]
+    assert site_today and site_today[0]["count"] == 1
+
+    # Months roll up the same leads: everything here is within the last 12 months.
+    assert sum(p["count"] for p in out["months"]) == len(leads) + 2
+
+
+@skip_no_pg
+async def test_inflow_falls_back_to_moscow_on_unknown_timezone(db, workspace, user):
+    out = await svc.inflow(db, workspace_id=workspace.id, tz="Mars/Olympus")
+    assert out["timezone"] == "Europe/Moscow"
+    assert out["days"] == [] and out["sources"] == []

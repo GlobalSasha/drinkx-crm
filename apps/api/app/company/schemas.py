@@ -105,3 +105,24 @@ class CompanyManagersOut(BaseModel):
     totals: ManagerTotals
     alerts: list[ManagerAlert]
     managers: list[ManagerRow]
+
+
+class InflowPoint(BaseModel):
+    bucket: date  # local day, or the first day of a local month
+    source: str
+    count: int
+
+
+class InflowSource(BaseModel):
+    name: str
+    is_paid: bool
+    is_manual: bool  # «Вручную и загрузка базы» — no source and no web form
+    total: int  # over the 12-month window
+
+
+class CompanyInflowOut(BaseModel):
+    timezone: str
+    today: date  # the user's local date — the client zero-fills ranges from it
+    days: list[InflowPoint]  # last 62 local days
+    months: list[InflowPoint]  # last 12 local months
+    sources: list[InflowSource]  # real sources by volume, manual bucket last

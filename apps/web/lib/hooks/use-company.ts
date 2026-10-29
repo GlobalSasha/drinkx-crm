@@ -3,6 +3,7 @@ import { api } from "@/lib/api-client";
 import type {
   CompanySummary,
   CompanyAttention,
+  CompanyInflow,
   CompanyManagers,
   ManagerPeriod,
 } from "@/lib/types";
@@ -12,6 +13,15 @@ export function useCompanySummary(period: "week" | "month" = "week") {
   return useQuery({
     queryKey: ["company-summary", period],
     queryFn: () => api.get<CompanySummary>(`/company/summary?period=${period}`),
+    staleTime: 60 * 1000,
+  });
+}
+
+/** New leads by local day and month, per source. Admin/head only. */
+export function useCompanyInflow() {
+  return useQuery({
+    queryKey: ["company-inflow"],
+    queryFn: () => api.get<CompanyInflow>("/company/inflow"),
     staleTime: 60 * 1000,
   });
 }
