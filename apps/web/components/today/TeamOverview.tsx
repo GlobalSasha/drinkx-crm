@@ -12,9 +12,10 @@ import { Clock, ChevronRight, ArrowDown, ArrowUp } from "lucide-react";
 
 import { pageContainerVariants } from "@/components/ui/PageContainer";
 import { C } from "@/lib/design-system";
-import { useCompanyManagers, useCompanySummary } from "@/lib/hooks/use-company";
+import { useCompanyInflow, useCompanyManagers, useCompanySummary } from "@/lib/hooks/use-company";
 import { useMe } from "@/lib/hooks/use-me";
 import { TodayHero } from "@/components/today/TodayHero";
+import { InflowCard } from "@/components/today/InflowCard";
 import { GREETING, dayPart, headSummary } from "@/lib/today-summary";
 import { relativeTime } from "@/lib/relative-time";
 import type { ManagerRow, ManagerPeriod, ManagerAlert } from "@/lib/types";
@@ -98,18 +99,31 @@ export function TeamOverview() {
   const managers = data?.managers ?? [];
   const me = useMe();
   const flow = useCompanySummary("week");
+  // Same counting as «Входящие заявки» below: local days, base loads excluded.
+  const inflow = useCompanyInflow();
 
   // Hero summary: today's inbound, stuck deals, the first silent manager.
   const heroSummary = useMemo(() => {
-    if (flow.isLoading || isLoading) return null;
+    if (flow.isLoading || inflow.isLoading || isLoading) return null;
+    const realToday = (day: string | undefined) => {
+      if (!inflow.data || !day) return null;
+      const manual = new Set(inflow.data.sources.filter((s) => s.is_manual).map((s) => s.name));
+      return inflow.data.days
+        .filter((p) => p.bucket === day && !manual.has(p.source))
+        .reduce((acc, p) => acc + p.count, 0);
+    };
+    const today = inflow.data?.today;
+    const yesterday = today
+      ? new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10)
+      : undefined;
     const silent = data?.alerts.find((a) => a.type === "silent");
     return headSummary({
-      leadsToday: flow.data?.leads_today ?? null,
-      leadsYesterday: flow.data?.leads_yesterday ?? null,
+      leadsToday: realToday(today),
+      leadsYesterday: realToday(yesterday),
       stuck: flow.data?.stuck_count ?? null,
       silent: silent ? { name: silent.name, days: silent.days ?? 0 } : null,
     });
-  }, [flow.isLoading, flow.data, isLoading, data]);
+  }, [flow.isLoading, flow.data, inflow.isLoading, inflow.data, isLoading, data]);
   const firstName = me.data?.name?.split(" ")[0] || "коллега";
 
   const dateCaption = useMemo(() => {
@@ -130,6 +144,8 @@ export function TeamOverview() {
         primary={{ href: "/incoming", label: "Открыть заявки" }}
         secondary={{ href: "/pipeline", label: "Воронка" }}
       />
+
+      <InflowCard />
 
       {/* Header + period toggle */}
       <div className="bg-white border border-brand-border rounded-card p-6 mb-5">

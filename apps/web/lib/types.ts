@@ -214,6 +214,30 @@ export interface DailyPoint {
   count: number;
 }
 
+/** One bar segment of `/company/inflow`: new leads in a local day or month. */
+export interface InflowPoint {
+  bucket: string; // YYYY-MM-DD — the day, or the first day of the month
+  source: string;
+  count: number;
+}
+
+export interface InflowSource {
+  name: string;
+  is_paid: boolean;
+  /** «Вручную и загрузка базы» — no lead source and no web form. */
+  is_manual: boolean;
+  total: number; // over the 12-month window
+}
+
+/** `/company/inflow` — new leads by day (62 days) and month (12), per source. */
+export interface CompanyInflow {
+  timezone: string;
+  today: string; // the user's local date, YYYY-MM-DD
+  days: InflowPoint[];
+  months: InflowPoint[];
+  sources: InflowSource[];
+}
+
 export interface CompanySummary {
   period: string;
   leads_today: number;

@@ -344,3 +344,43 @@ async def workspace_has_leads(db: AsyncSession, *, workspace_id: uuid.UUID) -> b
     """Cheap existence check — gates silent-manager alerts."""
     sql = text("SELECT EXISTS(SELECT 1 FROM leads WHERE workspace_id = :wid)")
     return bool((await db.execute(sql, {"wid": workspace_id})).scalar_one())
+
+
+# Label for leads with neither a lead source nor a web form — typed in by hand
+# or loaded from a file. The two can't be told apart from the lead row.
+MANUAL_SOURCE_LABEL = "Вручную и загрузка базы"
+FORM_SOURCE_LABEL = "Сайт"
+
+
+async def inflow_points(
+    db: AsyncSession, *, workspace_id: uuid.UUID, from_: datetime, unit: str, tz: str
+) -> list[dict]:
+    """New leads per local `unit` bucket ('day' | 'month') and source label.
+
+    Source label: the lead source's name; otherwise «Сайт» for web-form leads
+    (they carry `source = 'form:…'` but often no `source_id`); otherwise NULL —
+    the caller renders it as «Вручную и загрузка базы». Buckets are cut in the
+    user's timezone so a lead at 01:00 Moscow lands on the right day.
+    """
+    if unit not in ("day", "month"):
+        raise ValueError(f"invalid unit: {unit}")
+    sql = text(f"""
+        SELECT date_trunc('{unit}', l.created_at AT TIME ZONE CAST(:tz AS text))::date AS bucket,
+               CASE WHEN ls.name IS NOT NULL THEN ls.name
+                    WHEN l.source LIKE 'form:%' THEN CAST(:form_label AS text)
+               END AS label,
+               bool_or(COALESCE(ls.is_paid, false)) AS is_paid,
+               count(*) AS cnt
+        FROM leads l
+        LEFT JOIN lead_sources ls ON ls.id = l.source_id
+        WHERE l.workspace_id = :wid AND l.archived_at IS NULL AND l.created_at >= :from_
+        GROUP BY 1, 2
+        ORDER BY 1
+    """)
+    rows = (await db.execute(sql, {
+        "wid": workspace_id, "from_": from_, "tz": tz, "form_label": FORM_SOURCE_LABEL,
+    })).all()
+    return [
+        {"bucket": r.bucket, "label": r.label, "is_paid": bool(r.is_paid), "count": int(r.cnt)}
+        for r in rows
+    ]

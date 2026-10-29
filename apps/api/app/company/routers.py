@@ -2,6 +2,7 @@
 
   GET /api/company/summary?period=week|month   — incoming-lead pulse + sources + daily
   GET /api/company/attention                    — stuck leads + per-manager load
+  GET /api/company/inflow                       — new leads by day / month and source
 """
 from __future__ import annotations
 
@@ -15,6 +16,7 @@ from app.auth.models import User
 from app.company import services as svc
 from app.company.schemas import (
     CompanyAttentionOut,
+    CompanyInflowOut,
     CompanyManagersOut,
     CompanySummaryOut,
 )
@@ -59,4 +61,13 @@ async def company_managers(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         ) from exc
+    return data  # type: ignore[return-value]
+
+
+@router.get("/inflow", response_model=CompanyInflowOut)
+async def company_inflow(
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(require_admin_or_head)] = ...,
+) -> CompanyInflowOut:
+    data = await svc.inflow(db, workspace_id=user.workspace_id, tz=user.timezone)
     return data  # type: ignore[return-value]
