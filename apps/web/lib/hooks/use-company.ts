@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type {
   CompanySummary,
-  CompanyAttention,
   CompanyInflow,
   CompanyManagers,
   ManagerPeriod,
@@ -22,14 +21,6 @@ export function useCompanyInflow() {
   return useQuery({
     queryKey: ["company-inflow"],
     queryFn: () => api.get<CompanyInflow>("/company/inflow"),
-    staleTime: 60 * 1000,
-  });
-}
-
-export function useCompanyAttention() {
-  return useQuery({
-    queryKey: ["company-attention"],
-    queryFn: () => api.get<CompanyAttention>("/company/attention"),
     staleTime: 60 * 1000,
   });
 }

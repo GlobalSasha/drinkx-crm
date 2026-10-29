@@ -156,3 +156,43 @@ async def test_inflow_falls_back_to_moscow_on_unknown_timezone(db, workspace, us
     out = await svc.inflow(db, workspace_id=workspace.id, tz="Mars/Olympus")
     assert out["timezone"] == "Europe/Moscow"
     assert out["days"] == [] and out["sources"] == []
+
+
+@skip_no_pg
+async def test_inflow_reaction_counts_people_on_incoming_leads_only(db, workspace, user):
+    from app.leads.models import Lead
+
+    leads = await _setup(db, workspace, user)  # L1/L2/L4 paid (Директ), L3 «Выставка» (not paid)
+    now = datetime.now(timezone.utc)
+    p_id, st_id = leads[0].pipeline_id, leads[0].stage_id
+
+    answered = Lead(workspace_id=workspace.id, company_name="Answered", pipeline_id=p_id,
+                    stage_id=st_id, source="form:landing", created_at=now - timedelta(hours=5))
+    waiting = Lead(workspace_id=workspace.id, company_name="Waiting", pipeline_id=p_id,
+                   stage_id=st_id, source="form:landing", created_at=now - timedelta(hours=30))
+    db.add_all([answered, waiting])
+    await db.flush()
+    db.add_all([
+        # Automation task: no user → not a reaction.
+        Activity(lead_id=answered.id, type="task", payload_json={"text": "auto"},
+                 created_at=now - timedelta(hours=4, minutes=30)),
+        # A manager's comment two hours after the lead arrived → the first touch.
+        Activity(lead_id=answered.id, user_id=user.id, type="comment", payload_json={"text": "звонил"},
+                 created_at=now - timedelta(hours=3)),
+        # Touch on the not-paid «Выставка» lead: that lead isn't incoming, ignored.
+        Activity(lead_id=leads[2].id, user_id=user.id, type="comment", payload_json={"text": "x"},
+                 created_at=now - timedelta(days=9)),
+    ])
+    await db.flush()
+
+    r = (await svc.inflow(db, workspace_id=workspace.id, tz="Europe/Moscow"))["reaction"]
+    cur = r["current"]
+    # Incoming in 30 days: 3 paid (L1, L2, L4) + 2 form leads; «Выставка» excluded.
+    assert cur["total"] == 5
+    assert cur["touched"] == 1
+    assert cur["median_hours"] == 2.0
+    assert cur["within_hour"] == 0
+    assert r["waiting_count"] == 4                       # L1, L2, L4, Waiting
+    assert r["waiting"][0]["company_name"] == "L2"       # oldest first (3 days)
+    assert {w["company_name"] for w in r["waiting"]} == {"L1", "L2", "L4", "Waiting"}
+    assert r["previous"] == {"total": 0, "touched": 0, "median_hours": None, "within_hour": 0}

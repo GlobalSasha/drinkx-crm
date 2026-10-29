@@ -120,9 +120,31 @@ class InflowSource(BaseModel):
     total: int  # over the 12-month window
 
 
+class ReactionWindow(BaseModel):
+    total: int  # incoming leads that arrived in the window
+    touched: int  # of them, how many got a first touch
+    median_hours: float | None  # median hours to the first touch; None if nobody was touched
+    within_hour: int  # touched within an hour
+
+
+class WaitingLead(BaseModel):
+    lead_id: uuid.UUID
+    company_name: str
+    source: str
+    hours: float  # since the lead arrived
+
+
+class InflowReaction(BaseModel):
+    current: ReactionWindow  # last 30 days
+    previous: ReactionWindow  # the 30 days before
+    waiting_count: int  # incoming leads of the last 30 days with no touch yet
+    waiting: list[WaitingLead]  # the oldest of them, up to 5
+
+
 class CompanyInflowOut(BaseModel):
     timezone: str
     today: date  # the user's local date — the client zero-fills ranges from it
     days: list[InflowPoint]  # last 62 local days
     months: list[InflowPoint]  # last 12 local months
     sources: list[InflowSource]  # real sources by volume, manual bucket last
+    reaction: InflowReaction  # web-form and paid-source leads only

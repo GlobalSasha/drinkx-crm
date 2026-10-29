@@ -384,3 +384,50 @@ async def inflow_points(
         {"bucket": r.bucket, "label": r.label, "is_paid": bool(r.is_paid), "count": int(r.cnt)}
         for r in rows
     ]
+
+
+async def inbound_reaction(
+    db: AsyncSession, *, workspace_id: uuid.UUID, from_: datetime
+) -> list[dict]:
+    """Truly incoming leads since `from_` with the time of the first touch.
+
+    Incoming = a web-form lead or a lead from a paid (ad) source. Scouting and
+    cold-call leads are typed in by the manager after the contact, so «how fast
+    did we react» is meaningless for them.
+
+    First touch = the earliest thing a person did on the lead after it arrived:
+    a comment, task, stage move, file, email or Telegram message by a user, any
+    phone call (telephony writes calls without a user), or an outbound
+    email/message. Automation tasks and system rows have no user and don't count.
+    """
+    sql = text("""
+        SELECT l.id AS lead_id, l.company_name, l.created_at,
+               CASE WHEN ls.name IS NOT NULL THEN ls.name ELSE CAST(:form_label AS text) END AS label,
+               (
+                 SELECT min(a.created_at) FROM activities a
+                 WHERE a.lead_id = l.id AND a.archived_at IS NULL AND a.created_at >= l.created_at
+                   AND (
+                     (a.user_id IS NOT NULL
+                      AND a.type IN ('comment', 'task', 'stage_change', 'file', 'email', 'tg', 'phone'))
+                     OR a.type = 'phone'
+                     OR (a.type IN ('email', 'tg') AND a.direction = 'outbound')
+                   )
+               ) AS first_touch
+        FROM leads l
+        LEFT JOIN lead_sources ls ON ls.id = l.source_id
+        WHERE l.workspace_id = :wid AND l.archived_at IS NULL AND l.created_at >= :from_
+          AND (l.source LIKE 'form:%' OR COALESCE(ls.is_paid, false))
+    """)
+    rows = (await db.execute(sql, {
+        "wid": workspace_id, "from_": from_, "form_label": FORM_SOURCE_LABEL,
+    })).all()
+    return [
+        {
+            "lead_id": r.lead_id,
+            "company_name": r.company_name,
+            "label": r.label,
+            "created_at": r.created_at,
+            "first_touch": r.first_touch,
+        }
+        for r in rows
+    ]
