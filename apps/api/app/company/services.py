@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime, timedelta, timezone
+from statistics import median
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -153,6 +154,53 @@ async def inflow(db: AsyncSession, *, workspace_id: uuid.UUID, tz: str | None) -
         "days": points(days),
         "months": points(months),
         "sources": sources,
+        "reaction": await _reaction(db, workspace_id=workspace_id),
+    }
+
+
+REACTION_WINDOW_DAYS = 30
+REACTION_WAITING_PREVIEW = 5
+
+
+def _hours(delta: timedelta) -> float:
+    return round(delta.total_seconds() / 3600, 1)
+
+
+async def _reaction(db: AsyncSession, *, workspace_id: uuid.UUID) -> dict:
+    """Time to the first touch on incoming leads: last 30 days vs the 30 before,
+    plus the incoming leads of the last 30 days nobody has touched yet."""
+    now = datetime.now(timezone.utc)
+    cur_from = now - timedelta(days=REACTION_WINDOW_DAYS)
+    prev_from = cur_from - timedelta(days=REACTION_WINDOW_DAYS)
+    rows = await repo.inbound_reaction(db, workspace_id=workspace_id, from_=prev_from)
+
+    def window(lo: datetime, hi: datetime) -> dict:
+        leads = [r for r in rows if lo <= r["created_at"] < hi]
+        waits = [_hours(r["first_touch"] - r["created_at"]) for r in leads if r["first_touch"]]
+        return {
+            "total": len(leads),
+            "touched": len(waits),
+            "median_hours": round(median(waits), 1) if waits else None,
+            "within_hour": sum(1 for w in waits if w <= 1),
+        }
+
+    waiting = sorted(
+        (r for r in rows if r["created_at"] >= cur_from and r["first_touch"] is None),
+        key=lambda r: r["created_at"],
+    )
+    return {
+        "current": window(cur_from, now),
+        "previous": window(prev_from, cur_from),
+        "waiting_count": len(waiting),
+        "waiting": [
+            {
+                "lead_id": r["lead_id"],
+                "company_name": r["company_name"],
+                "source": r["label"],
+                "hours": _hours(now - r["created_at"]),
+            }
+            for r in waiting[:REACTION_WAITING_PREVIEW]
+        ],
     }
 
 

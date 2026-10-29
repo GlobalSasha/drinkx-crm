@@ -229,6 +229,28 @@ export interface InflowSource {
   total: number; // over the 12-month window
 }
 
+export interface ReactionWindow {
+  total: number; // incoming leads that arrived in the window
+  touched: number; // of them, how many got a first touch
+  median_hours: number | null; // null when nobody was touched
+  within_hour: number;
+}
+
+export interface WaitingLead {
+  lead_id: string;
+  company_name: string;
+  source: string;
+  hours: number; // since the lead arrived
+}
+
+/** Speed of the first touch on incoming (web-form / paid-source) leads. */
+export interface InflowReaction {
+  current: ReactionWindow; // last 30 days
+  previous: ReactionWindow; // the 30 days before
+  waiting_count: number;
+  waiting: WaitingLead[]; // oldest untouched, up to 5
+}
+
 /** `/company/inflow` — new leads by day (62 days) and month (12), per source. */
 export interface CompanyInflow {
   timezone: string;
@@ -236,6 +258,7 @@ export interface CompanyInflow {
   days: InflowPoint[];
   months: InflowPoint[];
   sources: InflowSource[];
+  reaction: InflowReaction;
 }
 
 export interface CompanySummary {
@@ -250,30 +273,6 @@ export interface CompanySummary {
   ad_conversion_pct_prior: number | null;
   sources: SourceBreakdown[];
   daily: DailyPoint[];
-}
-
-export interface StuckLead {
-  lead_id: string;
-  company_name: string;
-  source_name: string | null;
-  manager_name: string | null;
-  stage_name: string | null;
-  days_idle: number;
-}
-
-export interface ManagerLoad {
-  user_id: string;
-  name: string;
-  max_active_deals: number | null;
-  in_work: number;
-  new_week: number;
-  stuck: number;
-}
-
-export interface CompanyAttention {
-  stuck: StuckLead[];
-  managers: ManagerLoad[];
-  oldest_days_idle: number;
 }
 
 // ── CEO /today: manager activity («труд ↔ результат») ──────────────

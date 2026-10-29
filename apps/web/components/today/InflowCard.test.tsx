@@ -20,6 +20,12 @@ const data: CompanyInflow = {
     { name: "Сайт", is_paid: false, is_manual: false, total: 3 },
     { name: "Вручную и загрузка базы", is_paid: false, is_manual: true, total: 80 },
   ],
+  reaction: {
+    current: { total: 0, touched: 0, median_hours: null, within_hour: 0 },
+    previous: { total: 0, touched: 0, median_hours: null, within_hour: 0 },
+    waiting_count: 0,
+    waiting: [],
+  },
 };
 
 vi.mock("@/lib/hooks/use-company", () => ({

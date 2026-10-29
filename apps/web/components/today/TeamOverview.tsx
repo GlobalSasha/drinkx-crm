@@ -8,7 +8,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Clock, ChevronRight, ArrowDown, ArrowUp } from "lucide-react";
+import { ChevronRight, ArrowDown, ArrowUp } from "lucide-react";
 
 import { pageContainerVariants } from "@/components/ui/PageContainer";
 import { C } from "@/lib/design-system";
@@ -16,10 +16,10 @@ import { useCompanyInflow, useCompanyManagers, useCompanySummary } from "@/lib/h
 import { useMe } from "@/lib/hooks/use-me";
 import { TodayHero } from "@/components/today/TodayHero";
 import { InflowCard } from "@/components/today/InflowCard";
+import { ReactionCard } from "@/components/today/ReactionCard";
 import { GREETING, dayPart, headSummary } from "@/lib/today-summary";
 import { relativeTime } from "@/lib/relative-time";
 import type { ManagerRow, ManagerPeriod, ManagerAlert } from "@/lib/types";
-import { LeadFlowBody } from "@/components/today/CeoOverview";
 
 const PERIODS: { key: ManagerPeriod; label: string }[] = [
   { key: "day", label: "Сегодня" },
@@ -146,6 +146,7 @@ export function TeamOverview() {
       />
 
       <InflowCard />
+      <ReactionCard />
 
       {/* Header + period toggle */}
       <div className="bg-white border border-brand-border rounded-card p-6 mb-5">
@@ -220,7 +221,6 @@ export function TeamOverview() {
         открыта». Замер копится с момента запуска.
       </p>
 
-      <FlowSection />
     </div>
   );
 }
@@ -488,34 +488,5 @@ function NumCell({ v, danger }: { v: number | string; danger?: boolean }) {
     >
       {v}
     </td>
-  );
-}
-
-// ── collapsed lead-flow section ─────────────────────────────────────
-function FlowSection() {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="rounded-card border border-brand-border bg-white overflow-hidden mt-6">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className={`w-full flex items-center justify-between gap-2 px-5 sm:px-6 py-4 ${C.focusRing}`}
-      >
-        <span className="flex items-center gap-2 type-card-title text-brand-primary">
-          <Clock size={16} className="text-brand-muted" />
-          Поток заявок
-        </span>
-        <span className="flex items-center gap-2 type-hint not-italic text-brand-muted">
-          источники и конверсия
-          <ChevronRight size={16} className={`transition-transform ${open ? "rotate-90" : ""}`} />
-        </span>
-      </button>
-      {open && (
-        <div className="px-5 sm:px-6 pb-6 border-t border-brand-border">
-          <LeadFlowBody />
-        </div>
-      )}
-    </div>
   );
 }
