@@ -17,8 +17,18 @@ class SearchHit(BaseModel):
     rank: float | None = None
 
 
+class TakenLeadHit(BaseModel):
+    """Someone else's lead matching the query — shown to a manager so they
+    don't create a duplicate. Deliberately without a link or contacts."""
+    id: UUID
+    title: str
+    owner_name: str | None = None
+    stage_name: str | None = None
+
+
 class SearchResponse(BaseModel):
     items: list[SearchHit]
+    taken: list[TakenLeadHit] = []
     total: int
     query: str
     mode: Literal["ilike", "trgm", "empty"]

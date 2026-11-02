@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Building2, Briefcase, User, FileText, X, Loader2 } from "lucide-react";
+import { Search, Building2, Briefcase, User, FileText, X, Loader2, Lock } from "lucide-react";
 import { useGlobalSearch } from "@/lib/hooks/use-search";
 import type { SearchHit, SearchHitType } from "@/lib/types";
 import { C, T } from "@/lib/design-system";
@@ -50,6 +50,8 @@ export function GlobalSearch({ open, onClose }: Props) {
     for (const it of items) groups[it.type].push(it);
     return groups;
   }, [data]);
+
+  const taken = data?.taken ?? [];
 
   const flat = useMemo<SearchHit[]>(() => {
     const order: SearchHitType[] = ["company", "lead", "contact", "file"];
@@ -141,7 +143,7 @@ export function GlobalSearch({ open, onClose }: Props) {
             </div>
           )}
 
-          {query.trim() && flat.length === 0 && !isFetching && (
+          {query.trim() && flat.length === 0 && taken.length === 0 && !isFetching && (
             <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-panel text-brand-muted">
                 <Search size={18} />
@@ -207,6 +209,40 @@ export function GlobalSearch({ open, onClose }: Props) {
               </section>
             );
           })}
+
+          {taken.length > 0 && (
+            <section className="py-2 border-t border-brand-border">
+              <h3 className="px-5 py-1 type-caption text-brand-muted">
+                Уже в CRM, не ваши · {taken.length}
+              </h3>
+              <ul>
+                {taken.map((t) => (
+                  <li
+                    key={`taken-${t.id}`}
+                    className="flex items-center gap-3 px-5 py-2.5"
+                  >
+                    <span className={C.color.muted}>
+                      <Lock size={14} />
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span
+                        className={`type-caption font-semibold ${C.color.text} truncate block`}
+                      >
+                        {t.title || "—"}
+                      </span>
+                      <span className={`type-caption ${C.color.muted} truncate block`}>
+                        {t.owner_name ? `У менеджера: ${t.owner_name}` : "В базе лидов, никому не выдан"}
+                        {t.stage_name ? ` · ${t.stage_name}` : ""}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="px-5 pt-1 type-caption text-brand-muted">
+                Это может быть дубль — уточните у руководителя, прежде чем заводить лид.
+              </p>
+            </section>
+          )}
         </div>
       </div>
     </div>

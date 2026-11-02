@@ -10,7 +10,7 @@ from app.auth.dependencies import current_user
 from app.auth.models import User
 from app.db import get_db
 from app.search import repositories as search_repo
-from app.search.schemas import SearchHit, SearchResponse
+from app.search.schemas import SearchHit, SearchResponse, TakenLeadHit
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -43,4 +43,16 @@ async def search(
         )
         for r in rows
     ]
-    return SearchResponse(items=items, total=len(items), query=q.strip(), mode=mode)  # type: ignore[arg-type]
+    # Чужие лиды менеджер видит только как «уже занято»: название, у кого,
+    # стадия — чтобы проверить дубль перед заведением лида, не открывая карточку.
+    taken: list[TakenLeadHit] = []
+    if user.role not in ("admin", "head"):
+        taken = [
+            TakenLeadHit(**r)
+            for r in await search_repo.search_taken_leads(
+                db, workspace_id=user.workspace_id, q=q, owner_id=user.id
+            )
+        ]
+    return SearchResponse(
+        items=items, taken=taken, total=len(items), query=q.strip(), mode=mode  # type: ignore[arg-type]
+    )

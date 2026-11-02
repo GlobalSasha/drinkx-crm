@@ -2041,8 +2041,18 @@ export interface SearchHit {
   rank: number | null;
 }
 
+/** Someone else's lead matching the query — a manager's duplicate check.
+ *  No link: the manager can't open it. */
+export interface TakenLeadHit {
+  id: string;
+  title: string;
+  owner_name: string | null;
+  stage_name: string | null;
+}
+
 export interface SearchResponse {
   items: SearchHit[];
+  taken?: TakenLeadHit[];
   total: number;
   query: string;
   mode: "ilike" | "trgm" | "empty";
