@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
 
 /**
  * Status / category pill primitive. Replaces hand-rolled
- * "type-caption font-semibold px-2 py-0.5 rounded-full ..."
+ * "type-label px-2 py-0.5 rounded-full ..."
  * strings across the codebase.
  *
  * Variants align with semantic tokens used in the wild:
@@ -18,7 +18,7 @@ import { cn } from "@/lib/cn";
  */
 const badgeVariants = cva(
   // shared chrome — matches the canonical pill literals in the codebase
-  "inline-flex items-center gap-1 type-caption font-semibold px-2 py-0.5 rounded-full whitespace-nowrap",
+  "inline-flex items-center gap-1 type-label px-2 py-0.5 rounded-full whitespace-nowrap",
   {
     variants: {
       variant: {

@@ -159,13 +159,15 @@ body {
     text-wrap: pretty;
   }
 
+  /* Подписи и мета (даты, хинты, названия KPI): обычный регистр, без
+     разрядки — капслок остался только у .type-table-header. Роли мелкого
+     текста: caption 12/400 → label 12/500 → button 13/600. */
   .type-caption {
     font-family: var(--font-ui), sans-serif;
     font-size: var(--text-sm);
-    font-weight: 500;
+    font-weight: 400;
     line-height: var(--leading-compact);
-    letter-spacing: var(--tracking-wider);
-    text-transform: uppercase;
+    letter-spacing: var(--tracking-normal);
   }
 
   .type-hint {

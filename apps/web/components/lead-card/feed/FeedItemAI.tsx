@@ -49,7 +49,7 @@ export function FeedItemAI({ item, onAskFollowUp }: Props) {
               {showAction && (
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1 px-3 py-1 type-caption font-semibold bg-brand-accent text-white rounded-full hover:bg-brand-accent/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                  className="inline-flex items-center gap-1 px-3 py-1 type-button bg-brand-accent text-white rounded-full hover:bg-brand-accent/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                 >
                   <Sparkles size={11} />
                   {actionLabel}
@@ -59,7 +59,7 @@ export function FeedItemAI({ item, onAskFollowUp }: Props) {
                 <button
                   type="button"
                   onClick={() => onAskFollowUp("")}
-                  className="inline-flex items-center px-3 py-1 type-caption font-semibold text-brand-accent-text hover:bg-brand-soft/60 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                  className="inline-flex items-center px-3 py-1 type-button text-brand-accent-text hover:bg-brand-soft/60 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                 >
                   Спросить подробнее
                 </button>

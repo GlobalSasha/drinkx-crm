@@ -101,7 +101,7 @@ export function ArchiveTab({ leadId }: Props) {
                       onClick={toggle}
                       aria-expanded={isExpanded}
                       aria-label={isExpanded ? "Скрыть файлы" : "Показать файлы"}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-caption font-semibold bg-white border border-brand-border text-brand-muted hover:text-brand-primary hover:border-brand-accent transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-button bg-white border border-brand-border text-brand-muted hover:text-brand-primary hover:border-brand-accent transition-colors"
                     >
                       <Paperclip size={13} />
                       <ChevronDown
@@ -114,7 +114,7 @@ export function ArchiveTab({ leadId }: Props) {
                       onClick={() => restore.mutate(a.id)}
                       disabled={restore.isPending}
                       aria-label="Восстановить из архива"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-caption font-semibold bg-white border border-brand-border text-brand-primary hover:border-brand-accent transition-colors disabled:opacity-40"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-button bg-white border border-brand-border text-brand-primary hover:border-brand-accent transition-colors disabled:opacity-40"
                     >
                       <Undo2 size={12} /> Восстановить
                     </button>

@@ -59,7 +59,7 @@ export function PipelineList({ stages, leads }: Props) {
           <button
             type="button"
             onClick={() => setFilterStageId(null)}
-            className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full type-caption font-semibold transition-colors ${
+            className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full type-button transition-colors ${
               filterStageId === null
                 ? "bg-brand-accent text-white"
                 : "bg-white border border-brand-border text-brand-muted hover:border-brand-accent/40"
@@ -78,7 +78,7 @@ export function PipelineList({ stages, leads }: Props) {
                 key={s.id}
                 type="button"
                 onClick={() => setFilterStageId(s.id)}
-                className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full type-caption font-semibold transition-colors ${
+                className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full type-button transition-colors ${
                   selected
                     ? "bg-brand-accent text-white"
                     : "bg-white border border-brand-border text-brand-muted hover:border-brand-accent/40"
@@ -182,7 +182,7 @@ export function PipelineList({ stages, leads }: Props) {
             <button
               type="button"
               onClick={() => setFilterStageId(null)}
-              className="mt-2 type-caption font-semibold text-brand-accent-text"
+              className="mt-2 type-button text-brand-accent-text"
             >
               Показать все этапы
             </button>

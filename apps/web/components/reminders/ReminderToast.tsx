@@ -54,14 +54,14 @@ export function ReminderToast({ task, onOpen, onSnooze, onClose }: Props) {
             <button
               type="button"
               onClick={onOpen}
-              className="inline-flex items-center justify-center px-3.5 py-1.5 rounded-full type-caption font-semibold bg-brand-accent text-white hover:bg-brand-accent/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+              className="inline-flex items-center justify-center px-3.5 py-1.5 rounded-full type-button bg-brand-accent text-white hover:bg-brand-accent/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
             >
               Открыть
             </button>
             <button
               type="button"
               onClick={onSnooze}
-              className="inline-flex items-center justify-center px-3 py-1.5 rounded-full type-caption font-semibold text-brand-muted hover:text-brand-primary hover:bg-black/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
+              className="inline-flex items-center justify-center px-3 py-1.5 rounded-full type-button text-brand-muted hover:text-brand-primary hover:bg-black/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent"
             >
               Отложить 10 мин
             </button>

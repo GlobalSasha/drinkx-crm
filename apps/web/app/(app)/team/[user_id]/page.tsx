@@ -121,7 +121,7 @@ export default function ManagerStatsPage() {
             <Link
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               href={`/pipeline?assigned_to=${userId}` as any}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-brand-panel border border-brand-border type-caption font-semibold text-brand-primary hover:bg-brand-border transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-brand-panel border border-brand-border type-button text-brand-primary hover:bg-brand-border transition-colors"
             >
               Открыть в воронке <ExternalLink size={13} />
             </Link>
@@ -154,7 +154,7 @@ export default function ManagerStatsPage() {
                 aria-pressed={period === pr.value}
                 onClick={() => setPeriod(pr.value)}
                 className={
-                  "px-3 py-1.5 rounded-full type-caption font-semibold transition-colors " +
+                  "px-3 py-1.5 rounded-full type-button transition-colors " +
                   (period === pr.value
                     ? "bg-white text-brand-primary"
                     : "text-brand-muted hover:text-brand-primary")

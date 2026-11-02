@@ -370,7 +370,7 @@ export function TasksTab({ leadId }: Props) {
                         onClick={() => setDelegatingId(delegatingId === a.id ? null : a.id)}
                         aria-expanded={delegatingId === a.id}
                         title="Поручить задачу сотруднику"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-caption font-semibold bg-white border border-brand-border text-brand-muted hover:text-brand-primary hover:border-brand-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-button bg-white border border-brand-border text-brand-muted hover:text-brand-primary hover:border-brand-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                       >
                         <UserRound size={13} />
                         <span className="hidden sm:inline">Поручить</span>
@@ -381,7 +381,7 @@ export function TasksTab({ leadId }: Props) {
                       onClick={() => setEditingTask(a)}
                       aria-label="Редактировать задачу"
                       title="Редактировать задачу"
-                      className="inline-flex items-center justify-center w-8 h-8 rounded-full type-caption font-semibold bg-white border border-brand-border text-brand-muted hover:text-brand-primary hover:border-brand-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-full type-button bg-white border border-brand-border text-brand-muted hover:text-brand-primary hover:border-brand-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                     >
                       <Pencil size={13} />
                     </button>
@@ -390,7 +390,7 @@ export function TasksTab({ leadId }: Props) {
                       onClick={toggle}
                       aria-expanded={isExpanded}
                       aria-label={isExpanded ? "Скрыть детали" : "Показать детали и файлы"}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-caption font-semibold bg-white border border-brand-border text-brand-muted hover:text-brand-primary hover:border-brand-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-button bg-white border border-brand-border text-brand-muted hover:text-brand-primary hover:border-brand-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
                     >
                       <Paperclip size={13} />
                       <ChevronDown
@@ -411,7 +411,7 @@ export function TasksTab({ leadId }: Props) {
                       <button
                         type="button"
                         onClick={() => setEditingTask(a)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-caption font-semibold bg-white border border-brand-border text-brand-primary hover:border-brand-accent transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-button bg-white border border-brand-border text-brand-primary hover:border-brand-accent transition-colors"
                       >
                         <Pencil size={12} /> Изменить
                       </button>
@@ -427,7 +427,7 @@ export function TasksTab({ leadId }: Props) {
                             type="button"
                             onClick={openConfirm}
                             disabled={archiveTask.isPending}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-caption font-semibold text-rose bg-rose/10 hover:bg-rose/15 disabled:opacity-40 transition-colors"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-button text-rose bg-rose/10 hover:bg-rose/15 disabled:opacity-40 transition-colors"
                           >
                             <Trash2 size={12} /> В архив
                           </button>

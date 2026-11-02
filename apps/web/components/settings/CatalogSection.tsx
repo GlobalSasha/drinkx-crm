@@ -76,7 +76,7 @@ export function CatalogSection() {
               type="button"
               onClick={() => seed.mutate()}
               disabled={seed.isPending}
-              className="inline-flex items-center gap-1.5 px-4 py-2 type-caption font-semibold bg-brand-accent text-white rounded-full disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-4 py-2 type-button bg-brand-accent text-white rounded-full disabled:opacity-50"
             >
               {seed.isPending ? (
                 <Loader2 size={13} className="animate-spin" />
@@ -125,7 +125,7 @@ export function CatalogSection() {
             type="button"
             onClick={addProduct}
             disabled={create.isPending || !newName.trim()}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 type-caption font-semibold ${C.button.ghost} disabled:opacity-50`}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 type-button ${C.button.ghost} disabled:opacity-50`}
           >
             <Plus size={13} />
             Добавить

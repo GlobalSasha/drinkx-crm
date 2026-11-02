@@ -102,7 +102,7 @@ export function UnifiedFeed({
             <Fragment key={item.id}>
               {showHeader && (
                 <div className="flex items-center gap-2 pt-2 pb-1">
-                  <span className="type-caption font-semibold uppercase tracking-wide text-brand-muted">
+                  <span className="type-label text-brand-muted">
                     {formatDayHeader(item.created_at)}
                   </span>
                   <div className="flex-1 h-px bg-brand-border" />
@@ -126,7 +126,7 @@ export function UnifiedFeed({
               type="button"
               onClick={() => feed.fetchNextPage()}
               disabled={feed.isFetchingNextPage}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 type-caption font-semibold text-brand-muted hover:text-brand-primary bg-brand-bg hover:bg-brand-panel rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 type-button text-brand-muted hover:text-brand-primary bg-brand-bg hover:bg-brand-panel rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 disabled:opacity-50"
             >
               {feed.isFetchingNextPage && <Loader2 size={11} className="animate-spin" />}
               Показать ещё

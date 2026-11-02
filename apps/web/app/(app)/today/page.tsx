@@ -140,7 +140,7 @@ function CounterWidget({ label, icon, value, note, accent, loading }: CounterPro
       <div className="min-w-0 flex flex-col gap-1.5">
         <div className="flex items-center gap-2">
           <span className={iconColor}>{icon}</span>
-          <span className={`type-caption font-semibold ${C.color.mutedLight}`}>
+          <span className={`type-label ${C.color.mutedLight}`}>
             {label}
           </span>
         </div>
@@ -249,7 +249,7 @@ function FilterChip({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`px-3 py-1 rounded-full type-caption font-semibold transition-colors ${C.focusRing} ${
+      className={`px-3 py-1 rounded-full type-button transition-colors ${C.focusRing} ${
         active
           ? "bg-brand-accent text-white"
           : "bg-brand-panel text-brand-muted-strong hover:bg-brand-border"
@@ -308,7 +308,7 @@ function TaskListWidget() {
         </div>
         <Link
           href="/tasks"
-          className="inline-flex items-center gap-1 type-caption font-semibold text-brand-accent-text hover:underline shrink-0"
+          className="inline-flex items-center gap-1 type-button text-brand-accent-text hover:underline shrink-0"
         >
           Все задачи <ArrowUpRight size={13} />
         </Link>

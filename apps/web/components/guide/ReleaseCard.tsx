@@ -22,12 +22,12 @@ export function ReleaseCard({
       }`}
     >
       {featured && (
-        <div className="type-caption font-semibold text-brand-accent mb-2">
+        <div className="type-label text-brand-accent mb-2">
           Последнее обновление
         </div>
       )}
       <div className="flex items-center flex-wrap gap-2 mb-3">
-        <span className="inline-flex items-center gap-1.5 bg-brand-accent text-white type-caption font-semibold px-2.5 py-0.5 rounded-full">
+        <span className="inline-flex items-center gap-1.5 bg-brand-accent text-white type-label px-2.5 py-0.5 rounded-full">
           <Sparkles size={12} /> {release.version}
         </span>
         <h3 className="type-card-title text-brand-primary">{release.title}</h3>

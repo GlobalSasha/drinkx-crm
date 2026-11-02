@@ -198,7 +198,7 @@ export default function CompaniesPage() {
           <button
             type="button"
             onClick={resetFilters}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full type-caption font-semibold text-brand-muted hover:text-brand-primary hover:bg-brand-panel transition-colors"
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full type-button text-brand-muted hover:text-brand-primary hover:bg-brand-panel transition-colors"
           >
             <X size={12} /> Сбросить
           </button>

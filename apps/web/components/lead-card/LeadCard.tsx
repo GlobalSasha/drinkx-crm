@@ -296,7 +296,7 @@ function EditableLeadCard({ leadId }: Props) {
                 id="lead-tab-select"
                 value={activeTab}
                 onChange={(e) => setActiveTab(e.target.value as TabKey)}
-                className={`w-full px-4 py-2.5 type-caption font-semibold bg-white border border-brand-border rounded-full outline-none focus:border-brand-accent transition-colors ${C.color.text}`}
+                className={`w-full px-4 py-2.5 type-label bg-white border border-brand-border rounded-full outline-none focus:border-brand-accent transition-colors ${C.color.text}`}
               >
                 {TABS.map((tab) => (
                   <option key={tab.key} value={tab.key}>{tab.label}</option>
@@ -419,7 +419,7 @@ function EditableLeadCard({ leadId }: Props) {
       )}
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-brand-primary text-white type-caption font-semibold px-5 py-2.5 rounded-full z-50 transition">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-brand-primary text-white type-label px-5 py-2.5 rounded-full z-50 transition">
           {toast}
         </div>
       )}

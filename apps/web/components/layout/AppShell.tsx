@@ -156,7 +156,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <span className="type-caption font-bold text-white">{avatarLetter}</span>
             </div>
             <div className="min-w-0 flex-1">
-              <p className="type-caption font-semibold truncate">{displayName}</p>
+              <p className="type-label truncate">{displayName}</p>
               <p className="text-2xs font-mono opacity-60 truncate">{displayEmail}</p>
             </div>
           </Link>

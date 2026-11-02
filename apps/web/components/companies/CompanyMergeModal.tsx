@@ -97,7 +97,7 @@ export function CompanyMergeModal({ sourceId, sourceName, onClose, onSuccess }: 
                       onClick={() => selectTarget(it.id, it.title)}
                       className={`flex flex-col w-full px-3 py-2 text-left hover:bg-brand-panel transition-colors`}
                     >
-                      <span className={`type-caption font-semibold ${C.color.text}`}>{it.title}</span>
+                      <span className={`type-body font-medium ${C.color.text}`}>{it.title}</span>
                       {it.subtitle && (
                         <span className={`type-caption ${C.color.muted}`}>{it.subtitle}</span>
                       )}

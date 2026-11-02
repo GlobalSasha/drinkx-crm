@@ -57,7 +57,7 @@ const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      "flex w-full items-center gap-2 px-3 py-2 type-caption font-semibold rounded-xl cursor-pointer outline-none transition-colors",
+      "flex w-full items-center gap-2 px-3 py-2 text-md font-medium rounded-xl cursor-pointer outline-none transition-colors",
       "focus:bg-brand-bg data-[disabled]:opacity-40 data-[disabled]:pointer-events-none",
       destructive
         ? "text-rose hover:bg-rose/5 focus:bg-rose/5"

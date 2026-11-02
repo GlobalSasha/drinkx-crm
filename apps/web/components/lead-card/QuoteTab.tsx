@@ -124,7 +124,7 @@ function QuoteRow({
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className={`type-caption font-semibold ${C.color.text}`}>
+          <p className={`type-label ${C.color.text}`}>
             {quote.number}
           </p>
           <Badge variant={meta.variant}>{meta.label}</Badge>

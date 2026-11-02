@@ -85,7 +85,7 @@ export function LeadSourcesSection() {
             type="button"
             onClick={addSource}
             disabled={create.isPending || !newName.trim()}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 type-caption font-semibold ${C.button.ghost} disabled:opacity-50`}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 type-button ${C.button.ghost} disabled:opacity-50`}
           >
             <Plus size={13} />
             Добавить

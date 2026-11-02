@@ -217,7 +217,7 @@ export function FeedComposer({
           <button
             type="submit"
             disabled={isPending || !text.trim() || !taskDue}
-            className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 type-caption font-semibold bg-brand-accent text-white rounded-full hover:bg-brand-accent/90 disabled:opacity-40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+            className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 type-button bg-brand-accent text-white rounded-full hover:bg-brand-accent/90 disabled:opacity-40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
           >
             {isPending && <Loader2 size={12} className="animate-spin" />}
             Создать задачу
@@ -241,7 +241,7 @@ export function FeedComposer({
           <button
             type="submit"
             disabled={isPending || !text.trim()}
-            className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 type-caption font-semibold bg-brand-accent text-white rounded-full hover:bg-brand-accent/90 disabled:opacity-40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+            className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 type-button bg-brand-accent text-white rounded-full hover:bg-brand-accent/90 disabled:opacity-40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
           >
             {isPending && <Loader2 size={12} className="animate-spin" />}
             Записать звонок
@@ -252,7 +252,7 @@ export function FeedComposer({
       {mode === "file" && (
         <div className="flex items-center gap-2 mt-2 px-2">
           {!picked ? (
-            <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-caption font-semibold cursor-pointer bg-brand-bg border border-brand-border hover:border-brand-accent transition-colors w-fit">
+            <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full type-button cursor-pointer bg-brand-bg border border-brand-border hover:border-brand-accent transition-colors w-fit">
               <Paperclip size={13} /> Выбрать файл
               <input
                 type="file"
@@ -282,7 +282,7 @@ export function FeedComposer({
           <button
             type="submit"
             disabled={isPending || !picked}
-            className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 type-caption font-semibold bg-brand-accent text-white rounded-full hover:bg-brand-accent/90 disabled:opacity-40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+            className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 type-button bg-brand-accent text-white rounded-full hover:bg-brand-accent/90 disabled:opacity-40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
           >
             {isPending && <Loader2 size={12} className="animate-spin" />}
             Загрузить
@@ -296,7 +296,7 @@ export function FeedComposer({
             type="submit"
             disabled={isPending || !text.trim()}
             aria-label="Отправить"
-            className="inline-flex items-center gap-1 px-3 py-1 type-caption font-semibold bg-brand-accent text-white rounded-full hover:bg-brand-accent/90 disabled:opacity-40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+            className="inline-flex items-center gap-1 px-3 py-1 type-button bg-brand-accent text-white rounded-full hover:bg-brand-accent/90 disabled:opacity-40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
           >
             {isPending ? (
               <Loader2 size={12} className="animate-spin" />

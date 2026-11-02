@@ -172,7 +172,7 @@ function Chip({
     <button
       onClick={onClick}
       className={clsx(
-        "px-3 py-1.5 rounded-full type-caption font-semibold transition-colors",
+        "px-3 py-1.5 rounded-full type-button transition-colors",
         active
           ? "bg-brand-accent text-white"
           : "bg-brand-panel text-brand-muted-strong hover:bg-brand-border",
