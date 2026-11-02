@@ -120,7 +120,7 @@ export function CreateLeadModal() {
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-card border border-brand-border shadow-overlay w-full max-w-md p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold tracking-tight">Новый лид</h2>
+            <h2 className="text-lg font-semibold tracking-tight">Новый лид</h2>
             <button
               onClick={closeCreateLeadModal}
               className="text-brand-muted hover:text-brand-primary transition-colors p-1 rounded-lg hover:bg-black/5"
@@ -131,7 +131,7 @@ export function CreateLeadModal() {
 
           <form onSubmit={handleSubmit} className="space-y-3">
             <label className="block">
-              <span className="font-mono text-2xs uppercase tracking-[0.12em] text-brand-muted block mb-1.5">
+              <span className="font-mono text-xs uppercase tracking-[0.12em] text-brand-muted block mb-1.5">
                 Компания *
               </span>
               <div className="relative">
@@ -212,7 +212,7 @@ export function CreateLeadModal() {
 
             {leadSources && leadSources.length > 0 && (
               <label className="block">
-                <span className="font-mono text-2xs uppercase tracking-[0.12em] text-brand-muted block mb-1.5">
+                <span className="font-mono text-xs uppercase tracking-[0.12em] text-brand-muted block mb-1.5">
                   Откуда появился лид
                 </span>
                 <select

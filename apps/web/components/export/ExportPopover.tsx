@@ -192,17 +192,17 @@ export function ExportPopover({
           onMouseDown={(e) => e.stopPropagation()}
         >
           <div className="mb-3">
-            <div className="text-2xs font-mono uppercase tracking-wider text-brand-muted">
+            <div className="text-xs font-mono uppercase tracking-wider text-brand-muted">
               Экспорт лидов
             </div>
-            <div className="text-sm font-bold text-brand-primary mt-0.5">
+            <div className="text-sm font-semibold text-brand-primary mt-0.5">
               Выгрузить в файл
             </div>
           </div>
 
           {/* Format grid */}
           <div>
-            <div className="text-2xs font-mono uppercase tracking-wider text-brand-muted mb-1.5">
+            <div className="text-xs font-mono uppercase tracking-wider text-brand-muted mb-1.5">
               Формат
             </div>
             <div className="grid grid-cols-2 gap-1.5">
@@ -241,7 +241,7 @@ export function ExportPopover({
                       >
                         {f.label}
                       </div>
-                      <div className="text-2xs font-mono text-brand-muted truncate">
+                      <div className="text-xs font-mono text-brand-muted truncate">
                         {f.hint}
                       </div>
                     </div>
@@ -268,7 +268,7 @@ export function ExportPopover({
               <div className="text-sm font-semibold text-brand-primary">
                 Включить AI Brief
               </div>
-              <div className="text-2xs text-brand-muted leading-snug">
+              <div className="text-xs text-brand-muted leading-snug">
                 {format === "md_zip"
                   ? "Markdown ZIP всегда содержит AI Brief"
                   : "Добавит колонку с кратким описанием компании"}
@@ -295,7 +295,7 @@ export function ExportPopover({
 
           {/* Scope */}
           <div className="mt-3 rounded-xl border border-brand-border px-3 py-2">
-            <div className="text-2xs font-mono uppercase tracking-wider text-brand-muted">
+            <div className="text-xs font-mono uppercase tracking-wider text-brand-muted">
               Область
             </div>
             <div className="flex items-baseline justify-between mt-0.5">

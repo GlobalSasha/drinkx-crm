@@ -57,7 +57,7 @@ export function CostsSection() {
     <div className="space-y-6">
       <div className="flex items-center gap-2">
         <Coins size={18} className="text-brand-accent" />
-        <h2 className="text-lg font-bold tracking-tight">Расходы на AI</h2>
+        <h2 className="text-lg font-semibold tracking-tight">Расходы на AI</h2>
       </div>
 
       {/* Period toggle */}
@@ -85,7 +85,7 @@ export function CostsSection() {
         <>
           <div>
             <div className="text-sm text-brand-muted">Всего на AI</div>
-            <div className="text-3xl font-bold tracking-tight">
+            <div className="text-3xl font-semibold tracking-tight">
               {fmt(data.total_usd)}
             </div>
           </div>

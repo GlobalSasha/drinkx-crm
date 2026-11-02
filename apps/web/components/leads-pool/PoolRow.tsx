@@ -85,7 +85,7 @@ function PoolRowInner({ lead, onClaim, claiming, selectable, canReview = true, s
       <td className="min-w-0 [overflow-wrap:anywhere] px-4 py-3">
         <div className="flex items-start gap-2">
           <p className="min-w-0 flex-1 font-semibold text-sm text-brand-primary">{lead.company_name}</p>
-          <span className={`lg:hidden shrink-0 text-xs font-bold px-1.5 py-0.5 rounded-md ${TIER_STYLE[tier]}`}>
+          <span className={`lg:hidden shrink-0 text-xs font-semibold px-1.5 py-0.5 rounded-md ${TIER_STYLE[tier]}`}>
             {tier}
           </span>
         </div>
@@ -98,7 +98,7 @@ function PoolRowInner({ lead, onClaim, claiming, selectable, canReview = true, s
         )}
         {lead.source_form_name && (
           <span
-            className="inline-flex max-w-full items-center gap-1 px-1.5 py-0.5 rounded text-2xs font-mono text-brand-accent-text bg-brand-soft"
+            className="inline-flex max-w-full items-center gap-1 px-1.5 py-0.5 rounded text-xs font-mono text-brand-accent-text bg-brand-soft"
             title="Источник заявки"
           >
             <Globe size={9} className="shrink-0" aria-hidden />
@@ -112,7 +112,7 @@ function PoolRowInner({ lead, onClaim, claiming, selectable, canReview = true, s
       <td className="hidden lg:table-cell px-4 py-3 text-sm text-brand-muted">{lead.city ?? "—"}</td>
       <td className="hidden lg:table-cell px-4 py-3 text-sm text-brand-muted">{lead.segment ? segmentLabel(lead.segment) : "—"}</td>
       <td className="hidden lg:table-cell px-4 py-3">
-        <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${TIER_STYLE[tier]}`}>
+        <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-md ${TIER_STYLE[tier]}`}>
           {tier}
         </span>
       </td>

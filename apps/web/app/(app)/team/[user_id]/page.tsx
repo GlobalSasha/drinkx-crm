@@ -104,7 +104,7 @@ export default function ManagerStatsPage() {
       <header className="bg-white border border-brand-border rounded-card p-5 sm:p-6 mb-6">
         <div className="flex flex-wrap items-center gap-4">
           <span
-            className={`shrink-0 w-14 h-14 rounded-full flex items-center justify-center text-white text-lg font-bold ${colorFor(
+            className={`shrink-0 w-14 h-14 rounded-full flex items-center justify-center text-white text-lg font-semibold ${colorFor(
               email || name,
             )}`}
           >

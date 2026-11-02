@@ -79,11 +79,11 @@ export default function QuotePrintPage({
       <article className="max-w-3xl mx-auto bg-white text-neutral-900 p-10 shadow-sm print:shadow-none print:p-0 print:max-w-none">
         <header className="flex items-start justify-between gap-6 border-b border-neutral-200 pb-6">
           <div>
-            <p className="text-xl font-extrabold tracking-tight">DrinkX</p>
+            <p className="text-xl font-semibold tracking-tight">DrinkX</p>
             <p className="text-xs text-neutral-500 mt-1">Умные кофейные станции</p>
           </div>
           <div className="text-right">
-            <p className="text-lg font-bold">Коммерческое предложение</p>
+            <p className="text-lg font-semibold">Коммерческое предложение</p>
             <p className="text-sm text-neutral-600 mt-0.5">{quote.number}</p>
             <p className="text-xs text-neutral-500 mt-1">от {fmtDate(quote.created_at)}</p>
             {quote.valid_until && (
@@ -169,7 +169,7 @@ export default function QuotePrintPage({
             </div>
             <div className="flex justify-between border-t border-neutral-300 pt-2 mt-1">
               <span className="font-semibold">Итого</span>
-              <span className="text-lg font-bold">{formatRub(quote.total)}</span>
+              <span className="text-lg font-semibold">{formatRub(quote.total)}</span>
             </div>
           </div>
         </section>

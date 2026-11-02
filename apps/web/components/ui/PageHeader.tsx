@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
  * PageHeader — the single section header for every top-level screen.
  *
  * Before this, each page hand-rolled its title row, so the title style drifted
- * (type-page-title vs type-card-title vs text-xl font-bold vs text-lg), the
+ * (type-page-title vs type-card-title vs text-xl font-semibold vs text-lg), the
  * bottom margin varied (mb-5 / mb-6 / mb-8), and the icon/subtitle/actions
  * layout was reinvented per page. This pins all of that down:
  *   • one title style (type-page-title)

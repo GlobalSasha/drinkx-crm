@@ -55,7 +55,7 @@ export function CatalogSection() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-base font-bold text-brand-primary">Каталог КП</h2>
+        <h2 className="text-base font-semibold text-brand-primary">Каталог КП</h2>
         <p className="type-caption text-brand-muted mt-1">
           Позиции (станции, сервис, монтаж, опции) с ценами — из них собирается
           КП в карточке лида.

@@ -82,7 +82,7 @@ export function PipelineMoveModal({
       dismissOnBackdrop={false}
     >
       <form onSubmit={handleSubmit} className="-m-6 p-6 max-h-[90vh] overflow-y-auto">
-        <h3 className="text-base font-bold">Перенести в другую воронку</h3>
+        <h3 className="text-base font-semibold">Перенести в другую воронку</h3>
         <p className="mt-1 text-xs text-brand-muted">
           Выберите воронку и этап, на который встанет лид.
         </p>
@@ -95,7 +95,7 @@ export function PipelineMoveModal({
               <div className="mb-3">
                 <label
                   htmlFor="pipeline-move-pipeline"
-                  className="block font-mono text-2xs uppercase tracking-[0.12em] text-brand-muted mb-1.5"
+                  className="block font-mono text-xs uppercase tracking-[0.12em] text-brand-muted mb-1.5"
                 >
                   Воронка
                 </label>
@@ -119,7 +119,7 @@ export function PipelineMoveModal({
               <div className="mb-3">
                 <label
                   htmlFor="pipeline-move-stage"
-                  className="block font-mono text-2xs uppercase tracking-[0.12em] text-brand-muted mb-1.5"
+                  className="block font-mono text-xs uppercase tracking-[0.12em] text-brand-muted mb-1.5"
                 >
                   Этап
                 </label>

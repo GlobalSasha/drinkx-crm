@@ -175,7 +175,7 @@ function WidgetHeader({
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           {icon}
-          <h3 className={`type-caption font-bold ${titleColor}`}>{title}</h3>
+          <h3 className={`type-caption font-semibold ${titleColor}`}>{title}</h3>
         </div>
         {subtitle && (
           <p className={`type-caption ${C.color.mutedLight} mt-0.5`}>
@@ -302,7 +302,7 @@ function TaskListWidget() {
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <ListChecks size={16} className="text-brand-muted" />
-          <h3 className={`type-caption font-bold italic ${C.color.text}`}>
+          <h3 className={`type-caption font-semibold italic ${C.color.text}`}>
             Список задач
           </h3>
         </div>
@@ -476,7 +476,7 @@ function FunnelWidget() {
               />
             </div>
             <span
-              className={`type-caption font-mono font-bold tabular-nums ${C.color.text} w-10 text-right shrink-0`}
+              className={`type-caption font-mono font-semibold tabular-nums ${C.color.text} w-10 text-right shrink-0`}
             >
               {s.count}
             </span>

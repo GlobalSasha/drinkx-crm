@@ -85,7 +85,7 @@ export function UploadStep({ onUploaded }: Props) {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-base font-bold tracking-tight text-brand-primary">
+        <h3 className="text-base font-semibold tracking-tight text-brand-primary">
           Загрузите файл
         </h3>
         <p className="text-md text-brand-muted mt-1">
@@ -116,7 +116,7 @@ export function UploadStep({ onUploaded }: Props) {
               <FileText size={22} />
             </div>
             <div>
-              <div className="text-sm font-bold text-brand-primary">{picked.name}</div>
+              <div className="text-sm font-semibold text-brand-primary">{picked.name}</div>
               <div className="text-xs font-mono text-brand-muted mt-0.5">
                 {fmtSize(picked.size)}
               </div>
@@ -138,7 +138,7 @@ export function UploadStep({ onUploaded }: Props) {
               <Upload size={22} />
             </div>
             <div>
-              <div className="text-sm font-bold text-brand-primary">
+              <div className="text-sm font-semibold text-brand-primary">
                 Перетащите файл сюда
               </div>
               <div className="text-sm text-brand-muted mt-0.5">
@@ -149,7 +149,7 @@ export function UploadStep({ onUploaded }: Props) {
               {ACCEPTED_EXT.filter((e) => e !== ".yml").map((ext) => (
                 <span
                   key={ext}
-                  className="text-2xs font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/5 text-brand-muted"
+                  className="text-xs font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/5 text-brand-muted"
                 >
                   {ext}
                 </span>

@@ -109,7 +109,7 @@ export function PipelineList({ stages, leads }: Props) {
                 className="w-2 h-2 rounded-full shrink-0"
                 style={{ backgroundColor: stage.color }}
               />
-              <h3 className="type-caption font-bold text-brand-primary truncate">
+              <h3 className="type-caption font-semibold text-brand-primary truncate">
                 {stage.name}
               </h3>
               <span className={`${T.mono} text-brand-muted tabular-nums`}>
@@ -153,7 +153,7 @@ export function PipelineList({ stages, leads }: Props) {
                     </div>
                     {lead.priority && (
                       <span
-                        className={`shrink-0 ${T.mono} font-bold px-1.5 py-0.5 rounded-md ${priorityChip(lead.priority)}`}
+                        className={`shrink-0 ${T.mono} font-semibold px-1.5 py-0.5 rounded-md ${priorityChip(lead.priority)}`}
                       >
                         {lead.priority}
                       </span>

@@ -45,7 +45,6 @@ const config: Config = {
         display: ["var(--font-ui)", "sans-serif"],
       },
       fontSize: {
-        "2xs": ["10px", { lineHeight: "1.3" }],
         xs:    ["11px", { lineHeight: "1.4" }],
         sm:    ["12px", { lineHeight: "1.4" }],
         md:    ["13px", { lineHeight: "1.4" }],

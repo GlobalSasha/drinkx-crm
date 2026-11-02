@@ -61,7 +61,7 @@ export function CompanyMergeModal({ sourceId, sourceName, onClose, onSuccess }: 
             <GitMerge size={18} className="text-brand-accent-text" />
           </div>
           <div>
-            <h2 className={`type-card-title font-bold ${C.color.text}`}>
+            <h2 className={`type-card-title font-semibold ${C.color.text}`}>
               Объединить компании
             </h2>
             <p className={`type-caption ${C.color.muted} mt-0.5`}>

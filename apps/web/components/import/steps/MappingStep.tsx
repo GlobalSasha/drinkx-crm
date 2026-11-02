@@ -94,7 +94,7 @@ export function MappingStep({ job, onBack, onConfirmed }: Props) {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-base font-bold tracking-tight text-brand-primary">
+        <h3 className="text-base font-semibold tracking-tight text-brand-primary">
           Сопоставьте колонки
         </h3>
         <p className="text-md text-brand-muted mt-1">
@@ -130,7 +130,7 @@ export function MappingStep({ job, onBack, onConfirmed }: Props) {
 
       {/* Mapping table */}
       <div className="rounded-card border border-brand-border bg-white overflow-hidden">
-        <div className="grid grid-cols-[1fr_minmax(150px,1fr)_24px] md:grid-cols-[1fr_1fr_minmax(180px,1.2fr)_24px] items-center gap-3 px-4 py-2.5 bg-brand-bg border-b border-brand-border text-2xs font-mono uppercase tracking-wider text-brand-muted">
+        <div className="grid grid-cols-[1fr_minmax(150px,1fr)_24px] md:grid-cols-[1fr_1fr_minmax(180px,1.2fr)_24px] items-center gap-3 px-4 py-2.5 bg-brand-bg border-b border-brand-border text-xs font-mono uppercase tracking-wider text-brand-muted">
           <span>Колонка в файле</span>
           <span className="hidden md:block">Пример значения</span>
           <span>Поле CRM</span>

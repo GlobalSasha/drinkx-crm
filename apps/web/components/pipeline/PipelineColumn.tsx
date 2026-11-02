@@ -43,11 +43,11 @@ function PipelineColumnImpl({ stage, leads }: Props) {
           </p>
           <div className="flex items-center gap-1 shrink-0">
             {stage.rot_days > 0 && (
-              <span className="text-2xs font-mono text-brand-muted bg-brand-panel px-1.5 py-0.5 rounded-full">
+              <span className="text-xs font-mono text-brand-muted bg-brand-panel px-1.5 py-0.5 rounded-full">
                 {stage.rot_days}д
               </span>
             )}
-            <span className="text-2xs font-mono text-brand-muted-strong bg-brand-panel px-1.5 py-0.5 rounded-full">
+            <span className="text-xs font-mono text-brand-muted-strong bg-brand-panel px-1.5 py-0.5 rounded-full">
               {leads.length}
             </span>
           </div>

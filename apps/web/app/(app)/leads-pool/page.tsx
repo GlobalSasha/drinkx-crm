@@ -499,7 +499,7 @@ function LeadsPoolPageInner() {
                       <th
                         key={h}
                         scope="col"
-                        className={`px-4 py-4 type-table-header font-bold text-brand-primary whitespace-nowrap ${cls}`}
+                        className={`px-4 py-4 type-table-header font-semibold text-brand-primary whitespace-nowrap ${cls}`}
                       >
                         {h}
                       </th>

@@ -254,7 +254,7 @@ export function GlobalSearch({ open, onClose }: Props) {
  *  subtle shadow for depth, min-width keeps single glyphs square). */
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="inline-flex min-w-[1.5rem] items-center justify-center rounded-md border border-brand-border bg-white px-1.5 py-0.5 font-mono text-2xs font-medium leading-none text-brand-muted-strong shadow-[0_1px_0_rgba(17,17,17,0.06)]">
+    <kbd className="inline-flex min-w-[1.5rem] items-center justify-center rounded-md border border-brand-border bg-white px-1.5 py-0.5 font-mono text-xs font-medium leading-none text-brand-muted-strong shadow-[0_1px_0_rgba(17,17,17,0.06)]">
       {children}
     </kbd>
   );

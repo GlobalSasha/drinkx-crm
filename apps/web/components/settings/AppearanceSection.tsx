@@ -35,7 +35,7 @@ export function AppearanceSection() {
   return (
     <div className="space-y-8 max-w-3xl">
       <header>
-        <h2 className="text-lg font-bold tracking-tight mb-1">Внешний вид</h2>
+        <h2 className="text-lg font-semibold tracking-tight mb-1">Внешний вид</h2>
         <p className="text-sm text-brand-muted">
           Эти настройки видите только вы. Сохраняются в профиль и
           синхронизируются между устройствами.

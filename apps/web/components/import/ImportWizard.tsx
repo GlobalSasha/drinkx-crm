@@ -92,10 +92,10 @@ export function ImportWizard({ open, onClose }: Props) {
           {/* Header */}
           <div className="px-6 py-4 border-b border-brand-border flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <div className="text-2xs font-mono uppercase tracking-wider text-brand-muted">
+              <div className="text-xs font-mono uppercase tracking-wider text-brand-muted">
                 Импорт лидов
               </div>
-              <h2 className="text-lg font-bold tracking-tight text-brand-primary mt-0.5">
+              <h2 className="text-lg font-semibold tracking-tight text-brand-primary mt-0.5">
                 {STEP_LABELS[step]}
               </h2>
             </div>
@@ -190,7 +190,7 @@ function Stepper({
             <li key={n} className="flex items-center gap-2 flex-1 min-w-0">
               <span
                 className={clsx(
-                  "shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold tabular-nums transition-colors",
+                  "shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold tabular-nums transition-colors",
                   state === "done" && "bg-emerald-500 text-white",
                   state === "current" && "bg-brand-accent text-white",
                   state === "upcoming" && "bg-brand-bg text-brand-muted border border-brand-border",

@@ -66,7 +66,7 @@ export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }:
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-base font-bold tracking-tight text-brand-primary">
+              <h2 className="text-base font-semibold tracking-tight text-brand-primary">
                 Передать лид
               </h2>
               <p className="text-xs text-brand-muted mt-0.5">
@@ -87,7 +87,7 @@ export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }:
           <div className="mb-3">
             <label
               htmlFor="transfer-to-user"
-              className="block font-mono text-2xs uppercase tracking-[0.12em] text-brand-muted mb-1.5"
+              className="block font-mono text-xs uppercase tracking-[0.12em] text-brand-muted mb-1.5"
             >
               Кому передать
             </label>
@@ -115,7 +115,7 @@ export function TransferModal({ leadId, currentAssignedTo, onClose, onSuccess }:
           <div className="mb-4">
             <label
               htmlFor="transfer-comment"
-              className="block font-mono text-2xs uppercase tracking-[0.12em] text-brand-muted mb-1.5"
+              className="block font-mono text-xs uppercase tracking-[0.12em] text-brand-muted mb-1.5"
             >
               Комментарий <span className="text-brand-muted">(необязательно)</span>
             </label>

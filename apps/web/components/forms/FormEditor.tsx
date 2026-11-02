@@ -279,10 +279,10 @@ export function FormEditor({ open, form, onClose, onSaved }: Props) {
           {/* Header */}
           <div className="px-6 py-4 border-b border-brand-border flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <div className="text-2xs font-mono uppercase tracking-wider text-brand-muted">
+              <div className="text-xs font-mono uppercase tracking-wider text-brand-muted">
                 Форма
               </div>
-              <h2 className="text-lg font-bold tracking-tight text-brand-primary mt-0.5 truncate">
+              <h2 className="text-lg font-semibold tracking-tight text-brand-primary mt-0.5 truncate">
                 {isEdit ? form?.name : "Новая форма"}
               </h2>
               {isEdit && form?.slug && (
@@ -511,7 +511,7 @@ function SettingsTab({
       {/* Fields */}
       <div>
         <div className="flex items-baseline justify-between mb-1.5">
-          <label className="text-2xs font-mono uppercase tracking-wider text-brand-muted">
+          <label className="text-xs font-mono uppercase tracking-wider text-brand-muted">
             Поля формы
           </label>
           {fields.length === 0 && (
@@ -521,7 +521,7 @@ function SettingsTab({
           )}
         </div>
         <div className="rounded-card border border-brand-border bg-white">
-          <div className="grid grid-cols-[1fr_140px_90px_24px] items-center gap-2 px-3 py-2 bg-brand-bg border-b border-brand-border text-2xs font-mono uppercase tracking-wider text-brand-muted">
+          <div className="grid grid-cols-[1fr_140px_90px_24px] items-center gap-2 px-3 py-2 bg-brand-bg border-b border-brand-border text-xs font-mono uppercase tracking-wider text-brand-muted">
             <span>Заголовок</span>
             <span>Тип</span>
             <span>Обязательное</span>
@@ -728,7 +728,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-2xs font-mono uppercase tracking-wider text-brand-muted mb-1.5">
+      <label className="block text-xs font-mono uppercase tracking-wider text-brand-muted mb-1.5">
         {label}
         {required && <span className="text-amber-700"> *</span>}
       </label>
@@ -835,7 +835,7 @@ function EmbedTab({
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-base font-bold tracking-tight text-brand-primary">
+        <h3 className="text-base font-semibold tracking-tight text-brand-primary">
           Встроить форму
         </h3>
         <p className="text-md text-brand-muted mt-1">
@@ -844,7 +844,7 @@ function EmbedTab({
       </div>
 
       <div>
-        <label className="block text-2xs font-mono uppercase tracking-wider text-brand-muted mb-1.5">
+        <label className="block text-xs font-mono uppercase tracking-wider text-brand-muted mb-1.5">
           Код для вставки
         </label>
         <textarea
@@ -856,7 +856,7 @@ function EmbedTab({
           className="w-full text-xs font-mono leading-relaxed bg-brand-bg border border-brand-border rounded-xl p-3 outline-none focus:border-brand-accent/40 resize-none"
         />
         <div className="flex items-center justify-between mt-2">
-          <span className="text-2xs text-brand-muted">
+          <span className="text-xs text-brand-muted">
             Кликните в поле — выделится весь текст.
           </span>
           <button
@@ -876,7 +876,7 @@ function EmbedTab({
 
       {directUrl && (
         <div className="rounded-card border border-brand-border bg-brand-bg/40 px-4 py-3">
-          <div className="text-2xs font-mono uppercase tracking-wider text-brand-muted mb-1">
+          <div className="text-xs font-mono uppercase tracking-wider text-brand-muted mb-1">
             Прямая ссылка на embed.js
           </div>
           <a
@@ -893,7 +893,7 @@ function EmbedTab({
       {curlExample && (
         <div className="space-y-3">
           <div>
-            <h3 className="text-base font-bold tracking-tight text-brand-primary">
+            <h3 className="text-base font-semibold tracking-tight text-brand-primary">
               Интеграция (S2S)
             </h3>
             <p className="text-md text-brand-muted mt-1">
@@ -902,7 +902,7 @@ function EmbedTab({
             </p>
           </div>
           <div>
-            <label className="block text-2xs font-mono uppercase tracking-wider text-brand-muted mb-1.5">
+            <label className="block text-xs font-mono uppercase tracking-wider text-brand-muted mb-1.5">
               Пример запроса (curl)
             </label>
             <pre className="w-full text-xs font-mono leading-relaxed bg-brand-bg border border-brand-border rounded-xl p-3 whitespace-pre-wrap break-all">

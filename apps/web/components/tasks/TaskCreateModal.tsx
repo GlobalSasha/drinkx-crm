@@ -103,7 +103,7 @@ export function TaskCreateModal({ open, onClose, onCreated }: Props) {
     <Modal open={open} onClose={handleClose} title="Новая задача" dismissOnBackdrop={false}>
       <div className="-m-6">
         <div className="flex items-center justify-between px-5 py-4 border-b border-brand-border">
-          <h3 className="text-base font-bold">Новая задача</h3>
+          <h3 className="text-base font-semibold">Новая задача</h3>
           <button
             type="button"
             onClick={handleClose}

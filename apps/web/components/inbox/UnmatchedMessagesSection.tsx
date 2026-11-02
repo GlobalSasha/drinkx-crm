@@ -207,7 +207,7 @@ export function UnmatchedMessagesSection() {
     return (
       <section className="mt-10">
         <header className="mb-3">
-          <h2 className="text-base font-bold text-brand-primary">Мессенджеры и звонки</h2>
+          <h2 className="text-base font-semibold text-brand-primary">Мессенджеры и звонки</h2>
         </header>
         <div className="text-sm text-brand-muted py-6 text-center">Загрузка…</div>
       </section>
@@ -218,7 +218,7 @@ export function UnmatchedMessagesSection() {
     return (
       <section className="mt-10">
         <header className="mb-3">
-          <h2 className="text-base font-bold text-brand-primary">Мессенджеры и звонки</h2>
+          <h2 className="text-base font-semibold text-brand-primary">Мессенджеры и звонки</h2>
         </header>
         <div className="text-sm text-rose py-6 text-center">
           Не удалось загрузить нематченные сообщения.
@@ -231,7 +231,7 @@ export function UnmatchedMessagesSection() {
     return (
       <section className="mt-10">
         <header className="mb-3">
-          <h2 className="text-base font-bold text-brand-primary">Мессенджеры и звонки</h2>
+          <h2 className="text-base font-semibold text-brand-primary">Мессенджеры и звонки</h2>
         </header>
         <Empty>
           <EmptyHeader>
@@ -251,7 +251,7 @@ export function UnmatchedMessagesSection() {
   return (
     <section className="mt-10">
       <header className="mb-3 flex items-baseline justify-between">
-        <h2 className="text-base font-bold text-brand-primary">Мессенджеры и звонки</h2>
+        <h2 className="text-base font-semibold text-brand-primary">Мессенджеры и звонки</h2>
         <span className="text-xs font-mono text-brand-muted">
           {items.length} {items.length === 1 ? "сообщение" : "сообщений"}
         </span>
