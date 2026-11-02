@@ -83,7 +83,19 @@ function PipelinePageInner() {
   // Stages come straight from the resolved Pipeline.stages now —
   // Sprint 2.3 G1 returns them eagerly. Replaces the heuristic UUID-
   // patching the previous fallback path needed.
-  const stages = activePipeline?.stages ?? [];
+  // Closed-as-lost leads leave the board: it shows only deals in progress.
+  // They stay in the base (lost_reason kept for the refusal analysis).
+  const stages = useMemo(
+    () => (activePipeline?.stages ?? []).filter((s) => !s.is_lost),
+    [activePipeline],
+  );
+  const lostStageIds = useMemo(
+    () =>
+      new Set(
+        (activePipeline?.stages ?? []).filter((s) => s.is_lost).map((s) => s.id),
+      ),
+    [activePipeline],
+  );
 
   // Server-side: pipeline + free-text search only. Segment/city
   // multi-select are applied client-side below — keeps the dropdowns
@@ -105,11 +117,12 @@ function PipelinePageInner() {
     const segSet = new Set(filters.segments);
     const citySet = new Set(filters.cities);
     return rawLeads.filter((l) => {
+      if (l.stage_id && lostStageIds.has(l.stage_id)) return false;
       if (segSet.size > 0 && (!l.segment || !segSet.has(l.segment))) return false;
       if (citySet.size > 0 && (!l.city || !citySet.has(l.city))) return false;
       return true;
     });
-  }, [rawLeads, filters.segments, filters.cities]);
+  }, [rawLeads, filters.segments, filters.cities, lostStageIds]);
 
   const isLoading =
     meQuery.isLoading || pipelinesQuery.isLoading || leadsQuery.isLoading;
