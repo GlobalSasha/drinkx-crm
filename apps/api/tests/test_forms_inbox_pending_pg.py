@@ -52,6 +52,8 @@ async def test_inbox_keeps_only_leads_on_first_stage(db, workspace):
     await db.flush()
     for l in (waiting, moved, deleted):
         db.add(FormSubmission(web_form_id=form.id, lead_id=l.id, raw_payload={}))
+    # Клиент отправил форму второй раз — карточка всё равно одна.
+    db.add(FormSubmission(web_form_id=form.id, lead_id=waiting.id, raw_payload={}))
     await db.flush()
 
     items, total = await inbox.list_inbox(db, workspace_id=workspace.id, seen_at=None)
