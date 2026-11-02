@@ -45,7 +45,7 @@ export function LeadSourcesSection() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-base font-bold text-brand-primary">Источники лидов</h2>
+        <h2 className="text-base font-semibold text-brand-primary">Источники лидов</h2>
         <p className="type-caption text-brand-muted mt-1">
           Откуда появился лид — список выбирается при создании лида и группирует
           сводку руководителя. Отметь «платный» для рекламных каналов.
@@ -85,7 +85,7 @@ export function LeadSourcesSection() {
             type="button"
             onClick={addSource}
             disabled={create.isPending || !newName.trim()}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 type-caption font-semibold ${C.button.ghost} disabled:opacity-50`}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 type-button ${C.button.ghost} disabled:opacity-50`}
           >
             <Plus size={13} />
             Добавить
@@ -136,7 +136,7 @@ function SourceRow({ source, canEdit }: { source: LeadSource; canEdit: boolean }
         активен
       </label>
       {source.is_system ? (
-        <span className="ml-auto type-caption text-brand-muted font-mono text-2xs uppercase tracking-[0.12em]">
+        <span className="ml-auto type-caption text-brand-muted font-mono text-xs uppercase tracking-[0.12em]">
           системный
         </span>
       ) : (

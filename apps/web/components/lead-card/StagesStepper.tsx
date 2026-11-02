@@ -113,7 +113,7 @@ export function StagesStepper({ leadId, currentStageDays, isRotting }: Props) {
                 className={`hidden sm:block absolute top-8 w-28 ${align}`}
               >
                 <span
-                  className={`block truncate type-caption font-semibold ${
+                  className={`block truncate type-label ${
                     isCurrent
                       ? "text-brand-primary"
                       : isDone

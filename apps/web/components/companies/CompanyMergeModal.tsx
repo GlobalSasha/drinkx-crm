@@ -61,7 +61,7 @@ export function CompanyMergeModal({ sourceId, sourceName, onClose, onSuccess }: 
             <GitMerge size={18} className="text-brand-accent-text" />
           </div>
           <div>
-            <h2 className={`type-card-title font-bold ${C.color.text}`}>
+            <h2 className={`type-card-title font-semibold ${C.color.text}`}>
               Объединить компании
             </h2>
             <p className={`type-caption ${C.color.muted} mt-0.5`}>
@@ -97,7 +97,7 @@ export function CompanyMergeModal({ sourceId, sourceName, onClose, onSuccess }: 
                       onClick={() => selectTarget(it.id, it.title)}
                       className={`flex flex-col w-full px-3 py-2 text-left hover:bg-brand-panel transition-colors`}
                     >
-                      <span className={`type-caption font-semibold ${C.color.text}`}>{it.title}</span>
+                      <span className={`type-body font-medium ${C.color.text}`}>{it.title}</span>
                       {it.subtitle && (
                         <span className={`type-caption ${C.color.muted}`}>{it.subtitle}</span>
                       )}

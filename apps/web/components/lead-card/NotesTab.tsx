@@ -178,14 +178,14 @@ export function NotesTab({ leadId }: Props) {
                                   deleteNote.mutate(note.id);
                                   setConfirmDeleteId(null);
                                 }}
-                                className="type-caption font-semibold text-rose"
+                                className="type-label text-rose"
                               >
                                 Да
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setConfirmDeleteId(null)}
-                                className="type-caption font-semibold text-brand-muted"
+                                className="type-button text-brand-muted"
                               >
                                 Нет
                               </button>

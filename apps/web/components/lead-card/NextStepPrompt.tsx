@@ -92,7 +92,7 @@ export function NextStepPrompt({
           <button
             type="button"
             onClick={onSkip}
-            className={`px-4 py-2 type-caption font-semibold ${C.button.ghost}`}
+            className={`px-4 py-2 type-button ${C.button.ghost}`}
           >
             Пропустить
           </button>
@@ -100,7 +100,7 @@ export function NextStepPrompt({
             type="button"
             onClick={handleSave}
             disabled={!text.trim() || create.isPending}
-            className={`inline-flex items-center gap-1.5 px-4 py-2 type-caption font-semibold text-white ${C.button.primary} disabled:opacity-50`}
+            className={`inline-flex items-center gap-1.5 px-4 py-2 type-button text-white ${C.button.primary} disabled:opacity-50`}
           >
             {create.isPending && <Loader2 size={14} className="animate-spin" />}
             Поставить задачу

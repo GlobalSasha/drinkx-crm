@@ -68,7 +68,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
           <Sparkles size={16} />
         </div>
         <div>
-          <h3 className="text-base font-bold tracking-tight text-brand-primary">
+          <h3 className="text-base font-semibold tracking-tight text-brand-primary">
             Изменения от AI
           </h3>
           <p className="text-md text-brand-muted mt-1">
@@ -106,7 +106,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
       {/* Actionable items list */}
       {actionable.length > 0 && (
         <div className="rounded-card border border-brand-border bg-white">
-          <div className="px-4 py-2.5 bg-brand-bg border-b border-brand-border text-2xs font-mono uppercase tracking-wider text-brand-muted">
+          <div className="px-4 py-2.5 bg-brand-bg border-b border-brand-border text-xs font-mono uppercase tracking-wider text-brand-muted">
             Изменения{" "}
             <span className="text-brand-muted ml-1">
               {actionable.length > VISIBLE_ITEMS
@@ -125,7 +125,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
       {/* Errors panel */}
       {failed.length > 0 && (
         <div className="rounded-card border border-amber-200/60 bg-amber-50">
-          <div className="px-4 py-2.5 border-b border-amber-200/60 flex items-center gap-1.5 text-xs font-bold text-amber-800">
+          <div className="px-4 py-2.5 border-b border-amber-200/60 flex items-center gap-1.5 text-xs font-semibold text-amber-800">
             <AlertTriangle size={13} />
             Не удалось распознать
             <span className="font-mono ml-1">{failed.length}</span>
@@ -207,12 +207,12 @@ function DiffRow({ item }: { item: BulkUpdateDiffItem }) {
         />
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2 flex-wrap">
-            <span className="text-sm font-bold text-brand-primary truncate">
+            <span className="text-sm font-semibold text-brand-primary truncate">
               {item.company_name || "—"}
             </span>
             <ActionBadge isCreate={isCreate} />
             {item.inn && (
-              <span className="font-mono text-2xs text-brand-muted">
+              <span className="font-mono text-xs text-brand-muted">
                 ИНН {item.inn}
               </span>
             )}
@@ -247,7 +247,7 @@ function ActionBadge({ isCreate }: { isCreate: boolean }) {
   return (
     <span
       className={clsx(
-        "text-2xs font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-md",
+        "text-xs font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-md",
         isCreate
           ? "bg-emerald-500/10 text-emerald-700"
           : "bg-info/100/10 text-info",
@@ -266,7 +266,7 @@ function ChangeLine({ change }: { change: BulkUpdateChange }) {
       <span className={clsx("font-mono shrink-0 w-3 text-center", tone)}>
         {sign}
       </span>
-      <span className="font-mono text-2xs text-brand-muted shrink-0">
+      <span className="font-mono text-xs text-brand-muted shrink-0">
         {change.field}
       </span>
       <span className="text-brand-primary truncate">{formatValue(change)}</span>
@@ -359,12 +359,12 @@ function StatCard({
     <div
       className={`rounded-card border ${palette} px-4 py-3.5 flex flex-col gap-1.5`}
     >
-      <div className="flex items-center gap-1.5 text-2xs font-mono uppercase tracking-wider opacity-80">
+      <div className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider opacity-80">
         {icon}
         {label}
       </div>
       <div className="flex items-baseline gap-1.5">
-        <span className="text-3xl font-bold tracking-tight tabular-nums">
+        <span className="text-3xl font-semibold tracking-tight tabular-nums">
           {value}
         </span>
         <span className="text-xs opacity-70">{unit}</span>

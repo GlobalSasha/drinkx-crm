@@ -250,7 +250,7 @@ export function ContactEditModal({ leadId, contact, onClose }: Props) {
                       patch("confidence", c);
                       patch("verified_status", c === "low" ? "to_verify" : "verified");
                     }}
-                    className={`px-3 py-1 type-caption font-semibold rounded-full transition-colors ${
+                    className={`px-3 py-1 type-button rounded-full transition-colors ${
                       isActive
                         ? "bg-white text-brand-accent-text"
                         : `${C.color.muted}`

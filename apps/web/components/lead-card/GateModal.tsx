@@ -83,7 +83,7 @@ export function GateModal({ leadId, targetStage, fallbackCriteria, onClose, onSu
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-base font-bold tracking-tight text-brand-primary">
+              <h2 className="text-base font-semibold tracking-tight text-brand-primary">
                 Переход в стадию
               </h2>
               <p
@@ -104,7 +104,7 @@ export function GateModal({ leadId, targetStage, fallbackCriteria, onClose, onSu
           {/* Gate criteria checklist */}
           {criteria.length > 0 && (
             <div className="mb-4">
-              <p className="font-mono text-2xs uppercase tracking-[0.12em] text-brand-muted mb-2">
+              <p className="font-mono text-xs uppercase tracking-[0.12em] text-brand-muted mb-2">
                 Критерии перехода
               </p>
               <div className="space-y-2">

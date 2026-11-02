@@ -71,7 +71,7 @@ const ItemMedia = React.forwardRef<
     className={cn(
       "shrink-0 flex items-center justify-center",
       variant === "icon" && "size-8 rounded-full bg-brand-panel text-brand-primary",
-      variant === "avatar" && "size-8 rounded-full bg-brand-soft text-brand-accent-text type-caption font-semibold",
+      variant === "avatar" && "size-8 rounded-full bg-brand-soft text-brand-accent-text type-label",
       variant === "default" && "mt-0.5 text-brand-muted",
       className,
     )}

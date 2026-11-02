@@ -54,7 +54,7 @@ function priorityPillStyle(letter: string | null | undefined): string {
 
 // Every chip in the header shares one shape and type: 28px pill, caption caps.
 const CHIP =
-  "inline-flex items-center gap-1.5 h-7 px-3 rounded-full type-caption font-semibold whitespace-nowrap";
+  "inline-flex items-center gap-1.5 h-7 px-3 rounded-full type-label whitespace-nowrap";
 
 function formatRelativeShort(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -436,7 +436,7 @@ export function LeadCardHeader({
 
       {(isWon || isLost) && (
         <div
-          className={`mt-3 flex items-center gap-2 px-3 py-1.5 rounded-full type-caption font-semibold ${
+          className={`mt-3 flex items-center gap-2 px-3 py-1.5 rounded-full type-label ${
             isWon ? "bg-success/10 text-success" : "bg-rose/10 text-rose"
           }`}
         >

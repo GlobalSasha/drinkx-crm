@@ -128,7 +128,7 @@ export function ScoreBreakdownModal({ leadId, onClose }: Props) {
                 return (
                   <li key={c.key} className="space-y-1.5">
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className="type-caption font-semibold text-brand-primary">
+                      <span className="type-label text-brand-primary">
                         {c.label}
                       </span>
                       <span className="font-mono type-caption text-brand-muted tabular-nums">
@@ -166,7 +166,7 @@ export function ScoreBreakdownModal({ leadId, onClose }: Props) {
               type="button"
               onClick={onClose}
               disabled={update.isPending}
-              className="px-4 py-1.5 type-caption font-semibold text-brand-muted hover:text-brand-primary disabled:opacity-40"
+              className="px-4 py-1.5 type-button text-brand-muted hover:text-brand-primary disabled:opacity-40"
             >
               Отмена
             </button>
@@ -174,7 +174,7 @@ export function ScoreBreakdownModal({ leadId, onClose }: Props) {
               type="button"
               onClick={handleSave}
               disabled={update.isPending || !isDirty}
-              className="inline-flex items-center gap-1 px-4 py-1.5 type-caption font-semibold bg-brand-accent text-white rounded-full hover:bg-brand-accent/90 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2"
+              className="inline-flex items-center gap-1 px-4 py-1.5 type-button bg-brand-accent text-white rounded-full hover:bg-brand-accent/90 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2"
             >
               {update.isPending && <Loader2 size={11} className="animate-spin" />}
               Сохранить

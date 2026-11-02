@@ -80,7 +80,7 @@ export function FeedItemTask({ item, leadId }: Props) {
                 type="button"
                 onClick={() => complete.mutate(item.id)}
                 disabled={complete.isPending}
-                className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 type-caption font-semibold text-brand-accent-text bg-brand-soft hover:bg-brand-soft/80 rounded-full transition-colors disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+                className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 type-button text-brand-accent-text bg-brand-soft hover:bg-brand-soft/80 rounded-full transition-colors disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
               >
                 Выполнено
               </button>

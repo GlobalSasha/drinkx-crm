@@ -69,7 +69,7 @@ export function ChannelsSection() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-bold tracking-tight">Каналы</h2>
+        <h2 className="text-lg font-semibold tracking-tight">Каналы</h2>
         <p className="text-xs text-brand-muted mt-0.5">
           Входящие письма из Gmail и исходящая почта через SMTP.
           В v1 настройки только просмотр; правки — через переменные
@@ -85,7 +85,7 @@ export function ChannelsSection() {
               <Mail size={18} className="text-brand-muted" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm font-bold text-brand-primary">Gmail</h3>
+              <h3 className="text-sm font-semibold text-brand-primary">Gmail</h3>
               <p className="text-xs text-brand-muted mt-0.5">
                 Письма автоматически попадают в /inbox для разбора и
                 привязки к лидам (Sprint 2.0).
@@ -161,16 +161,16 @@ export function ChannelsSection() {
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-bold text-brand-primary">
+              <h3 className="text-sm font-semibold text-brand-primary">
                 SMTP (исходящая почта)
               </h3>
               {smtp.configured ? (
-                <span className="inline-flex items-center gap-1 text-2xs font-mono uppercase tracking-wide bg-success/10 text-success rounded-full px-2 py-0.5">
+                <span className="inline-flex items-center gap-1 text-xs font-mono uppercase tracking-wide bg-success/10 text-success rounded-full px-2 py-0.5">
                   <CheckCircle2 size={10} />
                   активен
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-2xs font-mono uppercase tracking-wide bg-warning/10 text-warning rounded-full px-2 py-0.5">
+                <span className="inline-flex items-center gap-1 text-xs font-mono uppercase tracking-wide bg-warning/10 text-warning rounded-full px-2 py-0.5">
                   <AlertCircle size={10} />
                   stub-режим
                 </span>
@@ -213,7 +213,7 @@ function Field({
 }) {
   return (
     <div className="flex items-baseline gap-2">
-      <span className="text-2xs font-mono uppercase tracking-wide text-brand-muted shrink-0">
+      <span className="text-xs font-mono uppercase tracking-wide text-brand-muted shrink-0">
         {label}:
       </span>
       <span

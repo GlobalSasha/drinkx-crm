@@ -140,7 +140,7 @@ function CounterWidget({ label, icon, value, note, accent, loading }: CounterPro
       <div className="min-w-0 flex flex-col gap-1.5">
         <div className="flex items-center gap-2">
           <span className={iconColor}>{icon}</span>
-          <span className={`type-caption font-semibold ${C.color.mutedLight}`}>
+          <span className={`type-label ${C.color.mutedLight}`}>
             {label}
           </span>
         </div>
@@ -175,7 +175,7 @@ function WidgetHeader({
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           {icon}
-          <h3 className={`type-caption font-bold ${titleColor}`}>{title}</h3>
+          <h3 className={`type-caption font-semibold ${titleColor}`}>{title}</h3>
         </div>
         {subtitle && (
           <p className={`type-caption ${C.color.mutedLight} mt-0.5`}>
@@ -249,7 +249,7 @@ function FilterChip({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`px-3 py-1 rounded-full type-caption font-semibold transition-colors ${C.focusRing} ${
+      className={`px-3 py-1 rounded-full type-button transition-colors ${C.focusRing} ${
         active
           ? "bg-brand-accent text-white"
           : "bg-brand-panel text-brand-muted-strong hover:bg-brand-border"
@@ -302,13 +302,13 @@ function TaskListWidget() {
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <ListChecks size={16} className="text-brand-muted" />
-          <h3 className={`type-caption font-bold italic ${C.color.text}`}>
+          <h3 className={`type-caption font-semibold italic ${C.color.text}`}>
             Список задач
           </h3>
         </div>
         <Link
           href="/tasks"
-          className="inline-flex items-center gap-1 type-caption font-semibold text-brand-accent-text hover:underline shrink-0"
+          className="inline-flex items-center gap-1 type-button text-brand-accent-text hover:underline shrink-0"
         >
           Все задачи <ArrowUpRight size={13} />
         </Link>
@@ -476,7 +476,7 @@ function FunnelWidget() {
               />
             </div>
             <span
-              className={`type-caption font-mono font-bold tabular-nums ${C.color.text} w-10 text-right shrink-0`}
+              className={`type-caption font-mono font-semibold tabular-nums ${C.color.text} w-10 text-right shrink-0`}
             >
               {s.count}
             </span>

@@ -206,7 +206,7 @@ function FormRow({
       className="grid grid-cols-[1fr_180px_90px_110px_140px_100px] items-center gap-3 px-4 py-3 cursor-pointer hover:bg-brand-bg/50 transition-colors"
     >
       <div className="min-w-0">
-        <div className="text-sm font-bold text-brand-primary truncate">{form.name}</div>
+        <div className="text-sm font-semibold text-brand-primary truncate">{form.name}</div>
         {form.redirect_url && (
           <div className={`${T.mono} text-brand-muted truncate`}>
             → {form.redirect_url}
@@ -268,7 +268,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
       <div className="w-12 h-12 rounded-full bg-brand-bg flex items-center justify-center mb-3">
         <ClipboardList size={22} className="text-brand-muted" />
       </div>
-      <div className="text-sm font-bold text-brand-primary">Пока нет ни одной формы</div>
+      <div className="text-sm font-semibold text-brand-primary">Пока нет ни одной формы</div>
       <p className="text-sm text-brand-muted mt-1 mb-4 max-w-[24rem]">
         Создайте форму, чтобы лиды с лендинга приходили в CRM автоматически —
         без ручного копирования из почты.

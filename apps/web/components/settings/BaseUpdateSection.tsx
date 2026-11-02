@@ -97,7 +97,7 @@ export function BaseUpdateSection() {
               type="button"
               onClick={handleUpload}
               disabled={create.isPending}
-              className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-full type-caption font-semibold bg-brand-accent text-white hover:bg-brand-accent/90 disabled:opacity-40"
+              className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-full type-button bg-brand-accent text-white hover:bg-brand-accent/90 disabled:opacity-40"
             >
               {create.isPending && <Loader2 size={14} className="animate-spin" />}
               Загрузить и разобрать
@@ -139,7 +139,7 @@ export function BaseUpdateSection() {
         <button
           type="button"
           onClick={reset}
-          className="px-3 py-1.5 rounded-full type-caption font-semibold bg-brand-bg text-brand-primary hover:bg-brand-panel"
+          className="px-3 py-1.5 rounded-full type-button bg-brand-bg text-brand-primary hover:bg-brand-panel"
         >
           {done ? "Загрузить ещё" : "Закрыть"}
         </button>
@@ -176,7 +176,7 @@ export function BaseUpdateSection() {
             type="button"
             disabled={openConflicts.length > 0 || apply.isPending}
             onClick={() => apply.mutate()}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full type-caption font-semibold bg-brand-accent text-white hover:bg-brand-accent/90 disabled:opacity-40"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full type-button bg-brand-accent text-white hover:bg-brand-accent/90 disabled:opacity-40"
           >
             {apply.isPending && <Loader2 size={14} className="animate-spin" />}
             Применить решения

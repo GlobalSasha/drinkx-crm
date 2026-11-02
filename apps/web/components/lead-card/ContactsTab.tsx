@@ -188,16 +188,16 @@ function ContactRow({
                   fill={isPrimary ? "currentColor" : "none"}
                 />
               </button>
-              <p className={`type-caption font-semibold ${C.color.text}`}>
+              <p className={`type-label ${C.color.text}`}>
                 {displayName}
               </p>
               {isPrimary && (
-                <span className="type-caption font-semibold px-2 py-0.5 rounded-full bg-brand-accent text-white">
+                <span className="type-label px-2 py-0.5 rounded-full bg-brand-accent text-white">
                   Основной ЛПР
                 </span>
               )}
               {roleLabel && (
-                <span className="type-caption font-semibold px-2 py-0.5 rounded-full bg-brand-accent/10 text-brand-accent">
+                <span className="type-label px-2 py-0.5 rounded-full bg-brand-accent/10 text-brand-accent">
                   {roleLabel}
                 </span>
               )}
@@ -213,7 +213,7 @@ function ContactRow({
                 e.stopPropagation();
                 onEdit();
               }}
-              className={`inline-flex items-center gap-1 px-2.5 py-1 type-caption font-semibold ${C.color.muted} hover:${C.color.text} bg-brand-panel rounded-full transition-colors shrink-0`}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 type-label ${C.color.muted} hover:${C.color.text} bg-brand-panel rounded-full transition-colors shrink-0`}
             >
               <Pencil size={11} />
               Изменить

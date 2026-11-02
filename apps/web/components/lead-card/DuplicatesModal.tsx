@@ -72,7 +72,7 @@ export function DuplicatesModal({ leadId, masterName, onClose, onSuccess }: Prop
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h2 className="text-base font-bold tracking-tight text-brand-primary">Найти дубли</h2>
+            <h2 className="text-base font-semibold tracking-tight text-brand-primary">Найти дубли</h2>
             <p className="text-xs text-brand-muted mt-0.5">
               Похожие лиды по домену почты, телефону или компании. Выбранные
               объединятся в текущий — он станет основным.
@@ -92,7 +92,7 @@ export function DuplicatesModal({ leadId, masterName, onClose, onSuccess }: Prop
         <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl bg-brand-soft/50 border border-brand-accent/15">
           <Crown size={14} className="text-brand-accent shrink-0" />
           <span className="text-sm font-semibold text-brand-primary truncate">{masterName}</span>
-          <span className="ml-auto shrink-0 text-2xs font-mono uppercase tracking-[0.12em] text-brand-accent-text">
+          <span className="ml-auto shrink-0 text-xs font-mono uppercase tracking-[0.12em] text-brand-accent-text">
             основной
           </span>
         </div>

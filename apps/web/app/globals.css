@@ -27,7 +27,6 @@
   --base-font-size: 14px;
 
   /* Type scale */
-  --text-2xs: 10px;
   --text-xs: 11px;
   --text-sm: 12px;
   --text-md: 13px;
@@ -73,13 +72,13 @@ body {
 }
 
 /* Typography utility classes — wrapped in @layer components so
-   Tailwind utilities (font-bold, font-medium, text-lg, etc.) can
+   Tailwind utilities (font-semibold, font-medium, text-lg, etc.) can
    override individual properties when used on the same element. */
 @layer components {
   .type-page-title {
     font-family: var(--font-ui), sans-serif;
     font-size: var(--text-4xl);
-    font-weight: 700;
+    font-weight: 600;
     line-height: var(--leading-tight);
     letter-spacing: var(--tracking-tight);
     text-wrap: balance;
@@ -129,7 +128,7 @@ body {
   .type-kpi-number {
     font-family: var(--font-ui), sans-serif;
     font-size: var(--text-3xl);
-    font-weight: 700;
+    font-weight: 500;
     line-height: 1;
     letter-spacing: var(--tracking-tight);
     font-variant-numeric: tabular-nums;
@@ -159,13 +158,15 @@ body {
     text-wrap: pretty;
   }
 
+  /* Подписи и мета (даты, хинты, названия KPI): обычный регистр, без
+     разрядки — капслок остался только у .type-table-header. Роли мелкого
+     текста: caption 12/400 → label 12/500 → button 13/600. */
   .type-caption {
     font-family: var(--font-ui), sans-serif;
     font-size: var(--text-sm);
-    font-weight: 500;
+    font-weight: 400;
     line-height: var(--leading-compact);
-    letter-spacing: var(--tracking-wider);
-    text-transform: uppercase;
+    letter-spacing: var(--tracking-normal);
   }
 
   .type-hint {
@@ -180,7 +181,7 @@ body {
   .type-kpi-number-lg {
     font-family: var(--font-ui), sans-serif;
     font-size: var(--text-5xl);
-    font-weight: 700;
+    font-weight: 500;
     line-height: 1;
     letter-spacing: var(--tracking-tight);
     font-variant-numeric: tabular-nums;

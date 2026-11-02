@@ -55,7 +55,7 @@ export function PreviewStep({ job, onBack, onApplied }: Props) {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-base font-bold tracking-tight text-brand-primary">
+        <h3 className="text-base font-semibold tracking-tight text-brand-primary">
           Проверьте перед импортом
         </h3>
         <p className="text-md text-brand-muted mt-1">
@@ -96,7 +96,7 @@ export function PreviewStep({ job, onBack, onApplied }: Props) {
             onClick={() => setShowErrors((v) => !v)}
             className="flex items-center justify-between w-full px-4 py-3 text-left"
           >
-            <span className="text-sm font-bold text-brand-primary">
+            <span className="text-sm font-semibold text-brand-primary">
               Показать ошибки
               <span className="ml-2 text-xs font-mono text-brand-muted">
                 {flatErrors.length}
@@ -109,7 +109,7 @@ export function PreviewStep({ job, onBack, onApplied }: Props) {
           </button>
           {showErrors && (
             <div className="border-t border-brand-border">
-              <div className="grid grid-cols-[60px_1fr] text-2xs font-mono uppercase tracking-wider text-brand-muted px-4 py-2 bg-brand-bg">
+              <div className="grid grid-cols-[60px_1fr] text-xs font-mono uppercase tracking-wider text-brand-muted px-4 py-2 bg-brand-bg">
                 <span>Строка</span>
                 <span>Ошибка</span>
               </div>
@@ -198,12 +198,12 @@ function StatCard({
     <div
       className={`rounded-card border ${palette} px-4 py-3.5 flex flex-col gap-1.5`}
     >
-      <div className="flex items-center gap-1.5 text-2xs font-mono uppercase tracking-wider opacity-80">
+      <div className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider opacity-80">
         {icon}
         {label}
       </div>
       <div className="flex items-baseline gap-1.5">
-        <span className="text-3xl font-bold tracking-tight tabular-nums">
+        <span className="text-3xl font-semibold tracking-tight tabular-nums">
           {value}
         </span>
         <span className="text-xs opacity-70">{unit}</span>

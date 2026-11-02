@@ -57,7 +57,7 @@ export function RemindersWidget() {
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Pin size={16} className="text-brand-muted" />
-          <h3 className={`type-caption font-bold italic ${C.color.text}`}>
+          <h3 className={`type-caption font-semibold italic ${C.color.text}`}>
             Напоминания
           </h3>
         </div>

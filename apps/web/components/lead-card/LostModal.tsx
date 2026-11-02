@@ -88,7 +88,7 @@ export function LostModal({
     <Modal open onClose={onClose} title="Закрыть как проигран?" dismissOnBackdrop={false}>
       <div className="-m-6">
         <div className="flex items-center justify-between px-5 py-4 border-b border-brand-border">
-          <h3 className="text-base font-bold">
+          <h3 className="text-base font-semibold">
             Закрыть как проигран
           </h3>
           <button

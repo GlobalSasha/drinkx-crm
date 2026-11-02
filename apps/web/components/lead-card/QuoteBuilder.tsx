@@ -269,13 +269,13 @@ export function QuoteBuilder({ leadId, quoteId, onClose }: Props) {
         <button
           type="button"
           onClick={handleBack}
-          className={`inline-flex items-center gap-1.5 type-caption font-semibold ${C.color.muted} hover:${C.color.text} transition-colors`}
+          className={`inline-flex items-center gap-1.5 type-button ${C.color.muted} hover:${C.color.text} transition-colors`}
         >
           <ArrowLeft size={14} />
           К списку
         </button>
         <div className="flex items-center gap-2">
-          <span className={`type-caption font-semibold ${C.color.text}`}>{quote.number}</span>
+          <span className={`type-label ${C.color.text}`}>{quote.number}</span>
           <Badge variant={meta.variant}>{meta.label}</Badge>
         </div>
       </div>
@@ -409,7 +409,7 @@ export function QuoteBuilder({ leadId, quoteId, onClose }: Props) {
           )}
           <TotalRow label={`НДС ${num(form.vat_rate)}%`} value={`+ ${formatRub(totals.vatAmount)}`} />
           <div className="border-t border-brand-border pt-2 mt-1 flex items-center justify-between">
-            <span className={`type-caption font-semibold ${C.color.text}`}>Итого</span>
+            <span className={`type-label ${C.color.text}`}>Итого</span>
             <span className={`type-card-title ${C.color.text} tabular-nums`}>{formatRub(totals.total)}</span>
           </div>
         </div>
@@ -498,7 +498,7 @@ export function QuoteBuilder({ leadId, quoteId, onClose }: Props) {
           <button
             type="button"
             onClick={() => setConfirmDelete(true)}
-            className="ml-auto inline-flex items-center gap-1.5 px-3 py-2 type-caption font-semibold text-brand-muted hover:text-rose transition-colors"
+            className="ml-auto inline-flex items-center gap-1.5 px-3 py-2 type-button text-brand-muted hover:text-rose transition-colors"
           >
             <Trash2 size={13} />
             Удалить
@@ -516,14 +516,14 @@ export function QuoteBuilder({ leadId, quoteId, onClose }: Props) {
               type="button"
               onClick={() => del.mutate(quoteId, { onSuccess: onClose })}
               disabled={del.isPending}
-              className="px-4 py-1.5 type-caption font-semibold text-white bg-rose rounded-full disabled:opacity-50"
+              className="px-4 py-1.5 type-button text-white bg-rose rounded-full disabled:opacity-50"
             >
               {del.isPending ? "Удаление…" : "Удалить"}
             </button>
             <button
               type="button"
               onClick={() => setConfirmDelete(false)}
-              className={`px-4 py-1.5 type-caption font-semibold ${C.button.ghost}`}
+              className={`px-4 py-1.5 type-button ${C.button.ghost}`}
             >
               Отмена
             </button>
@@ -610,7 +610,7 @@ function LineEditor({
       </div>
       <div className="flex items-center justify-end gap-1.5">
         <span className="type-hint text-brand-muted">Итого по позиции:</span>
-        <span className="type-caption font-semibold text-brand-primary tabular-nums">
+        <span className="type-label text-brand-primary tabular-nums">
           {formatRub(total)}
         </span>
       </div>
@@ -634,7 +634,7 @@ function VatPill({
       type="button"
       onClick={onClick}
       disabled={!editable}
-      className={`px-3 py-1.5 type-caption font-semibold rounded-full border transition-colors disabled:opacity-60 ${
+      className={`px-3 py-1.5 type-button rounded-full border transition-colors disabled:opacity-60 ${
         active
           ? "bg-brand-accent text-white border-brand-accent"
           : "bg-white text-brand-muted-strong border-brand-border hover:border-brand-accent"

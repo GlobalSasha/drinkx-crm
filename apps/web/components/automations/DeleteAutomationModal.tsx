@@ -16,7 +16,7 @@ export function DeleteAutomationModal({ automation, onClose, onConfirm }: Props)
       dismissOnBackdrop={false}
     >
       <>
-        <h3 className="text-base font-bold mb-2">Удалить автоматизацию?</h3>
+        <h3 className="text-base font-semibold mb-2">Удалить автоматизацию?</h3>
         <p className="text-sm text-brand-muted mb-5">
           Автоматизация{" "}
           <span className="font-semibold text-brand-primary">«{automation.name}»</span>{" "}

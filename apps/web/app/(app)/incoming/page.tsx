@@ -172,7 +172,7 @@ function Chip({
     <button
       onClick={onClick}
       className={clsx(
-        "px-3 py-1.5 rounded-full type-caption font-semibold transition-colors",
+        "px-3 py-1.5 rounded-full type-button transition-colors",
         active
           ? "bg-brand-accent text-white"
           : "bg-brand-panel text-brand-muted-strong hover:bg-brand-border",
@@ -243,20 +243,20 @@ function Row({ item, onOpenLead }: { item: InboxItemOut; onOpenLead: () => void 
       >
         <span
           className={clsx(
-            "text-base font-bold tabular-nums leading-tight",
+            "text-base font-semibold tabular-nums leading-tight",
             item.is_new ? "text-brand-accent" : "text-brand-primary",
           )}
         >
           {arr.time}
         </span>
-        <span className="mt-1 whitespace-nowrap text-2xs text-brand-muted">{arr.date}</span>
+        <span className="mt-1 whitespace-nowrap text-xs text-brand-muted">{arr.date}</span>
       </div>
 
       {/* Content */}
       <div className="min-w-0 flex-1">
         {/* Who */}
         <div className="flex items-center gap-2">
-          <span className="text-base font-bold text-brand-primary truncate">
+          <span className="text-base font-semibold text-brand-primary truncate">
             {item.contact_name || company}
           </span>
           {item.contact_name && (
@@ -299,7 +299,7 @@ function Row({ item, onOpenLead }: { item: InboxItemOut; onOpenLead: () => void 
 
         {/* Source + status */}
         <div className="flex items-center gap-2 mt-2.5 flex-wrap">
-          <span className={`${T.mono} text-2xs uppercase tracking-wider px-2 py-1 rounded-md bg-brand-bg text-brand-muted`}>
+          <span className={`${T.mono} text-xs uppercase tracking-wider px-2 py-1 rounded-md bg-brand-bg text-brand-muted`}>
             {item.channel}
           </span>
           {item.source_domain && (
@@ -323,7 +323,7 @@ function StatusPill({ st }: { st: ReturnType<typeof statusLabel> }) {
         ? "bg-brand-panel text-brand-muted-strong"
         : "bg-brand-bg text-brand-muted";
   return (
-    <span className={clsx("text-2xs font-semibold uppercase tracking-wider px-2 py-1 rounded-md", cls)}>
+    <span className={clsx("text-xs font-semibold uppercase tracking-wider px-2 py-1 rounded-md", cls)}>
       {st.text}
     </span>
   );
@@ -335,7 +335,7 @@ function EmptyState() {
       <div className="w-12 h-12 rounded-full bg-brand-bg flex items-center justify-center mb-3">
         <Inbox size={22} className="text-brand-muted" />
       </div>
-      <div className="text-sm font-bold text-brand-primary">Новых заявок нет</div>
+      <div className="text-sm font-semibold text-brand-primary">Новых заявок нет</div>
       <p className="text-sm text-brand-muted mt-1 max-w-[24rem]">
         Здесь заявки с сайтов ждут первого контакта. Когда лида переводят
         дальше по воронке, закрывают или удаляют, он уходит из этого списка.

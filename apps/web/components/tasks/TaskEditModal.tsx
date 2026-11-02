@@ -106,7 +106,7 @@ export function TaskEditModal({
     <Modal open onClose={onClose} title="Редактирование задачи" dismissOnBackdrop={false}>
       <div className="-m-6">
         <div className="flex items-center justify-between px-5 py-4 border-b border-brand-border">
-          <h3 className="text-base font-bold">Редактирование задачи</h3>
+          <h3 className="text-base font-semibold">Редактирование задачи</h3>
           <button
             type="button"
             onClick={onClose}

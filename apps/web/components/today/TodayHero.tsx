@@ -64,7 +64,7 @@ export function TodayHero({ dateCaption, greeting, name, summary, primary, secon
                 <Link
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   href={primary.href as any}
-                  className={`h-10 px-5 inline-flex items-center gap-2 rounded-full bg-brand-accent text-white type-caption font-semibold hover:bg-brand-accent/90 active:scale-[0.96] transition-colors ${C.focusRing}`}
+                  className={`h-10 px-5 inline-flex items-center gap-2 rounded-full bg-brand-accent text-white type-button hover:bg-brand-accent/90 active:scale-[0.96] transition-colors ${C.focusRing}`}
                 >
                   <span className="truncate max-w-[18rem]">{primary.label}</span>
                   <ArrowRight size={14} aria-hidden />
@@ -74,7 +74,7 @@ export function TodayHero({ dateCaption, greeting, name, summary, primary, secon
                 <Link
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   href={secondary.href as any}
-                  className={`h-10 px-5 inline-flex items-center rounded-full border border-brand-border text-brand-muted type-caption font-semibold hover:bg-brand-panel transition-colors ${C.focusRing}`}
+                  className={`h-10 px-5 inline-flex items-center rounded-full border border-brand-border text-brand-muted type-button hover:bg-brand-panel transition-colors ${C.focusRing}`}
                 >
                   {secondary.label}
                 </Link>

@@ -111,7 +111,7 @@ export function AssignLeadsModal({
     >
       <div className="-m-6">
         <div className="flex items-center justify-between px-5 py-4 border-b border-brand-border">
-          <h3 className="text-base font-bold">Выдать карточки менеджеру</h3>
+          <h3 className="text-base font-semibold">Выдать карточки менеджеру</h3>
           <button
             type="button"
             onClick={handleClose}
@@ -152,7 +152,7 @@ export function AssignLeadsModal({
               <p className="mt-1 text-xs text-brand-muted">
                 Сейчас под фильтр подходит: {matchingCount}
               </p>
-              <p className="mt-0.5 text-2xs text-brand-muted">
+              <p className="mt-0.5 text-xs text-brand-muted">
                 Берутся первые N карточек в текущем порядке списка.
               </p>
             </div>

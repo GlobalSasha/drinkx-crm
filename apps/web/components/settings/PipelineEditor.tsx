@@ -244,10 +244,10 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
           {/* Header */}
           <div className="px-6 py-4 border-b border-brand-border flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <div className="text-2xs font-mono uppercase tracking-wider text-brand-muted">
+              <div className="text-xs font-mono uppercase tracking-wider text-brand-muted">
                 Воронка
               </div>
-              <h2 className="text-lg font-bold tracking-tight text-brand-primary mt-0.5 truncate">
+              <h2 className="text-lg font-semibold tracking-tight text-brand-primary mt-0.5 truncate">
                 {isEdit ? pipeline?.name : "Новая воронка"}
               </h2>
             </div>
@@ -283,7 +283,7 @@ export function PipelineEditor({ open, pipeline, onClose, onSaved }: Props) {
                 <label className="block text-xs font-mono uppercase tracking-wide text-brand-muted">
                   Стадии
                 </label>
-                <span className="text-2xs font-mono text-brand-muted">
+                <span className="text-xs font-mono text-brand-muted">
                   {stages.length} {stages.length === 1 ? "стадия" : "стадий"}
                 </span>
               </div>
@@ -435,7 +435,7 @@ function StageRowItem({
           className="w-14 px-1.5 py-1 text-sm font-mono bg-white border border-brand-border rounded-lg outline-none focus:border-brand-accent/40 transition-colors text-right tabular-nums"
           title="Срок до пометки «протухает»"
         />
-        <span className="text-2xs font-mono text-brand-muted">дн.</span>
+        <span className="text-xs font-mono text-brand-muted">дн.</span>
       </div>
 
       <button

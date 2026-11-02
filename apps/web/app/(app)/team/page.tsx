@@ -203,7 +203,7 @@ function ManagerCard({ m }: { m: TeamManagerStats }) {
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 rounded-full bg-brand-soft flex items-center justify-center shrink-0">
-            <span className="text-sm font-bold text-brand-accent">{initial}</span>
+            <span className="text-sm font-semibold text-brand-accent">{initial}</span>
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-brand-primary truncate">
@@ -212,13 +212,13 @@ function ManagerCard({ m }: { m: TeamManagerStats }) {
             <p className="text-xs font-mono text-brand-muted truncate">
               {m.email}
             </p>
-            <p className="text-2xs font-mono text-brand-muted mt-0.5">
+            <p className="text-xs font-mono text-brand-muted mt-0.5">
               последняя активность:{" "}
               {m.last_active_at ? relativeTime(m.last_active_at) : "никогда"}
             </p>
           </div>
         </div>
-        <span className="shrink-0 text-2xs font-mono uppercase tracking-[0.15em] text-brand-muted bg-brand-panel rounded-full px-2 py-1">
+        <span className="shrink-0 text-xs font-mono uppercase tracking-[0.15em] text-brand-muted bg-brand-panel rounded-full px-2 py-1">
           {ROLE_LABEL[m.role] ?? m.role}
         </span>
       </div>
@@ -235,8 +235,8 @@ function ManagerCard({ m }: { m: TeamManagerStats }) {
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="text-center">
-      <p className="text-xl font-bold tabular-nums text-brand-primary">{value}</p>
-      <p className="text-2xs font-mono uppercase tracking-[0.15em] text-brand-muted mt-0.5">
+      <p className="text-xl font-semibold tabular-nums text-brand-primary">{value}</p>
+      <p className="text-xs font-mono uppercase tracking-[0.15em] text-brand-muted mt-0.5">
         {label}
       </p>
     </div>

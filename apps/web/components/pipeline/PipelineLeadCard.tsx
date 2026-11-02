@@ -76,7 +76,7 @@ function PipelineLeadCardImpl({ lead }: Props) {
           attribution Globe icon for form-sourced leads — operationally
           important during Q3 paid campaigns (paid leads need faster
           response than cold ones). One-character visual cost. */}
-      <p className={`type-caption font-bold ${C.color.text} truncate leading-snug flex items-center gap-1`}>
+      <p className={`type-caption font-semibold ${C.color.text} truncate leading-snug flex items-center gap-1`}>
         {lead.source?.startsWith("form:") && (
           <span
             title={lead.source_form_name ?? "Заявка с формы"}
@@ -104,7 +104,7 @@ function PipelineLeadCardImpl({ lead }: Props) {
       </p>
 
       {/* Row 3 — bottom info bar */}
-      <div className="flex items-center gap-1.5 text-2xs text-brand-muted">
+      <div className="flex items-center gap-1.5 text-xs text-brand-muted">
         {lead.segment && (
           <span
             className="font-mono uppercase tracking-[0.06em] bg-brand-panel text-brand-muted-strong px-1.5 py-0.5 rounded-full truncate max-w-[90px]"

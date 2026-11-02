@@ -59,7 +59,7 @@ export function PrimaryContactCard({
           <button
             type="button"
             onClick={onOpenContacts}
-            className={`mt-2 inline-flex type-caption font-semibold ${C.color.accent} hover:underline`}
+            className={`mt-2 inline-flex type-button ${C.color.accent} hover:underline`}
           >
             Добавить контакт →
           </button>
@@ -86,9 +86,9 @@ export function PrimaryContactCard({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className={`type-caption font-semibold ${C.color.text}`}>{name}</p>
+            <p className={`type-label ${C.color.text}`}>{name}</p>
             {role && (
-              <span className="type-caption font-semibold px-2 py-0.5 rounded-full bg-brand-accent/10 text-brand-accent">
+              <span className="type-label px-2 py-0.5 rounded-full bg-brand-accent/10 text-brand-accent">
                 {role}
               </span>
             )}
@@ -111,7 +111,7 @@ export function PrimaryContactCard({
         <button
           type="button"
           onClick={onOpenContacts}
-          className={`mt-3 inline-flex items-center gap-1.5 type-caption font-semibold ${C.color.muted} hover:${C.color.accent} transition-colors`}
+          className={`mt-3 inline-flex items-center gap-1.5 type-button ${C.color.muted} hover:${C.color.accent} transition-colors`}
         >
           <Users size={12} />
           Все контакты ({contacts.length}) →

@@ -127,10 +127,10 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
                 <Sparkles size={16} />
               </div>
               <div>
-                <div className="text-2xs font-mono uppercase tracking-wider text-brand-muted">
+                <div className="text-xs font-mono uppercase tracking-wider text-brand-muted">
                   PRD §6.14
                 </div>
-                <h2 className="text-base font-bold tracking-tight text-brand-primary mt-0.5">
+                <h2 className="text-base font-semibold tracking-tight text-brand-primary mt-0.5">
                   Обновление через AI
                 </h2>
               </div>
@@ -202,7 +202,7 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
                 onFocus={(e) => e.currentTarget.select()}
               />
               <div className="flex items-center justify-between mt-2">
-                <span className="text-2xs text-brand-muted">
+                <span className="text-xs text-brand-muted">
                   Кликните в поле — выделится весь текст.
                 </span>
                 <button
@@ -256,11 +256,11 @@ function Step({
   return (
     <div className="rounded-card border border-brand-border bg-brand-bg/40 p-4">
       <div className="flex items-start gap-3">
-        <span className="shrink-0 w-6 h-6 rounded-full bg-brand-accent text-white text-xs font-bold flex items-center justify-center tabular-nums">
+        <span className="shrink-0 w-6 h-6 rounded-full bg-brand-accent text-white text-xs font-semibold flex items-center justify-center tabular-nums">
           {n}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-bold text-brand-primary">{title}</div>
+          <div className="text-sm font-semibold text-brand-primary">{title}</div>
           <p className="text-sm text-brand-muted mt-0.5">{hint}</p>
           <div className="mt-3">{children}</div>
         </div>

@@ -34,7 +34,7 @@ export function ProgressStep({ jobId, initialJob, onClose }: Props) {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-base font-bold tracking-tight text-brand-primary">
+        <h3 className="text-base font-semibold tracking-tight text-brand-primary">
           {isRunning && "Импорт выполняется"}
           {isSucceeded && "Импорт завершён"}
           {isFailed && "Импорт завершён с ошибками"}
@@ -50,7 +50,7 @@ export function ProgressStep({ jobId, initialJob, onClose }: Props) {
       <div className="space-y-2">
         <div className="flex items-baseline justify-between text-sm font-mono text-brand-muted">
           <span>
-            <span className="font-bold text-brand-primary tabular-nums">{processed}</span>
+            <span className="font-semibold text-brand-primary tabular-nums">{processed}</span>
             <span className="text-brand-muted"> / </span>
             <span className="tabular-nums">{job.total_rows}</span>
           </span>
@@ -81,7 +81,7 @@ export function ProgressStep({ jobId, initialJob, onClose }: Props) {
           <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
           <div className="text-md leading-relaxed">
             Импортировано{" "}
-            <span className="font-bold tabular-nums">{job.succeeded}</span>{" "}
+            <span className="font-semibold tabular-nums">{job.succeeded}</span>{" "}
             {pluralKartochek(job.succeeded)}.
             {job.failed > 0 && (
               <span className="text-amber-800">
@@ -98,9 +98,9 @@ export function ProgressStep({ jobId, initialJob, onClose }: Props) {
           <AlertTriangle size={16} className="mt-0.5 shrink-0" />
           <div className="text-md leading-relaxed">
             Импортировано{" "}
-            <span className="font-bold tabular-nums">{job.succeeded}</span>,
+            <span className="font-semibold tabular-nums">{job.succeeded}</span>,
             пропущено{" "}
-            <span className="font-bold tabular-nums">{job.failed}</span>.
+            <span className="font-semibold tabular-nums">{job.failed}</span>.
             {job.error_summary && (
               <div className="mt-1 text-xs font-mono opacity-80">
                 {job.error_summary}
@@ -171,10 +171,10 @@ function Counter({
   }[tone];
   return (
     <div className="rounded-xl bg-brand-bg px-3 py-2.5 flex flex-col gap-0.5">
-      <span className="text-2xs font-mono uppercase tracking-wider text-brand-muted">
+      <span className="text-xs font-mono uppercase tracking-wider text-brand-muted">
         {label}
       </span>
-      <span className={`text-xl font-bold tabular-nums ${valueColor}`}>
+      <span className={`text-xl font-semibold tabular-nums ${valueColor}`}>
         {value}
       </span>
     </div>

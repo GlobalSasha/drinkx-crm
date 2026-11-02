@@ -142,9 +142,9 @@ export function NotificationsDrawer({ open, onClose }: Props) {
         {/* Header */}
         <div className="px-5 py-4 border-b border-brand-border flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-bold tracking-tight">Уведомления</h2>
+            <h2 className="text-base font-semibold tracking-tight">Уведомления</h2>
             {unread > 0 && (
-              <span className="bg-brand-accent text-white text-2xs font-mono font-bold px-2 py-0.5 rounded-full tabular-nums">
+              <span className="bg-brand-accent text-white text-xs font-mono font-semibold px-2 py-0.5 rounded-full tabular-nums">
                 {unread}
               </span>
             )}
@@ -238,7 +238,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
                     className="bg-brand-bg/60 px-5 py-1.5 sticky top-0 z-10 border-b border-brand-border"
                     role="presentation"
                   >
-                    <span className="text-2xs font-mono uppercase tracking-[0.18em] text-brand-muted font-semibold">
+                    <span className="text-xs font-mono uppercase tracking-[0.18em] text-brand-muted font-semibold">
                       {group.header}
                     </span>
                   </li>
@@ -264,11 +264,11 @@ export function NotificationsDrawer({ open, onClose }: Props) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span
-                          className={`font-mono text-2xs font-semibold px-1.5 py-0.5 rounded-md ${kindStyle}`}
+                          className={`font-mono text-xs font-semibold px-1.5 py-0.5 rounded-md ${kindStyle}`}
                         >
                           {kindLabel}
                         </span>
-                        <span className="font-mono text-2xs text-brand-muted">
+                        <span className="font-mono text-xs text-brand-muted">
                           {relativeTime(n.created_at)}
                         </span>
                       </div>

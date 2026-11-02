@@ -51,7 +51,7 @@ export function EmailModal({ item, onClose }: Props) {
 
         {attachments.length > 0 && (
           <footer className="px-6 py-4 border-t border-brand-border">
-            <p className="type-caption font-semibold text-brand-muted-strong mb-2">
+            <p className="type-label text-brand-muted-strong mb-2">
               Вложения
             </p>
             <ul className="space-y-1">

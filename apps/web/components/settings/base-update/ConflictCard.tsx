@@ -103,7 +103,7 @@ function renderButtons(
   },
 ) {
   const { submit, picked, setPicked, manualValue, setManualValue, pending } = ctx;
-  const btn = "px-3 py-1.5 rounded-full type-caption font-semibold transition-colors";
+  const btn = "px-3 py-1.5 rounded-full type-button transition-colors";
   const primary = `${btn} bg-brand-accent text-white hover:bg-brand-accent/90`;
   const ghost = `${btn} bg-brand-bg text-brand-primary hover:bg-brand-panel`;
   const danger = `${btn} bg-rose/10 text-rose hover:bg-rose/15`;

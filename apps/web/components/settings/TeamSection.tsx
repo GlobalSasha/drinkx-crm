@@ -328,7 +328,7 @@ function UserRow({
       <td className="px-4 py-3 align-middle">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-full bg-brand-soft flex items-center justify-center shrink-0">
-            <span className="text-xs font-bold text-brand-accent">{initial}</span>
+            <span className="text-xs font-semibold text-brand-accent">{initial}</span>
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-brand-primary truncate">
