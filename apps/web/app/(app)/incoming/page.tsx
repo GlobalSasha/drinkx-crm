@@ -335,9 +335,10 @@ function EmptyState() {
       <div className="w-12 h-12 rounded-full bg-brand-bg flex items-center justify-center mb-3">
         <Inbox size={22} className="text-brand-muted" />
       </div>
-      <div className="text-sm font-bold text-brand-primary">Заявок пока нет</div>
+      <div className="text-sm font-bold text-brand-primary">Новых заявок нет</div>
       <p className="text-sm text-brand-muted mt-1 max-w-[24rem]">
-        Здесь будут появляться заявки, отправленные через формы на сайтах.
+        Здесь заявки с сайтов ждут первого контакта. Когда лида переводят
+        дальше по воронке, закрывают или удаляют, он уходит из этого списка.
       </p>
     </div>
   );
