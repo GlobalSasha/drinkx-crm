@@ -28,9 +28,9 @@ const pageContainerVariants = cva(
       // detail (2 колонки) и reading (внутренний ch-cap) могли разойтись
       // позже без правки call-site'ов.
       surface: {
-        data: "max-w-[1760px] mx-auto",
-        detail: "max-w-[1760px] mx-auto",
-        reading: "max-w-[1760px] mx-auto",
+        data: "max-w-page mx-auto",
+        detail: "max-w-page mx-auto",
+        reading: "max-w-page mx-auto",
       },
     },
     defaultVariants: { surface: "data" },

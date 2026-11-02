@@ -200,7 +200,7 @@ function ContactChip({
       <a
         href={href}
         onClick={(e) => e.stopPropagation()}
-        className="inline-flex items-center gap-1.5 px-3 py-1 max-w-[220px] type-caption font-medium text-brand-muted-strong hover:text-brand-accent transition-colors"
+        className="inline-flex items-center gap-1.5 px-3 py-1 max-w-56 type-caption font-medium text-brand-muted-strong hover:text-brand-accent transition-colors"
       >
         {icon}
         <span className="truncate">{label}</span>
@@ -332,8 +332,8 @@ function StatusPill({ st }: { st: ReturnType<typeof statusLabel> }) {
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="w-12 h-12 rounded-full bg-brand-bg flex items-center justify-center mb-3">
-        <Inbox size={22} className="text-brand-muted" />
+      <div className="flex items-center justify-center mb-3">
+        <Inbox size={28} className="text-brand-muted" />
       </div>
       <div className="text-sm font-semibold text-brand-primary">Новых заявок нет</div>
       <p className="text-sm text-brand-muted mt-1 max-w-[24rem]">

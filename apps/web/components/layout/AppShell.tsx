@@ -92,7 +92,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Mobile backdrop */}
       {mobileNavOpen && (
         <div
-          className="md:hidden fixed inset-0 z-30 bg-black/30 backdrop-blur-[1px]"
+          className="md:hidden fixed inset-0 z-30 bg-black/30"
           onClick={() => setMobileNavOpen(false)}
           aria-hidden
         />
@@ -108,7 +108,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           borderRight: "1px solid var(--sidebar-border)",
         }}
         className={clsx(
-          "fixed top-0 left-0 h-screen w-[220px] flex flex-col z-40 transition-transform duration-200 ease-out",
+          "fixed top-0 left-0 h-screen w-sidebar flex flex-col z-40 transition-transform duration-200 ease-out",
           mobileNavOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
         )}
       >

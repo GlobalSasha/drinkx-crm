@@ -129,7 +129,7 @@ function SignInForm() {
         className="w-full py-3.5 px-4 rounded-full border border-brand-border bg-white flex items-center justify-center gap-3 text-sm font-medium hover:border-brand-accent/30 transition active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
       >
         <span
-          className="w-[18px] h-[18px] rounded-full shrink-0"
+          className="size-5 rounded-full shrink-0"
           style={{
             background:
               "conic-gradient(from 0deg, #4285f4 25%, #34a853 25% 50%, #fbbc05 50% 75%, #ea4335 75%)",
@@ -235,18 +235,7 @@ function SignInForm() {
 
 export default function SignInPage() {
   return (
-    <main className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Ambient mesh */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div
-          className="absolute -top-40 -left-40 w-[700px] h-[700px] rounded-full opacity-20 blur-3xl"
-          style={{ background: "radial-gradient(circle at 30% 30%, #5A8C7A, transparent 60%)" }}
-        />
-        <div
-          className="absolute top-40 -right-40 w-[560px] h-[560px] rounded-full opacity-20 blur-3xl"
-          style={{ background: "radial-gradient(circle at 60% 60%, #D8B98E, transparent 60%)" }}
-        />
-      </div>
+    <main className="min-h-screen flex items-center justify-center p-6">
       <Suspense fallback={null}>
         <SignInForm />
       </Suspense>

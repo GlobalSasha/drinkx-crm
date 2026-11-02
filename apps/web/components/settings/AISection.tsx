@@ -130,7 +130,7 @@ export function AISection() {
       {/* Spend gauge card */}
       <div className="bg-white border border-brand-border rounded-card p-5">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-brand-bg flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 flex items-center justify-center shrink-0">
             <Bot size={18} className="text-brand-muted" />
           </div>
           <div className="flex-1 min-w-0">
@@ -187,7 +187,7 @@ export function AISection() {
             step="0.5"
             value={budget}
             onChange={(e) => setBudget(e.target.value)}
-            className="mt-1 w-full max-w-[200px] bg-brand-bg border border-brand-border rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+            className="mt-1 w-full max-w-52 bg-brand-bg border border-brand-border rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
           />
           <p className="text-xs text-brand-muted mt-1">
             При достижении лимита фоновые исследования останавливаются.
@@ -206,7 +206,7 @@ export function AISection() {
             id="ai-model"
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            className="mt-1 w-full max-w-[280px] bg-brand-bg border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
+            className="mt-1 w-full max-w-72 bg-brand-bg border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-accent focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1"
           >
             {data.available_models.map((m) => (
               <option key={m} value={m}>

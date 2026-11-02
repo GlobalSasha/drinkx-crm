@@ -70,7 +70,7 @@ function PipelineLeadCardImpl({ lead }: Props) {
       aria-label={`Открыть лид ${lead.company_name}`}
       onClick={() => router.push(`/leads/${lead.id}`)}
       onKeyDown={handleKey}
-      className="font-sans bg-white border border-brand-border rounded-md p-3 h-[88px] flex flex-col justify-between cursor-pointer select-none transition-[opacity,border-color] duration-150 hover:border-brand-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg"
+      className="font-sans bg-white border border-brand-border rounded-md p-3 h-24 flex flex-col justify-between cursor-pointer select-none transition-[opacity,border-color] duration-150 hover:border-brand-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg"
     >
       {/* Row 1 — company name (bold, single line). Sprint 3.6 G7:
           attribution Globe icon for form-sourced leads — operationally
@@ -92,7 +92,7 @@ function PipelineLeadCardImpl({ lead }: Props) {
       {/* Row 2 — primary contact name with star prefix. Always
           rendered (with placeholder) so the card height stays
           constant in the column. */}
-      <p className="flex items-center gap-1 type-caption text-brand-muted-strong truncate min-h-[16px]">
+      <p className="flex items-center gap-1 type-caption text-brand-muted-strong truncate min-h-4">
         {lead.primary_contact_name ? (
           <>
             <Star size={11} fill="currentColor" className="text-brand-accent shrink-0" />
@@ -107,7 +107,7 @@ function PipelineLeadCardImpl({ lead }: Props) {
       <div className="flex items-center gap-1.5 text-xs text-brand-muted">
         {lead.segment && (
           <span
-            className="font-mono uppercase tracking-[0.06em] bg-brand-panel text-brand-muted-strong px-1.5 py-0.5 rounded-full truncate max-w-[90px]"
+            className="font-mono uppercase tracking-[0.06em] bg-brand-panel text-brand-muted-strong px-1.5 py-0.5 rounded-full truncate max-w-24"
             title={lead.segment}
           >
             {segmentShortLabel(lead.segment)}

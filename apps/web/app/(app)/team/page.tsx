@@ -155,7 +155,7 @@ export default function TeamPage() {
               {[0, 1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className="bg-white border border-brand-border rounded-card p-5 animate-pulse h-[148px]"
+                  className="bg-white border border-brand-border rounded-card p-5 animate-pulse h-36"
                 />
               ))}
             </div>

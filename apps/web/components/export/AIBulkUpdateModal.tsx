@@ -109,7 +109,7 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
   return (
     <>
       <div
-        className="fixed inset-0 bg-black/30 z-50 backdrop-blur-[2px]"
+        className="fixed inset-0 bg-black/30 z-50"
         onClick={onClose}
         aria-hidden
       />
@@ -123,7 +123,7 @@ export function AIBulkUpdateModal({ open, onClose }: Props) {
           {/* Header */}
           <div className="px-6 py-4 border-b border-brand-border flex items-start justify-between gap-4">
             <div className="min-w-0 flex items-start gap-2">
-              <div className="w-8 h-8 rounded-xl bg-brand-soft text-brand-accent flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 text-brand-muted flex items-center justify-center shrink-0">
                 <Sparkles size={16} />
               </div>
               <div>

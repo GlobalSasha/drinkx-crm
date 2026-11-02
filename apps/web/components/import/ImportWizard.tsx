@@ -78,7 +78,7 @@ export function ImportWizard({ open, onClose }: Props) {
   return (
     <>
       <div
-        className="fixed inset-0 bg-black/30 z-50 backdrop-blur-[2px]"
+        className="fixed inset-0 bg-black/30 z-50"
         onClick={onBackdropClick}
         aria-hidden
       />

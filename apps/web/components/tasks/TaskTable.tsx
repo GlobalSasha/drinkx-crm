@@ -92,7 +92,7 @@ export function TaskTable({ rows, onComplete, isCompleting, emptyText }: Props) 
                     }}
                     disabled={row.done || isCompleting}
                     aria-label={row.done ? "Выполнено" : "Отметить выполненной"}
-                    className={`shrink-0 w-5 h-5 rounded-full border-[1.5px] flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
+                    className={`shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
                       row.done
                         ? "border-success bg-success cursor-default"
                         : "border-brand-border hover:border-brand-accent hover:bg-brand-soft/40"

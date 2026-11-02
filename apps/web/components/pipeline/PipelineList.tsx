@@ -88,7 +88,7 @@ export function PipelineList({ stages, leads }: Props) {
                   className="w-1.5 h-1.5 rounded-full shrink-0"
                   style={{ backgroundColor: s.color }}
                 />
-                <span className="truncate max-w-[140px]">{s.name}</span>
+                <span className="truncate max-w-36">{s.name}</span>
                 <span className={`${T.mono} tabular-nums opacity-80`}>
                   {count}
                 </span>

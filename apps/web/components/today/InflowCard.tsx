@@ -12,7 +12,7 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import {
-  BRAND_CHART_COLORS,
+  CHART_LEAD_THEN_NEUTRAL,
   CHART_AXIS_COLOR,
   CHART_AXIS_LINE_COLOR,
   CHART_GRID_COLOR,
@@ -173,7 +173,9 @@ function InflowBody({
     for (const s of data.sources) {
       color.set(
         s.name,
-        s.is_manual ? CHART_AXIS_LINE_COLOR : BRAND_CHART_COLORS[i++ % (BRAND_CHART_COLORS.length - 1)],
+        s.is_manual
+          ? CHART_AXIS_LINE_COLOR
+          : CHART_LEAD_THEN_NEUTRAL[Math.min(i++, CHART_LEAD_THEN_NEUTRAL.length - 1)],
       );
     }
 

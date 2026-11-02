@@ -180,7 +180,7 @@ function Section({ id, icon: Icon, kicker, title, children }: {
   id: string; icon: LucideIcon; kicker: string; title: string; children: React.ReactNode;
 }) {
   return (
-    <section id={id} className="scroll-mt-[128px] mb-12">
+    <section id={id} className="scroll-mt-32 mb-12">
       <div className="mb-5">
         <div className="flex items-center gap-2 mb-2">
           <Icon size={16} className="text-brand-accent" />
@@ -201,8 +201,8 @@ function Card({ title, icon: Icon, children, className = "" }: {
       {title && (
         <div className="flex items-center gap-2.5 mb-3">
           {Icon && (
-            <span className="w-8 h-8 rounded-full bg-brand-soft flex items-center justify-center shrink-0">
-              <Icon size={16} className="text-brand-accent-text" />
+            <span className="w-8 h-8 flex items-center justify-center shrink-0">
+              <Icon size={18} className="text-brand-accent-text" />
             </span>
           )}
           <h3 className="type-card-title text-brand-primary">{title}</h3>
@@ -237,7 +237,7 @@ function Details({ id, summary, children }: {
   return (
     <details
       id={id}
-      className="group mt-3 bg-white border border-brand-border rounded-card overflow-hidden scroll-mt-[128px]"
+      className="group mt-3 bg-white border border-brand-border rounded-card overflow-hidden scroll-mt-32"
     >
       <summary className="flex items-center justify-between gap-3 px-6 py-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden type-label text-brand-primary hover:bg-brand-bg/60 transition-colors">
         {summary}
@@ -256,7 +256,7 @@ function KV({ items }: { items: [string, React.ReactNode][] }) {
     <ul className="divide-y divide-brand-border">
       {items.map(([k, v], i) => (
         <li key={i} className="flex flex-col sm:flex-row gap-1 sm:gap-4 py-2.5">
-          <span className="type-label text-brand-primary sm:min-w-[180px] shrink-0">{k}</span>
+          <span className="type-label text-brand-primary sm:min-w-44 shrink-0">{k}</span>
           <span className="type-body text-brand-muted-strong">{v}</span>
         </li>
       ))}
@@ -769,7 +769,7 @@ export default function GuidePage() {
       <div className="grid lg:grid-cols-[220px_1fr] gap-8">
         {/* Оглавление */}
         <nav className="hidden lg:block">
-          <div className="sticky top-[128px] space-y-0.5">
+          <div className="sticky top-32 space-y-0.5">
             {toc.map(({ id, label, icon: Icon }) => (
               <a
                 key={id}

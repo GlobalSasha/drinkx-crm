@@ -156,7 +156,7 @@ function buildColumns(
             disabled={isMutating}
             aria-label={r.done ? "Вернуть в активные" : "Отметить выполненной"}
             title={r.done ? "Вернуть в активные" : "Отметить выполненной"}
-            className={`shrink-0 w-5 h-5 rounded-full border-[1.5px] flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
+            className={`shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 ${
               r.done
                 ? "border-success bg-success hover:bg-success/80"
                 : "border-brand-border hover:border-brand-accent hover:bg-brand-soft/40"

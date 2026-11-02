@@ -131,7 +131,7 @@ export function TemplatesSection() {
                   key={t.id}
                   className="border-t border-brand-border hover:bg-brand-bg/40 transition-colors"
                 >
-                  <td className="px-4 py-3 font-semibold text-brand-primary truncate max-w-[200px]">
+                  <td className="px-4 py-3 font-semibold text-brand-primary truncate max-w-52">
                     {t.name}
                   </td>
                   <td className="px-4 py-3 text-xs">
@@ -143,7 +143,7 @@ export function TemplatesSection() {
                   <td className="px-4 py-3 text-xs text-brand-muted">
                     {t.category ?? <span className="text-brand-muted">—</span>}
                   </td>
-                  <td className="px-4 py-3 text-xs text-brand-muted max-w-[280px] truncate">
+                  <td className="px-4 py-3 text-xs text-brand-muted max-w-72 truncate">
                     {previewText(t.text)}
                   </td>
                   {isAdmin && (

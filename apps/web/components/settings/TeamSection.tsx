@@ -144,23 +144,23 @@ export function TeamSection() {
 
       {/* Users table */}
       <div className="bg-white border border-brand-border rounded-card overflow-hidden overflow-x-auto">
-        <table className="w-full min-w-[560px] text-left">
+        <table className="w-full min-w-xl text-left">
           <thead className="bg-brand-bg/60">
             <tr className="border-b border-brand-border">
               <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold`}>
                 Имя / Email
               </th>
-              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[160px]`}>
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-40`}>
                 Роль
               </th>
-              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[150px]`}>
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-36`}>
                 Последний вход
               </th>
               <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold`}>
                 Доступ к базе лидов
               </th>
               {isAdmin && (
-                <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[60px]`}>
+                <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-16`}>
                   {/* actions */}
                 </th>
               )}
@@ -201,16 +201,16 @@ export function TeamSection() {
             Ожидают принятия приглашения
           </h3>
           <div className="bg-white border border-brand-border rounded-card overflow-hidden overflow-x-auto">
-            <table className="w-full min-w-[480px] text-left">
+            <table className="w-full min-w-md text-left">
               <thead className="bg-brand-bg/60">
                 <tr className="border-b border-brand-border">
                   <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold`}>
                     Email
                   </th>
-                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[180px]`}>
+                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-44`}>
                     Предложенная роль
                   </th>
-                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[150px]`}>
+                  <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-36`}>
                     Приглашён
                   </th>
                 </tr>
@@ -564,7 +564,7 @@ function InviteModal({
   return (
     <>
       <div
-        className="fixed inset-0 bg-black/30 z-50 backdrop-blur-[2px]"
+        className="fixed inset-0 bg-black/30 z-50"
         onClick={handleClose}
         aria-hidden
       />
