@@ -5,6 +5,11 @@ lead base), newest first, with the joined lead + form context the inbox
 UI needs. The "new" state is per-user: a submission is new when it was
 created after the caller's `users.forms_inbox_seen_at`.
 
+The inbox is a to-do list, not an archive: a submission stays only while
+its lead is alive and still on the first stage of its pipeline. Once a
+manager moves the lead on (or closes / deletes it) it leaves the inbox;
+the history lives on the lead card and in /today stats.
+
 Kept separate from `repositories.py` because this is a cross-form read
 model (joins submissions ⋈ forms ⋈ leads ⋈ assignee), distinct from the
 per-form CRUD the repository handles.
@@ -26,6 +31,25 @@ from app.forms.lead_factory import (
 )
 from app.forms.models import FormSubmission, WebForm
 from app.leads.models import Lead
+from app.pipelines.models import Stage
+
+
+def _pending(q):
+    """Keep only submissions still waiting for a manager (see module doc)."""
+    first_position = (
+        select(func.min(Stage.position))
+        .where(Stage.pipeline_id == Lead.pipeline_id)
+        .correlate(Lead)
+        .scalar_subquery()
+    )
+    return (
+        q.join(Lead, FormSubmission.lead_id == Lead.id)
+        .outerjoin(Stage, Lead.stage_id == Stage.id)
+        .where(
+            Lead.deleted_at.is_(None),
+            (Lead.stage_id.is_(None)) | (Stage.position == first_position),
+        )
+    )
 
 
 async def count_new(
@@ -39,6 +63,7 @@ async def count_new(
         .join(WebForm, FormSubmission.web_form_id == WebForm.id)
         .where(WebForm.workspace_id == workspace_id)
     )
+    q = _pending(q)
     if seen_at is not None:
         q = q.where(FormSubmission.created_at > seen_at)
     return int((await session.execute(q)).scalar_one() or 0)
@@ -60,20 +85,18 @@ async def list_inbox(
     page_size = max(min(page_size, 100), 1)
     offset = (page - 1) * page_size
 
-    base = (
+    base = _pending(
         select(FormSubmission, WebForm, Lead, User.name)
         .join(WebForm, FormSubmission.web_form_id == WebForm.id)
-        .join(Lead, FormSubmission.lead_id == Lead.id, isouter=True)
-        .join(User, Lead.assigned_to == User.id, isouter=True)
         .where(WebForm.workspace_id == workspace_id)
-    )
+    ).join(User, Lead.assigned_to == User.id, isouter=True)
     if form_id is not None:
         base = base.where(FormSubmission.web_form_id == form_id)
     if unseen_only and seen_at is not None:
         base = base.where(FormSubmission.created_at > seen_at)
 
     # Total (mirror the same filters, count submissions only).
-    count_q = (
+    count_q = _pending(
         select(func.count())
         .select_from(FormSubmission)
         .join(WebForm, FormSubmission.web_form_id == WebForm.id)
@@ -108,11 +131,10 @@ async def list_inbox(
                 "form_name": form.name,
                 "form_slug": form.slug,
                 "channel": form.source_label or form.name,
-                # lead context (lead may be None if it was hard-deleted)
-                "company_name": lead.company_name if lead else None,
-                "phone": lead.phone if lead else None,
-                "email": lead.email if lead else None,
-                "assignment_status": lead.assignment_status if lead else None,
+                "company_name": lead.company_name,
+                "phone": lead.phone,
+                "email": lead.email,
+                "assignment_status": lead.assignment_status,
                 "assignee_name": assignee_name,
             }
         )
