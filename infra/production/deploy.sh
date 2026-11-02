@@ -352,6 +352,18 @@ if [ "$VERIFY_VERSION" -eq 1 ] && [ "$RELEASE_TREE" != "$DEPLOY_ROOT" ]; then
   fi
 fi
 
+# ---------------------------------------------------------------------------
+# 6. Keep the disk from filling up. Every build leaves cache layers and the
+#    previous images behind; by 02.11.2026 that was ~39 GB on a 59 GB disk.
+#    Keep ~8 GB of recent cache so the next build stays fast, drop the rest
+#    and the untagged old images. Runs after the release is live; a failure
+#    here never fails the deploy.
+# ---------------------------------------------------------------------------
+echo "==> Prune build cache and old images"
+docker builder prune -f --reserved-space 8GB >/dev/null 2>&1 || echo "⚠ build cache prune failed"
+docker image prune -f >/dev/null 2>&1 || echo "⚠ image prune failed"
+df -h / | tail -1 || true
+
 echo "==> Done"
 docker compose ps || true
 
