@@ -10,6 +10,9 @@ its lead is alive and still on the first stage of its pipeline. Once a
 manager moves the lead on (or closes / deletes it) it leaves the inbox;
 the history lives on the lead card and in /today stats.
 
+One card per lead: when a client submits the form again, only the latest
+submission is shown.
+
 Kept separate from `repositories.py` because this is a cross-form read
 model (joins submissions ⋈ forms ⋈ leads ⋈ assignee), distinct from the
 per-form CRUD the repository handles.
@@ -52,20 +55,35 @@ def _pending(q):
     )
 
 
-async def count_new(
-    session: AsyncSession, *, workspace_id: uuid.UUID, seen_at: datetime | None
-) -> int:
-    """Badge count: submissions in the workspace newer than `seen_at`
-    (all of them when the user has never opened the inbox)."""
-    q = (
-        select(func.count())
-        .select_from(FormSubmission)
+def _latest_per_lead(
+    workspace_id: uuid.UUID,
+    *,
+    form_id: uuid.UUID | None = None,
+    newer_than: datetime | None = None,
+):
+    """Ids of the newest pending submission of each lead (one card per lead)."""
+    q = _pending(
+        select(FormSubmission.id)
         .join(WebForm, FormSubmission.web_form_id == WebForm.id)
         .where(WebForm.workspace_id == workspace_id)
     )
-    q = _pending(q)
-    if seen_at is not None:
-        q = q.where(FormSubmission.created_at > seen_at)
+    if form_id is not None:
+        q = q.where(FormSubmission.web_form_id == form_id)
+    if newer_than is not None:
+        q = q.where(FormSubmission.created_at > newer_than)
+    return q.distinct(FormSubmission.lead_id).order_by(
+        FormSubmission.lead_id, FormSubmission.created_at.desc()
+    )
+
+
+async def count_new(
+    session: AsyncSession, *, workspace_id: uuid.UUID, seen_at: datetime | None
+) -> int:
+    """Badge count: leads with a submission newer than `seen_at`
+    (all of them when the user has never opened the inbox)."""
+    q = select(func.count()).select_from(
+        _latest_per_lead(workspace_id, newer_than=seen_at).subquery()
+    )
     return int((await session.execute(q)).scalar_one() or 0)
 
 
@@ -85,28 +103,23 @@ async def list_inbox(
     page_size = max(min(page_size, 100), 1)
     offset = (page - 1) * page_size
 
-    base = _pending(
-        select(FormSubmission, WebForm, Lead, User.name)
-        .join(WebForm, FormSubmission.web_form_id == WebForm.id)
-        .where(WebForm.workspace_id == workspace_id)
-    ).join(User, Lead.assigned_to == User.id, isouter=True)
-    if form_id is not None:
-        base = base.where(FormSubmission.web_form_id == form_id)
-    if unseen_only and seen_at is not None:
-        base = base.where(FormSubmission.created_at > seen_at)
-
-    # Total (mirror the same filters, count submissions only).
-    count_q = _pending(
-        select(func.count())
-        .select_from(FormSubmission)
-        .join(WebForm, FormSubmission.web_form_id == WebForm.id)
-        .where(WebForm.workspace_id == workspace_id)
+    latest = _latest_per_lead(
+        workspace_id,
+        form_id=form_id,
+        newer_than=seen_at if unseen_only else None,
+    ).subquery()
+    total = int(
+        (await session.execute(select(func.count()).select_from(latest))).scalar_one()
+        or 0
     )
-    if form_id is not None:
-        count_q = count_q.where(FormSubmission.web_form_id == form_id)
-    if unseen_only and seen_at is not None:
-        count_q = count_q.where(FormSubmission.created_at > seen_at)
-    total = int((await session.execute(count_q)).scalar_one() or 0)
+
+    base = (
+        select(FormSubmission, WebForm, Lead, User.name)
+        .join(latest, latest.c.id == FormSubmission.id)
+        .join(WebForm, FormSubmission.web_form_id == WebForm.id)
+        .join(Lead, FormSubmission.lead_id == Lead.id)
+        .join(User, Lead.assigned_to == User.id, isouter=True)
+    )
 
     rows = await session.execute(
         base.order_by(FormSubmission.created_at.desc()).offset(offset).limit(page_size)
