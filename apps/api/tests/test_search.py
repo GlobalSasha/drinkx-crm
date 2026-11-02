@@ -107,3 +107,36 @@ async def test_search_company_hit_still_works(db, workspace):
     rows, mode = await search(db, workspace_id=workspace.id, q="Ромашка", limit=20)
     assert mode == "trgm"
     assert any(r["type"] == "company" and "Ромашка" in r["title"] for r in rows)
+
+
+# ---------------------------------------------------------------------------
+# «Уже в CRM» — someone else's leads for a manager's duplicate check
+# ---------------------------------------------------------------------------
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_taken_leads_show_others_and_pool_but_not_own(db, workspace, user, admin_user):
+    from app.contacts.models import Contact
+    from app.search.repositories import search_taken_leads
+
+    mine = _lead(workspace.id, company_name="Кофейня Мечта", assigned_to=user.id)
+    theirs = _lead(workspace.id, company_name="Кофейня Звезда", assigned_to=admin_user.id)
+    pool = _lead(workspace.id, company_name="Кофейня Пул")
+    db.add_all([mine, theirs, pool])
+    await db.flush()
+
+    rows = await search_taken_leads(db, workspace_id=workspace.id, q="Кофейня", owner_id=user.id)
+    by_title = {r["title"]: r for r in rows}
+    assert set(by_title) == {"Кофейня Звезда", "Кофейня Пул"}
+    assert by_title["Кофейня Звезда"]["owner_name"] == admin_user.name
+    assert by_title["Кофейня Пул"]["owner_name"] is None
+    assert set(rows[0]) == {"id", "title", "owner_name", "stage_name"}  # no contacts, no url
+
+    # Phone of a contact matches by digits, whatever the formatting.
+    db.add(Contact(workspace_id=workspace.id, lead_id=theirs.id, name="Сергей", phone="+7 (914) 757-00-77"))
+    await db.flush()
+    rows = await search_taken_leads(db, workspace_id=workspace.id, q="8 914 7570077", owner_id=user.id)
+    assert [r["title"] for r in rows] == ["Кофейня Звезда"]
+
+    # Too short to be a meaningful duplicate check.
+    assert await search_taken_leads(db, workspace_id=workspace.id, q="Ко", owner_id=user.id) == []

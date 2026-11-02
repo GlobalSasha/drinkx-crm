@@ -195,6 +195,71 @@ async def _search_trgm(
     return [dict(r) for r in rows]
 
 
+_TAKEN_MIN_LEN = 3
+_TAKEN_MIN_PHONE_DIGITS = 7
+
+
+async def search_taken_leads(
+    db: AsyncSession, *, workspace_id: UUID, q: str, owner_id: UUID, limit: int = 10
+) -> list[dict[str, Any]]:
+    """Leads NOT owned by `owner_id` that match `q` — the manager's duplicate
+    check before creating a lead. Returns only what «already taken» needs:
+    company name, whose it is, stage. No contacts, no card link: the manager
+    still can't open someone else's lead (rule of 2026-09-14).
+
+    Matches the lead's name / INN / email / phone and its contacts' email /
+    phone; phones compare by digits only, so «+7 914 757-00-77» is found by
+    «79147570077»."""
+    q = (q or "").strip()
+    if len(q) < _TAKEN_MIN_LEN:
+        return []
+    digits = "".join(ch for ch in q if ch.isdigit())
+    if len(digits) == 11 and digits[0] in "78":
+        digits = digits[1:]  # +7 / 8 — один и тот же российский номер
+    rows = (
+        await db.execute(
+            text(
+                """
+                SELECT l.id::text AS id,
+                  l.company_name AS title,
+                  u.name AS owner_name,
+                  s.name AS stage_name
+                FROM leads l
+                LEFT JOIN users u ON u.id = l.assigned_to
+                LEFT JOIN stages s ON s.id = l.stage_id
+                WHERE l.workspace_id = CAST(:wid AS uuid)
+                  AND l.deleted_at IS NULL
+                  AND l.assigned_to IS DISTINCT FROM CAST(:owner AS uuid)
+                  AND (
+                    l.company_name % :q OR l.company_name ILIKE :q_like
+                    OR l.inn ILIKE :q_like OR l.email ILIKE :q_like
+                    OR (CAST(:digits AS text) IS NOT NULL
+                        AND regexp_replace(COALESCE(l.phone, ''), '[^0-9]', '', 'g') LIKE '%' || :digits || '%')
+                    OR EXISTS (
+                      SELECT 1 FROM contacts ct
+                      WHERE ct.lead_id = l.id
+                        AND (ct.email ILIKE :q_like
+                             OR (CAST(:digits AS text) IS NOT NULL
+                                 AND regexp_replace(COALESCE(ct.phone, ''), '[^0-9]', '', 'g') LIKE '%' || :digits || '%'))
+                    )
+                  )
+                ORDER BY similarity(l.company_name, :q) DESC, l.created_at DESC
+                LIMIT :lim
+                """
+            ),
+            {
+                "wid": str(workspace_id),
+                "owner": str(owner_id),
+                "q": q,
+                "q_like": f"%{q}%",
+                "digits": digits if len(digits) >= _TAKEN_MIN_PHONE_DIGITS else None,
+                "lim": limit,
+            },
+        )
+    ).mappings().all()
+    return [dict(r) for r in rows]
+
+
 async def search(
     db: AsyncSession, *, workspace_id: UUID, q: str, limit: int = 20, owner_id: UUID | None = None
 ) -> tuple[list[dict[str, Any]], str]:
