@@ -18,12 +18,14 @@ import {
   useApplyToDeal,
 } from "@/lib/hooks/use-quotes";
 import { useContacts } from "@/lib/hooks/use-contacts";
+import { useLead } from "@/lib/hooks/use-lead";
 import { useProducts } from "@/lib/hooks/use-products";
 import type { ProductOut, QuoteOut, QuoteUpdate } from "@/lib/types";
 import { C } from "@/lib/design-system";
-import { computeQuoteTotals, formatRub } from "@/lib/quote-totals";
+import { computeQuoteTotals, formatRub, lineTotal } from "@/lib/quote-totals";
 import { Badge } from "@/components/ui/Badge";
 import { QUOTE_STATUS_META } from "./QuoteTab";
+import { QuoteDocument, type QuoteDocumentData } from "./QuoteDocument";
 
 // Local edit row — numeric fields are kept as strings so inputs stay
 // controlled while the manager types (parsed via num() on compute/save).
@@ -87,6 +89,7 @@ interface Props {
 export function QuoteBuilder({ leadId, quoteId, onClose }: Props) {
   const { data: quote, isLoading, isError } = useQuote(quoteId);
   const { data: contacts = [] } = useContacts(leadId);
+  const { data: lead } = useLead(leadId);
   const { data: products = [] } = useProducts();
   const update = useUpdateQuote(leadId, quoteId);
   const setStatus = useSetQuoteStatus(leadId, quoteId);
@@ -97,6 +100,8 @@ export function QuoteBuilder({ leadId, quoteId, onClose }: Props) {
   const [dirty, setDirty] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [dealApplied, setDealApplied] = useState(false);
+  // Черновик можно смотреть документом; отправленное КП — только документ.
+  const [view, setView] = useState<"edit" | "doc">("edit");
 
   useEffect(() => {
     if (quote && (!form || form.id !== quote.id)) {
@@ -120,6 +125,43 @@ export function QuoteBuilder({ leadId, quoteId, onClose }: Props) {
     );
   }, [form]);
 
+  // Документ строится из формы, а не из сохранённого КП: черновик видно
+  // таким, каким он уйдёт клиенту, ещё до «Сохранить».
+  const docData = useMemo<QuoteDocumentData | null>(() => {
+    if (!quote || !form || !totals) return null;
+    const recipient = contacts.find((c) => c.id === form.recipient_contact_id);
+    return {
+      number: quote.number,
+      createdAt: quote.created_at,
+      validUntil: form.valid_until || null,
+      companyName: lead?.company_name ?? null,
+      inn: lead?.inn ?? null,
+      recipientName: recipient?.name?.trim() || null,
+      recipientTitle: recipient?.title ?? null,
+      lines: form.lines.map((l) => {
+        const parsed = {
+          quantity: num(l.quantity),
+          unit_price: num(l.unit_price),
+          line_discount_pct: num(l.line_discount_pct),
+        };
+        return {
+          key: l.uid,
+          name: l.product_name,
+          description: l.description.trim() || null,
+          quantity: parsed.quantity,
+          unitPrice: parsed.unit_price,
+          discountPct: parsed.line_discount_pct,
+          total: lineTotal(parsed),
+        };
+      }),
+      subtotal: totals.subtotal,
+      discount: num(form.discount),
+      vatRate: num(form.vat_rate),
+      vatAmount: totals.vatAmount,
+      total: totals.total,
+    };
+  }, [quote, form, totals, contacts, lead]);
+
   if (isLoading || !form) {
     return (
       <div className="py-10 flex justify-center">
@@ -141,6 +183,7 @@ export function QuoteBuilder({ leadId, quoteId, onClose }: Props) {
   }
 
   const meta = QUOTE_STATUS_META[quote.status] ?? QUOTE_STATUS_META.draft;
+  const showDoc = !editable || view === "doc";
 
   function patchForm(p: Partial<FormState>) {
     setForm((f) => (f ? { ...f, ...p } : f));
@@ -286,133 +329,169 @@ export function QuoteBuilder({ leadId, quoteId, onClose }: Props) {
         </p>
       )}
 
-      {/* Header fields */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <label className="space-y-1">
-          <span className={C.form.label}>Получатель</span>
-          <select
-            value={form.recipient_contact_id}
-            onChange={(e) => patchForm({ recipient_contact_id: e.target.value })}
-            disabled={!editable}
-            className={fieldCls}
-          >
-            <option value="">— не выбран —</option>
-            {contacts.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name?.trim() || "Без имени"}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="space-y-1">
-          <span className={C.form.label}>Действует до</span>
-          <input
-            type="date"
-            value={form.valid_until}
-            onChange={(e) => patchForm({ valid_until: e.target.value })}
-            disabled={!editable}
-            className={fieldCls}
-          />
-        </label>
-      </div>
-
-      {/* Lines */}
-      <div className="space-y-2.5">
-        <span className={C.form.label}>Позиции</span>
-        {form.lines.length === 0 && (
-          <p className="type-hint text-brand-muted py-3 text-center rounded-card border border-dashed border-brand-border">
-            Ни одной позиции. Добавьте из каталога или вручную.
-          </p>
-        )}
-        {form.lines.map((line) => (
-          <LineEditor
-            key={line.uid}
-            line={line}
-            editable={!!editable}
-            onChange={(p) => patchLine(line.uid, p)}
-            onRemove={() => removeLine(line.uid)}
-          />
-        ))}
-
-        {editable && (
-          <div className="flex flex-wrap items-center gap-2 pt-1">
+      {editable && (
+        <div
+          role="group"
+          aria-label="Вид КП"
+          className="inline-flex p-1 rounded-full bg-brand-panel"
+        >
+          {(
+            [
+              ["edit", "Правка"],
+              ["doc", "Документ"],
+            ] as const
+          ).map(([key, label]) => (
             <button
+              key={key}
               type="button"
-              onClick={addBlankLine}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 type-body font-semibold ${C.button.ghost}`}
+              aria-pressed={view === key}
+              onClick={() => setView(key)}
+              className={`px-4 py-1 type-button rounded-full transition-colors ${
+                view === key
+                  ? "bg-white text-brand-primary"
+                  : "text-brand-muted hover:text-brand-primary"
+              }`}
             >
-              <Plus size={13} />
-              Позиция
+              {label}
             </button>
-            {products.length > 0 && (
+          ))}
+        </div>
+      )}
+
+      {showDoc && docData && <QuoteDocument data={docData} />}
+
+      {!showDoc && (
+        <>
+          {/* Header fields */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className="space-y-1">
+              <span className={C.form.label}>Получатель</span>
               <select
-                value=""
-                onChange={(e) => {
-                  const p = products.find((x) => x.id === e.target.value);
-                  if (p) addCatalogLine(p);
-                }}
-                className={`${fieldCls} w-auto max-w-[16rem] rounded-full`}
-                aria-label="Добавить из каталога"
+                value={form.recipient_contact_id}
+                onChange={(e) => patchForm({ recipient_contact_id: e.target.value })}
+                disabled={!editable}
+                className={fieldCls}
               >
-                <option value="">+ из каталога</option>
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} · {formatRub(p.unit_price)}
+                <option value="">— не выбран —</option>
+                {contacts.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name?.trim() || "Без имени"}
                   </option>
                 ))}
               </select>
+            </label>
+            <label className="space-y-1">
+              <span className={C.form.label}>Действует до</span>
+              <input
+                type="date"
+                value={form.valid_until}
+                onChange={(e) => patchForm({ valid_until: e.target.value })}
+                disabled={!editable}
+                className={fieldCls}
+              />
+            </label>
+          </div>
+
+          {/* Lines */}
+          <div className="space-y-2.5">
+            <span className={C.form.label}>Позиции</span>
+            {form.lines.length === 0 && (
+              <p className="type-hint text-brand-muted py-3 text-center rounded-card border border-dashed border-brand-border">
+                Ни одной позиции. Добавьте из каталога или вручную.
+              </p>
+            )}
+            {form.lines.map((line) => (
+              <LineEditor
+                key={line.uid}
+                line={line}
+                editable={!!editable}
+                onChange={(p) => patchLine(line.uid, p)}
+                onRemove={() => removeLine(line.uid)}
+              />
+            ))}
+
+            {editable && (
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={addBlankLine}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 type-body font-semibold ${C.button.ghost}`}
+                >
+                  <Plus size={13} />
+                  Позиция
+                </button>
+                {products.length > 0 && (
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const p = products.find((x) => x.id === e.target.value);
+                      if (p) addCatalogLine(p);
+                    }}
+                    className={`${fieldCls} w-auto max-w-[16rem] rounded-full`}
+                    aria-label="Добавить из каталога"
+                  >
+                    <option value="">+ из каталога</option>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} · {formatRub(p.unit_price)}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
             )}
           </div>
-        )}
-      </div>
 
-      {/* Discount + VAT */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <label className="space-y-1">
-          <span className={C.form.label}>Скидка на КП, ₽</span>
-          <input
-            value={form.discount}
-            onChange={(e) => patchForm({ discount: e.target.value })}
-            disabled={!editable}
-            inputMode="decimal"
-            className={fieldCls}
-          />
-        </label>
-        <div className="space-y-1">
-          <span className={C.form.label}>НДС</span>
-          <div className="flex flex-wrap items-center gap-2">
-            <VatPill active={num(form.vat_rate) === 20} editable={!!editable} onClick={() => patchForm({ vat_rate: "20" })}>
-              20%
-            </VatPill>
-            <VatPill active={num(form.vat_rate) === 0} editable={!!editable} onClick={() => patchForm({ vat_rate: "0" })}>
-              Без НДС
-            </VatPill>
-            <input
-              value={form.vat_rate}
-              onChange={(e) => patchForm({ vat_rate: e.target.value })}
-              disabled={!editable}
-              inputMode="decimal"
-              aria-label="Ставка НДС, %"
-              className={`${fieldCls} w-20`}
-            />
-            <span className="type-caption text-brand-muted">%</span>
+          {/* Discount + VAT */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className="space-y-1">
+              <span className={C.form.label}>Скидка на КП, ₽</span>
+              <input
+                value={form.discount}
+                onChange={(e) => patchForm({ discount: e.target.value })}
+                disabled={!editable}
+                inputMode="decimal"
+                className={fieldCls}
+              />
+            </label>
+            <div className="space-y-1">
+              <span className={C.form.label}>НДС</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <VatPill active={num(form.vat_rate) === 20} editable={!!editable} onClick={() => patchForm({ vat_rate: "20" })}>
+                  20%
+                </VatPill>
+                <VatPill active={num(form.vat_rate) === 0} editable={!!editable} onClick={() => patchForm({ vat_rate: "0" })}>
+                  Без НДС
+                </VatPill>
+                <input
+                  value={form.vat_rate}
+                  onChange={(e) => patchForm({ vat_rate: e.target.value })}
+                  disabled={!editable}
+                  inputMode="decimal"
+                  aria-label="Ставка НДС, %"
+                  className={`${fieldCls} w-20`}
+                />
+                <span className="type-caption text-brand-muted">%</span>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Totals */}
-      {totals && (
-        <div className="rounded-card border border-brand-border bg-brand-panel p-4 space-y-1.5">
-          <TotalRow label="Сумма позиций" value={formatRub(totals.subtotal)} />
-          {num(form.discount) > 0 && (
-            <TotalRow label="Скидка" value={`− ${formatRub(num(form.discount))}`} />
+          {/* Totals */}
+          {totals && (
+            <div className="rounded-card border border-brand-border bg-brand-panel p-4 space-y-1.5">
+              <TotalRow label="Сумма позиций" value={formatRub(totals.subtotal)} />
+              {num(form.discount) > 0 && (
+                <TotalRow label="Скидка" value={`− ${formatRub(num(form.discount))}`} />
+              )}
+              <TotalRow label={`НДС ${num(form.vat_rate)}%`} value={`+ ${formatRub(totals.vatAmount)}`} />
+              <div className="border-t border-brand-border pt-2 mt-1 flex items-center justify-between">
+                <span className={`type-label ${C.color.text}`}>Итого</span>
+                <span className={`type-card-title ${C.color.text} tabular-nums`}>{formatRub(totals.total)}</span>
+              </div>
+            </div>
           )}
-          <TotalRow label={`НДС ${num(form.vat_rate)}%`} value={`+ ${formatRub(totals.vatAmount)}`} />
-          <div className="border-t border-brand-border pt-2 mt-1 flex items-center justify-between">
-            <span className={`type-label ${C.color.text}`}>Итого</span>
-            <span className={`type-card-title ${C.color.text} tabular-nums`}>{formatRub(totals.total)}</span>
-          </div>
-        </div>
+
+        </>
       )}
 
       {/* Actions */}

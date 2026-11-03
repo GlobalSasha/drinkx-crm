@@ -7,9 +7,12 @@ import { Bell, ClipboardList, Globe, Star } from "lucide-react";
 import type { LeadListItem } from "@/lib/types";
 import { C } from "@/lib/design-system";
 import { segmentShortLabel } from "@/lib/i18n";
+import { DrinkXMark } from "@/components/layout/DrinkXLogo";
 
 interface Props {
   lead: LeadListItem;
+  // Карточка в колонке «Выиграно» — перед названием фирменный X.
+  won?: boolean;
 }
 
 /**
@@ -27,7 +30,7 @@ interface Props {
  * pure «who / what / when» surface; AI and rotting metadata live in
  * the Lead Card detail view.
  */
-function PipelineLeadCardImpl({ lead }: Props) {
+function PipelineLeadCardImpl({ lead, won }: Props) {
   const router = useRouter();
 
   const {
@@ -85,6 +88,9 @@ function PipelineLeadCardImpl({ lead }: Props) {
           >
             <Globe size={10} aria-hidden />
           </span>
+        )}
+        {won && (
+          <DrinkXMark label="Выиграно" className="w-3 h-3 shrink-0 fill-brand-accent" />
         )}
         <span className="truncate">{lead.company_name}</span>
       </p>

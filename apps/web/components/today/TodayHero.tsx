@@ -46,7 +46,7 @@ export function TodayHero({ dateCaption, greeting, name, summary, primary, secon
             <span className="font-semibold text-brand-accent-text">Люси</span> · {dateCaption}
           </p>
           <h1 className={`type-page-title ${C.color.text} mt-2`}>
-            {greeting}, <span className="text-brand-accent-text">{name}</span>!
+            {greeting}, <span className="text-brand-accent-text">{name}</span>
           </h1>
 
           {summary == null ? (
