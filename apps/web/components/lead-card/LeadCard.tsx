@@ -264,6 +264,8 @@ function EditableLeadCard({ leadId }: Props) {
               leadId={lead.id}
               currentStageDays={lead.current_stage_days}
               isRotting={lead.is_rotting_stage}
+              wonStageId={wonStage?.id}
+              lostStageId={lostStageRef?.id}
             />
           </LeadCardHeader>
         </div>

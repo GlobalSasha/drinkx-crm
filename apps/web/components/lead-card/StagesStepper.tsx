@@ -2,6 +2,7 @@
 
 import { Check, Loader2 } from "lucide-react";
 import { useStageDurations } from "@/lib/hooks/use-lead-v2";
+import { DrinkXMark } from "@/components/layout/DrinkXLogo";
 
 interface Props {
   leadId: string;
@@ -10,6 +11,11 @@ interface Props {
   currentStageDays?: number | null;
   // Лид застрял на этапе — дни подсвечиваются предупреждением.
   isRotting?: boolean;
+  // Этап «Выиграно» — финиш шкалы, рисуется фирменным X.
+  wonStageId?: string | null;
+  // Этап «Отказ» — не цель, а выход из воронки: на шкале его нет
+  // (как и на доске). Проигрыш показывает плашка под заголовком.
+  lostStageId?: string | null;
 }
 
 /**
@@ -22,8 +28,15 @@ interface Props {
  * stage name and days spent there; on phones the labels don't fit, so a
  * one-line caption replaces them.
  */
-export function StagesStepper({ leadId, currentStageDays, isRotting }: Props) {
-  const { data: stages, isLoading, isError } = useStageDurations(leadId);
+export function StagesStepper({
+  leadId,
+  currentStageDays,
+  isRotting,
+  wonStageId,
+  lostStageId,
+}: Props) {
+  const { data: allStages, isLoading, isError } = useStageDurations(leadId);
+  const stages = allStages?.filter((s) => s.stage_id !== lostStageId);
 
   if (isLoading) {
     return (
@@ -80,6 +93,7 @@ export function StagesStepper({ leadId, currentStageDays, isRotting }: Props) {
         {stages.map((s, i) => {
           const isDone = s.status === "done";
           const isCurrent = i === currentIdx;
+          const isFinish = s.stage_id === wonStageId;
           const days = isCurrent ? curDays : s.days;
           const align =
             i === 0
@@ -97,18 +111,29 @@ export function StagesStepper({ leadId, currentStageDays, isRotting }: Props) {
                   : s.stage_name
               }
             >
-              <span
-                className={`relative z-10 flex items-center justify-center w-6 h-6 rounded-full ${
-                  isDone
-                    ? "bg-brand-accent text-white"
-                    : isCurrent
-                      ? "bg-white border-2 border-brand-accent ring-4 ring-brand-soft"
-                      : "bg-white border-2 border-brand-panel"
-                }`}
-              >
-                {isDone && <Check size={12} strokeWidth={3} />}
-                {isCurrent && <span className="w-2 h-2 rounded-full bg-brand-accent" />}
-              </span>
+              {isFinish ? (
+                <span className="relative z-10 flex items-center justify-center w-6 h-6 rounded-full bg-white">
+                  <DrinkXMark
+                    label={isDone || isCurrent ? "Выиграно" : undefined}
+                    className={`w-5 h-5 ${
+                      isDone || isCurrent ? "fill-brand-accent" : "fill-brand-border"
+                    }`}
+                  />
+                </span>
+              ) : (
+                <span
+                  className={`relative z-10 flex items-center justify-center w-6 h-6 rounded-full ${
+                    isDone
+                      ? "bg-brand-accent text-white"
+                      : isCurrent
+                        ? "bg-white border-2 border-brand-accent ring-4 ring-brand-soft"
+                        : "bg-white border-2 border-brand-panel"
+                  }`}
+                >
+                  {isDone && <Check size={12} strokeWidth={3} />}
+                  {isCurrent && <span className="w-2 h-2 rounded-full bg-brand-accent" />}
+                </span>
+              )}
               <span
                 className={`hidden sm:block absolute top-8 w-28 ${align}`}
               >

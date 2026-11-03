@@ -5,6 +5,7 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import type { Stage, LeadListItem } from "@/lib/types";
 import { PipelineLeadCard } from "./PipelineLeadCard";
 import { C } from "@/lib/design-system";
+import { DrinkXMark } from "@/components/layout/DrinkXLogo";
 
 interface Props {
   stage: Stage;
@@ -38,8 +39,11 @@ function PipelineColumnImpl({ stage, leads }: Props) {
           style={{ backgroundColor: stage.color }}
         />
         <div className="flex items-center justify-between gap-2">
-          <p className={`type-caption ${C.color.text} truncate`}>
-            {stage.name}
+          <p className={`type-caption ${C.color.text} truncate flex items-center gap-1.5`}>
+            {stage.is_won && (
+              <DrinkXMark className="w-3 h-3 shrink-0 fill-brand-accent" />
+            )}
+            <span className="truncate">{stage.name}</span>
           </p>
           <div className="flex items-center gap-1 shrink-0">
             {stage.rot_days > 0 && (
@@ -69,7 +73,7 @@ function PipelineColumnImpl({ stage, leads }: Props) {
           strategy={verticalListSortingStrategy}
         >
           {leads.map((lead) => (
-            <PipelineLeadCard key={lead.id} lead={lead} />
+            <PipelineLeadCard key={lead.id} lead={lead} won={stage.is_won} />
           ))}
         </SortableContext>
 

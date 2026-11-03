@@ -88,6 +88,9 @@ const config: Config = {
         // Single elevation for true overlays (modals, dropdowns, popovers,
         // drawers, tooltips, toasts). Cards stay shadowless.
         overlay: "0 16px 48px -16px rgba(17,17,17,0.18)",
+        // Лист документа (КП) на кремовом фоне — единственная «бумага»
+        // в интерфейсе, не для карточек.
+        paper: "0 1px 2px rgba(17,17,17,0.04), 0 8px 24px rgba(17,17,17,0.06)",
       },
     },
   },
