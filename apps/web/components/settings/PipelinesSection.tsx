@@ -158,13 +158,13 @@ export function PipelinesSection() {
               <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold`}>
                 Название
               </th>
-              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[110px]`}>
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-28`}>
                 Стадий
               </th>
-              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[180px]`}>
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-44`}>
                 По умолчанию
               </th>
-              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[80px] text-right`}>
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-20 text-right`}>
                 <span className="sr-only">Действия</span>
               </th>
             </tr>
@@ -323,7 +323,7 @@ function DeleteModal({
   return (
     <>
       <div
-        className="fixed inset-0 bg-black/30 z-50 backdrop-blur-[2px]"
+        className="fixed inset-0 bg-black/30 z-50"
         onClick={busy ? undefined : onCancel}
         aria-hidden
       />

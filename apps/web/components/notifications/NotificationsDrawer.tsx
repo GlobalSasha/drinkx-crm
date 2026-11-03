@@ -124,7 +124,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
     <>
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 z-30 bg-black/20 backdrop-blur-[1px] transition-opacity duration-200 ${
+        className={`fixed inset-0 z-30 bg-black/20 transition-opacity duration-200 ${
           open ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={onClose}
@@ -133,7 +133,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
 
       {/* Panel */}
       <aside
-        className={`fixed top-0 right-0 z-40 h-screen w-[420px] max-w-[92vw] bg-white border-l border-brand-border shadow-overlay flex flex-col transition-transform duration-300 ease-soft ${
+        className={`fixed top-0 right-0 z-40 h-screen w-[92vw] max-w-md bg-white border-l border-brand-border shadow-overlay flex flex-col transition-transform duration-300 ease-soft ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
         role="dialog"

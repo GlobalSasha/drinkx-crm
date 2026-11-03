@@ -64,7 +64,7 @@ export function BulkUpdatePreview({ job, onClose, onApplied }: Props) {
   return (
     <div className="space-y-5">
       <div className="flex items-start gap-2">
-        <div className="w-8 h-8 rounded-xl bg-brand-soft text-brand-accent flex items-center justify-center shrink-0">
+        <div className="w-8 h-8 text-brand-muted flex items-center justify-center shrink-0">
           <Sparkles size={16} />
         </div>
         <div>

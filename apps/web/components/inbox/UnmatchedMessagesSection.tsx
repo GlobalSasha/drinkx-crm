@@ -76,7 +76,7 @@ function LeadSearchPicker({
   const items = data?.items ?? [];
 
   return (
-    <div className="absolute right-0 top-full mt-1 w-[320px] max-w-[calc(100vw-2rem)] bg-white rounded-xl border border-brand-border shadow-overlay z-30 p-2">
+    <div className="absolute right-0 top-full mt-1 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-xl border border-brand-border shadow-overlay z-30 p-2">
       <div className="flex items-center justify-between gap-2 mb-2">
         <input
           autoFocus
@@ -94,7 +94,7 @@ function LeadSearchPicker({
         </button>
       </div>
 
-      <div className="max-h-[260px] overflow-y-auto flex flex-col gap-0.5">
+      <div className="max-h-64 overflow-y-auto flex flex-col gap-0.5">
         {items.length === 0 && (
           <div className="text-xs text-brand-muted px-2 py-3">Ничего не найдено</div>
         )}

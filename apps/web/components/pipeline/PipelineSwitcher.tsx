@@ -90,7 +90,7 @@ export function PipelineSwitcher() {
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <span className="truncate max-w-[180px]">{selectedPipeline.name}</span>
+        <span className="truncate max-w-44">{selectedPipeline.name}</span>
         <ChevronDown
           size={14}
           className={`transition-transform ${open ? "rotate-180" : ""}`}
@@ -100,7 +100,7 @@ export function PipelineSwitcher() {
       {open && (
         <div
           role="listbox"
-          className="absolute left-0 top-full mt-1 z-30 min-w-[260px] bg-white border border-brand-border rounded-xl shadow-overlay py-1 overflow-hidden"
+          className="absolute left-0 top-full mt-1 z-30 min-w-64 bg-white border border-brand-border rounded-xl shadow-overlay py-1 overflow-hidden"
         >
           {pipelines.map((p) => {
             const isSelected = p.id === selectedPipeline.id;

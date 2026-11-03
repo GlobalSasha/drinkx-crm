@@ -128,7 +128,7 @@ export default function FormsPage() {
 
         {items.length > 0 && (
           <div className="rounded-card border border-brand-border bg-white overflow-hidden overflow-x-auto">
-            <div className="min-w-[680px]">
+            <div className="min-w-2xl">
               <div className={`grid grid-cols-[1fr_180px_90px_110px_140px_100px] items-center gap-3 px-4 py-2.5 bg-brand-bg border-b border-brand-border ${T.mono} uppercase text-brand-muted`}>
                 <span>Название</span>
                 <span>Slug</span>
@@ -265,8 +265,8 @@ function FormRow({
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="w-12 h-12 rounded-full bg-brand-bg flex items-center justify-center mb-3">
-        <ClipboardList size={22} className="text-brand-muted" />
+      <div className="flex items-center justify-center mb-3">
+        <ClipboardList size={28} className="text-brand-muted" />
       </div>
       <div className="text-sm font-semibold text-brand-primary">Пока нет ни одной формы</div>
       <p className="text-sm text-brand-muted mt-1 mb-4 max-w-[24rem]">
@@ -323,7 +323,7 @@ function ChannelAnalyticsSection({
 
       {!isLoading && !isError && rows.length > 0 && (
         <div className="overflow-x-auto rounded-card border border-brand-border bg-white">
-          <table className="w-full text-sm min-w-[480px]">
+          <table className="w-full text-sm min-w-md">
             <thead>
               <tr className={`bg-brand-bg border-b border-brand-border ${T.mono} uppercase text-brand-muted text-left`}>
                 <th className="px-4 py-2.5 font-medium">Канал</th>
@@ -382,7 +382,7 @@ function ConfirmDeleteModal({
   return (
     <>
       <div
-        className="fixed inset-0 bg-black/30 z-50 backdrop-blur-[2px]"
+        className="fixed inset-0 bg-black/30 z-50"
         onClick={onCancel}
         aria-hidden
       />

@@ -113,7 +113,7 @@ function AuditRow({ row }: { row: AuditLogOut }) {
           )}
         </span>
       </td>
-      <td className="px-4 py-3 align-top max-w-[200px]">
+      <td className="px-4 py-3 align-top max-w-52">
         {row.user_full_name && row.user_email ? (
           <span className="text-xs text-brand-primary truncate block">
             <span
@@ -133,7 +133,7 @@ function AuditRow({ row }: { row: AuditLogOut }) {
           </span>
         )}
       </td>
-      <td className="px-4 py-3 align-top max-w-[480px]">
+      <td className="px-4 py-3 align-top max-w-md">
         <span
           className={`${T.mono} text-brand-muted break-all`}
           title={row.delta_json ? JSON.stringify(row.delta_json) : ""}
@@ -237,16 +237,16 @@ export default function AuditPage() {
         <table className="w-full text-left">
           <thead className="bg-brand-bg/60">
             <tr className="border-b border-brand-border">
-              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[110px]`}>
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-28`}>
                 Время
               </th>
-              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[180px]`}>
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-44`}>
                 Действие
               </th>
-              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[160px]`}>
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-40`}>
                 Сущность
               </th>
-              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-[120px]`}>
+              <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold w-32`}>
                 Пользователь
               </th>
               <th className={`px-4 py-2.5 ${T.mono} uppercase text-brand-muted font-semibold`}>

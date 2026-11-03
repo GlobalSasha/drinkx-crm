@@ -34,6 +34,10 @@ export const BRAND_CHART_COLORS = [
   "#6B6B6B", // chart-6 (muted)
 ] as const;
 
+/** Series order for stacked charts: the one that matters gets the accent,
+ *  the rest step through neutrals (brand-muted → muted-strong). */
+export const CHART_LEAD_THEN_NEUTRAL = ["#FF4E00", "#6B6B6B", "#1A1A1A"] as const;
+
 export const STAGE_COLOR_FALLBACK = "#6B6B6B"; // brand-muted — единый фолбэк цвета этапа
 
 /** Subdued grid color — matches our brand-border but slightly lighter for grids. */

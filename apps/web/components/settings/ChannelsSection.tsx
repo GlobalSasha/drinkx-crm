@@ -81,7 +81,7 @@ export function ChannelsSection() {
       <div className="bg-white border border-brand-border rounded-card p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-brand-bg flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 flex items-center justify-center shrink-0">
               <Mail size={18} className="text-brand-muted" />
             </div>
             <div className="min-w-0">
@@ -156,7 +156,7 @@ export function ChannelsSection() {
       {/* SMTP card */}
       <div className="bg-white border border-brand-border rounded-card p-5">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-brand-bg flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 flex items-center justify-center shrink-0">
             <Send size={18} className="text-brand-muted" />
           </div>
           <div className="min-w-0 flex-1">

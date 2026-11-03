@@ -28,7 +28,7 @@ function PipelineColumnImpl({ stage, leads }: Props) {
   return (
     <div
       id={`stage-col-${stage.id}`}
-      className="font-sans flex flex-col shrink-0 w-[260px] min-h-0 pl-4 first:pl-0 pr-2 border-l border-brand-border first:border-l-0"
+      className="font-sans flex flex-col shrink-0 w-64 min-h-0 pl-4 first:pl-0 pr-2 border-l border-brand-border first:border-l-0"
     >
       {/* Column header */}
       <div className="pb-3">
@@ -74,7 +74,7 @@ function PipelineColumnImpl({ stage, leads }: Props) {
         </SortableContext>
 
         {leads.length === 0 && isOver && (
-          <div className="flex-1 flex items-center justify-center border border-dashed border-brand-border rounded-card min-h-[60px]">
+          <div className="flex-1 flex items-center justify-center border border-dashed border-brand-border rounded-card min-h-16">
             <p className={`type-caption ${C.color.mutedLight} text-center px-2`}>
               Перетащите карточку сюда
             </p>

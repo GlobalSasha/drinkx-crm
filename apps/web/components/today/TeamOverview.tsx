@@ -410,7 +410,7 @@ function ManagerTable({ managers }: { managers: ManagerRow[] }) {
   return (
     <div className="bg-white border border-brand-border rounded-card overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] border-collapse">
+        <table className="w-full min-w-3xl border-collapse">
           <thead>
             <tr className="border-b border-brand-border">
               <th className="type-table-header text-brand-muted text-left px-5 py-3.5">Менеджер</th>

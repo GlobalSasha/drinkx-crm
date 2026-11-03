@@ -113,8 +113,8 @@ export function DuplicatesModal({ leadId, masterName, onClose, onSuccess }: Prop
 
         {!isLoading && !isError && (candidates?.length ?? 0) === 0 && (
           <div className="flex flex-col items-center gap-2 py-10 text-center">
-            <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-brand-bg">
-              <Users size={18} className="text-brand-muted" />
+            <div className="inline-flex items-center justify-center">
+              <Users size={28} className="text-brand-muted" />
             </div>
             <p className="type-caption text-brand-muted">
               Дубликаты не найдены.
