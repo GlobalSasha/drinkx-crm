@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
 import { MultiSelectDropdown } from "@/components/ui/MultiSelectDropdown";
 import { FitSlider } from "@/components/leads-pool/FitSlider";
-import type { WebFormOut } from "@/lib/types";
+import { DEAL_BRANDS, type WebFormOut } from "@/lib/types";
 
 const TIER_OPTIONS = ["A", "B", "C", "D"];
 const PRIORITY_OPTIONS = ["A", "B", "C", "D"];
@@ -30,6 +30,9 @@ interface Props {
   dealTypeFilters: string[];
   setDealTypeFilters: (v: string[]) => void;
   dealTypeCounts: Record<string, number>;
+  dealBrandFilters: string[];
+  setDealBrandFilters: (v: string[]) => void;
+  dealBrandCounts: Record<string, number>;
   sources: string[];
   sourceFilters: string[];
   setSourceFilters: (v: string[]) => void;
@@ -81,6 +84,9 @@ export function PoolFilterBar({
   dealTypeFilters,
   setDealTypeFilters,
   dealTypeCounts,
+  dealBrandFilters,
+  setDealBrandFilters,
+  dealBrandCounts,
   sources,
   sourceFilters,
   setSourceFilters,
@@ -189,6 +195,15 @@ export function PoolFilterBar({
               counts={dealTypeCounts}
             />
           )}
+
+          <MultiSelectDropdown
+            triggerClassName="h-10 text-sm"
+            label="Бренд"
+            options={[...DEAL_BRANDS]}
+            selected={dealBrandFilters}
+            onChange={setDealBrandFilters}
+            counts={dealBrandCounts}
+          />
 
           {sources.length > 0 && (
             <MultiSelectDropdown

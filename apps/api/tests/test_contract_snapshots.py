@@ -24,7 +24,7 @@ LEAD_LIST_ITEM_KEYS = {
     "deleted_at", "primary_contact_id", "primary_contact_name",
     "source_form_id", "source_form_name", "latest_utm",
     "open_followups_count", "open_tasks_count", "commercial_model",
-    "deal_amount", "deal_quantity", "deal_equipment", "needs_review",
+    "deal_amount", "deal_quantity", "deal_equipment", "deal_brand", "needs_review",
     # Одно число вместо всего ai_data — см. test_arch03_ai_confidence.py.
     "ai_confidence",
     "created_at", "updated_at",

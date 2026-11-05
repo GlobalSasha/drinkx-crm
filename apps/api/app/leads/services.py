@@ -674,8 +674,9 @@ async def patch_deal_fields(
     deal_amount: object,
     deal_quantity: object,
     deal_equipment: object,
+    deal_brand: object = None,
 ) -> Lead:
-    """Partial update of deal commercial model, amount, quantity and equipment.
+    """Partial update of deal commercial model, amount, quantity, equipment and brand.
 
     Only columns whose key is in `fields_set` get touched — that's how
     we tell «explicitly set to null» (clear the value) apart from
@@ -697,6 +698,8 @@ async def patch_deal_fields(
         # leave a sentinel empty string in the column.
         val = deal_equipment if deal_equipment else None
         lead.deal_equipment = val  # type: ignore[assignment]
+    if "deal_brand" in fields_set:
+        lead.deal_brand = deal_brand  # type: ignore[assignment]
 
     await db.commit()
     refreshed = await repo.get_by_id(db, lead_id, workspace_id)

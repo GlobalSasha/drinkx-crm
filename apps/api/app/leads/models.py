@@ -30,6 +30,11 @@ class CommercialModel(str, Enum):
     rental = "rental"
 
 
+class DealBrand(str, Enum):
+    aeromilk = "AeroMilk"
+    drinkx = "DrinkX"
+
+
 class Priority(str, Enum):
     A = "A"
     B = "B"
@@ -150,6 +155,9 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     deal_amount: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     deal_quantity: Mapped[int | None] = mapped_column(Integer, nullable=True)
     deal_equipment: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # Бренд (AeroMilk / DrinkX) отдельно от модели аппарата в deal_equipment:
+    # по нему руководство считает, сколько лидов на каком направлении.
+    deal_brand: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     # Per-criterion score breakdown (migration 0030). Keys match
     # `scoring_criteria.criterion_key` for the workspace; values are
