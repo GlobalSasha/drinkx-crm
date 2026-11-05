@@ -280,7 +280,11 @@ export function NotificationsDrawer({ open, onClose }: Props) {
                         {n.title}
                       </p>
                       {n.body && (
-                        <p className="text-xs text-brand-muted truncate mt-0.5">
+                        <p
+                          className={`text-xs text-brand-muted mt-0.5 ${
+                            n.kind === "mention" ? "line-clamp-3 break-words" : "truncate"
+                          }`}
+                        >
                           {n.body}
                         </p>
                       )}

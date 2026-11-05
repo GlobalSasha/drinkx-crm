@@ -5,6 +5,8 @@ import { MessageSquare, Pencil, Check, X, Loader2 } from "lucide-react";
 import type { FeedItemOut } from "@/lib/types";
 import { useMe } from "@/lib/hooks/use-me";
 import { useUpdateComment } from "@/lib/hooks/use-feed";
+import { useUsers } from "@/lib/hooks/use-users";
+import { splitMentions } from "@/lib/mentions";
 import { formatTimeShort } from "./_time";
 
 interface Props {
@@ -19,6 +21,7 @@ function wasEdited(item: FeedItemOut): boolean {
 
 export function FeedItemComment({ item }: Props) {
   const { data: me } = useMe();
+  const { data: users } = useUsers();
   const update = useUpdateComment(item.lead_id);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -128,7 +131,18 @@ export function FeedItemComment({ item }: Props) {
         ) : (
           item.body && (
             <p className="type-body text-brand-primary mt-1 whitespace-pre-wrap break-words">
-              {item.body}
+              {splitMentions(
+                item.body,
+                (users?.items ?? []).map((u) => u.name),
+              ).map((part, i) =>
+                part.mention ? (
+                  <span key={i} className="font-semibold text-brand-accent-text">
+                    {part.text}
+                  </span>
+                ) : (
+                  part.text
+                ),
+              )}
             </p>
           )
         )}

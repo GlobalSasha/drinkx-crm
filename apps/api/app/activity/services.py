@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activity import repositories as repo
+from app.activity.mentions import notify_mentions
 from app.activity.models import Activity, ActivityType
 from app.auth.models import User
 from app.leads import repositories as leads_repo
@@ -709,7 +710,7 @@ async def create_activity(
     actor: User,
     payload_dict: dict,
 ) -> Activity:
-    await _get_lead_or_raise(db, lead_id, workspace_id)
+    lead = await _get_lead_or_raise(db, lead_id, workspace_id)
     _validate_type(payload_dict.get("type", ""))
     is_task = payload_dict.get("type") == ActivityType.task.value
     if is_task:
@@ -749,6 +750,10 @@ async def create_activity(
             assignee_user_id=assignee_user_id,
             text=(payload_dict.get("body") or "Задача"),
             lead_id=lead_id,
+        )
+    elif payload_dict.get("type") == ActivityType.comment.value:
+        await notify_mentions(
+            db, lead=lead, actor=actor, text=payload_dict.get("body") or ""
         )
     return activity
 
@@ -839,7 +844,7 @@ async def update_comment(
     cleaned = body.strip()
     if not cleaned:
         raise ValueError("body cannot be empty")
-    await _get_lead_or_raise(db, lead_id, workspace_id)
+    lead = await _get_lead_or_raise(db, lead_id, workspace_id)
     activity = await repo.get_by_id(db, activity_id, lead_id)
     if activity is None:
         raise ActivityNotFound(activity_id)
@@ -856,11 +861,15 @@ async def update_comment(
     # Q/A. Keep them immutable.
     if (activity.payload_json or {}).get("source") == "ask_blake":
         raise ValueError("ask-Blake questions cannot be edited")
+    previous_body = activity.body
     activity.body = cleaned
     # Explicit edited flag (JSON column → no migration) so the feed can
     # mark «изменено» exactly, instead of guessing from timestamp deltas.
     activity.payload_json = {**(activity.payload_json or {}), "edited": True}
     await db.flush()
+    await notify_mentions(
+        db, lead=lead, actor=actor, text=cleaned, previous_text=previous_body
+    )
     await db.refresh(activity)
     return activity
 
