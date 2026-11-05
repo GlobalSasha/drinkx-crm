@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type {
+  CompanyBrands,
   CompanySummary,
   CompanyInflow,
   CompanyManagers,
@@ -21,6 +22,15 @@ export function useCompanyInflow() {
   return useQuery({
     queryKey: ["company-inflow"],
     queryFn: () => api.get<CompanyInflow>("/company/inflow"),
+    staleTime: 60 * 1000,
+  });
+}
+
+/** Active leads per brand across the workspace. Admin/head only. */
+export function useCompanyBrands() {
+  return useQuery({
+    queryKey: ["company-brands"],
+    queryFn: () => api.get<CompanyBrands>("/company/brands"),
     staleTime: 60 * 1000,
   });
 }

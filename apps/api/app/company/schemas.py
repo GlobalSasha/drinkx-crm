@@ -141,6 +141,12 @@ class InflowReaction(BaseModel):
     waiting: list[WaitingLead]  # the oldest of them, up to 5
 
 
+class CompanyBrandsOut(BaseModel):
+    aeromilk: int
+    drinkx: int
+    no_brand: int
+
+
 class CompanyInflowOut(BaseModel):
     timezone: str
     today: date  # the user's local date — the client zero-fills ranges from it

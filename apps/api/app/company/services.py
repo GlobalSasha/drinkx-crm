@@ -204,6 +204,10 @@ async def _reaction(db: AsyncSession, *, workspace_id: uuid.UUID) -> dict:
     }
 
 
+async def brands(db: AsyncSession, *, workspace_id: uuid.UUID) -> dict:
+    return await repo.brand_counts(db, workspace_id=workspace_id)
+
+
 async def attention(db: AsyncSession, *, workspace_id: uuid.UUID) -> dict:
     stuck = await repo.stuck_leads(db, workspace_id=workspace_id)
     managers = await repo.manager_load(db, workspace_id=workspace_id)

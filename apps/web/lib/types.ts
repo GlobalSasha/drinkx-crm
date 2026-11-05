@@ -265,6 +265,13 @@ export interface CompanyInflow {
   reaction: InflowReaction;
 }
 
+/** `/company/brands` — active leads per brand. */
+export interface CompanyBrands {
+  aeromilk: number;
+  drinkx: number;
+  no_brand: number;
+}
+
 export interface CompanySummary {
   period: string;
   leads_today: number;
