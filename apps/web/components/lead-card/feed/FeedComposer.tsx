@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  AtSign,
   Calendar,
   ListTodo,
   Loader2,
@@ -12,6 +13,10 @@ import {
   X,
 } from "lucide-react";
 import { useCreateActivity } from "@/lib/hooks/use-feed";
+import { useLead } from "@/lib/hooks/use-lead";
+import { useMe } from "@/lib/hooks/use-me";
+import { useUsers } from "@/lib/hooks/use-users";
+import { activeMentionQuery, insertAtCaret, insertMention } from "@/lib/mentions";
 import { useUploadLeadFile } from "@/lib/hooks/use-task-files";
 
 interface Props {
@@ -47,6 +52,26 @@ export function FeedComposer({
   const [callMinutes, setCallMinutes] = useState<string>("");
   const [picked, setPicked] = useState<File | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [caret, setCaret] = useState(0);
+  const [highlighted, setHighlighted] = useState(0);
+  // Позиция «@», для которой список закрыли через Esc.
+  const [dismissedAt, setDismissedAt] = useState<number | null>(null);
+
+  const { data: me } = useMe();
+  const { data: users } = useUsers();
+  const { data: lead } = useLead(leadId);
+
+  const mention = mode === "comment" ? activeMentionQuery(text, caret) : null;
+  const candidates =
+    mention && mention.start !== dismissedAt
+      ? (users?.items ?? []).filter(
+          (u) =>
+            u.id !== me?.id &&
+            u.name.toLowerCase().includes(mention.query.toLowerCase()),
+        )
+      : [];
+  const activeIndex = Math.min(highlighted, Math.max(candidates.length - 1, 0));
+  const pickerOpen = candidates.length > 0;
 
   const create = useCreateActivity(leadId);
   const uploadFile = useUploadLeadFile(leadId);
@@ -143,7 +168,40 @@ export function FeedComposer({
     }
   }
 
+  function applyEdit(next: { text: string; caret: number }) {
+    setText(next.text);
+    setCaret(next.caret);
+    setHighlighted(0);
+    setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.setSelectionRange(next.caret, next.caret);
+    }, 0);
+  }
+
+  function pickMention(name: string) {
+    if (!mention) return;
+    applyEdit(insertMention(text, mention.start, caret, name));
+  }
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (pickerOpen) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const step = e.key === "ArrowDown" ? 1 : -1;
+        setHighlighted((activeIndex + step + candidates.length) % candidates.length);
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        pickMention(candidates[activeIndex].name);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setDismissedAt(mention?.start ?? null);
+        return;
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey && mode === "comment") {
       e.preventDefault();
       handleSubmit();
@@ -159,8 +217,21 @@ export function FeedComposer({
         <textarea
           ref={inputRef}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            setCaret(e.target.selectionStart);
+            setHighlighted(0);
+          }}
+          onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
           onKeyDown={handleKeyDown}
+          role="combobox"
+          aria-label="Текст записи"
+          aria-expanded={pickerOpen}
+          aria-controls="mention-picker"
+          aria-autocomplete="list"
+          aria-activedescendant={
+            pickerOpen ? `mention-option-${candidates[activeIndex].id}` : undefined
+          }
           placeholder={
             mode === "comment"
               ? "Написать комментарий…"
@@ -200,6 +271,47 @@ export function FeedComposer({
           />
         </div>
       </div>
+
+      {pickerOpen && (
+        <ul
+          id="mention-picker"
+          role="listbox"
+          aria-label="Кого спросить"
+          className="mt-2 max-h-48 overflow-y-auto rounded-2xl border border-brand-border bg-white p-1"
+        >
+          {candidates.map((u, i) => {
+            const hidden =
+              u.role === "manager" && !!lead && lead.assigned_to !== u.id;
+            return (
+              <li
+                key={u.id}
+                id={`mention-option-${u.id}`}
+                role="option"
+                aria-selected={i === activeIndex}
+              >
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  // Иначе поле теряет фокус раньше, чем сработает клик.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => pickMention(u.name)}
+                  onMouseEnter={() => setHighlighted(i)}
+                  className={`w-full flex items-baseline justify-between gap-3 rounded-xl px-3 py-2 coarse:py-3 text-left transition-colors ${
+                    i === activeIndex ? "bg-brand-panel" : ""
+                  }`}
+                >
+                  <span className="type-body text-brand-primary truncate">{u.name}</span>
+                  {hidden && (
+                    <span className="type-caption text-brand-muted shrink-0">
+                      не видит эту карточку
+                    </span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       {/* Per-mode extra controls */}
       {mode === "task" && (
@@ -291,7 +403,18 @@ export function FeedComposer({
       )}
 
       {mode === "comment" && (
-        <div className="flex items-center justify-end mt-1 px-2">
+        <div className="flex items-center justify-between gap-2 mt-1 px-2">
+          <button
+            type="button"
+            onClick={() => {
+              setDismissedAt(null);
+              applyEdit(insertAtCaret(text, inputRef.current?.selectionStart ?? text.length));
+            }}
+            className="inline-flex items-center gap-1 py-1 coarse:py-2 type-caption text-brand-muted hover:text-brand-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-1 rounded-full"
+          >
+            <AtSign size={12} />
+            Спросить коллегу
+          </button>
           <button
             type="submit"
             disabled={isPending || !text.trim()}

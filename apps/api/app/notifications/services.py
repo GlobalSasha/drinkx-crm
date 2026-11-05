@@ -50,6 +50,8 @@ DEDUP_EXEMPT_KINDS: frozenset[str] = frozenset({
     # обязан узнать про обе — часовое окно тут глушит нужное.
     "leads_assigned",
     "task_assigned",
+    # Второй вопрос через пять минут после первого — тоже вопрос.
+    "mention",
 })
 
 DEDUP_WINDOW = timedelta(hours=1)
