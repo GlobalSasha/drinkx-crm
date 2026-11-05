@@ -84,6 +84,33 @@ async def stuck_count(db: AsyncSession, *, workspace_id: uuid.UUID) -> int:
     return int((await db.execute(sql, {"wid": workspace_id})).scalar_one())
 
 
+async def brand_counts(db: AsyncSession, *, workspace_id: uuid.UUID) -> dict:
+    """Active leads per brand, across the whole workspace: pool and assigned.
+
+    LEFT JOIN because a pool lead may have no stage at all. A closed lead is
+    recognised by its stage or by won_at/lost_at, whichever says so. Leads
+    merged into another one have archived_at set, so they are out as well.
+    """
+    sql = text("""
+        SELECT
+          count(*) FILTER (WHERE l.deal_brand = 'AeroMilk') AS aeromilk,
+          count(*) FILTER (WHERE l.deal_brand = 'DrinkX')   AS drinkx,
+          count(*) FILTER (WHERE l.deal_brand IS NULL)      AS no_brand
+        FROM leads l
+        LEFT JOIN stages s ON s.id = l.stage_id
+        WHERE l.workspace_id = :wid
+          AND l.deleted_at IS NULL
+          AND l.archived_at IS NULL
+          AND l.assignment_status <> 'deleted'
+          AND l.won_at IS NULL
+          AND l.lost_at IS NULL
+          AND COALESCE(s.is_won, false) = false
+          AND COALESCE(s.is_lost, false) = false
+    """)
+    r = (await db.execute(sql, {"wid": workspace_id})).one()
+    return {"aeromilk": int(r.aeromilk), "drinkx": int(r.drinkx), "no_brand": int(r.no_brand)}
+
+
 async def source_breakdown(
     db: AsyncSession, *, workspace_id: uuid.UUID, from_: datetime, to_: datetime | None = None
 ) -> list[dict]:

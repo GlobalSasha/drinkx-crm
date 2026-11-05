@@ -3,6 +3,7 @@
   GET /api/company/summary?period=week|month   — incoming-lead pulse + sources + daily
   GET /api/company/attention                    — stuck leads + per-manager load
   GET /api/company/inflow                       — new leads by day / month and source
+  GET /api/company/brands                       — active leads per brand
 """
 from __future__ import annotations
 
@@ -16,6 +17,7 @@ from app.auth.models import User
 from app.company import services as svc
 from app.company.schemas import (
     CompanyAttentionOut,
+    CompanyBrandsOut,
     CompanyInflowOut,
     CompanyManagersOut,
     CompanySummaryOut,
@@ -70,4 +72,13 @@ async def company_inflow(
     user: Annotated[User, Depends(require_admin_or_head)] = ...,
 ) -> CompanyInflowOut:
     data = await svc.inflow(db, workspace_id=user.workspace_id, tz=user.timezone)
+    return data  # type: ignore[return-value]
+
+
+@router.get("/brands", response_model=CompanyBrandsOut)
+async def company_brands(
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(require_admin_or_head)] = ...,
+) -> CompanyBrandsOut:
+    data = await svc.brands(db, workspace_id=user.workspace_id)
     return data  # type: ignore[return-value]
