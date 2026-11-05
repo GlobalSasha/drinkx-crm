@@ -79,7 +79,8 @@ async def _setup_manager_scenario(db, workspace, user):
     db.add_all([active, stuck])
     await db.flush()
 
-    # Comment action + KP file + overdue open task on stuck lead.
+    # Comment action + KP file + overdue open task, all on the active lead:
+    # any fresh task on «Stuck Co» would count as a touch and unstick it.
     acts = [
         Activity(
             lead_id=active.id,
@@ -97,7 +98,7 @@ async def _setup_manager_scenario(db, workspace, user):
             payload_json={},
         ),
         Activity(
-            lead_id=stuck.id,
+            lead_id=active.id,
             user_id=user.id,
             type="task",
             task_done=False,
@@ -127,7 +128,7 @@ async def test_managers_metrics_and_stuck_alert(db, workspace, user):
     assert m["role"] == "manager"
     assert m["new_leads"] == 1          # only «Active Co» (2 дня); «Stuck Co» создан 10 дней назад — вне недели
     assert m["in_work"] == 2            # both non-terminal assigned
-    assert m["stuck"] == 1              # rotting lead
+    assert m["stuck"] == 1              # «Stuck Co»: no touch for 8 days
     assert m["tasks_overdue"] == 1
     assert m["actions"] >= 3            # comment + file + task
     assert m["kp_sent"] == 1

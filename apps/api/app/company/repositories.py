@@ -2,7 +2,8 @@
 
 «Qualified» = a lead that has left the intake stage (stage.position > 0) — the
 intake stage is always position 0 (get_default_first_stage). «Stuck» = an open
-assigned lead on a non-terminal stage with no touch for 7+ days.
+assigned lead on a non-terminal stage with no touch for 7+ days, where a touch
+is what `_LAST_TOUCH` lists.
 """
 from __future__ import annotations
 
@@ -13,6 +14,33 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 STUCK_DAYS = 7
+
+# What counts as a person working on a lead: a comment, task, stage move, file,
+# email or Telegram message by a user, any phone call (telephony writes calls
+# without a user), or an outbound email/message. Automation rows, system rows
+# and an unanswered client message have no user and don't count.
+_PERSON_TOUCH = """(
+    (a.user_id IS NOT NULL
+     AND a.type IN ('comment', 'task', 'stage_change', 'file', 'email', 'tg', 'phone'))
+    OR a.type = 'phone'
+    OR (a.type IN ('email', 'tg') AND a.direction = 'outbound')
+)"""
+
+# When a person last touched the lead. Nothing writes leads.last_activity_at in
+# production, so the time comes from the activity feed. The clock also restarts
+# when the lead is handed to a manager, and closing a task counts even if an
+# automation created it. GREATEST skips NULLs.
+_LAST_TOUCH = f"""GREATEST(
+    l.created_at, l.assigned_at, l.transferred_at, l.last_activity_at,
+    (
+      SELECT max(GREATEST(
+               CASE WHEN {_PERSON_TOUCH} THEN a.created_at END,
+               a.task_completed_at
+             ))
+      FROM activities a
+      WHERE a.lead_id = l.id AND a.archived_at IS NULL
+    )
+)"""
 
 
 async def pulse_counts(
@@ -51,7 +79,7 @@ async def stuck_count(db: AsyncSession, *, workspace_id: uuid.UUID) -> int:
           AND l.assignment_status = 'assigned'
           AND l.archived_at IS NULL
           AND s.is_won = false AND s.is_lost = false
-          AND COALESCE(l.last_activity_at, l.created_at) < now() - interval '{STUCK_DAYS} days'
+          AND {_LAST_TOUCH} < now() - interval '{STUCK_DAYS} days'
     """)
     return int((await db.execute(sql, {"wid": workspace_id})).scalar_one())
 
@@ -115,7 +143,7 @@ async def stuck_leads(
     sql = text(f"""
         SELECT l.id AS lead_id, l.company_name AS company_name,
                ls.name AS source_name, u.name AS manager_name, s.name AS stage_name,
-               EXTRACT(DAY FROM now() - COALESCE(l.last_activity_at, l.created_at))::int AS days_idle
+               EXTRACT(DAY FROM now() - {_LAST_TOUCH})::int AS days_idle
         FROM leads l
         JOIN stages s ON s.id = l.stage_id
         LEFT JOIN lead_sources ls ON ls.id = l.source_id
@@ -124,8 +152,8 @@ async def stuck_leads(
           AND l.assignment_status = 'assigned'
           AND l.archived_at IS NULL
           AND s.is_won = false AND s.is_lost = false
-          AND COALESCE(l.last_activity_at, l.created_at) < now() - interval '{STUCK_DAYS} days'
-        ORDER BY COALESCE(l.last_activity_at, l.created_at) ASC
+          AND {_LAST_TOUCH} < now() - interval '{STUCK_DAYS} days'
+        ORDER BY {_LAST_TOUCH} ASC
         LIMIT :limit
     """)
     rows = (await db.execute(sql, {"wid": workspace_id, "limit": limit})).all()
@@ -149,7 +177,7 @@ async def manager_load(db: AsyncSession, *, workspace_id: uuid.UUID) -> list[dic
                count(*) FILTER (WHERE l.created_at >= now() - interval '7 days') AS new_week,
                count(*) FILTER (
                  WHERE s.is_won = false AND s.is_lost = false
-                   AND COALESCE(l.last_activity_at, l.created_at) < now() - interval '{STUCK_DAYS} days'
+                   AND {_LAST_TOUCH} < now() - interval '{STUCK_DAYS} days'
                ) AS stuck
         FROM leads l
         JOIN stages s ON s.id = l.stage_id
@@ -308,16 +336,16 @@ async def portfolio_per_user(
     """Batched portfolio KPI over active assigned non-terminal leads."""
     if not user_ids:
         return {}
-    sql = text("""
+    sql = text(f"""
         SELECT l.assigned_to AS user_id,
                count(*) AS in_work,
                count(*) FILTER (
-                 WHERE l.is_rotting_stage OR l.is_rotting_next_step
+                 WHERE {_LAST_TOUCH} < now() - interval '{STUCK_DAYS} days'
                ) AS stuck,
                COALESCE(
                  MAX(
-                   EXTRACT(DAY FROM now() - COALESCE(l.last_activity_at, l.created_at))::int
-                 ) FILTER (WHERE l.is_rotting_stage OR l.is_rotting_next_step),
+                   EXTRACT(DAY FROM now() - {_LAST_TOUCH})::int
+                 ) FILTER (WHERE {_LAST_TOUCH} < now() - interval '{STUCK_DAYS} days'),
                  0
                ) AS oldest_stuck_days
         FROM leads l
@@ -395,23 +423,15 @@ async def inbound_reaction(
     cold-call leads are typed in by the manager after the contact, so «how fast
     did we react» is meaningless for them.
 
-    First touch = the earliest thing a person did on the lead after it arrived:
-    a comment, task, stage move, file, email or Telegram message by a user, any
-    phone call (telephony writes calls without a user), or an outbound
-    email/message. Automation tasks and system rows have no user and don't count.
+    First touch = the earliest `_PERSON_TOUCH` on the lead after it arrived.
     """
-    sql = text("""
+    sql = text(f"""
         SELECT l.id AS lead_id, l.company_name, l.created_at,
                CASE WHEN ls.name IS NOT NULL THEN ls.name ELSE CAST(:form_label AS text) END AS label,
                (
                  SELECT min(a.created_at) FROM activities a
                  WHERE a.lead_id = l.id AND a.archived_at IS NULL AND a.created_at >= l.created_at
-                   AND (
-                     (a.user_id IS NOT NULL
-                      AND a.type IN ('comment', 'task', 'stage_change', 'file', 'email', 'tg', 'phone'))
-                     OR a.type = 'phone'
-                     OR (a.type IN ('email', 'tg') AND a.direction = 'outbound')
-                   )
+                   AND {_PERSON_TOUCH}
                ) AS first_touch
         FROM leads l
         LEFT JOIN lead_sources ls ON ls.id = l.source_id

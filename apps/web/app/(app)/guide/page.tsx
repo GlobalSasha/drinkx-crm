@@ -567,8 +567,8 @@ function HeadGuide({ onSwitchToManager }: { onSwitchToManager: () => void }) {
           </Card>
           <Card title="Результат по его лидам" icon={TrendingUp}>
             <p className="type-body text-brand-muted-strong">
-              В работе сейчас, продвинул по воронке, застряло 7+ дней, задач закрыто
-              и просрочено.
+              В работе сейчас, продвинул по воронке, застряло 7+ дней (неделю никто не работал
+              с лидом: нет звонков, писем, заметок, задач и смены этапа), задач закрыто и просрочено.
             </p>
           </Card>
         </div>

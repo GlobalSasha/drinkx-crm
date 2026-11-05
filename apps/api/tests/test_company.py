@@ -196,3 +196,162 @@ async def test_inflow_reaction_counts_people_on_incoming_leads_only(db, workspac
     assert r["waiting"][0]["company_name"] == "L2"       # oldest first (3 days)
     assert {w["company_name"] for w in r["waiting"]} == {"L1", "L2", "L4", "Waiting"}
     assert r["previous"] == {"total": 0, "touched": 0, "median_hours": None, "within_hour": 0}
+
+
+# --- «Застряла» считается по действиям людей, а не по возрасту лида ---------
+
+
+async def _old_lead(db, workspace, user, **overrides):
+    """A 30-day-old assigned lead with no touch of any kind."""
+    from app.pipelines.models import Pipeline, Stage
+    from app.leads.models import Lead
+
+    p = Pipeline(workspace_id=workspace.id, name="Sales", type="sales", position=0)
+    db.add(p)
+    await db.flush()
+    working = Stage(pipeline_id=p.id, name="В работе", position=1, color="#ccc", rot_days=14)
+    db.add(working)
+    await db.flush()
+    lead = Lead(
+        workspace_id=workspace.id,
+        company_name="Old Co",
+        pipeline_id=p.id,
+        stage_id=working.id,
+        assignment_status="assigned",
+        assigned_to=user.id,
+        created_at=datetime.now(timezone.utc) - timedelta(days=30),
+        **overrides,
+    )
+    db.add(lead)
+    await db.flush()
+    return lead
+
+
+def _days_ago(days):
+    return datetime.now(timezone.utc) - timedelta(days=days)
+
+
+@skip_no_pg
+async def test_old_lead_without_touches_is_stuck_since_creation(db, workspace, user):
+    await _old_lead(db, workspace, user)
+
+    out = await svc.attention(db, workspace_id=workspace.id)
+
+    assert (await svc.summary(db, workspace_id=workspace.id, period="week"))["stuck_count"] == 1
+    assert out["stuck"][0]["days_idle"] in (29, 30)  # now() = transaction start
+
+
+@skip_no_pg
+@pytest.mark.parametrize(
+    "activity",
+    [
+        pytest.param({"type": "comment", "with_user": True}, id="comment"),
+        pytest.param({"type": "task", "with_user": True}, id="task"),
+        pytest.param({"type": "stage_change", "with_user": True}, id="stage_change"),
+        pytest.param({"type": "file", "with_user": True}, id="file"),
+        pytest.param({"type": "phone", "with_user": False}, id="call_without_user"),
+        pytest.param(
+            {"type": "email", "with_user": False, "direction": "outbound"},
+            id="outbound_email_without_user",
+        ),
+    ],
+)
+async def test_recent_person_touch_unsticks_old_lead(db, workspace, user, activity):
+    lead = await _old_lead(db, workspace, user)
+    fields = dict(activity)
+    with_user = fields.pop("with_user")
+    db.add(Activity(
+        lead_id=lead.id,
+        user_id=user.id if with_user else None,
+        created_at=_days_ago(1),
+        payload_json={},
+        **fields,
+    ))
+    await db.flush()
+
+    out = await svc.summary(db, workspace_id=workspace.id, period="week")
+
+    assert out["stuck_count"] == 0
+
+
+@skip_no_pg
+@pytest.mark.parametrize(
+    "activity",
+    [
+        pytest.param({"type": "task", "with_user": False}, id="automation_task"),
+        pytest.param({"type": "comment", "with_user": False}, id="automation_comment"),
+        pytest.param({"type": "system", "with_user": True}, id="system_row"),
+        pytest.param({"type": "score_update", "with_user": True}, id="score_update"),
+        pytest.param(
+            {"type": "email", "with_user": False, "direction": "inbound"},
+            id="unanswered_client_email",
+        ),
+        pytest.param(
+            {"type": "comment", "with_user": True, "archived_at": _days_ago(0)},
+            id="deleted_comment",
+        ),
+    ],
+)
+async def test_non_person_activity_does_not_unstick_lead(db, workspace, user, activity):
+    lead = await _old_lead(db, workspace, user)
+    fields = dict(activity)
+    with_user = fields.pop("with_user")
+    db.add(Activity(
+        lead_id=lead.id,
+        user_id=user.id if with_user else None,
+        created_at=_days_ago(1),
+        payload_json={},
+        **fields,
+    ))
+    await db.flush()
+
+    out = await svc.summary(db, workspace_id=workspace.id, period="week")
+
+    assert out["stuck_count"] == 1
+
+
+@skip_no_pg
+async def test_closing_an_automation_task_counts_as_a_touch(db, workspace, user):
+    lead = await _old_lead(db, workspace, user)
+    db.add(Activity(
+        lead_id=lead.id,
+        user_id=None,
+        type="task",
+        created_at=_days_ago(20),
+        task_done=True,
+        task_completed_at=_days_ago(1),
+        payload_json={},
+    ))
+    await db.flush()
+
+    out = await svc.summary(db, workspace_id=workspace.id, period="week")
+
+    assert out["stuck_count"] == 0
+
+
+@skip_no_pg
+@pytest.mark.parametrize("field", ["assigned_at", "transferred_at"])
+async def test_recently_handed_over_lead_is_not_stuck(db, workspace, user, field):
+    await _old_lead(db, workspace, user, **{field: _days_ago(1)})
+
+    out = await svc.summary(db, workspace_id=workspace.id, period="week")
+
+    assert out["stuck_count"] == 0
+
+
+@skip_no_pg
+async def test_idle_days_run_from_the_latest_touch(db, workspace, user):
+    lead = await _old_lead(db, workspace, user)
+    db.add_all([
+        Activity(lead_id=lead.id, user_id=user.id, type="comment", created_at=_days_ago(20), payload_json={}),
+        Activity(lead_id=lead.id, user_id=user.id, type="comment", created_at=_days_ago(10), payload_json={}),
+    ])
+    await db.flush()
+
+    attention = await svc.attention(db, workspace_id=workspace.id)
+    team = await svc.managers(db, workspace_id=workspace.id, period="week")
+
+    assert attention["stuck"][0]["days_idle"] in (9, 10)
+    assert attention["managers"][0]["stuck"] == 1
+    assert team["managers"][0]["stuck"] == 1
+    assert team["managers"][0]["oldest_stuck_days"] in (9, 10)
