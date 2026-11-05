@@ -21,6 +21,7 @@ const FULL: PoolFilterState = {
   priorities: ["A", "B"],
   tiers: ["A"],
   dealTypes: ["station"],
+  dealBrands: ["DrinkX"],
   sources: ["outbound"],
   tags: ["vip", "2026"],
   fitMin: 42,
@@ -45,6 +46,7 @@ describe("poolQueryParams", () => {
     expect(p.getAll("segment")).toEqual(["Кофейни и кафе"]);
     expect(p.getAll("tier")).toEqual(["A"]);
     expect(p.getAll("deal_type")).toEqual(["station"]);
+    expect(p.getAll("deal_brand")).toEqual(["DrinkX"]);
     expect(p.getAll("source")).toEqual(["outbound"]);
     expect(p.get("fit_min")).toBe("42");
     expect(p.get("has_email")).toBe("true");
@@ -76,6 +78,7 @@ describe("poolFilterBody", () => {
       priorities: ["A", "B"],
       tiers: ["A"],
       deal_types: ["station"],
+      deal_brands: ["DrinkX"],
       sources: ["outbound"],
       tags: ["vip", "2026"],
       fit_min: 42,
@@ -98,6 +101,7 @@ describe("poolFilterBody", () => {
       ["priority", "priorities"],
       ["tier", "tiers"],
       ["deal_type", "deal_types"],
+      ["deal_brand", "deal_brands"],
       ["source", "sources"],
       ["tag", "tags"],
     ];
@@ -130,7 +134,7 @@ describe("poolScopeParams", () => {
 describe("activeFilterCount", () => {
   it("считает каждое активное условие один раз", () => {
     expect(activeFilterCount(EMPTY_POOL_FILTERS)).toBe(0);
-    expect(activeFilterCount(FULL)).toBe(13);
+    expect(activeFilterCount(FULL)).toBe(14);
     expect(
       activeFilterCount({ ...EMPTY_POOL_FILTERS, search: "   " }),
     ).toBe(0);

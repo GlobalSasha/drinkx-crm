@@ -187,6 +187,7 @@ function LeadsPoolPageInner() {
   const priorityCounts = useMemo(() => facetCounts(facets?.priorities), [facets, facetCounts]);
   const tierCounts = useMemo(() => facetCounts(facets?.tiers), [facets, facetCounts]);
   const dealTypeCounts = useMemo(() => facetCounts(facets?.deal_types), [facets, facetCounts]);
+  const dealBrandCounts = useMemo(() => facetCounts(facets?.deal_brands), [facets, facetCounts]);
   const sourceCounts = useMemo(() => facetCounts(facets?.sources), [facets, facetCounts]);
   const tagCounts = useMemo(() => facetCounts(facets?.tags), [facets, facetCounts]);
 
@@ -411,6 +412,9 @@ function LeadsPoolPageInner() {
           dealTypeFilters={filters.dealTypes}
           setDealTypeFilters={setField("dealTypes")}
           dealTypeCounts={dealTypeCounts}
+          dealBrandFilters={filters.dealBrands}
+          setDealBrandFilters={setField("dealBrands")}
+          dealBrandCounts={dealBrandCounts}
           sources={sources}
           sourceFilters={filters.sources}
           setSourceFilters={setField("sources")}

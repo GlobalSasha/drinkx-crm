@@ -63,7 +63,7 @@ async def find_duplicates(db: AsyncSession, lead: Lead, *, limit: int = DUP_LIMI
 # normalized dedup keys via the model @validates hooks.
 _MERGE_FILL_FIELDS = (
     "email", "phone", "website", "inn", "city", "segment",
-    "deal_type", "deal_amount", "deal_quantity", "deal_equipment",
+    "deal_type", "deal_amount", "deal_quantity", "deal_equipment", "deal_brand",
     "next_step", "blocker",
 )
 

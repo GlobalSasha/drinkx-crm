@@ -21,6 +21,7 @@ export interface PoolFilterState {
   priorities: string[];
   tiers: string[];
   dealTypes: string[];
+  dealBrands: string[];
   sources: string[];
   tags: string[];
   fitMin: number;
@@ -37,6 +38,7 @@ export const EMPTY_POOL_FILTERS: PoolFilterState = {
   priorities: [],
   tiers: [],
   dealTypes: [],
+  dealBrands: [],
   sources: [],
   tags: [],
   fitMin: 0,
@@ -55,6 +57,7 @@ export function activeFilterCount(f: PoolFilterState): number {
     (f.priorities.length > 0 ? 1 : 0) +
     (f.tiers.length > 0 ? 1 : 0) +
     (f.dealTypes.length > 0 ? 1 : 0) +
+    (f.dealBrands.length > 0 ? 1 : 0) +
     (f.sources.length > 0 ? 1 : 0) +
     (f.tags.length > 0 ? 1 : 0) +
     (f.fitMin > 0 ? 1 : 0) +
@@ -80,6 +83,7 @@ export function poolQueryParams(f: PoolFilterState): URLSearchParams {
   multi("priority", f.priorities);
   multi("tier", f.tiers);
   multi("deal_type", f.dealTypes);
+  multi("deal_brand", f.dealBrands);
   multi("source", f.sources);
   multi("tag", f.tags);
   if (f.fitMin > 0) p.set("fit_min", String(f.fitMin));
@@ -107,6 +111,7 @@ export function poolFilterBody(f: PoolFilterState): LeadSelectionBody {
   if (f.priorities.length) body.priorities = f.priorities;
   if (f.tiers.length) body.tiers = f.tiers;
   if (f.dealTypes.length) body.deal_types = f.dealTypes;
+  if (f.dealBrands.length) body.deal_brands = f.dealBrands;
   if (f.sources.length) body.sources = f.sources;
   if (f.tags.length) body.tags = f.tags;
   if (f.fitMin > 0) body.fit_min = f.fitMin;

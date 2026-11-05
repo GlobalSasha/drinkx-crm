@@ -164,6 +164,7 @@ class LeadSelection:
     priorities: tuple[str, ...] = ()
     tiers: tuple[str, ...] = ()
     deal_types: tuple[str, ...] = ()
+    deal_brands: tuple[str, ...] = ()
     sources: tuple[str, ...] = ()
     tags: tuple[str, ...] = ()
     fit_min: float | None = None
@@ -187,7 +188,7 @@ class LeadSelection:
         """
         for key in (
             "cities", "segments", "priorities", "tiers",
-            "deal_types", "sources", "tags",
+            "deal_types", "deal_brands", "sources", "tags",
         ):
             object.__setattr__(self, key, _clean(getattr(self, key)))
         text = (self.q or "").strip()
@@ -235,7 +236,7 @@ class LeadSelection:
         out: dict[str, Any] = {}
         for key in (
             "cities", "segments", "priorities", "tiers",
-            "deal_types", "sources", "tags",
+            "deal_types", "deal_brands", "sources", "tags",
         ):
             value = getattr(self, key)
             if value:
@@ -307,6 +308,7 @@ class LeadSelection:
             priorities=_list("priorities", "priority"),
             tiers=_list("tiers", "tier"),
             deal_types=_list("deal_types", "deal_type"),
+            deal_brands=_list("deal_brands", "deal_brand"),
             sources=_list("sources", "source"),
             tags=_list("tags"),
             fit_min=_float("fit_min"),
@@ -328,6 +330,7 @@ class LeadSelection:
         priorities: Sequence[str] | None = None,
         tiers: Sequence[str] | None = None,
         deal_types: Sequence[str] | None = None,
+        deal_brands: Sequence[str] | None = None,
         sources: Sequence[str] | None = None,
         tags: Sequence[str] | None = None,
         fit_min: float | None = None,
@@ -347,6 +350,7 @@ class LeadSelection:
             priorities=_clean(priorities),
             tiers=_clean(tiers),
             deal_types=_clean(deal_types),
+            deal_brands=_clean(deal_brands),
             sources=_clean(sources),
             tags=_clean(tags),
             fit_min=fit_min,
@@ -438,6 +442,8 @@ async def selection_conditions(
         conds.append(Lead.priority.in_(selection.priorities))
     if selection.deal_types:
         conds.append(Lead.deal_type.in_(selection.deal_types))
+    if selection.deal_brands:
+        conds.append(Lead.deal_brand.in_(selection.deal_brands))
     if selection.sources:
         conds.append(Lead.source.in_(selection.sources))
     if selection.tiers:

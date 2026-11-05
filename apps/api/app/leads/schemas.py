@@ -12,6 +12,7 @@ from app.leads.models import ASSIGNMENT_STATUSES
 from app.leads.models import (  # noqa: F401 — imported for OpenAPI clarity
     AssignmentStatus,
     CommercialModel,
+    DealBrand,
     DealType,
     Priority,
 )
@@ -135,6 +136,7 @@ class LeadOut(LeadBase):
     deal_amount: Decimal | None = None
     deal_quantity: int | None = None
     deal_equipment: str | None = None
+    deal_brand: DealBrand | None = None
     # Russian label derived from `priority` letter via
     # `app.leads.scoring.priority_label`. Frontend reads this instead
     # of the raw letter so the LeadCard never has to translate.
@@ -193,6 +195,7 @@ class LeadListItemOut(LeadBase):
     deal_amount: Decimal | None = None
     deal_quantity: int | None = None
     deal_equipment: str | None = None
+    deal_brand: DealBrand | None = None
     priority_label: str | None = None
     # Sprint 3.7 G1 — set TRUE on AI auto-created leads, FALSE everywhere
     # else (form submissions, manual creates, CSV imports, claim-from-pool).
@@ -237,6 +240,7 @@ class PoolFacetsOut(BaseModel):
     priorities: list[FacetValueOut] = Field(default_factory=list)
     tiers: list[FacetValueOut] = Field(default_factory=list)
     deal_types: list[FacetValueOut] = Field(default_factory=list)
+    deal_brands: list[FacetValueOut] = Field(default_factory=list)
     sources: list[FacetValueOut] = Field(default_factory=list)
     tags: list[FacetValueOut] = Field(default_factory=list)
     total: int = 0
@@ -282,6 +286,7 @@ class LeadAssignIn(BaseModel):
     priorities: list[str] = Field(default_factory=list)
     tiers: list[str] = Field(default_factory=list)
     deal_types: list[str] = Field(default_factory=list)
+    deal_brands: list[str] = Field(default_factory=list)
     sources: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     fit_min: float | None = None
@@ -303,6 +308,7 @@ class LeadAssignIn(BaseModel):
             priorities=self.priorities,
             tiers=self.tiers,
             deal_types=self.deal_types,
+            deal_brands=self.deal_brands,
             sources=self.sources,
             tags=self.tags,
             fit_min=self.fit_min,
@@ -356,13 +362,14 @@ class PrimaryContactIn(BaseModel):
 
 class DealPatchIn(BaseModel):
     """Body for PATCH /leads/{id}/deal — partial update of the
-    deal-value strip. Any subset of the four fields is accepted;
+    deal-value strip. Any subset of the fields is accepted;
     omitted fields stay unchanged. Pass null to clear a single field."""
 
     commercial_model: CommercialModel | None = None
     deal_amount: Decimal | None = None
     deal_quantity: int | None = None
     deal_equipment: str | None = None
+    deal_brand: DealBrand | None = None
 
     # Whether the field was sent at all (vs. left unset). The router
     # walks model_fields_set so a `null` clears the column but a missing

@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   CircleDollarSign,
   Package,
+  Bookmark,
   Hash,
   Tag,
   TrendingUp,
@@ -18,7 +19,7 @@ import {
   Pencil,
   GitBranch,
 } from "lucide-react";
-import type { CommercialModel, LeadOut } from "@/lib/types";
+import { DEAL_BRANDS, type CommercialModel, type DealBrand, type LeadOut } from "@/lib/types";
 import { useUpdateDealFields } from "@/lib/hooks/use-lead-v2";
 import { useUpdateLead } from "@/lib/hooks/use-lead";
 import { useMe } from "@/lib/hooks/use-me";
@@ -117,6 +118,9 @@ export function LeadInfoBlock({ lead }: Props) {
 
   const onDealEquipment = async (v: string | null) =>
     updateDeal.mutateAsync({ deal_equipment: v ?? null });
+
+  const onDealBrand = async (v: string | null) =>
+    updateDeal.mutateAsync({ deal_brand: (v || null) as DealBrand | null });
 
   const onDescription = async (v: string | null) =>
     updateLead.mutateAsync({ company_profile: v ?? "" });
@@ -218,6 +222,15 @@ export function LeadInfoBlock({ lead }: Props) {
           placeholder="Не указано"
           onSave={onDealEquipment}
           inputProps={{ maxLength: 50, placeholder: "S100" }}
+        />
+        <Row
+          icon={<Bookmark size={15} className={C.color.muted} />}
+          label="Бренд"
+          value={lead.deal_brand ?? null}
+          placeholder="Не выбран"
+          onSave={onDealBrand}
+          inputType="select"
+          options={[...DEAL_BRANDS]}
         />
         <Row
           icon={<Tag size={15} className={C.color.muted} />}

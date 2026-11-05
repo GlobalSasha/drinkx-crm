@@ -33,6 +33,7 @@ _FACET_COLUMNS = {
     "segments": Lead.segment,
     "priorities": Lead.priority,
     "deal_types": Lead.deal_type,
+    "deal_brands": Lead.deal_brand,
     "sources": Lead.source,
 }
 
@@ -433,7 +434,7 @@ async def pool_facets(
     сколько их осталось после уже выбранных фасетов. Иначе каждый
     невыбранный фасет показывал бы ноль.
 
-    Шесть группировок плюс одна по тегам — фиксированное число запросов,
+    Семь группировок плюс одна по тегам — фиксированное число запросов,
     а не по запросу на значение.
     """
     from app.leads.selection import NoMatches, selection_conditions, tier_case

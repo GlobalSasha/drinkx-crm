@@ -166,6 +166,7 @@ def _pool_selection(
     priority: list[str] | None,
     tier: list[str] | None,
     deal_type: list[str] | None,
+    deal_brand: list[str] | None = None,
     source: list[str] | None,
     tag: list[str] | None,
     fit_min: float | None,
@@ -183,6 +184,7 @@ def _pool_selection(
         priorities=priority,
         tiers=tier,
         deal_types=deal_type,
+        deal_brands=deal_brand,
         sources=source,
         tags=tag,
         fit_min=fit_min,
@@ -202,6 +204,7 @@ async def list_pool(
     priority: _MULTI = None,
     tier: _MULTI = None,
     deal_type: _MULTI = None,
+    deal_brand: _MULTI = None,
     source: _MULTI = None,
     tag: _MULTI = None,
     fit_min: float | None = None,
@@ -227,7 +230,7 @@ async def list_pool(
     """
     selection = _pool_selection(
         city=city, segment=segment, priority=priority, tier=tier,
-        deal_type=deal_type, source=source, tag=tag, fit_min=fit_min,
+        deal_type=deal_type, deal_brand=deal_brand, source=source, tag=tag, fit_min=fit_min,
         has_email=has_email, has_phone=has_phone, form_id=form_id,
         needs_review=needs_review, q=q,
     )
@@ -849,7 +852,7 @@ async def patch_deal(
     user: Annotated[User, Depends(current_user)] = ...,
 ) -> LeadOut:
     """Partial update of the deal-value strip (commercial model, sum,
-    quantity, equipment). Empty `deal_equipment` normalises to NULL."""
+    quantity, equipment, brand). Empty `deal_equipment` normalises to NULL."""
     try:
         lead = await services.patch_deal_fields(
             db,
@@ -860,6 +863,7 @@ async def patch_deal(
             deal_amount=payload.deal_amount,
             deal_quantity=payload.deal_quantity,
             deal_equipment=payload.deal_equipment,
+            deal_brand=payload.deal_brand,
         )
     except LeadNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")

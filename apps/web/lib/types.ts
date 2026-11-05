@@ -10,6 +10,9 @@ export type DealType =
 
 export type CommercialModel = "sale" | "rental";
 
+export const DEAL_BRANDS = ["AeroMilk", "DrinkX"] as const;
+export type DealBrand = (typeof DEAL_BRANDS)[number];
+
 export type ContactRoleType =
   | "economic_buyer"
   | "champion"
@@ -139,6 +142,7 @@ export interface LeadOut {
   deal_amount: number | string | null;
   deal_quantity: number | null;
   deal_equipment: string | null;
+  deal_brand: DealBrand | null;
   // Russian label derived from `priority` letter server-side via
   // `app.leads.scoring.priority_label`. The LeadCard reads this
   // instead of the raw letter so the UI never has to translate.
@@ -650,6 +654,7 @@ export interface LeadSelectionBody {
   priorities?: string[];
   tiers?: string[];
   deal_types?: string[];
+  deal_brands?: string[];
   sources?: string[];
   tags?: string[];
   fit_min?: number | null;
@@ -870,6 +875,7 @@ export interface PoolFacets {
   priorities: FacetValue[];
   tiers: FacetValue[];
   deal_types: FacetValue[];
+  deal_brands: FacetValue[];
   sources: FacetValue[];
   tags: FacetValue[];
   total: number;
@@ -1164,6 +1170,7 @@ export interface DealPatchIn {
   deal_amount?: number | null;
   deal_quantity?: number | null;
   deal_equipment?: string | null;
+  deal_brand?: DealBrand | null;
 }
 
 // ---- Audit (Sprint 1.5 group 4) ----
