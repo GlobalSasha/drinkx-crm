@@ -91,6 +91,11 @@ async def history_sync_for_user(
     msg_refs = await client.list_messages(query=query, max_results=2000)
     bound_log.info("gmail.history_sync.list", count=len(msg_refs))
 
+    # process_message rolls back on a bad message, which expires everything
+    # in the session. Reading a column of an expired object raises
+    # MissingGreenlet, so keep the id and reload `conn` after the loop.
+    workspace_id = user.workspace_id
+
     processed = 0
     for ref in msg_refs:
         msg_id = ref.get("id")
@@ -103,8 +108,8 @@ async def history_sync_for_user(
             await process_message(
                 session,
                 raw_message=full,
-                user_id=user.id,
-                workspace_id=user.workspace_id,
+                user_id=user_id,
+                workspace_id=workspace_id,
             )
             processed += 1
         except Exception as exc:
@@ -115,6 +120,7 @@ async def history_sync_for_user(
             )
             continue
 
+    await session.refresh(conn)
     profile = await client.get_profile()
     cursor = profile.get("historyId") if profile else None
 
@@ -140,24 +146,30 @@ async def incremental_sync_for_all(session: AsyncSession) -> int:
     can't be built.
     """
     res = await session.execute(
-        select(ChannelConnection).where(
+        select(ChannelConnection.id).where(
             ChannelConnection.channel_type == "gmail",
             ChannelConnection.status == "active",
         )
     )
-    conns = list(res.scalars())
-    if not conns:
+    conn_ids = list(res.scalars())
+    if not conn_ids:
         log.info("gmail.incremental.no_active_connections")
         return 0
 
     total_processed = 0
-    for conn in conns:
-        bound_log = log.bind(
-            workspace_id=str(conn.workspace_id),
-            user_id=str(conn.user_id) if conn.user_id else None,
-            channel_id=str(conn.id),
-        )
+    for conn_id in conn_ids:
+        bound_log = log.bind(channel_id=str(conn_id))
         try:
+            # Load each connection on its own turn: the rollback below expires
+            # everything in the session, and reading a column of an expired
+            # object raises MissingGreenlet.
+            conn = await session.get(ChannelConnection, conn_id)
+            if conn is None:
+                continue
+            bound_log = bound_log.bind(
+                workspace_id=str(conn.workspace_id),
+                user_id=str(conn.user_id) if conn.user_id else None,
+            )
             n = await _incremental_for_one(session, conn=conn, bound_log=bound_log)
             total_processed += n
         except Exception as exc:
@@ -179,6 +191,10 @@ async def _incremental_for_one(
 ) -> int:
     extra = dict(conn.extra_json or {})
     cursor = extra.get("last_history_id")
+    # process_message rolls back on a bad message, which expires `conn` — see
+    # the note in history_sync_for_user.
+    user_id = conn.user_id
+    workspace_id = conn.workspace_id
 
     try:
         client = GmailClient(conn.credentials_json)
@@ -246,8 +262,8 @@ async def _incremental_for_one(
             await process_message(
                 session,
                 raw_message=full,
-                user_id=conn.user_id,  # may be None for workspace-level conns
-                workspace_id=conn.workspace_id,
+                user_id=user_id,  # may be None for workspace-level conns
+                workspace_id=workspace_id,
             )
             processed += 1
         except Exception as exc:
@@ -258,6 +274,7 @@ async def _incremental_for_one(
             )
             continue
 
+    await session.refresh(conn)
     extra["last_history_id"] = new_cursor
     extra["last_incremental_processed"] = processed
     conn.extra_json = extra
