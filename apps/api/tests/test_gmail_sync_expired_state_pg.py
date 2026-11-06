@@ -24,6 +24,7 @@ class FakeGmailClient:
 
     instances = 0
     fail_first_instance = False
+    history_expired = False
 
     def __init__(self, credentials_json: str):
         cls = type(self)
@@ -31,6 +32,10 @@ class FakeGmailClient:
         self.is_failing = cls.fail_first_instance and cls.instances == 1
 
     async def get_history(self, *, start_history_id: str):
+        if type(self).history_expired:
+            from app.inbox.gmail_client import HistoryCursorExpired
+
+            raise HistoryCursorExpired(start_history_id)
         return [
             {"id": "200", "messagesAdded": [{"message": {"id": "m1"}}]},
             {"id": "201", "messagesAdded": [{"message": {"id": "m2"}}]},
@@ -66,6 +71,7 @@ async def mailboxes(monkeypatch):
 
     monkeypatch.setattr(FakeGmailClient, "instances", 0)
     monkeypatch.setattr(FakeGmailClient, "fail_first_instance", False)
+    monkeypatch.setattr(FakeGmailClient, "history_expired", False)
     monkeypatch.setattr("app.inbox.sync.GmailClient", FakeGmailClient)
 
     async with _test_session_factory() as session:
@@ -193,3 +199,51 @@ async def test_history_sync_survives_a_bad_message(mailboxes, monkeypatch):
     assert calls == ["m1", "m2"]
     assert processed == 2
     assert (await _cursors(mailboxes["conn_ids"]))[0] == "300"
+
+
+@pytest.mark.asyncio
+async def test_expired_cursor_restarts_from_now_without_backfill(mailboxes, monkeypatch):
+    """After a long outage Gmail answers 404 for the old cursor forever. The
+    mailbox must restart from "now", and must not pull in the old mail: that
+    could create leads and fire automations without anyone deciding to."""
+    from app.inbox.sync import incremental_sync_for_all
+    from tests.conftest import _test_session_factory
+
+    monkeypatch.setattr(FakeGmailClient, "history_expired", True)
+    seen: list[str] = []
+
+    async def fake_process(session, *, raw_message, user_id, workspace_id):
+        seen.append(raw_message["id"])
+        return True
+
+    monkeypatch.setattr("app.inbox.sync.process_message", fake_process)
+
+    async with _test_session_factory() as session:
+        processed = await incremental_sync_for_all(session)
+
+    assert processed == 0
+    assert seen == []
+    assert await _cursors(mailboxes["conn_ids"]) == ["300", "300"]
+
+
+def test_get_history_tells_expired_cursor_from_other_errors():
+    """Only 404 means the cursor is gone. A passing Google outage must not
+    move the cursor, or the mail received meanwhile would be skipped."""
+    import asyncio
+    from unittest.mock import MagicMock
+
+    import httplib2
+    from googleapiclient.errors import HttpError
+
+    from app.inbox.gmail_client import GmailClient, HistoryCursorExpired
+
+    def client_answering(status: int) -> GmailClient:
+        client = GmailClient("{}")
+        client._service = MagicMock()
+        request = client._service.users.return_value.history.return_value.list.return_value
+        request.execute.side_effect = HttpError(httplib2.Response({"status": status}), b"")
+        return client
+
+    with pytest.raises(HistoryCursorExpired):
+        asyncio.run(client_answering(404).get_history(start_history_id="100"))
+    assert asyncio.run(client_answering(503).get_history(start_history_id="100")) == []

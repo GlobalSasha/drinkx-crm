@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import User
 from app.config import get_settings
-from app.inbox.gmail_client import GmailClient
+from app.inbox.gmail_client import GmailClient, HistoryCursorExpired
 from app.inbox.models import ChannelConnection
 from app.inbox.processor import process_message
 
@@ -204,6 +204,19 @@ async def _incremental_for_one(
         await session.commit()
         return 0
 
+    if cursor:
+        try:
+            entries = await client.get_history(start_history_id=str(cursor))
+        except HistoryCursorExpired:
+            # Gmail forgot this point in history, so restart from "now". Mail
+            # from the gap is left out on purpose: loading it can create leads
+            # and fire automations, which is a decision for a human.
+            bound_log.warning(
+                "gmail.incremental.cursor_expired",
+                last_sync_at=str(conn.last_sync_at),
+            )
+            cursor = None
+
     if not cursor:
         # First tick after install before history sync finished — seed
         # the cursor and bail out. Real backfill is owned by
@@ -217,7 +230,6 @@ async def _incremental_for_one(
             await session.commit()
         return 0
 
-    entries = await client.get_history(start_history_id=str(cursor))
     if not entries:
         # Even on no-op ticks, persist refreshed credentials so we don't
         # carry an expired access token across many ticks.
