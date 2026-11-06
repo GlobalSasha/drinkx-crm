@@ -251,14 +251,17 @@ fi
 echo "==> Health check"
 sleep 5
 
+# The API runs its migrations before it answers, so a long migration is a normal
+# reason to be slow. A 57-second budget failed the release on 2026-11-05 while
+# the new build came up healthy four seconds later.
 API_OK=0
-for i in 1 2 3 4 5 6 7 8 9 10; do
+for i in $(seq 1 36); do
   if curl -fsS --max-time 10 http://127.0.0.1:8000/health > /dev/null 2>&1; then
     echo "✓ API healthy"
     API_OK=1
     break
   fi
-  echo "  waiting for API ($i/10)..."
+  echo "  waiting for API ($i/36)..."
   sleep 5
 done
 [ "$API_OK" -eq 1 ] || fail "API did not become healthy on :8000/health"

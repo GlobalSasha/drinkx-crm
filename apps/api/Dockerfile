@@ -31,6 +31,15 @@ COPY apps/api/knowledge ./knowledge
 # 7k-char product context.
 COPY docs ./docs
 
+# Install the project itself now that its source is in place, and forbid `uv run`
+# from syncing at start-up. Without UV_NO_SYNC every container start re-created
+# the environment: `uv run` adds the dev group back by default, so each restart
+# downloaded ruff, mypy and pytest from PyPI (32 of the API's 61 seconds on
+# 2026-11-05, which ran out the deploy's health window) and could not start at
+# all without network. Everything the app needs is installed here, at build time.
+RUN uv sync --frozen --no-dev
+ENV UV_NO_SYNC=1
+
 # Build-time version stamp. Read back by infra/production/deploy.sh (via
 # `printenv DRINKX_GIT_SHA` inside the running container) and by GET /health,
 # to prove the release that is running is the one that was shipped.

@@ -8,8 +8,13 @@
 #   1. every service image really is labelled with the commit it was built from;
 #   2. a runtime `-e DRINKX_GIT_SHA=...` cannot move that label.
 #
+# It also proves the backend images need no network to start: `uv run` must not
+# try to sync, and the code must import without the dev packages (a sync at
+# start-up once ran out the deploy's health window, see apps/api/Dockerfile).
+#
 # Nothing is started: no application, no migrations, no Celery worker, no
-# published ports, no production volumes. Images are built and inspected.
+# published ports, no production volumes. Images are built and inspected, and
+# the code is imported in throwaway containers with networking switched off.
 #
 # The service -> image lookup is the same one deploy.sh uses: read Compose's
 # resolved configuration and index it by service key. `config --images <svc>`
@@ -131,5 +136,23 @@ if [ "$label_says" != "$EXPECTED" ]; then
   exit 1
 fi
 
+echo "==> Checking the backend images start offline, without dev packages"
+for svc in api worker beat; do
+  ref="$(compose_image_ref "$svc")"
+  if ! docker run --rm --network none --entrypoint sh "$ref" -c '
+    uv run alembic --help > /dev/null &&
+    uv run python -c "
+import importlib.util as u, sys
+dev = [m for m in (\"pytest\", \"ruff\", \"mypy\", \"respx\") if u.find_spec(m)]
+sys.exit(f\"dev packages in the image: {dev}\") if dev else None
+import app.main, app.scheduled.celery_app
+"
+  '; then
+    echo "✗ $svc image cannot start offline without dev packages" >&2
+    exit 1
+  fi
+  echo "  ✓ $svc"
+done
+
 echo
-echo "OK: all four images labelled $EXPECTED; the label held while the environment lied"
+echo "OK: all four images labelled $EXPECTED; the label held while the environment lied; backend images start offline"
