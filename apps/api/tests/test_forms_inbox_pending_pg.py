@@ -60,3 +60,43 @@ async def test_inbox_keeps_only_leads_on_first_stage(db, workspace):
     assert [it["company_name"] for it in items] == ["Ждёт звонка"]
     assert total == 1
     assert await inbox.count_new(db, workspace_id=workspace.id, seen_at=None) == 1
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_repeat_request_after_delete_is_a_new_lead(db, workspace):
+    """Клиент, чей лид удалили, написал снова: это новый лид, и он виден во
+    «Входящих». Живой лид с той же почтой, наоборот, новым не становится."""
+    from app.forms import inbox
+    from app.forms.lead_factory import create_lead_from_submission
+    from app.forms.models import FormSubmission, WebForm
+    from app.leads.models import Lead
+
+    form = WebForm(
+        workspace_id=workspace.id, name="Сайт",
+        slug=f"site-{uuid.uuid4().hex[:6]}", fields_json=[],
+    )
+    db.add(form)
+    await db.flush()
+    payload = {"company_name": "Ромашка", "email": "client@romashka.ru"}
+
+    async def submit():
+        lead = await create_lead_from_submission(
+            db, form=form, payload=payload, source_domain=None
+        )
+        db.add(FormSubmission(web_form_id=form.id, lead_id=lead.id, raw_payload=payload))
+        await db.flush()
+        return lead
+
+    first = await submit()
+    assert (await submit()).id == first.id  # живой лид: заявка к нему же
+
+    first.deleted_at = datetime.now(timezone.utc)
+    await db.flush()
+    second = await submit()
+    assert second.id != first.id
+    assert second.deleted_at is None
+
+    assert (await db.get(Lead, first.id)).deleted_at is not None
+    items, total = await inbox.list_inbox(db, workspace_id=workspace.id, seen_at=None)
+    assert total == 1 and items[0]["lead_id"] == second.id

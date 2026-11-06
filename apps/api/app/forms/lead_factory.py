@@ -210,7 +210,9 @@ async def _find_existing_lead(
     Keys on normalized email / E.164 phone ONLY (never the free-mail-excluded
     corporate domain that `dedup.find_duplicates` uses) so a webform repeat
     from the same person attaches to their existing lead instead of forking a
-    duplicate. Oldest live lead wins (deterministic).
+    duplicate. Oldest live lead wins (deterministic). A deleted lead doesn't
+    count: if that client writes again, it is a new lead, otherwise the request
+    would land on a card nobody can see.
     """
     from sqlalchemy import or_, select
 
@@ -229,6 +231,7 @@ async def _find_existing_lead(
         .where(
             Lead.workspace_id == workspace_id,
             Lead.archived_at.is_(None),
+            Lead.deleted_at.is_(None),
             or_(*keys),
         )
         .order_by(Lead.created_at.asc())
