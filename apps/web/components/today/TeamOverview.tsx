@@ -16,6 +16,7 @@ import { useCompanyInflow, useCompanyManagers, useCompanySummary } from "@/lib/h
 import { useMe } from "@/lib/hooks/use-me";
 import { TodayHero } from "@/components/today/TodayHero";
 import { BrandsCard } from "@/components/today/BrandsCard";
+import { CitiesProductsCard } from "@/components/today/CitiesProductsCard";
 import { InflowCard } from "@/components/today/InflowCard";
 import { ReactionCard } from "@/components/today/ReactionCard";
 import { GREETING, dayPart, headSummary } from "@/lib/today-summary";
@@ -149,6 +150,7 @@ export function TeamOverview() {
       <InflowCard />
       <ReactionCard />
       <BrandsCard />
+      <CitiesProductsCard />
 
       {/* Header + period toggle */}
       <div className="bg-white border border-brand-border rounded-card p-6 mb-5">

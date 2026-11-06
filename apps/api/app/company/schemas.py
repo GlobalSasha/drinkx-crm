@@ -147,6 +147,19 @@ class CompanyBrandsOut(BaseModel):
     no_brand: int
 
 
+class NamedCount(BaseModel):
+    name: str
+    count: int
+
+
+class CompanyCitiesProductsOut(BaseModel):
+    total: int
+    cities: list[NamedCount]  # most leads first
+    no_city: int
+    products: list[NamedCount]  # fixed order; one lead may count under several
+    no_product: int
+
+
 class CompanyInflowOut(BaseModel):
     timezone: str
     today: date  # the user's local date — the client zero-fills ranges from it
