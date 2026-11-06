@@ -12,6 +12,7 @@ from app.activity.models import Activity  # noqa: F401
 from app.followups.models import Followup  # noqa: F401
 from app.lead_sources.models import LeadSource  # noqa: F401
 
+from app.company import repositories as repo
 from app.company import services as svc
 
 skip_no_pg = pytest.mark.skipif(not POSTGRES_AVAILABLE, reason="requires Postgres")
@@ -196,6 +197,37 @@ async def test_inflow_reaction_counts_people_on_incoming_leads_only(db, workspac
     assert r["waiting"][0]["company_name"] == "L2"       # oldest first (3 days)
     assert {w["company_name"] for w in r["waiting"]} == {"L1", "L2", "L4", "Waiting"}
     assert r["previous"] == {"total": 0, "touched": 0, "median_hours": None, "within_hour": 0}
+
+
+@skip_no_pg
+async def test_deleted_lead_is_out_of_every_overview_number(db, workspace, user):
+    """Удалённая заявка не открывается (404), поэтому не должна ни считаться,
+    ни попадать в списки со ссылкой на карточку."""
+    from app.leads.models import Lead
+
+    leads = await _setup(db, workspace, user)
+    now = datetime.now(timezone.utc)
+    deleted = Lead(workspace_id=workspace.id, company_name="ТЕСТ", pipeline_id=leads[0].pipeline_id,
+                   stage_id=leads[0].stage_id, source="form:landing", assignment_status="assigned",
+                   assigned_to=user.id, created_at=now - timedelta(days=25))
+    db.add(deleted)
+    await db.flush()
+
+    before = await svc.inflow(db, workspace_id=workspace.id, tz="Europe/Moscow")
+    assert "ТЕСТ" in {w["company_name"] for w in before["reaction"]["waiting"]}
+    stuck_before = await repo.stuck_count(db, workspace_id=workspace.id)
+    load_before = await repo.portfolio_per_user(db, workspace_id=workspace.id, user_ids=[user.id])
+
+    deleted.deleted_at = now
+    await db.flush()
+
+    after = await svc.inflow(db, workspace_id=workspace.id, tz="Europe/Moscow")
+    assert "ТЕСТ" not in {w["company_name"] for w in after["reaction"]["waiting"]}
+    assert after["reaction"]["waiting_count"] == before["reaction"]["waiting_count"] - 1
+    assert after["reaction"]["current"]["total"] == before["reaction"]["current"]["total"] - 1
+    assert await repo.stuck_count(db, workspace_id=workspace.id) == stuck_before - 1
+    load_after = await repo.portfolio_per_user(db, workspace_id=workspace.id, user_ids=[user.id])
+    assert load_after[user.id]["in_work"] == load_before[user.id]["in_work"] - 1
 
 
 # --- «Застряла» считается по действиям людей, а не по возрасту лида ---------

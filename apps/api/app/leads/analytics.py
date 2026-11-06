@@ -42,7 +42,11 @@ async def utm_source_stats(db: AsyncSession, workspace_id: uuid.UUID) -> list[di
         )
         .select_from(Lead)
         .outerjoin(UtmSource, UtmSource.id == Lead.utm_source_id)
-        .where(Lead.workspace_id == workspace_id, Lead.archived_at.is_(None))
+        .where(
+            Lead.workspace_id == workspace_id,
+            Lead.deleted_at.is_(None),
+            Lead.archived_at.is_(None),
+        )
         .group_by(UtmSource.name)
         .order_by(func.count(Lead.id).desc())
     )
@@ -96,7 +100,7 @@ _STAGE_DWELL_SQL = text(
         JOIN stages s ON s.id = lsh.stage_id
         WHERE l.workspace_id = :wid
           AND lsh.exited_at IS NULL
-          AND l.archived_at IS NULL
+          AND l.deleted_at IS NULL AND l.archived_at IS NULL
           AND EXTRACT(EPOCH FROM (now() - lsh.entered_at))
               > GREATEST(COALESCE(s.rot_days, 0), 14) * 86400
         GROUP BY lsh.stage_id

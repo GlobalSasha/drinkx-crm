@@ -61,7 +61,7 @@ async def pulse_counts(
           count(*) FILTER (WHERE created_at >= :week_start)                                 AS week,
           count(*) FILTER (WHERE created_at >= :prior_week_start AND created_at < :week_start) AS week_prior
         FROM leads
-        WHERE workspace_id = :wid AND archived_at IS NULL
+        WHERE workspace_id = :wid AND deleted_at IS NULL AND archived_at IS NULL
     """)
     r = (await db.execute(sql, {
         "wid": workspace_id, "today_start": today_start,
@@ -77,7 +77,7 @@ async def stuck_count(db: AsyncSession, *, workspace_id: uuid.UUID) -> int:
         FROM leads l JOIN stages s ON s.id = l.stage_id
         WHERE l.workspace_id = :wid
           AND l.assignment_status = 'assigned'
-          AND l.archived_at IS NULL
+          AND l.deleted_at IS NULL AND l.archived_at IS NULL
           AND s.is_won = false AND s.is_lost = false
           AND {_LAST_TOUCH} < now() - interval '{STUCK_DAYS} days'
     """)
@@ -128,7 +128,7 @@ async def source_breakdown(
         FROM leads l
         LEFT JOIN lead_sources ls ON ls.id = l.source_id
         LEFT JOIN stages s ON s.id = l.stage_id
-        WHERE l.workspace_id = :wid AND l.archived_at IS NULL AND l.created_at >= :from_
+        WHERE l.workspace_id = :wid AND l.deleted_at IS NULL AND l.archived_at IS NULL AND l.created_at >= :from_
           {upper}
         GROUP BY ls.id, ls.name, ls.is_paid
         ORDER BY leads DESC
@@ -156,7 +156,7 @@ async def daily_by_source(
         SELECT date_trunc('day', l.created_at)::date AS day, l.source_id AS source_id,
                count(*) AS cnt
         FROM leads l
-        WHERE l.workspace_id = :wid AND l.archived_at IS NULL AND l.created_at >= :from_
+        WHERE l.workspace_id = :wid AND l.deleted_at IS NULL AND l.archived_at IS NULL AND l.created_at >= :from_
         GROUP BY day, l.source_id
         ORDER BY day
     """)
@@ -177,7 +177,7 @@ async def stuck_leads(
         LEFT JOIN users u ON u.id = l.assigned_to
         WHERE l.workspace_id = :wid
           AND l.assignment_status = 'assigned'
-          AND l.archived_at IS NULL
+          AND l.deleted_at IS NULL AND l.archived_at IS NULL
           AND s.is_won = false AND s.is_lost = false
           AND {_LAST_TOUCH} < now() - interval '{STUCK_DAYS} days'
         ORDER BY {_LAST_TOUCH} ASC
@@ -211,7 +211,7 @@ async def manager_load(db: AsyncSession, *, workspace_id: uuid.UUID) -> list[dic
         LEFT JOIN users u ON u.id = l.assigned_to
         WHERE l.workspace_id = :wid
           AND l.assignment_status = 'assigned'
-          AND l.archived_at IS NULL
+          AND l.deleted_at IS NULL AND l.archived_at IS NULL
           AND l.assigned_to IS NOT NULL
         GROUP BY l.assigned_to, u.name, u.max_active_deals
         ORDER BY in_work DESC
@@ -282,7 +282,7 @@ async def new_leads_per_user(
         WHERE workspace_id = :wid
           AND assigned_to = ANY(:uids)
           AND created_at >= :from_ AND created_at <= :to
-          AND archived_at IS NULL
+          AND deleted_at IS NULL AND archived_at IS NULL
         GROUP BY assigned_to
     """)
     rows = (
@@ -380,7 +380,7 @@ async def portfolio_per_user(
         WHERE l.workspace_id = :wid
           AND l.assigned_to = ANY(:uids)
           AND l.assignment_status = 'assigned'
-          AND l.archived_at IS NULL
+          AND l.deleted_at IS NULL AND l.archived_at IS NULL
           AND s.is_won = false AND s.is_lost = false
         GROUP BY l.assigned_to
     """)
@@ -428,7 +428,7 @@ async def inflow_points(
                count(*) AS cnt
         FROM leads l
         LEFT JOIN lead_sources ls ON ls.id = l.source_id
-        WHERE l.workspace_id = :wid AND l.archived_at IS NULL AND l.created_at >= :from_
+        WHERE l.workspace_id = :wid AND l.deleted_at IS NULL AND l.archived_at IS NULL AND l.created_at >= :from_
         GROUP BY 1, 2
         ORDER BY 1
     """)
@@ -462,7 +462,7 @@ async def inbound_reaction(
                ) AS first_touch
         FROM leads l
         LEFT JOIN lead_sources ls ON ls.id = l.source_id
-        WHERE l.workspace_id = :wid AND l.archived_at IS NULL AND l.created_at >= :from_
+        WHERE l.workspace_id = :wid AND l.deleted_at IS NULL AND l.archived_at IS NULL AND l.created_at >= :from_
           AND (l.source LIKE 'form:%' OR COALESCE(ls.is_paid, false))
     """)
     rows = (await db.execute(sql, {
