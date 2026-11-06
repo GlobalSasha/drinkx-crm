@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type {
   CompanyBrands,
+  CompanyCitiesProducts,
   CompanySummary,
   CompanyInflow,
   CompanyManagers,
@@ -31,6 +32,15 @@ export function useCompanyBrands() {
   return useQuery({
     queryKey: ["company-brands"],
     queryFn: () => api.get<CompanyBrands>("/company/brands"),
+    staleTime: 60 * 1000,
+  });
+}
+
+/** The whole lead base by city and by product. Admin/head only. */
+export function useCompanyCitiesProducts() {
+  return useQuery({
+    queryKey: ["company-cities-products"],
+    queryFn: () => api.get<CompanyCitiesProducts>("/company/cities-products"),
     staleTime: 60 * 1000,
   });
 }

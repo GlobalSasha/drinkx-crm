@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import uuid
+from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 from statistics import median
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -9,6 +10,13 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.company import repositories as repo
+from app.company.cities_products import (
+    PRODUCTS,
+    city_from_payload,
+    find_products,
+    normalize_city,
+    products_from_payload,
+)
 from app.presence import repositories as presence_repo
 from app.team import repositories as team_repo
 
@@ -206,6 +214,50 @@ async def _reaction(db: AsyncSession, *, workspace_id: uuid.UUID) -> dict:
 
 async def brands(db: AsyncSession, *, workspace_id: uuid.UUID) -> dict:
     return await repo.brand_counts(db, workspace_id=workspace_id)
+
+
+async def cities_products(db: AsyncSession, *, workspace_id: uuid.UUID) -> dict:
+    leads, submissions = await repo.leads_for_city_product_stats(
+        db, workspace_id=workspace_id
+    )
+    form_city: dict[uuid.UUID, str] = {}
+    form_products: dict[uuid.UUID, set[str]] = {}
+    for sub in submissions:  # newest first: setdefault keeps the latest city
+        city = normalize_city(city_from_payload(sub.raw_payload))
+        if city:
+            form_city.setdefault(sub.lead_id, city)
+        form_products.setdefault(sub.lead_id, set()).update(
+            products_from_payload(sub.raw_payload)
+        )
+
+    cities: Counter[str] = Counter()
+    products: Counter[str] = Counter()
+    no_city = no_product = 0
+    for lead in leads:
+        city = normalize_city(lead.city) or form_city.get(lead.id)
+        if city:
+            cities[city] += 1
+        else:
+            no_city += 1
+        # A lead interested in two models counts once under each.
+        found = find_products(lead.deal_equipment, lead.deal_brand) | form_products.get(
+            lead.id, set()
+        )
+        if found:
+            products.update(found)
+        else:
+            no_product += 1
+
+    return {
+        "total": len(leads),
+        "cities": [
+            {"name": name, "count": count}
+            for name, count in sorted(cities.items(), key=lambda kv: (-kv[1], kv[0]))
+        ],
+        "no_city": no_city,
+        "products": [{"name": name, "count": products[name]} for name in PRODUCTS],
+        "no_product": no_product,
+    }
 
 
 async def attention(db: AsyncSession, *, workspace_id: uuid.UUID) -> dict:

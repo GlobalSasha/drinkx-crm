@@ -10,8 +10,11 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.forms.models import FormSubmission
+from app.leads.models import Lead
 
 STUCK_DAYS = 7
 
@@ -109,6 +112,33 @@ async def brand_counts(db: AsyncSession, *, workspace_id: uuid.UUID) -> dict:
     """)
     r = (await db.execute(sql, {"wid": workspace_id})).one()
     return {"aeromilk": int(r.aeromilk), "drinkx": int(r.drinkx), "no_brand": int(r.no_brand)}
+
+
+async def leads_for_city_product_stats(
+    db: AsyncSession, *, workspace_id: uuid.UUID
+) -> tuple[list, list]:
+    """The whole live base, closed leads included, and its web-form requests,
+    newest first. Parsing them is left to the service."""
+    leads = (await db.execute(text("""
+        SELECT l.id, l.city, l.deal_equipment, l.deal_brand
+        FROM leads l
+        WHERE l.workspace_id = :wid
+          AND l.deleted_at IS NULL AND l.archived_at IS NULL
+          AND l.assignment_status <> 'deleted'
+    """), {"wid": workspace_id})).all()
+    # Through the ORM: a raw text() query would hand back the JSON as a string.
+    submissions = (await db.execute(
+        select(FormSubmission.lead_id, FormSubmission.raw_payload)
+        .join(Lead, Lead.id == FormSubmission.lead_id)
+        .where(
+            Lead.workspace_id == workspace_id,
+            Lead.deleted_at.is_(None),
+            Lead.archived_at.is_(None),
+            Lead.assignment_status != "deleted",
+        )
+        .order_by(FormSubmission.created_at.desc())
+    )).all()
+    return leads, submissions
 
 
 async def source_breakdown(

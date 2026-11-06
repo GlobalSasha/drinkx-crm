@@ -4,6 +4,7 @@
   GET /api/company/attention                    — stuck leads + per-manager load
   GET /api/company/inflow                       — new leads by day / month and source
   GET /api/company/brands                       — active leads per brand
+  GET /api/company/cities-products              — whole base by city and product
 """
 from __future__ import annotations
 
@@ -18,6 +19,7 @@ from app.company import services as svc
 from app.company.schemas import (
     CompanyAttentionOut,
     CompanyBrandsOut,
+    CompanyCitiesProductsOut,
     CompanyInflowOut,
     CompanyManagersOut,
     CompanySummaryOut,
@@ -81,4 +83,13 @@ async def company_brands(
     user: Annotated[User, Depends(require_admin_or_head)] = ...,
 ) -> CompanyBrandsOut:
     data = await svc.brands(db, workspace_id=user.workspace_id)
+    return data  # type: ignore[return-value]
+
+
+@router.get("/cities-products", response_model=CompanyCitiesProductsOut)
+async def company_cities_products(
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(require_admin_or_head)] = ...,
+) -> CompanyCitiesProductsOut:
+    data = await svc.cities_products(db, workspace_id=user.workspace_id)
     return data  # type: ignore[return-value]

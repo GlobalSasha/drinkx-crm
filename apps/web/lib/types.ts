@@ -266,6 +266,14 @@ export interface CompanyInflow {
 }
 
 /** `/company/brands` — active leads per brand. */
+export interface CompanyCitiesProducts {
+  total: number;
+  cities: { name: string; count: number }[];
+  no_city: number;
+  products: { name: string; count: number }[];
+  no_product: number;
+}
+
 export interface CompanyBrands {
   aeromilk: number;
   drinkx: number;
