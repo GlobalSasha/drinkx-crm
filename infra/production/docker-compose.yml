@@ -101,6 +101,9 @@ services:
       AI_MONTHLY_BUDGET_USD: ${AI_MONTHLY_BUDGET_USD:-200}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      # Encrypts Gmail credentials in channel_connections. Changing it makes
+      # already encrypted credentials unreadable: mailboxes must be reconnected.
+      FERNET_KEY: ${FERNET_KEY:-}
       API_BASE_URL: ${API_BASE_URL}
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL}
       # SMTP — daily email digest. Empty SMTP_HOST keeps the stub mode

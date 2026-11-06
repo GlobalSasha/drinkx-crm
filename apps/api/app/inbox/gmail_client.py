@@ -29,6 +29,14 @@ from googleapiclient.errors import HttpError
 log = structlog.get_logger()
 
 
+class HistoryCursorExpired(Exception):
+    """Gmail no longer keeps history that far back (HTTP 404 on history.list).
+
+    Not the same as "no new mail": retrying with this cursor can never succeed,
+    so the caller has to start over from a fresh one.
+    """
+
+
 def credentials_from_json(creds_json: str) -> Credentials:
     """Build a google-auth Credentials object from the stored JSON blob."""
     data = json.loads(creds_json)
@@ -185,7 +193,8 @@ class GmailClient:
         start_history_id: str,
     ) -> list[dict[str, Any]]:
         """Return new history entries since `start_history_id`. Used for the
-        5-min incremental tick. Empty list on failure or no changes."""
+        5-min incremental tick. Empty list on failure or no changes; raises
+        HistoryCursorExpired when Gmail no longer knows the cursor."""
 
         def _do() -> list[dict[str, Any]]:
             try:
@@ -211,6 +220,8 @@ class GmailClient:
                 return entries
             except HttpError as exc:
                 log.warning("gmail.get_history.http_error", status=exc.status_code)
+                if exc.status_code == 404:
+                    raise HistoryCursorExpired(start_history_id) from exc
                 return []
             except Exception as exc:
                 log.exception("gmail.get_history.failed", error=str(exc)[:200])
