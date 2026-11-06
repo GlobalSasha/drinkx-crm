@@ -259,7 +259,7 @@ async def workload_rows(
         FROM leads
         WHERE workspace_id = :wid
           AND assignment_status = 'assigned'
-          AND archived_at IS NULL
+          AND deleted_at IS NULL AND archived_at IS NULL
           AND stage_id IS NOT NULL
           AND assigned_to IS NOT NULL
         GROUP BY assigned_to, stage_id
@@ -300,7 +300,7 @@ _PORTFOLIO_BASE = """
     WHERE l.workspace_id = :wid
       AND l.assigned_to = :uid
       AND l.assignment_status = 'assigned'
-      AND l.archived_at IS NULL
+      AND l.deleted_at IS NULL AND l.archived_at IS NULL
       AND s.is_won = false AND s.is_lost = false
 """
 
