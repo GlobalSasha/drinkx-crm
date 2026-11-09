@@ -878,3 +878,27 @@ def test_lead_assign_filter_accepts_zero_fit_min():
     )
 
     assert payload.fit_min == 0.0
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_from_others_shows_only_tasks_someone_else_set(db, workspace):
+    from app.activity import repositories as act_repo
+
+    head = await _make_user(db, workspace.id, "head", "Head")
+    manager = await _make_user(db, workspace.id, "manager", "Dima")
+    lead = await _make_lead(db, workspace.id, assigned_to=manager.id)
+
+    await _create_task(db, workspace, head, text="От руководителя", assignee_user_id=manager.id)
+    await _create_task(db, workspace, manager, text="Себе")
+    # Автоматическая задача («Связаться с заявкой») автора не имеет.
+    await act_repo.create(db, lead.id, None, {"type": "task", "body": "Автоматика", "payload_json": {}})
+    await _create_task(db, workspace, head, text="Другому", assignee_user_id=head.id)
+
+    mine = await _tasks(db, workspace, manager, assignee_user_id=manager.id)
+    assert {r["text"] for r in mine} == {"От руководителя", "Себе", "Автоматика"}
+
+    from_others = await _tasks(
+        db, workspace, manager, assignee_user_id=manager.id, from_others=True
+    )
+    assert [r["text"] for r in from_others] == ["От руководителя"]
