@@ -26,6 +26,8 @@ import type {
 export interface TaskFilters {
   assigneeUserId?: string;
   authorUserId?: string;
+  /** Только задачи, которые поставил кто-то другой (не я и не автоматика). */
+  fromOthers?: boolean;
   status?: TaskStatusFilter;
   /** Подстрока в тексте задачи или названии компании — отбирает сервер. */
   q?: string;
@@ -41,6 +43,7 @@ function toQuery(filters: TaskFilters, cursor: string | null): string {
   const params = new URLSearchParams({ limit: String(TASKS_PAGE) });
   if (filters.assigneeUserId) params.set("assignee_user_id", filters.assigneeUserId);
   if (filters.authorUserId) params.set("author_user_id", filters.authorUserId);
+  if (filters.fromOthers) params.set("from_others", "true");
   if (filters.status && filters.status !== "all") params.set("status", filters.status);
   if (filters.q) params.set("q", filters.q);
   if (filters.dueFrom) params.set("due_from", filters.dueFrom);

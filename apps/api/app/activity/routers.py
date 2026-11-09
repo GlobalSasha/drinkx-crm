@@ -555,6 +555,7 @@ def _as_utc(value: datetime | None) -> datetime | None:
 async def list_tasks(
     assignee_user_id: UUID | None = Query(None),
     author_user_id: UUID | None = Query(None),
+    from_others: bool = Query(False),
     q: str | None = Query(None, max_length=200),
     due_from: Annotated[datetime | None, Query(), AfterValidator(_as_utc)] = None,
     due_to: Annotated[datetime | None, Query(), AfterValidator(_as_utc)] = None,
@@ -583,6 +584,7 @@ async def list_tasks(
             actor=user,
             assignee_user_id=assignee_user_id,
             author_user_id=author_user_id,
+            from_others=from_others,
             q=q,
             due_from=due_from,
             due_to=due_to,

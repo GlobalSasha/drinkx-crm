@@ -40,7 +40,7 @@ import {
   EmptyDescription,
 } from "@/components/ui/Empty";
 
-type TabKey = "mine" | "authored" | "team";
+type TabKey = "mine" | "from_others" | "authored" | "team";
 type StatusFilter = "all" | "open" | "done" | "overdue";
 
 /** Пауза в наборе, после которой поиск уходит на сервер. */
@@ -70,6 +70,7 @@ function buildFilters(
     dueTo: due.to,
   };
   if (tab === "mine") return { ...base, assigneeUserId: meId };
+  if (tab === "from_others") return { ...base, assigneeUserId: meId, fromOthers: true };
   if (tab === "authored") return { ...base, authorUserId: meId };
   return { ...base, assigneeUserId: assigneeFilter ?? undefined };
 }
@@ -85,6 +86,12 @@ function countForStatus(counts: TaskCounts, status: StatusFilter): number {
 function emptyStateFor(tab: TabKey, hasAnyRows: boolean) {
   if (hasAnyRows) {
     return { title: "Нет задач под фильтр", description: "Смените статус или срок" };
+  }
+  if (tab === "from_others") {
+    return {
+      title: "Вам пока не ставили задач",
+      description: "Здесь появятся задачи, которые вам поставил руководитель или коллега.",
+    };
   }
   if (tab === "authored") {
     return {
@@ -400,6 +407,7 @@ export default function TasksPage() {
         >
           <TabsList className="mb-4">
             <TabsTrigger value="mine">Мои</TabsTrigger>
+            <TabsTrigger value="from_others">Поставлены мне</TabsTrigger>
             <TabsTrigger value="authored">Поставлено мной</TabsTrigger>
             {canSeeTeam && <TabsTrigger value="team">Команда</TabsTrigger>}
           </TabsList>

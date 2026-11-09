@@ -390,6 +390,7 @@ async def list_tasks(
     actor: User,
     assignee_user_id: uuid.UUID | None = None,
     author_user_id: uuid.UUID | None = None,
+    from_others: bool = False,
     q: str | None = None,
     due_from: datetime | None = None,
     due_to: datetime | None = None,
@@ -398,6 +399,10 @@ async def list_tasks(
     limit: int = 50,
 ) -> tuple[list[dict], str | None, dict]:
     """Список задач для страницы «Задачи».
+
+    `from_others` — вкладка «Поставлены мне»: задачи, которые поставил
+    другой человек. Свои и автоматические (без автора) отсекаются, иначе
+    задача руководителя тонет среди десятков собственных.
 
     Менеджер видит только свои — фильтр по чужому исполнителю ему просто
     не даётся, а не отдаёт пустой список: так в интерфейсе нет вкладки,
@@ -421,6 +426,11 @@ async def list_tasks(
             query = query.where(Activity.user_id == author_user_id)
         if assignee_user_id is not None:
             query = query.where(_assigned_to_clause(Lead, actor.id))
+
+    if from_others:
+        query = query.where(
+            Activity.user_id.is_not(None), Activity.user_id != actor.id
+        )
 
     # Поиск и срок — такой же AND к уже суженной по правам выборке, как
     # исполнитель и автор, и в том же месте: до счётчиков и до среза страницы.

@@ -100,6 +100,7 @@ describe("TasksPage — доступ к вкладке команды", () => {
     renderPage();
 
     expect(screen.getByRole("tab", { name: "Мои" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Поставлены мне" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Поставлено мной" })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Команда" })).toBeNull();
     expect(screen.queryByRole("combobox", { name: "Исполнитель" })).toBeNull();
