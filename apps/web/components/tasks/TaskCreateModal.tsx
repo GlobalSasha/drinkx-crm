@@ -5,6 +5,7 @@ import { Loader2, X } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { useMe } from "@/lib/hooks/use-me";
 import { useUsers } from "@/lib/hooks/use-users";
+import { useLead } from "@/lib/hooks/use-lead";
 import { useLeads } from "@/lib/hooks/use-leads";
 import { useCreateTask } from "@/lib/hooks/use-tasks";
 import { UserSelect } from "@/components/ui/UserSelect";
@@ -31,6 +32,7 @@ export function TaskCreateModal({ open, onClose, onCreated }: Props) {
   const [leadQuery, setLeadQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selectedLead, setSelectedLead] = useState<LeadListItem | null>(null);
+  const { data: selectedLeadFull } = useLead(selectedLead?.id ?? "");
   const [error, setError] = useState<string | null>(null);
 
   // Дефолт исполнителя — сам постановщик, как только известен /me.
@@ -164,6 +166,7 @@ export function TaskCreateModal({ open, onClose, onCreated }: Props) {
                 onChange={setAssigneeId}
                 users={usersData?.items ?? []}
                 meId={me?.id}
+                leadOwnerId={selectedLead && selectedLeadFull ? selectedLeadFull.assigned_to : undefined}
                 aria-label="Исполнитель"
                 className="mt-1"
               />

@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/Modal";
 import { useUpdateTask } from "@/lib/hooks/use-tasks";
 import { useMe } from "@/lib/hooks/use-me";
 import { useUsers } from "@/lib/hooks/use-users";
+import { useLead } from "@/lib/hooks/use-lead";
 import { UserSelect } from "@/components/ui/UserSelect";
 import { apiErrorDetail } from "@/lib/api-error";
 import { C } from "@/lib/design-system";
@@ -57,6 +58,7 @@ export function TaskEditModal({
   const update = useUpdateTask();
   const { data: me } = useMe();
   const { data: usersData } = useUsers();
+  const { data: lead } = useLead(leadId ?? "");
   const canReassign = me?.role === "admin" || me?.role === "head";
 
   const [title, setTitle] = useState(initialTitle);
@@ -166,6 +168,7 @@ export function TaskEditModal({
                 onChange={setAssigneeId}
                 users={usersData?.items ?? []}
                 meId={me?.id}
+                leadOwnerId={lead ? lead.assigned_to : undefined}
                 allowEmpty
                 emptyLabel={
                   effectiveAssigneeName
