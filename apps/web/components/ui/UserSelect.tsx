@@ -15,6 +15,9 @@ export interface UserSelectProps {
   users: UserListItemOut[];
   /** id текущего пользователя — подпись «(вы)». */
   meId?: string;
+  /** Владелец лида, к которому относится выбор. Если передан, менеджер,
+   *  которому лид не принадлежит, получает пометку: карточку он не откроет. */
+  leadOwnerId?: string | null;
   /** Пункт «— не выбран —» / своя подпись пустого значения. */
   allowEmpty?: boolean;
   emptyLabel?: string;
@@ -29,6 +32,7 @@ export function UserSelect({
   onChange,
   users,
   meId,
+  leadOwnerId,
   allowEmpty,
   emptyLabel = "— не выбран —",
   disabled,
@@ -55,6 +59,9 @@ export function UserSelect({
         <option key={user.id} value={user.id}>
           {(user.name || user.email) + " · " + (ROLE_LABEL[user.role] ?? user.role)}
           {user.id === meId ? " (вы)" : ""}
+          {leadOwnerId !== undefined && user.role === "manager" && user.id !== leadOwnerId
+            ? " · не видит карточку"
+            : ""}
         </option>
       ))}
     </select>

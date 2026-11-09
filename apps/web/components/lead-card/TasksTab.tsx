@@ -19,6 +19,7 @@ import {
 } from "@/lib/hooks/use-lead-tasks";
 import { UserSelect } from "@/components/ui/UserSelect";
 import { useMe } from "@/lib/hooks/use-me";
+import { useLead } from "@/lib/hooks/use-lead";
 import { useUsers } from "@/lib/hooks/use-users";
 import { useUpdateTask } from "@/lib/hooks/use-tasks";
 import { apiErrorDetail } from "@/lib/api-error";
@@ -55,6 +56,8 @@ export function TasksTab({ leadId }: Props) {
     isFetchingNextPage,
   } = useLeadTasks(leadId);
   const createTask = useCreateLeadTask(leadId);
+  const { data: lead } = useLead(leadId);
+  const leadOwnerId = lead ? lead.assigned_to : undefined;
   const completeTask = useCompleteLeadTask(leadId);
   const reopenTask = useReopenLeadTask(leadId);
   const archiveTask = useArchiveLeadTask(leadId);
@@ -206,6 +209,7 @@ export function TasksTab({ leadId }: Props) {
               onChange={setAssigneeId}
               users={users}
               meId={me?.id}
+              leadOwnerId={leadOwnerId}
               allowEmpty
               emptyLabel="Владелец лида"
               disabled={createTask.isPending}
@@ -350,6 +354,7 @@ export function TasksTab({ leadId }: Props) {
                           onChange={(v) => handleDelegate(a.id, v)}
                           users={users}
                           meId={me?.id}
+                          leadOwnerId={leadOwnerId}
                           allowEmpty
                           emptyLabel="Владелец лида"
                           disabled={rowDelegatePending}

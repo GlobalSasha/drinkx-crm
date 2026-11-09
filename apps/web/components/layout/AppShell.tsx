@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { clsx } from "clsx";
-import { Menu, X } from "lucide-react";
+import { Bell, Menu, X } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { User } from "@supabase/supabase-js";
 import { NotificationsDrawer } from "@/components/notifications/NotificationsDrawer";
@@ -15,6 +15,7 @@ import { C } from "@/lib/design-system";
 import { SidebarNavContainer } from "./SidebarNavContainer";
 import { DrinkXLogo } from "./DrinkXLogo";
 import { TaskReminders } from "@/components/reminders/TaskReminders";
+import { useNotificationsBadge } from "@/lib/hooks/use-notifications";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -80,13 +81,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Link href="/today" aria-label="DrinkX — на главную" className={`rounded-full ${C.color.text} ${C.focusRing}`}>
           <DrinkXLogo className="h-6 w-auto" />
         </Link>
-        <button
-          onClick={() => setMobileNavOpen(true)}
-          className="p-2.5 -mr-2.5 rounded-full text-brand-muted transition-colors"
-          aria-label="Открыть меню"
-        >
-          <Menu size={22} />
-        </button>
+        <div className="flex items-center gap-1 -mr-2.5">
+          <MobileBell onClick={openNotifications} />
+          <button
+            onClick={() => setMobileNavOpen(true)}
+            className="p-2.5 rounded-full text-brand-muted transition-colors"
+            aria-label="Открыть меню"
+          >
+            <Menu size={22} />
+          </button>
+        </div>
       </header>
 
       {/* Mobile backdrop */}
@@ -189,5 +193,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* In-app task-due reminders (glass toasts, bottom-right) */}
       <TaskReminders />
     </div>
+  );
+}
+
+// На телефоне меню спрятано, поэтому колокольчик с числом непрочитанных
+// вынесен в верхнюю панель: иначе вопросы и задачи от руководителя не видны.
+function MobileBell({ onClick }: { onClick: () => void }) {
+  const { data } = useNotificationsBadge();
+  const unread = data?.unread ?? 0;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="relative p-2.5 rounded-full text-brand-muted transition-colors"
+      aria-label={`Уведомления${unread > 0 ? ` (${unread} непрочитанных)` : ""}`}
+    >
+      <Bell size={22} />
+      {unread > 0 && (
+        <span className="absolute top-1 right-1 min-w-4 h-4 bg-brand-accent text-white text-xs font-mono font-medium rounded-full px-1 flex items-center justify-center tabular-nums">
+          {unread > 999 ? "999+" : unread}
+        </span>
+      )}
+    </button>
   );
 }

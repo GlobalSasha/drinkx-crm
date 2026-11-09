@@ -51,6 +51,10 @@ vi.mock("@/lib/hooks/use-me", () => ({
   useMe: () => ({ data: { id: "me", role: state.role } }),
 }));
 
+vi.mock("@/lib/hooks/use-lead", () => ({
+  useLead: () => ({ data: undefined }),
+}));
+
 vi.mock("@/lib/hooks/use-users", () => ({
   useUsers: () => ({
     data: {
