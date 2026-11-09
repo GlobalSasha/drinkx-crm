@@ -902,3 +902,51 @@ async def test_from_others_shows_only_tasks_someone_else_set(db, workspace):
         db, workspace, manager, assignee_user_id=manager.id, from_others=True
     )
     assert [r["text"] for r in from_others] == ["От руководителя"]
+
+
+async def _task_notes(db, user_id):
+    from sqlalchemy import select
+    from app.notifications.models import Notification
+
+    return (await db.execute(
+        select(Notification).where(
+            Notification.user_id == user_id, Notification.kind == "task_assigned"
+        )
+    )).scalars().all()
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_lead_owner_is_notified_when_the_head_leaves_the_default_assignee(db, workspace):
+    from app.activity import services
+
+    head = await _make_user(db, workspace.id, "head", "Head")
+    manager = await _make_user(db, workspace.id, "manager", "Dima")
+    lead = await _make_lead(db, workspace.id, assigned_to=manager.id)
+
+    # Карточка лида: исполнитель «Владелец лида» (пусто).
+    await services.create_activity(
+        db, workspace.id, lead.id, head,
+        {"type": "task", "body": "Позвонить", "task_due_at": TOMORROW, "payload_json": {}},
+    )
+    # Страница «Задачи»: тоже без исполнителя.
+    await _create_task(db, workspace, head, text="Отправить КП", lead_id=lead.id)
+
+    notes = await _task_notes(db, manager.id)
+    assert sorted(n.body for n in notes) == ["Отправить КП", "Позвонить"]
+    assert all(n.lead_id == lead.id for n in notes)
+
+
+@skip_no_pg
+@pytest.mark.asyncio
+async def test_a_manager_is_not_notified_about_his_own_task(db, workspace):
+    from app.activity import services
+
+    manager = await _make_user(db, workspace.id, "manager", "Dima")
+    lead = await _make_lead(db, workspace.id, assigned_to=manager.id)
+
+    await services.create_activity(
+        db, workspace.id, lead.id, manager,
+        {"type": "task", "body": "Себе", "task_due_at": TOMORROW, "payload_json": {}},
+    )
+    assert await _task_notes(db, manager.id) == []

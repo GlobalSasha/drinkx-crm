@@ -547,7 +547,8 @@ async def create_task(
         db,
         workspace_id=workspace_id,
         actor=actor,
-        assignee_user_id=assignee_user_id,
+        # Без явного исполнителя задача достаётся владельцу лида — ему и пишем.
+        assignee_user_id=effective_assignee_id(activity, lead if lead_id else None),
         text=text,
         lead_id=lead_id,
     )
@@ -757,7 +758,8 @@ async def create_activity(
             db,
             workspace_id=workspace_id,
             actor=actor,
-            assignee_user_id=assignee_user_id,
+            # Без явного исполнителя задача достаётся владельцу лида — ему и пишем.
+            assignee_user_id=effective_assignee_id(activity, lead),
             text=(payload_dict.get("body") or "Задача"),
             lead_id=lead_id,
         )
