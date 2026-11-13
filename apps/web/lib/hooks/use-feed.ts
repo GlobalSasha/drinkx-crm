@@ -6,6 +6,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api-client";
+import { invalidateTaskQueries } from "@/lib/hooks/use-task-cache";
 import type { AskBlakeOut, FeedItemOut, FeedListOut } from "@/lib/types";
 
 /**
@@ -74,9 +75,9 @@ export function useCompleteTask(leadId: string) {
       const ctx = context as { prev?: unknown } | undefined;
       if (ctx?.prev !== undefined) qc.setQueryData(["feed", leadId], ctx.prev);
     },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ["feed", leadId] });
-    },
+    // Закрытая в ленте задача должна пропасть и из вкладки «Задачи», и из
+    // строки «Что дальше» — сбрасываем все кеши задач, не только ленту.
+    onSettled: () => invalidateTaskQueries(qc, leadId),
   });
 }
 
@@ -135,8 +136,11 @@ export function useCreateActivity(leadId: string) {
   return useMutation<FeedItemOut, ApiError, CreateActivityIn>({
     mutationFn: (body) =>
       api.post<FeedItemOut>(`/leads/${leadId}/activities`, body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["feed", leadId] });
+    onSuccess: (_item, body) => {
+      // Задача из ленты видна ещё во вкладке «Задачи», в строке
+      // «Что дальше» и в списках задач — их кеши тоже надо сбросить.
+      if (body.type === "task") invalidateTaskQueries(qc, leadId);
+      else qc.invalidateQueries({ queryKey: ["feed", leadId] });
     },
   });
 }
