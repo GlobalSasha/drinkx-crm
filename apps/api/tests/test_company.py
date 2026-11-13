@@ -208,7 +208,7 @@ async def test_deleted_lead_is_out_of_every_overview_number(db, workspace, user)
     leads = await _setup(db, workspace, user)
     now = datetime.now(timezone.utc)
     deleted = Lead(workspace_id=workspace.id, company_name="ТЕСТ", pipeline_id=leads[0].pipeline_id,
-                   stage_id=leads[0].stage_id, source="form:landing", assignment_status="assigned",
+                   stage_id=leads[2].stage_id, source="form:landing", assignment_status="assigned",
                    assigned_to=user.id, created_at=now - timedelta(days=25))
     db.add(deleted)
     await db.flush()
@@ -241,8 +241,9 @@ async def _old_lead(db, workspace, user, **overrides):
     p = Pipeline(workspace_id=workspace.id, name="Sales", type="sales", position=0)
     db.add(p)
     await db.flush()
+    intake = Stage(pipeline_id=p.id, name="Первый контакт", position=0, color="#ccc", rot_days=14)
     working = Stage(pipeline_id=p.id, name="В работе", position=1, color="#ccc", rot_days=14)
-    db.add(working)
+    db.add_all([intake, working])
     await db.flush()
     lead = Lead(
         workspace_id=workspace.id,
@@ -387,3 +388,59 @@ async def test_idle_days_run_from_the_latest_touch(db, workspace, user):
     assert attention["managers"][0]["stuck"] == 1
     assert team["managers"][0]["stuck"] == 1
     assert team["managers"][0]["oldest_stuck_days"] in (9, 10)
+
+
+# --- Первый этап воронки показываем отдельно от «застряли» ------------------
+
+
+async def _pipeline_with_shifted_positions(db, workspace):
+    """Positions start at 1, like production: the first stage is the earliest
+    one of its pipeline, not position 0."""
+    from app.pipelines.models import Pipeline, Stage
+
+    p = Pipeline(workspace_id=workspace.id, name="Sales", type="sales", position=0)
+    db.add(p)
+    await db.flush()
+    first = Stage(pipeline_id=p.id, name="Первый контакт", position=1, color="#ccc", rot_days=1)
+    second = Stage(pipeline_id=p.id, name="Квалификация", position=2, color="#ccc", rot_days=2)
+    db.add_all([first, second])
+    await db.flush()
+    return p, first, second
+
+
+def _idle_lead(workspace, user, pipeline, stage, name, idle_days):
+    from app.leads.models import Lead
+
+    return Lead(
+        workspace_id=workspace.id,
+        company_name=name,
+        pipeline_id=pipeline.id,
+        stage_id=stage.id,
+        assignment_status="assigned",
+        assigned_to=user.id,
+        created_at=_days_ago(idle_days),
+    )
+
+
+@skip_no_pg
+async def test_idle_leads_on_first_stage_are_counted_apart_from_stuck(db, workspace, user):
+    p, first, second = await _pipeline_with_shifted_positions(db, workspace)
+    db.add_all([
+        _idle_lead(workspace, user, p, first, "Не начат 1", 20),
+        _idle_lead(workspace, user, p, first, "Не начат 2", 10),
+        _idle_lead(workspace, user, p, first, "Свежий", 2),
+        _idle_lead(workspace, user, p, second, "Застрял", 15),
+    ])
+    await db.flush()
+
+    summary = await svc.summary(db, workspace_id=workspace.id, period="week")
+    attention = await svc.attention(db, workspace_id=workspace.id)
+    team = await svc.managers(db, workspace_id=workspace.id, period="week")
+
+    assert summary["stuck_count"] == 1
+    assert summary["first_stage_idle_count"] == 2
+    assert [s["company_name"] for s in attention["stuck"]] == ["Застрял"]
+    assert attention["managers"][0]["stuck"] == 1
+    assert team["managers"][0]["stuck"] == 1
+    assert team["managers"][0]["oldest_stuck_days"] in (14, 15)
+    assert team["totals"]["stuck"] == 1

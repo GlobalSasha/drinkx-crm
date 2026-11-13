@@ -3,7 +3,8 @@
 «Qualified» = a lead that has left the intake stage (stage.position > 0) — the
 intake stage is always position 0 (get_default_first_stage). «Stuck» = an open
 assigned lead on a non-terminal stage with no touch for 7+ days, where a touch
-is what `_LAST_TOUCH` lists.
+is what `_LAST_TOUCH` lists. Leads still on the first stage of their pipeline
+are not «stuck deals» yet: they are counted apart (`first_stage_idle_count`).
 """
 from __future__ import annotations
 
@@ -46,6 +47,13 @@ _LAST_TOUCH = f"""GREATEST(
 )"""
 
 
+# The lead sits on the first stage of its pipeline. Positions don't start at 0
+# in production, so «first» is the earliest stage of the same pipeline.
+_ON_FIRST_STAGE = """s.position = (
+    SELECT min(s2.position) FROM stages s2 WHERE s2.pipeline_id = s.pipeline_id
+)"""
+
+
 async def pulse_counts(
     db: AsyncSession,
     *,
@@ -74,7 +82,8 @@ async def pulse_counts(
     return {"today": int(r.today), "yesterday": int(r.yesterday), "week": int(r.week), "week_prior": int(r.week_prior)}
 
 
-async def stuck_count(db: AsyncSession, *, workspace_id: uuid.UUID) -> int:
+async def _idle_count(db: AsyncSession, *, workspace_id: uuid.UUID, first_stage: bool) -> int:
+    stage_filter = _ON_FIRST_STAGE if first_stage else f"NOT {_ON_FIRST_STAGE}"
     sql = text(f"""
         SELECT count(*)
         FROM leads l JOIN stages s ON s.id = l.stage_id
@@ -82,9 +91,20 @@ async def stuck_count(db: AsyncSession, *, workspace_id: uuid.UUID) -> int:
           AND l.assignment_status = 'assigned'
           AND l.deleted_at IS NULL AND l.archived_at IS NULL
           AND s.is_won = false AND s.is_lost = false
+          AND {stage_filter}
           AND {_LAST_TOUCH} < now() - interval '{STUCK_DAYS} days'
     """)
     return int((await db.execute(sql, {"wid": workspace_id})).scalar_one())
+
+
+async def stuck_count(db: AsyncSession, *, workspace_id: uuid.UUID) -> int:
+    """Deals past the first stage with no touch for STUCK_DAYS."""
+    return await _idle_count(db, workspace_id=workspace_id, first_stage=False)
+
+
+async def first_stage_idle_count(db: AsyncSession, *, workspace_id: uuid.UUID) -> int:
+    """Leads still on the first stage with no touch for STUCK_DAYS."""
+    return await _idle_count(db, workspace_id=workspace_id, first_stage=True)
 
 
 async def brand_counts(db: AsyncSession, *, workspace_id: uuid.UUID) -> dict:
@@ -209,6 +229,7 @@ async def stuck_leads(
           AND l.assignment_status = 'assigned'
           AND l.deleted_at IS NULL AND l.archived_at IS NULL
           AND s.is_won = false AND s.is_lost = false
+          AND NOT {_ON_FIRST_STAGE}
           AND {_LAST_TOUCH} < now() - interval '{STUCK_DAYS} days'
         ORDER BY {_LAST_TOUCH} ASC
         LIMIT :limit
@@ -234,6 +255,7 @@ async def manager_load(db: AsyncSession, *, workspace_id: uuid.UUID) -> list[dic
                count(*) FILTER (WHERE l.created_at >= now() - interval '7 days') AS new_week,
                count(*) FILTER (
                  WHERE s.is_won = false AND s.is_lost = false
+                   AND NOT {_ON_FIRST_STAGE}
                    AND {_LAST_TOUCH} < now() - interval '{STUCK_DAYS} days'
                ) AS stuck
         FROM leads l
@@ -397,12 +419,14 @@ async def portfolio_per_user(
         SELECT l.assigned_to AS user_id,
                count(*) AS in_work,
                count(*) FILTER (
-                 WHERE {_LAST_TOUCH} < now() - interval '{STUCK_DAYS} days'
+                 WHERE NOT {_ON_FIRST_STAGE}
+                   AND {_LAST_TOUCH} < now() - interval '{STUCK_DAYS} days'
                ) AS stuck,
                COALESCE(
                  MAX(
                    EXTRACT(DAY FROM now() - {_LAST_TOUCH})::int
-                 ) FILTER (WHERE {_LAST_TOUCH} < now() - interval '{STUCK_DAYS} days'),
+                 ) FILTER (WHERE NOT {_ON_FIRST_STAGE}
+                             AND {_LAST_TOUCH} < now() - interval '{STUCK_DAYS} days'),
                  0
                ) AS oldest_stuck_days
         FROM leads l

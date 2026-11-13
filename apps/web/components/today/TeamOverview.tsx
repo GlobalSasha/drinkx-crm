@@ -123,6 +123,7 @@ export function TeamOverview() {
       leadsToday: realToday(today),
       leadsYesterday: realToday(yesterday),
       stuck: flow.data?.stuck_count ?? null,
+      firstStageIdle: flow.data?.first_stage_idle_count ?? null,
       silent: silent ? { name: silent.name, days: silent.days ?? 0 } : null,
     });
   }, [flow.isLoading, flow.data, inflow.isLoading, inflow.data, isLoading, data]);
