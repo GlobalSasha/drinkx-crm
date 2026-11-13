@@ -28,6 +28,9 @@ async def _setup_manager_scenario(db, workspace, user):
     db.add(p)
     await db.flush()
 
+    intake = Stage(
+        pipeline_id=p.id, name="Первый контакт", position=0, color="#ccc", rot_days=14
+    )
     working = Stage(
         pipeline_id=p.id, name="В работе", position=1, color="#ccc", rot_days=14
     )
@@ -47,7 +50,7 @@ async def _setup_manager_scenario(db, workspace, user):
         rot_days=14,
         is_lost=True,
     )
-    db.add_all([working, won, lost])
+    db.add_all([intake, working, won, lost])
     await db.flush()
 
     now = datetime.now(timezone.utc)

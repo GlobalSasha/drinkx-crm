@@ -30,7 +30,8 @@ class CompanySummaryOut(BaseModel):
     leads_7d: int
     leads_7d_prior: int  # the 7 days before the trailing week — week-over-week delta
     avg_per_day_7d: float
-    stuck_count: int
+    stuck_count: int  # past the first stage, no touch for 7+ days
+    first_stage_idle_count: int  # still on the first stage, no touch for 7+ days
     ad_conversion_pct: float | None  # over paid sources in the period; None if no paid leads
     ad_conversion_pct_prior: float | None  # same metric over the prior comparable period
     sources: list[SourceBreakdown]

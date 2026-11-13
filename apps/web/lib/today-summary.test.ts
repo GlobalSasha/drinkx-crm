@@ -47,15 +47,24 @@ describe("managerSummary", () => {
 describe("headSummary", () => {
   it("combines leads, stuck deals and a silent manager", () => {
     expect(
-      headSummary({ leadsToday: 5, leadsYesterday: 14, stuck: 6, silent: { name: "Игорь", days: 2 } }),
-    ).toBe("Сегодня 5 новых заявок (вчера 14). 6 сделок застряли больше 7 дней. Игорь не заходит 2 дня.");
+      headSummary({ leadsToday: 5, leadsYesterday: 14, stuck: 6, firstStageIdle: 21, silent: { name: "Игорь", days: 2 } }),
+    ).toBe(
+      "Сегодня 5 новых заявок (вчера 14). 6 сделок застряли больше 7 дней. " +
+        "Ещё 21 лид на первом этапе без действий больше 7 дней. Игорь не заходит 2 дня.",
+    );
+  });
+
+  it("names first-stage leads without «ещё» when nothing is stuck", () => {
+    expect(headSummary({ leadsToday: null, leadsYesterday: null, stuck: 0, firstStageIdle: 3, silent: null })).toBe(
+      "3 лида на первом этапе без действий больше 7 дней.",
+    );
   });
 
   it("skips what is unknown or zero", () => {
-    expect(headSummary({ leadsToday: 1, leadsYesterday: null, stuck: 0, silent: null })).toBe(
+    expect(headSummary({ leadsToday: 1, leadsYesterday: null, stuck: 0, firstStageIdle: 0, silent: null })).toBe(
       "Сегодня 1 новая заявка.",
     );
-    expect(headSummary({ leadsToday: null, leadsYesterday: null, stuck: null, silent: null })).toBe(
+    expect(headSummary({ leadsToday: null, leadsYesterday: null, stuck: null, firstStageIdle: null, silent: null })).toBe(
       "Команда на месте, срочного нет.",
     );
   });

@@ -287,7 +287,10 @@ export interface CompanySummary {
   leads_7d: number;
   leads_7d_prior: number;
   avg_per_day_7d: number;
+  /** Дальше первого этапа и без действий 7+ дней. */
   stuck_count: number;
+  /** Ещё на первом этапе и без действий 7+ дней — считаются отдельно. */
+  first_stage_idle_count: number;
   ad_conversion_pct: number | null;
   ad_conversion_pct_prior: number | null;
   sources: SourceBreakdown[];

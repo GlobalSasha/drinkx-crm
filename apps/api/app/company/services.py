@@ -64,6 +64,7 @@ async def summary(db: AsyncSession, *, workspace_id: uuid.UUID, period: str) -> 
         week_start=week_start, prior_week_start=prior_week_start,
     )
     stuck = await repo.stuck_count(db, workspace_id=workspace_id)
+    first_stage_idle = await repo.first_stage_idle_count(db, workspace_id=workspace_id)
     raw_sources = await repo.source_breakdown(db, workspace_id=workspace_id, from_=from_)
     prior_sources = await repo.source_breakdown(
         db, workspace_id=workspace_id, from_=prior_from, to_=from_
@@ -92,6 +93,7 @@ async def summary(db: AsyncSession, *, workspace_id: uuid.UUID, period: str) -> 
         "leads_7d_prior": pulse["week_prior"],
         "avg_per_day_7d": round(pulse["week"] / 7, 1),
         "stuck_count": stuck,
+        "first_stage_idle_count": first_stage_idle,
         "ad_conversion_pct": _ad_conversion(raw_sources),
         "ad_conversion_pct_prior": _ad_conversion(prior_sources),
         "sources": sources,

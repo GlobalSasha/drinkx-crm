@@ -78,6 +78,8 @@ export interface HeadDay {
   leadsToday: number | null;
   leadsYesterday: number | null;
   stuck: number | null;
+  /** Лиды на первом этапе без действий 7+ дней — отдельно от застрявших. */
+  firstStageIdle: number | null;
   /** Первый менеджер, который давно не заходил. */
   silent: { name: string; days: number } | null;
 }
@@ -90,6 +92,10 @@ export function headSummary(d: HeadDay): string {
   }
   if (d.stuck) {
     out.push(`${d.stuck} ${plural(d.stuck, "сделка застряла", "сделки застряли", "сделок застряли")} больше 7 дней.`);
+  }
+  if (d.firstStageIdle) {
+    const more = d.stuck ? "Ещё " : "";
+    out.push(`${more}${d.firstStageIdle} ${plural(d.firstStageIdle, "лид", "лида", "лидов")} на первом этапе без действий больше 7 дней.`);
   }
   if (d.silent) {
     out.push(`${d.silent.name} не заходит ${d.silent.days} ${plural(d.silent.days, "день", "дня", "дней")}.`);
