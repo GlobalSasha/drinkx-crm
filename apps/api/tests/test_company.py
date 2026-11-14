@@ -544,4 +544,9 @@ async def test_manager_speed_forms_own_and_hanging(db, workspace, user, monkeypa
     assert today["own"]["total"] == 2 and today["own"]["handled"] == 1
 
     assert [h["company_name"] for h in m["hanging"]] == ["Свой только запись", "Форма ждёт"]
+    # По дням: пн, вт, ср. Понедельник — форма за 3 раб. ч; среда — свой за 2.
+    assert [str(d["day"]) for d in m["days"]] == ["2026-11-09", "2026-11-10", "2026-11-11"]
+    assert m["days"][0]["forms"] == 3.0 and m["days"][0]["own"] is None
+    assert m["days"][1] == {"day": m["days"][1]["day"], "forms": None, "own": None}
+    assert m["days"][2]["own"] == 2.0
     assert {h["kind"] for h in m["hanging"]} == {"own", "form"}

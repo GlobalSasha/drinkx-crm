@@ -190,11 +190,18 @@ class HangingLead(BaseModel):
     hours: float  # since the lead came in
 
 
+class SpeedDay(BaseModel):
+    day: date  # local day of the current week, Monday first
+    forms: float | None  # median working hours for requests that came that day
+    own: float | None  # the same for own leads
+
+
 class ManagerSpeedRow(BaseModel):
     manager_id: uuid.UUID
     name: str
     today: SpeedPeriod
     week: SpeedPeriod
+    days: list[SpeedDay]  # Monday … today
     hanging: list[HangingLead]  # this week, oldest first, up to 5
 
 
