@@ -1,16 +1,15 @@
 "use client";
-import type { LeadOut, FeedItemOut } from "@/lib/types";
+import type { LeadOut } from "@/lib/types";
 import { C } from "@/lib/design-system";
 import { Badge, type BadgeProps } from "@/components/ui/Badge";
-import { NextStepBanner } from "./feed/NextStepBanner";
 import { LeadInfoBlock } from "./LeadInfoBlock";
 import { PrimaryContactCard } from "./PrimaryContactCard";
 import { SourceSection } from "./SourceSection";
 import { CustomFieldsPanel } from "./CustomFieldsPanel";
 
 // Always-visible left column of the lead card. Independent of the right
-// column's active tab. Order is act-now → details: summary, next step,
-// deal params, primary contact, source, custom fields.
+// column's active tab. Order is act-now → details: summary, deal params,
+// primary contact, source, custom fields. «Что дальше» lives in the header.
 
 function formatRub(value: number | string | null | undefined): string {
   if (value == null || value === "") return "Не указана";
@@ -28,13 +27,9 @@ const PRIORITY_VARIANT: Record<string, BadgeProps["variant"]> = {
 
 export function LeadLeftColumn({
   lead,
-  items,
-  onCreateTaskRequest,
   onOpenTab,
 }: {
   lead: LeadOut;
-  items: FeedItemOut[];
-  onCreateTaskRequest: () => void;
   onOpenTab?: (tab: string) => void;
 }) {
   return (
@@ -51,9 +46,6 @@ export function LeadLeftColumn({
         </p>
         <p className={`type-card-title ${C.color.text} tabular-nums`}>{formatRub(lead.deal_amount)}</p>
       </div>
-
-      {/* Next step — nearest open task / «поставить задачу» */}
-      <NextStepBanner items={items} onCreateTaskRequest={onCreateTaskRequest} />
 
       {/* Deal params (inline-editable) */}
       <LeadInfoBlock lead={lead} />

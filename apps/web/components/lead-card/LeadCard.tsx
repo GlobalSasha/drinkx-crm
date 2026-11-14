@@ -26,7 +26,9 @@ import { DeleteConfirmModal } from "./DeleteConfirmModal";
 import { PoolLeadPreview } from "./PoolLeadPreview";
 import { LeadCardHeader } from "./LeadCardHeader";
 import { NextStepPrompt } from "./NextStepPrompt";
+import { NextStepLine } from "./NextStepLine";
 import { useFeed } from "@/lib/hooks/use-feed";
+import { useLeadTasks } from "@/lib/hooks/use-lead-tasks";
 import { useLeaveGuard } from "@/lib/hooks/use-leave-guard";
 import { C } from "@/lib/design-system";
 
@@ -93,8 +95,8 @@ function EditableLeadCard({ leadId }: Props) {
   // Esc handling and click-outside come for free from DropdownMenu.
   const [toast, setToast] = useState<string | null>(null);
   // Lead Card v3 — the composer (right column, Активность) is driven into
-  // task mode by the left column's «Следующий шаг». State lives here so the
-  // two columns can talk.
+  // task mode by «Поставить задачу» in the header's «Что дальше». State lives
+  // here so the header and the feed can talk.
   const [composerModeRequest, setComposerModeRequest] = useState<
     "comment" | "task" | "call" | "file" | null
   >(null);
@@ -114,12 +116,10 @@ function EditableLeadCard({ leadId }: Props) {
     return n;
   }, [feed.data]);
 
-  // Flatten the feed for the left column's «Следующий шаг» (NextStepBanner).
-  // Same `useFeed` cache key as UnifiedFeed — no extra fetch.
-  const items = useMemo(
-    () => feed.data?.pages.flatMap((p) => p.items) ?? [],
-    [feed.data],
-  );
+  // Задачи лида — тот же кеш, что у вкладки «Задачи» и строки «Что дальше»
+  // в шапке. Счётчик открытых считает сервер по всей выборке, а не по
+  // загруженной странице ленты, поэтому старая задача тоже учитывается.
+  const leadTasks = useLeadTasks(leadId);
 
   // Stages of the lead's own pipeline — not simply the first one in the list,
   // which showed another funnel's stages once the workspace had several.
@@ -142,10 +142,10 @@ function EditableLeadCard({ leadId }: Props) {
   // intercepts in-app link clicks; the original href is held in `pendingHref`
   // until the manager saves a task or skips.
   const [pendingHref, setPendingHref] = useState<string | null>(null);
-  const hasOpenTask = useMemo(
-    () => items.some((it) => it.type === "task" && !it.task_done),
-    [items],
-  );
+  // Пока счётчик неизвестен (грузится или ошибка), считаем, что задача есть:
+  // лучше не спросить, чем спросить про шаг, который уже поставлен.
+  const hasOpenTask =
+    leadTasks.isPending || leadTasks.isError || (leadTasks.counts?.open ?? 0) > 0;
   const leadClosed = !!(currentStage?.is_won || currentStage?.is_lost);
   const handleIntercept = useCallback((href: string) => setPendingHref(href), []);
   useLeaveGuard(!!lead && !leadClosed && !hasOpenTask, pathname, handleIntercept);
@@ -267,6 +267,16 @@ function EditableLeadCard({ leadId }: Props) {
               wonStageId={wonStage?.id}
               lostStageId={lostStageRef?.id}
             />
+            {!isClosed && lead.assignment_status !== "pool" && (
+              <NextStepLine
+                leadId={lead.id}
+                ownerId={lead.assigned_to}
+                onPlanTask={() => {
+                  setActiveTab("activity");
+                  setComposerModeRequest("task");
+                }}
+              />
+            )}
           </LeadCardHeader>
         </div>
       </header>
@@ -281,11 +291,6 @@ function EditableLeadCard({ leadId }: Props) {
           <div className="min-w-0 md:col-start-1 md:row-start-2">
             <LeadLeftColumn
               lead={lead}
-              items={items}
-              onCreateTaskRequest={() => {
-                setActiveTab("activity");
-                setComposerModeRequest("task");
-              }}
               onOpenTab={(t) => setActiveTab(t as TabKey)}
             />
           </div>

@@ -25,7 +25,7 @@ interface Props {
   seed?: string;
   onSeedConsumed?: () => void;
   /** Lead Card v3 — switch the composer into a specific mode and
-   *  focus the input. Used by `NextStepBanner` to drop the user
+   *  focus the input. Used by «Поставить задачу» in `NextStepLine` to drop the user
    *  straight into task creation. Cleared via `onModeRequestConsumed`
    *  after applying. */
   modeRequest?: Mode | null;
@@ -86,7 +86,7 @@ export function FeedComposer({
     onSeedConsumed?.();
   }, [seed, onSeedConsumed]);
 
-  // External mode-switch (e.g. NextStepBanner empty-state strip).
+  // External mode-switch (e.g. «Поставить задачу» in the header).
   useEffect(() => {
     if (!modeRequest) return;
     setMode(modeRequest);

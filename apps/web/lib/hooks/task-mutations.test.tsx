@@ -33,6 +33,7 @@ import {
 } from "./use-lead-tasks";
 import { useCreateTask, useUpdateTask } from "./use-tasks";
 import { useCompleteMyTask, useReopenMyTask } from "./use-my-tasks";
+import { useCreateActivity, useCompleteTask as useCompleteFeedTask } from "./use-feed";
 
 const LEAD = "lead-1";
 
@@ -123,6 +124,44 @@ describe.each([
     const { result } = renderHook(() => hook(), { wrapper });
 
     result.current.mutate({ leadId: LEAD, taskId: "t1" });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const keys = keysOf(spy);
+    for (const expected of EXPECTED_WITH_LEAD) {
+      expect(keys, `missing ${JSON.stringify(expected)}`).toContain(JSON.stringify(expected));
+    }
+  });
+});
+
+describe("tasks from the lead feed", () => {
+  it("creating a task in the feed composer refreshes every list", async () => {
+    const { spy, wrapper } = setup();
+    const { result } = renderHook(() => useCreateActivity(LEAD), { wrapper });
+
+    result.current.mutate({ type: "task", body: "Отправить КП" });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const keys = keysOf(spy);
+    for (const expected of EXPECTED_WITH_LEAD) {
+      expect(keys, `missing ${JSON.stringify(expected)}`).toContain(JSON.stringify(expected));
+    }
+  });
+
+  it("a plain comment only refreshes the feed", async () => {
+    const { spy, wrapper } = setup();
+    const { result } = renderHook(() => useCreateActivity(LEAD), { wrapper });
+
+    result.current.mutate({ type: "comment", body: "Позвонил" });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(keysOf(spy)).toEqual([JSON.stringify(["feed", LEAD])]);
+  });
+
+  it("completing a task in the feed refreshes every list", async () => {
+    const { spy, wrapper } = setup();
+    const { result } = renderHook(() => useCompleteFeedTask(LEAD), { wrapper });
+
+    result.current.mutate("act-1");
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     const keys = keysOf(spy);
