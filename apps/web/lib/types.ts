@@ -276,11 +276,18 @@ export interface HangingLead {
   hours: number; // since the lead came in
 }
 
+export interface SpeedDay {
+  day: string; // YYYY-MM-DD, Monday … today
+  forms: number | null; // median working hours for requests that came that day
+  own: number | null;
+}
+
 export interface ManagerSpeedRow {
   manager_id: string;
   name: string;
   today: SpeedPeriod;
   week: SpeedPeriod;
+  days: SpeedDay[];
   hanging: HangingLead[]; // this week, oldest first, up to 5
 }
 

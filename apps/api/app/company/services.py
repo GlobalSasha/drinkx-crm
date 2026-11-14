@@ -288,6 +288,21 @@ async def manager_speed(db: AsyncSession, *, workspace_id: uuid.UUID, tz: str | 
             "own": _speed_stats([r for r in items if r["kind"] == "own"], now),
         }
 
+    week_days = [week_from_day + timedelta(days=i) for i in range((today - week_from_day).days + 1)]
+
+    def days(items: list[dict]) -> list[dict]:
+        """Median working hours per local day of the week, by the day a lead
+        came in — for the mini chart. None where nobody was handled."""
+        out = []
+        for d in week_days:
+            on_day = [r for r in items if r["created_at"].astimezone(zone).date() == d]
+            out.append({
+                "day": d,
+                "forms": _speed_stats([r for r in on_day if r["kind"] == "form"], now)["median_work_hours"],
+                "own": _speed_stats([r for r in on_day if r["kind"] == "own"], now)["median_work_hours"],
+            })
+        return out
+
     managers = []
     for mid, items in by_manager.items():
         hanging = sorted(
@@ -299,6 +314,7 @@ async def manager_speed(db: AsyncSession, *, workspace_id: uuid.UUID, tz: str | 
             "name": items[0]["manager_name"],
             "today": period([r for r in items if r["created_at"] >= day_start]),
             "week": period(items),
+            "days": days(items),
             "hanging": [
                 {
                     "lead_id": r["lead_id"],
