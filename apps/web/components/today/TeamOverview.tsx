@@ -19,6 +19,7 @@ import { BrandsCard } from "@/components/today/BrandsCard";
 import { CitiesProductsCard } from "@/components/today/CitiesProductsCard";
 import { InflowCard } from "@/components/today/InflowCard";
 import { ReactionCard } from "@/components/today/ReactionCard";
+import { ManagerSpeedCard } from "@/components/today/ManagerSpeedCard";
 import { GREETING, dayPart, headSummary } from "@/lib/today-summary";
 import { relativeTime } from "@/lib/relative-time";
 import type { ManagerRow, ManagerPeriod, ManagerAlert } from "@/lib/types";
@@ -150,6 +151,7 @@ export function TeamOverview() {
 
       <InflowCard />
       <ReactionCard />
+      <ManagerSpeedCard />
       <BrandsCard />
       <CitiesProductsCard />
 

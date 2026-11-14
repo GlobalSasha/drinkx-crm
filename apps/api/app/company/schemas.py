@@ -168,3 +168,38 @@ class CompanyInflowOut(BaseModel):
     months: list[InflowPoint]  # last 12 local months
     sources: list[InflowSource]  # real sources by volume, manual bucket last
     reaction: InflowReaction  # web-form and paid-source leads only
+
+
+class SpeedStats(BaseModel):
+    total: int  # leads that came in / were created in the period
+    handled: int  # of them, with the comment that counts
+    hanging: int  # due but with no such comment yet
+    median_hours: float | None  # calendar hours to that comment; None if none handled
+    median_work_hours: float | None  # the same in working hours (Mon–Fri 9–19 MSK)
+
+
+class SpeedPeriod(BaseModel):
+    forms: SpeedStats  # web-form requests: until the first comment
+    own: SpeedStats  # leads the manager created: until the first comment after 30 min
+
+
+class HangingLead(BaseModel):
+    lead_id: uuid.UUID
+    company_name: str
+    kind: str  # "form" | "own"
+    hours: float  # since the lead came in
+
+
+class ManagerSpeedRow(BaseModel):
+    manager_id: uuid.UUID
+    name: str
+    today: SpeedPeriod
+    week: SpeedPeriod
+    hanging: list[HangingLead]  # this week, oldest first, up to 5
+
+
+class CompanyManagerSpeedOut(BaseModel):
+    timezone: str
+    today: date
+    week_from: date  # local Monday the week starts on
+    managers: list[ManagerSpeedRow]  # only managers with leads this week

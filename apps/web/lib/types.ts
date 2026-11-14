@@ -255,6 +255,43 @@ export interface InflowReaction {
   waiting: WaitingLead[]; // oldest untouched, up to 5
 }
 
+/** One kind of lead in one period of «Скорость обработки». */
+export interface SpeedStats {
+  total: number; // came in / were created in the period
+  handled: number; // with the comment that counts
+  hanging: number; // due but with no such comment yet
+  median_hours: number | null; // calendar hours
+  median_work_hours: number | null; // working hours, Mon–Fri 9–19 MSK
+}
+
+export interface SpeedPeriod {
+  forms: SpeedStats; // web requests: until the first comment
+  own: SpeedStats; // leads the manager created: until the first comment after 30 min
+}
+
+export interface HangingLead {
+  lead_id: string;
+  company_name: string;
+  kind: "form" | "own";
+  hours: number; // since the lead came in
+}
+
+export interface ManagerSpeedRow {
+  manager_id: string;
+  name: string;
+  today: SpeedPeriod;
+  week: SpeedPeriod;
+  hanging: HangingLead[]; // this week, oldest first, up to 5
+}
+
+/** `/company/manager-speed` — handling speed per manager, today and this week. */
+export interface CompanyManagerSpeed {
+  timezone: string;
+  today: string; // YYYY-MM-DD
+  week_from: string; // local Monday, YYYY-MM-DD
+  managers: ManagerSpeedRow[];
+}
+
 /** `/company/inflow` — new leads by day (62 days) and month (12), per source. */
 export interface CompanyInflow {
   timezone: string;

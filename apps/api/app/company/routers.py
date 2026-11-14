@@ -3,6 +3,7 @@
   GET /api/company/summary?period=week|month   — incoming-lead pulse + sources + daily
   GET /api/company/attention                    — stuck leads + per-manager load
   GET /api/company/inflow                       — new leads by day / month and source
+  GET /api/company/manager-speed                — per-manager handling speed, today / week
   GET /api/company/brands                       — active leads per brand
   GET /api/company/cities-products              — whole base by city and product
 """
@@ -21,6 +22,7 @@ from app.company.schemas import (
     CompanyBrandsOut,
     CompanyCitiesProductsOut,
     CompanyInflowOut,
+    CompanyManagerSpeedOut,
     CompanyManagersOut,
     CompanySummaryOut,
 )
@@ -74,6 +76,15 @@ async def company_inflow(
     user: Annotated[User, Depends(require_admin_or_head)] = ...,
 ) -> CompanyInflowOut:
     data = await svc.inflow(db, workspace_id=user.workspace_id, tz=user.timezone)
+    return data  # type: ignore[return-value]
+
+
+@router.get("/manager-speed", response_model=CompanyManagerSpeedOut)
+async def company_manager_speed(
+    db: Annotated[AsyncSession, Depends(get_db)] = ...,
+    user: Annotated[User, Depends(require_admin_or_head)] = ...,
+) -> CompanyManagerSpeedOut:
+    data = await svc.manager_speed(db, workspace_id=user.workspace_id, tz=user.timezone)
     return data  # type: ignore[return-value]
 
 

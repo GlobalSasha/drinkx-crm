@@ -214,6 +214,111 @@ async def _reaction(db: AsyncSession, *, workspace_id: uuid.UUID) -> dict:
     }
 
 
+# «Скорость обработки» по менеджерам. Рабочее время — пн–пт с 9 до 19 по
+# Москве (решение владельца 14.11); праздники не учитываются.
+WORK_TZ = "Europe/Moscow"
+WORK_START_HOUR = 9
+WORK_END_HOUR = 19
+SPEED_HANGING_PREVIEW = 5
+
+
+def business_hours(start: datetime, end: datetime, tz: str = WORK_TZ) -> float:
+    """Working hours between two moments: weekdays WORK_START_HOUR–WORK_END_HOUR
+    in `tz`. A request on Friday at 22:00 answered on Monday at 10:00 gives 1."""
+    if end <= start:
+        return 0.0
+    zone = ZoneInfo(tz)
+    a, b = start.astimezone(zone), end.astimezone(zone)
+    total = 0.0
+    day = a.date()
+    while day <= b.date():
+        if day.weekday() < 5:
+            open_ = datetime.combine(day, datetime.min.time(), zone).replace(hour=WORK_START_HOUR)
+            close = open_.replace(hour=WORK_END_HOUR)
+            lo, hi = max(a, open_), min(b, close)
+            if hi > lo:
+                total += (hi - lo).total_seconds()
+        day += timedelta(days=1)
+    return round(total / 3600, 1)
+
+
+def _speed_stats(rows: list[dict], now: datetime) -> dict:
+    handled = [r for r in rows if r["handled_at"] is not None]
+    hanging = [r for r in rows if r["handled_at"] is None and _is_due(r, now)]
+    calendar = [_hours(r["handled_at"] - r["created_at"]) for r in handled]
+    work = [business_hours(r["created_at"], r["handled_at"]) for r in handled]
+    return {
+        "total": len(rows),
+        "handled": len(handled),
+        "hanging": len(hanging),
+        "median_hours": round(median(calendar), 1) if calendar else None,
+        "median_work_hours": round(median(work), 1) if work else None,
+    }
+
+
+def _is_due(row: dict, now: datetime) -> bool:
+    """A lead «hangs» once it could have been handled: a web request right
+    away, an own lead after the pause for the first note of the call."""
+    if row["kind"] == "form":
+        return True
+    return now - row["created_at"] >= timedelta(minutes=repo.OWN_LEAD_GRACE_MINUTES)
+
+
+async def manager_speed(db: AsyncSession, *, workspace_id: uuid.UUID, tz: str | None) -> dict:
+    """Per manager, today and this week: web requests until the first comment,
+    own leads until the first comment after the pause. Both in calendar and in
+    working hours; leads handed out from the base are not counted."""
+    zone_name = _tz(tz)
+    zone = ZoneInfo(zone_name)
+    now = datetime.now(timezone.utc)
+    today = now.astimezone(zone).date()
+    week_from_day = today - timedelta(days=today.weekday())
+    day_start = datetime.combine(today, datetime.min.time(), zone)
+    week_start = datetime.combine(week_from_day, datetime.min.time(), zone)
+
+    rows = await repo.manager_speed_rows(db, workspace_id=workspace_id, from_=week_start)
+
+    by_manager: dict[uuid.UUID, list[dict]] = {}
+    for r in rows:
+        by_manager.setdefault(r["manager_id"], []).append(r)
+
+    def period(items: list[dict]) -> dict:
+        return {
+            "forms": _speed_stats([r for r in items if r["kind"] == "form"], now),
+            "own": _speed_stats([r for r in items if r["kind"] == "own"], now),
+        }
+
+    managers = []
+    for mid, items in by_manager.items():
+        hanging = sorted(
+            (r for r in items if r["handled_at"] is None and _is_due(r, now)),
+            key=lambda r: r["created_at"],
+        )
+        managers.append({
+            "manager_id": mid,
+            "name": items[0]["manager_name"],
+            "today": period([r for r in items if r["created_at"] >= day_start]),
+            "week": period(items),
+            "hanging": [
+                {
+                    "lead_id": r["lead_id"],
+                    "company_name": r["company_name"],
+                    "kind": r["kind"],
+                    "hours": _hours(now - r["created_at"]),
+                }
+                for r in hanging[:SPEED_HANGING_PREVIEW]
+            ],
+        })
+    managers.sort(key=lambda m: m["name"])
+
+    return {
+        "timezone": zone_name,
+        "today": today,
+        "week_from": week_from_day,
+        "managers": managers,
+    }
+
+
 async def brands(db: AsyncSession, *, workspace_id: uuid.UUID) -> dict:
     return await repo.brand_counts(db, workspace_id=workspace_id)
 

@@ -532,3 +532,58 @@ async def inbound_reaction(
         }
         for r in rows
     ]
+
+
+# «Скорость обработки» по менеджерам. Свой лид — заведённый человеком вручную:
+# только ручное создание пишет `lead.create` в журнал с автором, загрузка базы
+# и формы его не пишут (форма отличается по `source` раньше). Первую запись
+# разговора менеджер делает сразу при заведении — она не обработка, поэтому у
+# своих лидов считается первый комментарий после этой паузы.
+OWN_LEAD_GRACE_MINUTES = 30
+
+
+async def manager_speed_rows(
+    db: AsyncSession, *, workspace_id: uuid.UUID, from_: datetime
+) -> list[dict]:
+    """Assigned leads created since `from_` that are either web-form requests
+    or created by hand, with the time of the comment that counts as handling."""
+    sql = text("""
+        SELECT l.id AS lead_id, l.company_name, l.created_at, l.assigned_to,
+               u.name AS manager_name,
+               (l.source LIKE 'form:%') AS is_form,
+               (
+                 SELECT min(a.created_at) FROM activities a
+                 WHERE a.lead_id = l.id AND a.archived_at IS NULL
+                   AND a.type = 'comment' AND a.user_id IS NOT NULL
+                   AND a.created_at >= l.created_at + CASE
+                         WHEN l.source LIKE 'form:%' THEN interval '0 minutes'
+                         ELSE make_interval(mins => :grace) END
+               ) AS handled_at
+        FROM leads l
+        JOIN users u ON u.id = l.assigned_to
+        WHERE l.workspace_id = :wid AND l.deleted_at IS NULL AND l.archived_at IS NULL
+          AND l.created_at >= :from_
+          AND (
+            COALESCE(l.source, '') LIKE 'form:%'
+            OR EXISTS (
+              SELECT 1 FROM audit_log al
+              WHERE al.entity_id = l.id AND al.action = 'lead.create'
+                AND al.user_id IS NOT NULL
+            )
+          )
+    """)
+    rows = (await db.execute(sql, {
+        "wid": workspace_id, "from_": from_, "grace": OWN_LEAD_GRACE_MINUTES,
+    })).all()
+    return [
+        {
+            "lead_id": r.lead_id,
+            "company_name": r.company_name,
+            "created_at": r.created_at,
+            "manager_id": r.assigned_to,
+            "manager_name": r.manager_name,
+            "kind": "form" if r.is_form else "own",
+            "handled_at": r.handled_at,
+        }
+        for r in rows
+    ]

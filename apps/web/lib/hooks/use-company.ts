@@ -5,6 +5,7 @@ import type {
   CompanyCitiesProducts,
   CompanySummary,
   CompanyInflow,
+  CompanyManagerSpeed,
   CompanyManagers,
   ManagerPeriod,
 } from "@/lib/types";
@@ -23,6 +24,15 @@ export function useCompanyInflow() {
   return useQuery({
     queryKey: ["company-inflow"],
     queryFn: () => api.get<CompanyInflow>("/company/inflow"),
+    staleTime: 60 * 1000,
+  });
+}
+
+/** Handling speed per manager, today and this week. Admin/head only. */
+export function useCompanyManagerSpeed() {
+  return useQuery({
+    queryKey: ["company-manager-speed"],
+    queryFn: () => api.get<CompanyManagerSpeed>("/company/manager-speed"),
     staleTime: 60 * 1000,
   });
 }

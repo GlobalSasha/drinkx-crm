@@ -444,3 +444,104 @@ async def test_idle_leads_on_first_stage_are_counted_apart_from_stuck(db, worksp
     assert team["managers"][0]["stuck"] == 1
     assert team["managers"][0]["oldest_stuck_days"] in (14, 15)
     assert team["totals"]["stuck"] == 1
+
+
+# ---------------------------------------------------------------------------
+# «Скорость обработки» по менеджерам
+# ---------------------------------------------------------------------------
+
+from zoneinfo import ZoneInfo  # noqa: E402
+
+MSK = ZoneInfo("Europe/Moscow")
+# Среда 11.11.2026, 15:00 по Москве: неделя началась в понедельник 9.11.
+SPEED_NOW = datetime(2026, 11, 11, 15, 0, tzinfo=MSK)
+
+
+class _FrozenDatetime(datetime):
+    @classmethod
+    def now(cls, tz=None):  # noqa: D102
+        return SPEED_NOW.astimezone(tz) if tz else SPEED_NOW.replace(tzinfo=None)
+
+
+def test_business_hours_skip_nights_and_weekends():
+    def d(*a):
+        return datetime(*a, tzinfo=MSK)
+
+    # Пятница 22:00 → понедельник 10:00: один рабочий час.
+    assert svc.business_hours(d(2026, 11, 13, 22), d(2026, 11, 16, 10)) == 1.0
+    assert svc.business_hours(d(2026, 11, 12, 18), d(2026, 11, 13, 10)) == 2.0
+    assert svc.business_hours(d(2026, 11, 14, 10), d(2026, 11, 15, 18)) == 0.0
+    assert svc.business_hours(d(2026, 11, 9, 9), d(2026, 11, 16, 9)) == 50.0
+    assert svc.business_hours(d(2026, 11, 12, 12), d(2026, 11, 12, 11)) == 0.0
+
+
+@skip_no_pg
+async def test_manager_speed_forms_own_and_hanging(db, workspace, user, monkeypatch):
+    from app.audit.models import AuditLog
+    from app.leads.models import Lead
+    from app.pipelines.models import Pipeline, Stage
+
+    monkeypatch.setattr(svc, "datetime", _FrozenDatetime)
+    p = Pipeline(workspace_id=workspace.id, name="Sales", type="sales", position=0)
+    db.add(p)
+    await db.flush()
+    st = Stage(pipeline_id=p.id, name="Новый", position=0, color="#ccc", rot_days=14)
+    db.add(st)
+    await db.flush()
+
+    def lead(name, created, source=None, deleted=False):
+        return Lead(
+            workspace_id=workspace.id, company_name=name, pipeline_id=p.id, stage_id=st.id,
+            source=source, created_at=created, assignment_status="assigned",
+            assigned_to=user.id, deleted_at=created if deleted else None,
+        )
+
+    def comment(lead_, at):
+        return Activity(lead_id=lead_.id, user_id=user.id, type="comment",
+                        payload_json={"text": "x"}, created_at=at)
+
+    mon_10 = datetime(2026, 11, 9, 10, 0, tzinfo=MSK)
+    today_9 = datetime(2026, 11, 11, 9, 0, tzinfo=MSK)
+    fri_last_week = datetime(2026, 11, 6, 12, 0, tzinfo=MSK)
+
+    form_done = lead("Форма отвечена", mon_10, "form:site")
+    form_waiting = lead("Форма ждёт", today_9, "form:site")
+    own_done = lead("Свой обработан", today_9)
+    own_note_only = lead("Свой только запись", mon_10)
+    own_fresh = lead("Свой только что", SPEED_NOW - timedelta(minutes=10))
+    imported = lead("Из базы", mon_10)                         # нет lead.create — не считается
+    deleted_form = lead("Удалённая", today_9, "form:site", deleted=True)
+    old_form = lead("Прошлая неделя", fri_last_week, "form:site")
+    db.add_all([form_done, form_waiting, own_done, own_note_only, own_fresh,
+                imported, deleted_form, old_form])
+    await db.flush()
+
+    for own in (own_done, own_note_only, own_fresh):
+        db.add(AuditLog(workspace_id=workspace.id, user_id=user.id, action="lead.create",
+                        entity_type="lead", entity_id=own.id))
+    db.add_all([
+        comment(form_done, mon_10 + timedelta(hours=3)),         # 3 ч и 3 рабочих
+        comment(own_done, today_9 + timedelta(minutes=5)),       # запись разговора — не в счёт
+        comment(own_done, today_9 + timedelta(hours=2)),         # следующий контакт: 2 ч
+        comment(own_note_only, mon_10 + timedelta(minutes=10)),  # только запись — висит
+        comment(imported, mon_10 + timedelta(hours=1)),
+    ])
+    await db.flush()
+
+    out = await svc.manager_speed(db, workspace_id=workspace.id, tz="Europe/Moscow")
+
+    assert str(out["week_from"]) == "2026-11-09"
+    assert len(out["managers"]) == 1
+    m = out["managers"][0]
+    week, today = m["week"], m["today"]
+
+    assert week["forms"] == {"total": 2, "handled": 1, "hanging": 1,
+                             "median_hours": 3.0, "median_work_hours": 3.0}
+    # Свежий свой лид ещё в паузе: в «заведено» есть, в «висят» — нет.
+    assert week["own"] == {"total": 3, "handled": 1, "hanging": 1,
+                           "median_hours": 2.0, "median_work_hours": 2.0}
+    assert today["forms"]["total"] == 1 and today["forms"]["hanging"] == 1
+    assert today["own"]["total"] == 2 and today["own"]["handled"] == 1
+
+    assert [h["company_name"] for h in m["hanging"]] == ["Свой только запись", "Форма ждёт"]
+    assert {h["kind"] for h in m["hanging"]} == {"own", "form"}
