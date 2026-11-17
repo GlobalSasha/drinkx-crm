@@ -14,6 +14,8 @@ export interface NavItem {
   label: string;
   icon: React.ReactNode;
   href?: string;
+  /** Opens `href` in a new tab with a plain <a> — for pages outside the app shell. */
+  newTab?: boolean;
   badge?: number;
   ariaLabel?: string;
   onClick?: () => void;
@@ -77,6 +79,23 @@ const NavItemRow = memo(function NavItemRow({
       {item.trailing}
     </>
   );
+
+  if (item.href && item.newTab) {
+    return (
+      <a
+        ref={setRef}
+        href={item.href}
+        target="_blank"
+        rel="noopener"
+        className={className}
+        onMouseEnter={handleEnter}
+        onMouseLeave={handleLeave}
+        aria-label={item.ariaLabel}
+      >
+        {inner}
+      </a>
+    );
+  }
 
   if (item.href) {
     return (
