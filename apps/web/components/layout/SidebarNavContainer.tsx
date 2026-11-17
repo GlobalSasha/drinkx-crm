@@ -17,6 +17,7 @@ import {
   TrendingUp,
   ListChecks,
   Inbox,
+  FileText,
 } from "lucide-react";
 import { Kbd } from "@/components/ui/Kbd";
 import { useNotificationsBadge } from "@/lib/hooks/use-notifications";
@@ -74,6 +75,9 @@ export function SidebarNavContainer({
         ariaLabel: `Входящие заявки${incomingCount > 0 ? ` (${incomingCount} новых)` : ""}`,
       },
       { id: "triage",     label: "Мессенджеры", href: "/triage",    icon: <MessageCircle size={18} /> },
+      // Конфигуратор КП — отдельная страница без сайдбара (app/kp/route.ts),
+      // поэтому в новой вкладке: CRM остаётся открытой.
+      { id: "kp",         label: "КП",        href: "/kp",         icon: <FileText size={18} />, newTab: true },
     ];
     if (canAccessPool) {
       base.push({ id: "leads-pool", label: "База лидов", href: "/leads-pool", icon: <Target size={18} /> });

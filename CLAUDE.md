@@ -78,6 +78,9 @@ CLAUDE.md      # this file
   `/incoming`, `/pipeline`, `/leads/[id]`, `/leads-pool`, `/forecast`, `/tasks`,
   `/team`, `/companies`, `/automations`, `/forms`, `/knowledge`, `/audit`,
   `/guide`, `/settings`. Маршрутов `/inbox`, `/segments`, `/onboarding` нет
+- `/kp` — конфигуратор КП: готовый `app/kp/kp.html` отдаёт `app/kp/route.ts`,
+  вне `(app)`. В `public/` не класть — путь с расширением открыт без входа.
+  Файл собирается в репозитории `drinkx-sales-configurator`, здесь не правится
 - Контракты выборок и списков описаны не здесь: база лидов —
   `docs/LEAD_POOL_SELECTION.md`, задачи — `docs/TASK_LISTS.md`
 
