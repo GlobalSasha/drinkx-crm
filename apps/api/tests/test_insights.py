@@ -51,7 +51,8 @@ async def _lead(db, workspace, user, name="Кофейня", deleted=False):
     from app.leads.models import Lead
     from app.pipelines.models import Pipeline, Stage
 
-    p = Pipeline(workspace_id=workspace.id, name="P", type="sales", position=0)
+    # Своя воронка на каждый лид: имя воронки в пространстве уникально.
+    p = Pipeline(workspace_id=workspace.id, name=f"P-{name}", type="sales", position=0)
     db.add(p)
     await db.flush()
     st = Stage(pipeline_id=p.id, name="Новый", position=0, color="#ccc", rot_days=14)
