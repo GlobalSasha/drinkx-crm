@@ -6,6 +6,7 @@ import type {
   CompanySummary,
   CompanyInflow,
   CompanyManagerSpeed,
+  CompanyVoice,
   CompanyManagers,
   ManagerPeriod,
 } from "@/lib/types";
@@ -34,6 +35,15 @@ export function useCompanyManagerSpeed() {
     queryKey: ["company-manager-speed"],
     queryFn: () => api.get<CompanyManagerSpeed>("/company/manager-speed"),
     staleTime: 60 * 1000,
+  });
+}
+
+/** «Голос клиентов»: what clients say, from AI tags on comments. Admin/head only. */
+export function useCompanyVoice(period: "week" | "month") {
+  return useQuery({
+    queryKey: ["company-voice", period],
+    queryFn: () => api.get<CompanyVoice>(`/company/voice?period=${period}`),
+    staleTime: 5 * 60 * 1000,
   });
 }
 

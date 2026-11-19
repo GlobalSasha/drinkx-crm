@@ -2,6 +2,7 @@
 
 Usage:
     python -m scripts.issue_service_key issue --workspace <uuid> --name "OS DrinkX"
+    python -m scripts.issue_service_key issue --workspace <uuid> --name "Голос клиентов" --scope write:insights
     python -m scripts.issue_service_key revoke --key-id <uuid>
     python -m scripts.issue_service_key list --workspace <uuid>
 
@@ -23,11 +24,11 @@ from app.external import keys
 from app.external.models import ServiceApiKey
 
 
-async def _issue(workspace_id: uuid.UUID, name: str) -> None:
+async def _issue(workspace_id: uuid.UUID, name: str, scopes: list[str]) -> None:
     token, key_hash = keys.generate_key()
     async with get_session_factory()() as s:
         row = ServiceApiKey(
-            workspace_id=workspace_id, name=name, key_hash=key_hash, scopes=["read:core"]
+            workspace_id=workspace_id, name=name, key_hash=key_hash, scopes=scopes
         )
         s.add(row)
         await s.commit()
@@ -65,11 +66,12 @@ def main() -> None:
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(dest="cmd", required=True)
     pi = sub.add_parser("issue"); pi.add_argument("--workspace", required=True); pi.add_argument("--name", required=True)
+    pi.add_argument("--scope", action="append", default=None, help="repeatable; default read:core")
     pr = sub.add_parser("revoke"); pr.add_argument("--key-id", required=True)
     pl = sub.add_parser("list"); pl.add_argument("--workspace", required=True)
     args = p.parse_args()
     if args.cmd == "issue":
-        asyncio.run(_issue(uuid.UUID(args.workspace), args.name))
+        asyncio.run(_issue(uuid.UUID(args.workspace), args.name, args.scope or ["read:core"]))
     elif args.cmd == "revoke":
         asyncio.run(_revoke(uuid.UUID(args.key_id)))
     elif args.cmd == "list":

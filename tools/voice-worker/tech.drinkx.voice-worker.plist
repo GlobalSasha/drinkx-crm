@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Каждую ночь в 02:00 по времени Mac mini (Europe/Riga) = 03:00 по Москве. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>tech.drinkx.voice-worker</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string>
+    <string>python3</string>
+    <string>__HOME__/drinkx-voice/voice_worker.py</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>2</integer><key>Minute</key><integer>0</integer></dict>
+  <key>EnvironmentVariables</key>
+  <dict><key>PATH</key><string>__HOME__/.npm-global/bin:/usr/local/bin:/usr/bin:/bin</string></dict>
+  <key>StandardOutPath</key><string>__HOME__/drinkx-voice/worker.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/drinkx-voice/worker.log</string>
+</dict>
+</plist>
