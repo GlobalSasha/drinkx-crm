@@ -32,6 +32,7 @@ from app.followups import models as _followups_models  # noqa: F401
 from app.forms import models as _forms_models  # noqa: F401
 from app.import_export import models as _import_export_models  # noqa: F401
 from app.inbox import models as _inbox_models  # noqa: F401
+from app.insights import models as _insights_models  # noqa: F401
 from app.lead_sources import models as _lead_sources_models  # noqa: F401
 from app.leads import models as _leads_models  # noqa: F401
 from app.llm_usage import models as _llm_usage_models  # noqa: F401

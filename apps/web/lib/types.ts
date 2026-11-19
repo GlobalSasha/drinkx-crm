@@ -255,6 +255,39 @@ export interface InflowReaction {
   waiting: WaitingLead[]; // oldest untouched, up to 5
 }
 
+/** «Голос клиентов» — AI tags on manager comments, summed per category. */
+export interface VoiceQuote {
+  lead_id: string;
+  company_name: string;
+  author: string | null;
+  quote: string;
+  at: string;
+}
+
+export interface VoiceItem {
+  key: string; // category key, or "competitor:<name>"
+  label: string;
+  leads: number; // distinct leads in the period
+  previous: number; // the same for the period before
+  quotes: VoiceQuote[]; // newest first, up to 5
+}
+
+export interface VoiceGroup {
+  group: "objection" | "question" | "interest" | "competitor" | "contact";
+  label: string;
+  items: VoiceItem[];
+}
+
+export interface CompanyVoice {
+  period: "week" | "month";
+  days: number;
+  groups: VoiceGroup[];
+  lost_reasons: { reason: string; count: number }[];
+  comments_total: number;
+  comments_pending: number;
+  last_scan_at: string | null;
+}
+
 /** One kind of lead in one period of «Скорость обработки». */
 export interface SpeedStats {
   total: number; // came in / were created in the period

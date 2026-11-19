@@ -253,6 +253,11 @@ def create_app() -> FastAPI:
     from app.external.routers import router as external_router
     app.include_router(external_router)
 
+    from app.insights.routers import company_router as voice_router
+    from app.insights.routers import worker_router as insights_worker_router
+    app.include_router(voice_router)
+    app.include_router(insights_worker_router)
+
     app.mount("/mcp", mcp_app)
 
     return app
