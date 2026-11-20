@@ -64,7 +64,7 @@ describe("VoiceCard", () => {
     expect(screen.getByTitle("в прошлом периоде: 1")).toHaveTextContent("2");
     expect(screen.getByText("Scanomat")).toBeInTheDocument();
     expect(screen.getByText("Не устроила цена")).toBeInTheDocument();
-    expect(screen.getByText(/ждут разметки: 5/)).toBeInTheDocument();
+    expect(screen.queryByText(/ждут разметки/)).not.toBeInTheDocument();
   });
 
   it("по клику раскрывает цитаты со ссылкой на лид", () => {

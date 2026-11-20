@@ -22,7 +22,6 @@ import {
 import { Card } from "@/components/ui/Card";
 import { C } from "@/lib/design-system";
 import { useCompanyVoice } from "@/lib/hooks/use-company";
-import { relativeTime } from "@/lib/relative-time";
 import type { VoiceGroup, VoiceItem } from "@/lib/types";
 
 type Period = "week" | "month";
@@ -152,13 +151,6 @@ export function VoiceCard() {
         </div>
       )}
 
-      {data && (
-        <p className="mt-4 border-t border-brand-border pt-3 type-hint not-italic text-brand-muted">
-          Разметка ИИ, проверяйте по цитатам
-          {data.last_scan_at ? ` · обновлено ${relativeTime(data.last_scan_at)}` : ""}
-          {data.comments_pending > 0 ? ` · ждут разметки: ${data.comments_pending}` : ""}
-        </p>
-      )}
     </Card>
   );
 }
