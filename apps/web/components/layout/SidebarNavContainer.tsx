@@ -18,6 +18,7 @@ import {
   ListChecks,
   Inbox,
   FileText,
+  Map as MapIcon,
 } from "lucide-react";
 import { Kbd } from "@/components/ui/Kbd";
 import { useNotificationsBadge } from "@/lib/hooks/use-notifications";
@@ -78,6 +79,7 @@ export function SidebarNavContainer({
       // Конфигуратор КП — отдельная страница без сайдбара (app/kp/route.ts),
       // поэтому в новой вкладке: CRM остаётся открытой.
       { id: "kp",         label: "КП",        href: "/kp",         icon: <FileText size={18} />, newTab: true },
+      { id: "map",        label: "Карта",     href: "/map",        icon: <MapIcon size={18} /> },
     ];
     if (canAccessPool) {
       base.push({ id: "leads-pool", label: "База лидов", href: "/leads-pool", icon: <Target size={18} /> });
