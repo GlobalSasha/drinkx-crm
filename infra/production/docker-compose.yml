@@ -211,6 +211,11 @@ services:
       NEXT_PUBLIC_SENTRY_DSN: ${SENTRY_DSN_WEB}
     ports:
       - "127.0.0.1:3000:3000"
+    # Карта дистрибьюторов (/map в CRM) читается с сервера, а не из образа:
+    # репозиторий публичный, а карта — внутренний материал. Та же папка
+    # отдаётся nginx'ом по /karta/ под паролем.
+    volumes:
+      - /var/www/drinkx-map:/srv/drinkx-map:ro
     depends_on:
       - api
 
