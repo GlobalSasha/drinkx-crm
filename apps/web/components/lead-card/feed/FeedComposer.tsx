@@ -19,6 +19,33 @@ import { useUsers } from "@/lib/hooks/use-users";
 import { activeMentionQuery, insertAtCaret, insertMention } from "@/lib/mentions";
 import { useUploadLeadFile } from "@/lib/hooks/use-task-files";
 
+// Unsent comment survives a failed send, a reload and leaving the card —
+// on a phone the tab is often killed in the background. Per-viewer
+// convenience only, so storage errors are ignored.
+const draftKey = (leadId: string) => `drinkx:comment-draft:${leadId}`;
+
+export function loadDraft(leadId: string): string {
+  try {
+    return window.localStorage.getItem(draftKey(leadId)) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export function saveDraft(leadId: string, text: string): void {
+  try {
+    if (text.trim()) window.localStorage.setItem(draftKey(leadId), text);
+    else window.localStorage.removeItem(draftKey(leadId));
+  } catch {
+    /* storage unavailable — draft simply isn't kept */
+  }
+}
+
+/** On a touch screen Enter adds a new line; sending is the button. */
+function isTouchScreen(): boolean {
+  return typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)").matches;
+}
+
 interface Props {
   leadId: string;
   /** Seed value pushed in by callers — prefills the comment box. */
@@ -77,6 +104,16 @@ export function FeedComposer({
   const uploadFile = useUploadLeadFile(leadId);
   const isPending = create.isPending || uploadFile.isPending;
 
+  // Restore an unsent comment for this lead (client-only: no SSR mismatch).
+  useEffect(() => {
+    const draft = loadDraft(leadId);
+    if (draft) setText((cur) => cur || draft);
+  }, [leadId]);
+
+  useEffect(() => {
+    if (mode === "comment") saveDraft(leadId, text);
+  }, [leadId, mode, text]);
+
   // External seed — prefill the comment box and focus it.
   useEffect(() => {
     if (seed === undefined) return;
@@ -90,7 +127,11 @@ export function FeedComposer({
   useEffect(() => {
     if (!modeRequest) return;
     setMode(modeRequest);
-    setTimeout(() => inputRef.current?.focus(), 30);
+    setTimeout(() => {
+      inputRef.current?.focus();
+      // The phone action bar calls this from far below the composer.
+      inputRef.current?.scrollIntoView?.({ block: "center" });
+    }, 30);
     onModeRequestConsumed?.();
   }, [modeRequest, onModeRequestConsumed]);
 
@@ -110,6 +151,9 @@ export function FeedComposer({
     if (mode === "comment") {
       try {
         await create.mutateAsync({ type: "comment", body: value });
+        // Drop the draft right away — not one render later via the save
+        // effect — so a quick reload after sending can't bring it back.
+        saveDraft(leadId, "");
         reset();
       } catch {
         /* keep text */
@@ -202,7 +246,7 @@ export function FeedComposer({
         return;
       }
     }
-    if (e.key === "Enter" && !e.shiftKey && mode === "comment") {
+    if (e.key === "Enter" && !e.shiftKey && mode === "comment" && !isTouchScreen()) {
       e.preventDefault();
       handleSubmit();
     }

@@ -150,29 +150,27 @@ async def _notify_workspace_admins(
             .where(User.workspace_id == workspace_id)
             .where(User.role == "admin")
         )
-        for (admin_id,) in res.all():
-            await safe_notify(
-                session,
-                workspace_id=workspace_id,
-                user_id=admin_id,
-                kind="system",
-                title="Новая заявка с формы",
-                body=f'"{form_name}" — {company_name}',
-                lead_id=lead_id,
-            )
-        # Owner of a routed lead also gets an in-app notification.
+        recipients: list = [admin_id for (admin_id,) in res.all()]
+        # Owner of a routed lead also gets an in-app notification. An admin
+        # who owns the lead gets one notification, not two.
         if lead_id is not None:
             from app.leads.models import Lead as _Lead
             res2 = await session.execute(
                 select(_Lead.assigned_to).where(_Lead.id == lead_id)
             )
             owner_id = res2.scalar_one_or_none()
-            if owner_id:
-                await safe_notify(
-                    session, workspace_id=workspace_id, user_id=owner_id,
-                    kind="system", title="Новая заявка с сайта",
-                    body=f'"{form_name}" — {company_name}', lead_id=lead_id,
-                )
+            if owner_id and owner_id not in recipients:
+                recipients.append(owner_id)
+        for user_id in recipients:
+            await safe_notify(
+                session,
+                workspace_id=workspace_id,
+                user_id=user_id,
+                kind="lead_inbound",
+                title="Новая заявка с сайта",
+                body=f'"{form_name}" — {company_name}',
+                lead_id=lead_id,
+            )
     except Exception as exc:  # noqa: BLE001 — public flow must not 5xx
         log.warning(
             "forms.admin_notify_failed",

@@ -16,6 +16,8 @@ import { SidebarNavContainer } from "./SidebarNavContainer";
 import { DrinkXLogo } from "./DrinkXLogo";
 import { TaskReminders } from "@/components/reminders/TaskReminders";
 import { useNotificationsBadge } from "@/lib/hooks/use-notifications";
+import { useUnreadTitle } from "@/lib/title-badge";
+import { useDesktopNotifications } from "@/lib/desktop-notifications";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -25,6 +27,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   useGlobalSearchHotkey(() => setSearchOpen(true));
+  const { data: badge } = useNotificationsBadge();
+  useUnreadTitle(badge?.unread ?? 0);
+  useDesktopNotifications();
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();

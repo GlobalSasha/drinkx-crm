@@ -1102,6 +1102,8 @@ export type NotificationKind =
   | "daily_plan_ready"
   | "followup_due"
   | "mention"
+  | "lead_inbound"
+  | "email_inbound"
   | "system";
 
 export interface NotificationOut {

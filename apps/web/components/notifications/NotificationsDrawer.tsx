@@ -10,6 +10,7 @@ import {
   useNotificationsList,
 } from "@/lib/hooks/use-notifications";
 import { relativeTime } from "@/lib/relative-time";
+import { useDesktopPermission } from "@/lib/desktop-notifications";
 import type { NotificationOut } from "@/lib/types";
 
 const KIND_LABEL: Record<string, string> = {
@@ -19,6 +20,8 @@ const KIND_LABEL: Record<string, string> = {
   daily_plan_ready: "План дня",
   followup_due: "Напоминание",
   mention: "Упоминание",
+  lead_inbound: "Заявка",
+  email_inbound: "Письмо",
   system: "Система",
 };
 
@@ -29,6 +32,8 @@ const KIND_STYLE: Record<string, string> = {
   daily_plan_ready: "bg-brand-soft text-brand-accent",
   followup_due: "bg-warning/10 text-warning",
   mention: "bg-brand-soft text-brand-accent",
+  lead_inbound: "bg-brand-soft text-brand-accent",
+  email_inbound: "bg-info/10 text-info",
   system: "bg-black/5 text-brand-muted",
 };
 
@@ -87,6 +92,7 @@ function groupByDay(items: NotificationOut[]): NotifGroup[] {
 export function NotificationsDrawer({ open, onClose }: Props) {
   const router = useRouter();
   const [unreadOnly, setUnreadOnly] = useState(true);
+  const { permission, request: requestPermission } = useDesktopPermission();
   const { data, isLoading, isError, refetch, isFetching } =
     useNotificationsList({ unread: unreadOnly });
   const { mutate: markRead } = useMarkRead();
@@ -166,6 +172,28 @@ export function NotificationsDrawer({ open, onClose }: Props) {
             </button>
           </div>
         </div>
+
+        {/* Desktop pop-ups opt-in — hidden on phones and once decided */}
+        {permission === "default" && (
+          <div className="px-5 py-3 border-b border-brand-border flex items-center justify-between gap-3 bg-brand-soft/40">
+            <p className="text-xs text-brand-muted">
+              Показывать новые заявки и письма, даже когда вкладка свёрнута
+            </p>
+            <button
+              onClick={() => void requestPermission()}
+              className="shrink-0 px-3 py-1.5 text-xs font-semibold rounded-full bg-brand-accent text-white transition-colors"
+            >
+              Включить
+            </button>
+          </div>
+        )}
+        {permission === "denied" && (
+          <div className="px-5 py-2 border-b border-brand-border">
+            <p className="text-xs text-brand-muted">
+              Всплывающие уведомления запрещены в настройках браузера для этого сайта
+            </p>
+          </div>
+        )}
 
         {/* Filter row */}
         <div className="px-5 py-3 border-b border-brand-border flex items-center justify-between gap-2">

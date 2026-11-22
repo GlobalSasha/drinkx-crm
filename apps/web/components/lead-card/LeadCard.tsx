@@ -27,6 +27,7 @@ import { PoolLeadPreview } from "./PoolLeadPreview";
 import { LeadCardHeader } from "./LeadCardHeader";
 import { NextStepPrompt } from "./NextStepPrompt";
 import { NextStepLine } from "./NextStepLine";
+import { MobileActionBar } from "./MobileActionBar";
 import { useFeed } from "@/lib/hooks/use-feed";
 import { useLeadTasks } from "@/lib/hooks/use-lead-tasks";
 import { useLeaveGuard } from "@/lib/hooks/use-leave-guard";
@@ -231,8 +232,9 @@ function EditableLeadCard({ leadId }: Props) {
   return (
     <div className="font-sans min-h-screen bg-brand-bg flex flex-col">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
-      {/* Sticky header — 2 rows per spec */}
-      <header className="sticky top-0 z-20 bg-white border-b border-brand-border">
+      {/* Sticky header — 2 rows per spec. Sticky on md+ only: on a phone it
+          is ~half the screen and would leave no room above the keyboard. */}
+      <header className="md:sticky md:top-0 z-20 bg-white border-b border-brand-border">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
           <LeadCardHeader
             lead={lead}
@@ -334,8 +336,25 @@ function EditableLeadCard({ leadId }: Props) {
             <TabsContent value="archive"><ArchiveTab leadId={lead.id} /></TabsContent>
           </div>
         </div>
+        {/* Room for the phone action bar so it never hides the last item. */}
+        <div className="h-24 md:hidden" aria-hidden />
       </div>
       </Tabs>
+
+      <MobileActionBar
+        lead={lead}
+        stages={stages}
+        currentStageId={lead.stage_id}
+        onComment={() => {
+          setActiveTab("activity");
+          setComposerModeRequest("comment");
+        }}
+        onTask={() => {
+          setActiveTab("activity");
+          setComposerModeRequest("task");
+        }}
+        onStageSelect={handleStageSelect}
+      />
 
       {/* Modals */}
       {gateTarget && (
@@ -426,7 +445,7 @@ function EditableLeadCard({ leadId }: Props) {
       )}
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-brand-primary text-white type-label px-5 py-2.5 rounded-full z-50 transition">
+        <div className="fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 bg-brand-primary text-white type-label px-5 py-2.5 rounded-full z-50 transition">
           {toast}
         </div>
       )}

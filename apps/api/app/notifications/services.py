@@ -52,6 +52,10 @@ DEDUP_EXEMPT_KINDS: frozenset[str] = frozenset({
     "task_assigned",
     # Второй вопрос через пять минут после первого — тоже вопрос.
     "mention",
+    # Каждая заявка с формы и каждое входящее письмо по лиду — отдельное
+    # событие: при часовом окне вторая заявка за час пропадала молча.
+    "lead_inbound",
+    "email_inbound",
 })
 
 DEDUP_WINDOW = timedelta(hours=1)

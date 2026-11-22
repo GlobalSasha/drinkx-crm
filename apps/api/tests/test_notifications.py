@@ -488,3 +488,11 @@ async def test_dedup_exempt_kinds_constant_includes_urgent_signal():
     exempt set. Drift here would silently start dropping urgent
     signals once another notification fires within the hour."""
     assert "lead.urgent_signal" in svc_mod.DEDUP_EXEMPT_KINDS
+
+
+@pytest.mark.asyncio
+async def test_dedup_exempt_kinds_include_inbound_leads_and_emails():
+    """Every form submission and every inbound email is its own event —
+    under the 1h window the second form lead of the hour was dropped."""
+    assert "lead_inbound" in svc_mod.DEDUP_EXEMPT_KINDS
+    assert "email_inbound" in svc_mod.DEDUP_EXEMPT_KINDS

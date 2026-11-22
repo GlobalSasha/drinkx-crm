@@ -302,6 +302,13 @@ async def test_processor_creates_activity_on_high_confidence_match():
     """confidence >= 0.8 → an Activity row is added with the matched lead_id
     and gmail_message_id; no InboxItem is created."""
     db = _make_db()
+    # Matched Lead row without an owner — keeps the inbound bell out of
+    # this test (covered by test_inbound_email_notifies_lead_owner).
+    lead_result = MagicMock()
+    lead_result.scalar_one_or_none = MagicMock(
+        return_value=MagicMock(assigned_to=None, company_name="Acme")
+    )
+    db.execute = AsyncMock(return_value=lead_result)
     lead_id = uuid.uuid4()
     user_id = uuid.uuid4()
 
@@ -424,3 +431,87 @@ async def test_processor_returns_false_on_exception():
 
     assert out is False
     db.rollback.assert_awaited()
+
+
+# ===========================================================================
+# Inbound-email bell (mobile phase 1, 22.11.2026)
+# ===========================================================================
+
+async def _run_attach_with_lead(*, lead, sent: bool = False):
+    """Drive the attach_to_lead path with `lead` as the matched Lead row.
+    Returns (process_message result, safe_notify mock)."""
+    db = _make_db()
+    lead_result = MagicMock()
+    lead_result.scalar_one_or_none = MagicMock(return_value=lead)
+    db.execute = AsyncMock(return_value=lead_result)
+
+    fake_match = matcher_mod.MatchResult(
+        lead_id=uuid.uuid4(), confidence=1.0, match_type="contact_email"
+    )
+
+    @asynccontextmanager
+    async def _fake_collect():
+        yield []
+
+    dispatch_module = ModuleType("app.automation_builder.dispatch")
+    dispatch_module.collect_pending_email_dispatches = _fake_collect
+    dispatch_module.flush_pending_email_dispatches = AsyncMock()
+    services_module = ModuleType("app.automation_builder.services")
+    services_module.safe_evaluate_trigger = AsyncMock()
+    jobs_module = ModuleType("app.scheduled.jobs")
+    jobs_module.lead_agent_refresh_suggestion = MagicMock()
+
+    import app.notifications.services as notif_mod
+
+    notify_mock = AsyncMock(return_value=None)
+    with patch.object(processor_mod, "_already_processed", new=AsyncMock(return_value=False)), \
+         patch.object(processor_mod, "match_email", new=AsyncMock(return_value=fake_match)), \
+         patch.object(processor_mod, "Activity", MagicMock()), \
+         patch.object(processor_mod, "InboxItem", MagicMock()), \
+         patch.object(notif_mod, "safe_notify", new=notify_mock), \
+         patch.dict(sys.modules, {
+             "app.automation_builder.dispatch": dispatch_module,
+             "app.automation_builder.services": services_module,
+             "app.scheduled.jobs": jobs_module,
+         }):
+        out = await processor_mod.process_message(
+            db,
+            raw_message=_gmail_message(msg_id="bell-1", subject="Запрос КП", sent=sent),
+            user_id=uuid.uuid4(),
+            workspace_id=WS,
+        )
+    return out, notify_mock
+
+
+@pytest.mark.asyncio
+async def test_inbound_email_notifies_lead_owner():
+    """A new inbound email bells the lead's owner — not the mailbox owner —
+    with company + subject and no body text."""
+    owner = uuid.uuid4()
+    lead = MagicMock(assigned_to=owner, company_name="Acme")
+    out, notify_mock = await _run_attach_with_lead(lead=lead)
+
+    assert out is True
+    notify_mock.assert_awaited_once()
+    kw = notify_mock.await_args.kwargs
+    assert kw["kind"] == "email_inbound"
+    assert kw["user_id"] == owner
+    assert kw["title"] == "Письмо: Acme"
+    assert kw["body"] == "Запрос КП"
+    assert "hello" not in kw["body"]
+
+
+@pytest.mark.asyncio
+async def test_outbound_email_does_not_notify():
+    lead = MagicMock(assigned_to=uuid.uuid4(), company_name="Acme")
+    out, notify_mock = await _run_attach_with_lead(lead=lead, sent=True)
+    assert out is True
+    notify_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_inbound_email_on_unowned_lead_does_not_notify():
+    lead = MagicMock(assigned_to=None, company_name="Acme")
+    out, notify_mock = await _run_attach_with_lead(lead=lead)
+    assert out is True
+    notify_mock.assert_not_called()
