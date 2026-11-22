@@ -11,6 +11,7 @@ import {
 } from "@/lib/hooks/use-notifications";
 import { relativeTime } from "@/lib/relative-time";
 import { useDesktopPermission } from "@/lib/desktop-notifications";
+import { PushSettings } from "./PushSettings";
 import type { NotificationOut } from "@/lib/types";
 
 const KIND_LABEL: Record<string, string> = {
@@ -173,7 +174,10 @@ export function NotificationsDrawer({ open, onClose }: Props) {
           </div>
         </div>
 
-        {/* Desktop pop-ups opt-in — hidden on phones and once decided */}
+        {/* Push on this device (works with the CRM closed). Without server
+            keys or browser support it falls back to the in-tab desktop
+            pop-ups opt-in — hidden on phones and once decided. */}
+        <PushSettings>
         {permission === "default" && (
           <div className="px-5 py-3 border-b border-brand-border flex items-center justify-between gap-3 bg-brand-soft/40">
             <p className="text-xs text-brand-muted">
@@ -194,6 +198,7 @@ export function NotificationsDrawer({ open, onClose }: Props) {
             </p>
           </div>
         )}
+        </PushSettings>
 
         {/* Filter row */}
         <div className="px-5 py-3 border-b border-brand-border flex items-center justify-between gap-2">

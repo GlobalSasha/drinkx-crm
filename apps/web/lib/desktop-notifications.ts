@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api-client";
 import type { NotificationListOut, NotificationOut } from "@/lib/types";
+import { pushFlagOn } from "@/lib/push";
 
 /** Kinds worth a system pop-up: a new lead and a new inbound email. */
 export const DESKTOP_KINDS: ReadonlySet<string> = new Set([
@@ -65,7 +66,9 @@ export function useDesktopPermission() {
 export function useDesktopNotifications(): void {
   const router = useRouter();
   const { permission } = useDesktopPermission();
-  const enabled = permission === "granted";
+  // With push on this device the service worker already shows these —
+  // in-tab pop-ups would make every lead pop up twice.
+  const enabled = permission === "granted" && !pushFlagOn();
   const seen = useRef<Set<string> | null>(null);
 
   const { data } = useQuery({

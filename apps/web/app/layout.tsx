@@ -24,11 +24,19 @@ const mono = localFont({
 export const metadata: Metadata = {
   title: "DrinkX CRM",
   description: "Smart AI CRM for B2B coffee station sales",
+  // «На экран Домой»: on iPhone push notifications only work for the
+  // installed app, so it must open full-screen with our own icon.
+  appleWebApp: { capable: true, title: "DrinkX CRM", statusBarStyle: "default" },
+  icons: {
+    icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: "#FFFFFF",
   // viewportFit: cover — lets env(safe-area-inset-*) work on notched phones
   viewportFit: "cover",
 };
