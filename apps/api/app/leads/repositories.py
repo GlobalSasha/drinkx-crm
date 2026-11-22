@@ -11,6 +11,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
+from app.activity.models import Activity
 from app.contacts.models import Contact
 from app.followups.models import Followup
 from app.leads.models import Lead
@@ -122,6 +123,32 @@ def _open_count_subquery(reminder_kinds: tuple[str, ...]):
     )
 
 
+def _open_task_filter():
+    """Open, non-archived manager task on the outer lead (activities)."""
+    return (
+        Activity.lead_id == Lead.id,
+        Activity.type == "task",
+        Activity.task_done.is_(False),
+        Activity.archived_at.is_(None),
+    )
+
+
+def _next_task_due_subquery():
+    """Earliest due date among the lead's open tasks — «Мои лиды» on a
+    phone sorts by it (overdue first). Tasks without a due date are
+    ignored here; `_has_open_task_subquery` tells them apart from «нет задачи»."""
+    return (
+        select(func.min(Activity.task_due_at))
+        .where(*_open_task_filter())
+        .correlate(Lead)
+        .scalar_subquery()
+    )
+
+
+def _has_open_task_subquery():
+    return select(Activity.id).where(*_open_task_filter()).correlate(Lead).exists()
+
+
 async def _resolve_forms_batch(
     db: AsyncSession, slugs: list[str]
 ) -> dict[str, tuple[uuid.UUID, str]]:
@@ -198,6 +225,12 @@ async def _populate_extras(
         # Пятая колонка есть только у списков (см. `_ai_confidence_column`).
         # Карточка лида отдаёт `ai_data` целиком и в ней не нуждается.
         lead.ai_confidence = row[4] if len(row) > 4 else None  # type: ignore[attr-defined]
+        # Только у `list_leads` (воронка / «Мои лиды»): ближайшая открытая
+        # задача и телефон основного контакта для кнопки «Позвонить».
+        extra = getattr(row, "_mapping", {})
+        lead.next_task_due_at = extra.get("next_task_due_at")  # type: ignore[attr-defined]
+        lead.has_open_task = bool(extra.get("has_open_task"))  # type: ignore[attr-defined]
+        lead.primary_contact_phone = extra.get("primary_contact_phone")  # type: ignore[attr-defined]
         # Defaults so Pydantic doesn't complain even if `db` is None.
         lead.source_form_id = None  # type: ignore[attr-defined]
         lead.source_form_name = None  # type: ignore[attr-defined]
@@ -349,6 +382,9 @@ async def list_leads(
             _open_count_subquery(_TASK_KINDS).label("open_tasks_count"),
             _open_count_subquery(_FOLLOWUP_KINDS).label("open_followups_count"),
             _ai_confidence_column().label("ai_confidence"),
+            _next_task_due_subquery().label("next_task_due_at"),
+            _has_open_task_subquery().label("has_open_task"),
+            Contact.phone.label("primary_contact_phone"),
         )
         .outerjoin(Contact, Contact.id == Lead.primary_contact_id)
         .options(defer(Lead.ai_data), defer(Lead.agent_state))

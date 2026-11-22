@@ -459,6 +459,12 @@ export type LeadListItem = Omit<LeadOut, "ai_data" | "pilot_contract_json" | "cu
    * создал не AI.
    */
   ai_confidence: number | null;
+  /** Только GET /leads: срок ближайшей открытой задачи (null — без срока или задач нет). */
+  next_task_due_at?: string | null;
+  /** Только GET /leads: есть ли открытая задача (в том числе без срока). */
+  has_open_task?: boolean;
+  /** Только GET /leads: телефон основного контакта. */
+  primary_contact_phone?: string | null;
 };
 
 export interface LeadListOut {

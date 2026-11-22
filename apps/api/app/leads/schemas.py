@@ -191,6 +191,11 @@ class LeadListItemOut(LeadBase):
     latest_utm: dict | None = None
     open_followups_count: int = 0
     open_tasks_count: int = 0
+    # «Мои лиды» на телефоне (только GET /leads): срок ближайшей открытой
+    # задачи, есть ли открытая задача вообще и телефон основного контакта.
+    next_task_due_at: datetime | None = None
+    has_open_task: bool = False
+    primary_contact_phone: str | None = None
     commercial_model: CommercialModel | None = None
     deal_amount: Decimal | None = None
     deal_quantity: int | None = None

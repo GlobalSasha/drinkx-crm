@@ -21,6 +21,8 @@ interface Props {
   /** Lead Card v3 — the left column's «Следующий шаг» drives the
    *  composer into task mode from outside the feed. */
   composerModeRequest?: "comment" | "task" | "call" | "file" | null;
+  /** Starting text that comes with `composerModeRequest`. */
+  composerPrefill?: string | null;
   onComposerModeRequestConsumed?: () => void;
 }
 
@@ -41,6 +43,7 @@ const SYSTEM_TYPES = new Set([
 export function UnifiedFeed({
   leadId,
   composerModeRequest,
+  composerPrefill,
   onComposerModeRequestConsumed,
 }: Props) {
   const feed = useFeed(leadId);
@@ -85,6 +88,7 @@ export function UnifiedFeed({
         seed={composerSeed}
         onSeedConsumed={() => setComposerSeed(undefined)}
         modeRequest={composerModeRequest}
+        prefillText={composerPrefill}
         onModeRequestConsumed={onComposerModeRequestConsumed}
       />
 

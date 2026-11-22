@@ -97,12 +97,14 @@ export function PipelineHeader({ leads, totalCount }: Props) {
           </Button>
           <button
             onClick={openImportWizard}
-            className={`inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition hover:bg-brand-panel active:scale-[0.96] ${C.focusRing}`}
+            // Import/export are desk work — hidden on a phone to give the list room.
+            className={`hidden md:inline-flex items-center gap-1.5 bg-brand-bg text-brand-primary border border-brand-border rounded-full px-4 py-2 text-sm font-semibold transition hover:bg-brand-panel active:scale-[0.96] ${C.focusRing}`}
             aria-label="Импорт лидов из файла"
           >
             <Upload size={14} />
             Импорт
           </button>
+          <div className="hidden md:block">
           <ExportPopover
             filters={{
               segment: exportSegment,
@@ -112,6 +114,7 @@ export function PipelineHeader({ leads, totalCount }: Props) {
             }}
             leadCount={totalCount}
           />
+          </div>
         {isAdminOrHead && (
           <Button
             variant="ghost"
@@ -128,7 +131,7 @@ export function PipelineHeader({ leads, totalCount }: Props) {
 
       {/* Filter row */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative">
+        <div className="relative flex-1 md:flex-none">
           <Search
             size={14}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted pointer-events-none"
@@ -138,12 +141,15 @@ export function PipelineHeader({ leads, totalCount }: Props) {
             placeholder="Поиск..."
             value={filters.q}
             onChange={(e) => setQ(e.target.value)}
-            className="h-8 pl-8 pr-3 text-sm bg-brand-bg border border-brand-border rounded-full outline-none focus:border-brand-accent/40 focus:bg-white transition duration-300 w-44"
+            className="h-8 pl-8 pr-3 text-sm bg-brand-bg border border-brand-border rounded-full outline-none focus:border-brand-accent/40 focus:bg-white transition duration-300 w-full md:w-44"
           />
         </div>
 
-        <span className="text-brand-muted text-xs">|</span>
+        {/* Segment/city filters: desktop only — on a phone the stage chips
+            and «Срочные» in the list do the narrowing. */}
+        <span className="hidden md:inline text-brand-muted text-xs">|</span>
 
+        <div className="hidden md:contents">
         <MultiSelectDropdown
           label="Сегмент"
           options={segmentOptions}
@@ -159,6 +165,7 @@ export function PipelineHeader({ leads, totalCount }: Props) {
           onChange={setCities}
           counts={cityCounts}
         />
+        </div>
       </div>
     </div>
   );

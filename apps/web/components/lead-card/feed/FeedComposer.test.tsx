@@ -119,6 +119,12 @@ describe("FeedComposer: телефон и черновик", () => {
     expect(field().value).toBe("важно");
   });
 
+  it("исход звонка заполняет поле, но ничего не отправляет сам", async () => {
+    render(<FeedComposer leadId="lead-g" modeRequest="call" prefillText="Не дозвонился" />);
+    await waitFor(() => expect(field().value).toBe("Не дозвонился"));
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it("после успешной отправки черновик удаляется", async () => {
     render(<FeedComposer leadId="lead-f" />);
     type("готово");

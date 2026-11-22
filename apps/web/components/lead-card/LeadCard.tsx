@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { Loader2, AlertTriangle } from "lucide-react";
@@ -28,6 +28,8 @@ import { LeadCardHeader } from "./LeadCardHeader";
 import { NextStepPrompt } from "./NextStepPrompt";
 import { NextStepLine } from "./NextStepLine";
 import { MobileActionBar } from "./MobileActionBar";
+import { CallOutcomeSheet } from "./CallOutcomeSheet";
+import { OUTCOME_PREFILL, takePendingCall, type CallOutcome } from "@/lib/call-outcome";
 import { useFeed } from "@/lib/hooks/use-feed";
 import { useLeadTasks } from "@/lib/hooks/use-lead-tasks";
 import { useLeaveGuard } from "@/lib/hooks/use-leave-guard";
@@ -101,6 +103,31 @@ function EditableLeadCard({ leadId }: Props) {
   const [composerModeRequest, setComposerModeRequest] = useState<
     "comment" | "task" | "call" | "file" | null
   >(null);
+  const [composerPrefill, setComposerPrefill] = useState<string | null>(null);
+  // «Как прошёл звонок?» — asked when the manager returns to this card
+  // after tapping «Позвонить» (see lib/call-outcome.ts).
+  const [callOutcomeOpen, setCallOutcomeOpen] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      if (document.visibilityState === "visible" && takePendingCall(leadId)) {
+        setCallOutcomeOpen(true);
+      }
+    };
+    check();
+    document.addEventListener("visibilitychange", check);
+    window.addEventListener("focus", check);
+    return () => {
+      document.removeEventListener("visibilitychange", check);
+      window.removeEventListener("focus", check);
+    };
+  }, [leadId]);
+  function applyCallOutcome(outcome: CallOutcome) {
+    const { mode, text } = OUTCOME_PREFILL[outcome];
+    setCallOutcomeOpen(false);
+    setActiveTab("activity");
+    setComposerPrefill(text);
+    setComposerModeRequest(mode);
+  }
 
   // «← объединён из N» note — derived from the `system` audit Activity the
   // merge writes (payload_json.merged_lead_ids). Reuses the feed cache that
@@ -326,7 +353,11 @@ function EditableLeadCard({ leadId }: Props) {
               <UnifiedFeed
                 leadId={lead.id}
                 composerModeRequest={composerModeRequest}
-                onComposerModeRequestConsumed={() => setComposerModeRequest(null)}
+                composerPrefill={composerPrefill}
+                onComposerModeRequestConsumed={() => {
+                  setComposerModeRequest(null);
+                  setComposerPrefill(null);
+                }}
               />
             </TabsContent>
             <TabsContent value="tasks"><TasksTab leadId={lead.id} /></TabsContent>
@@ -422,6 +453,14 @@ function EditableLeadCard({ leadId }: Props) {
           leadId={lead.id}
           companyName={lead.company_name}
           onClose={() => setDeleteOpen(false)}
+        />
+      )}
+
+      {callOutcomeOpen && (
+        <CallOutcomeSheet
+          company={lead.company_name}
+          onPick={applyCallOutcome}
+          onClose={() => setCallOutcomeOpen(false)}
         />
       )}
 

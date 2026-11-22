@@ -56,6 +56,8 @@ interface Props {
    *  straight into task creation. Cleared via `onModeRequestConsumed`
    *  after applying. */
   modeRequest?: Mode | null;
+  /** Text to start with when `modeRequest` arrives (call outcome). */
+  prefillText?: string | null;
   onModeRequestConsumed?: () => void;
 }
 
@@ -71,6 +73,7 @@ export function FeedComposer({
   seed,
   onSeedConsumed,
   modeRequest,
+  prefillText,
   onModeRequestConsumed,
 }: Props) {
   const [mode, setMode] = useState<Mode>("comment");
@@ -127,13 +130,15 @@ export function FeedComposer({
   useEffect(() => {
     if (!modeRequest) return;
     setMode(modeRequest);
+    // «Как прошёл звонок?» hands over a starting text with the mode.
+    if (prefillText) setText(prefillText);
     setTimeout(() => {
       inputRef.current?.focus();
       // The phone action bar calls this from far below the composer.
       inputRef.current?.scrollIntoView?.({ block: "center" });
     }, 30);
     onModeRequestConsumed?.();
-  }, [modeRequest, onModeRequestConsumed]);
+  }, [modeRequest, prefillText, onModeRequestConsumed]);
 
   function reset() {
     setText("");
