@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { clsx } from "clsx";
-import { Bell, Menu, X } from "lucide-react";
+import { Bell, CheckSquare, Home, Menu, Users, X } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { User } from "@supabase/supabase-js";
 import { NotificationsDrawer } from "@/components/notifications/NotificationsDrawer";
@@ -56,6 +56,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Stable ref so SidebarNavContainer's items useMemo doesn't rebuild
   // on every AppShell render.
   const openNotifications = useCallback(() => setNotifOpen(true), []);
+  // The lead card has its own bottom action bar — two bars would stack.
+  const showTabBar = !pathname.startsWith("/leads/");
   const openSearch = useCallback(() => setSearchOpen(true), []);
 
   const displayName =
@@ -185,9 +187,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           parent's minmax(0, 1fr) cell instead of its content min-width.
           Pages that need horizontal scroll (Pipeline) handle it with
           their own overflow-x-auto inside. */}
-      <main id="main-content" className="md:col-start-2 min-h-screen min-w-0">
+      <main
+        id="main-content"
+        className={clsx(
+          "md:col-start-2 min-h-screen min-w-0",
+          showTabBar && "pb-24 md:pb-0",
+        )}
+      >
         {children}
       </main>
+
+      {showTabBar && (
+        <MobileTabBar pathname={pathname} onMore={() => setMobileNavOpen(true)} />
+      )}
 
       {/* Notifications drawer */}
       <NotificationsDrawer open={notifOpen} onClose={() => setNotifOpen(false)} />
@@ -198,6 +210,47 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* In-app task-due reminders (glass toasts, bottom-right) */}
       <TaskReminders />
     </div>
+  );
+}
+
+const TABS = [
+  { href: "/today", label: "Сегодня", icon: Home },
+  { href: "/pipeline", label: "Лиды", icon: Users },
+  { href: "/tasks", label: "Задачи", icon: CheckSquare },
+] as const;
+
+// Нижнее меню телефона: три главных раздела под большим пальцем, остальное —
+// в «Ещё» (то же боковое меню, что открывает кнопка в шапке).
+function MobileTabBar({ pathname, onMore }: { pathname: string; onMore: () => void }) {
+  const item =
+    "flex-1 min-h-11 flex flex-col items-center justify-center gap-1 rounded-lg type-label transition-colors";
+  return (
+    <nav
+      aria-label="Главное меню"
+      className="md:hidden fixed inset-x-0 bottom-0 z-30 bg-white border-t border-brand-border px-2 pt-2"
+      style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
+    >
+      <div className="flex items-stretch gap-1">
+        {TABS.map(({ href, label, icon: Icon }) => {
+          const active = pathname === href || pathname.startsWith(`${href}/`);
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-current={active ? "page" : undefined}
+              className={clsx(item, active ? "text-brand-accent-text" : "text-brand-muted")}
+            >
+              <Icon size={20} aria-hidden />
+              {label}
+            </Link>
+          );
+        })}
+        <button type="button" onClick={onMore} className={clsx(item, "text-brand-muted")}>
+          <Menu size={20} aria-hidden />
+          Ещё
+        </button>
+      </div>
+    </nav>
   );
 }
 

@@ -1,24 +1,46 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckSquare, ChevronsRight, MessageSquare, Phone } from "lucide-react";
+import { CheckSquare, ChevronsRight, MessageSquare, Phone, Send } from "lucide-react";
 import { useContacts } from "@/lib/hooks/use-contacts";
+import { markPendingCall } from "@/lib/call-outcome";
+import { socialHref } from "@/lib/safe-url";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
-import type { LeadOut, Stage } from "@/lib/types";
+import type { ContactOut, LeadOut, Stage } from "@/lib/types";
+
+type ContactLike = Pick<ContactOut, "id" | "phone"> &
+  Partial<Pick<ContactOut, "email" | "telegram_url">>;
+
+function primaryOf<T extends { id: string }>(
+  lead: Pick<LeadOut, "primary_contact_id">,
+  contacts: T[],
+): T | undefined {
+  return contacts.find((c) => c.id === lead.primary_contact_id) ?? contacts[0];
+}
 
 /** Phone to dial: the lead's primary contact, else the lead's own phone. */
 export function pickCallPhone(
   lead: Pick<LeadOut, "phone" | "primary_contact_id">,
   contacts: { id: string; phone: string | null }[],
 ): string | null {
-  const primary =
-    contacts.find((c) => c.id === lead.primary_contact_id) ?? contacts[0];
-  return primary?.phone || lead.phone || null;
+  return primaryOf(lead, contacts)?.phone || lead.phone || null;
+}
+
+/** Where «Написать» can go: e-mail (contact, else lead) and Telegram. */
+export function pickWriteChannels(
+  lead: Pick<LeadOut, "email" | "primary_contact_id">,
+  contacts: ContactLike[],
+): { email: string | null; telegram: string | null } {
+  const primary = primaryOf(lead, contacts);
+  return {
+    email: primary?.email || lead.email || null,
+    telegram: socialHref(primary?.telegram_url ?? null, "telegram") ?? null,
+  };
 }
 
 /** True while the manager types into a field — the bar steps aside so it
@@ -47,7 +69,7 @@ function useEditingField(): boolean {
 }
 
 const ITEM =
-  "flex-1 min-h-11 flex flex-col items-center justify-center gap-1 rounded-lg type-label text-brand-primary active:scale-[0.96] transition-transform disabled:opacity-40";
+  "flex-1 min-w-0 min-h-11 flex flex-col items-center justify-center gap-1 rounded-lg type-label text-brand-primary active:scale-[0.96] transition-transform disabled:opacity-40";
 
 interface Props {
   lead: LeadOut;
@@ -58,7 +80,8 @@ interface Props {
   onStageSelect: (stage: Stage) => void;
 }
 
-/** Phone-only sticky action row: Позвонить · Комментарий · Задача · Стадия. */
+/** Phone-only sticky action row: Позвонить · Написать · Комментарий ·
+ *  Задача · Стадия. */
 export function MobileActionBar({
   lead,
   stages,
@@ -70,6 +93,8 @@ export function MobileActionBar({
   const { data: contacts = [] } = useContacts(lead.id);
   const editing = useEditingField();
   const phone = pickCallPhone(lead, contacts);
+  const write = pickWriteChannels(lead, contacts);
+  const canWrite = !!(write.email || write.telegram);
   const openStages = stages.filter((s) => !s.is_won && !s.is_lost);
 
   if (editing) return null;
@@ -77,12 +102,16 @@ export function MobileActionBar({
   return (
     <nav
       aria-label="Действия с лидом"
-      className="md:hidden fixed inset-x-0 bottom-0 z-30 bg-white border-t border-brand-border px-2 pt-2"
+      className="md:hidden fixed inset-x-0 bottom-0 z-30 bg-white border-t border-brand-border px-1 pt-2"
       style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
     >
-      <div className="flex items-stretch gap-1">
+      <div className="flex items-stretch">
         {phone ? (
-          <a href={`tel:${phone}`} className={ITEM}>
+          <a
+            href={`tel:${phone}`}
+            onClick={() => markPendingCall(lead.id)}
+            className={ITEM}
+          >
             <Phone size={20} aria-hidden />
             Позвонить
           </a>
@@ -92,6 +121,33 @@ export function MobileActionBar({
             Позвонить
           </button>
         )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className={ITEM}
+              disabled={!canWrite}
+              title={canWrite ? undefined : "Почта и Telegram не указаны"}
+            >
+              <Send size={20} aria-hidden />
+              Написать
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align="start" className="w-56">
+            {write.email && (
+              <DropdownMenuItem asChild className="min-h-11">
+                <a href={`mailto:${write.email}`}>Почта · {write.email}</a>
+              </DropdownMenuItem>
+            )}
+            {write.telegram && (
+              <DropdownMenuItem asChild className="min-h-11">
+                <a href={write.telegram} target="_blank" rel="noopener noreferrer">
+                  Telegram
+                </a>
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <button type="button" onClick={onComment} className={ITEM}>
           <MessageSquare size={20} aria-hidden />
           Комментарий

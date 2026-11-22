@@ -76,8 +76,8 @@ export function TaskReminders() {
 
   return (
     <div
-      className="fixed right-4 sm:right-6 z-40 flex flex-col gap-3 max-w-[calc(100vw-2rem)] pointer-events-none"
-      style={{ bottom: "max(1rem, env(safe-area-inset-bottom))" }}
+      // bottom-24 on phones: clear the tab bar / lead action bar fixed at the bottom.
+      className="fixed right-4 sm:right-6 bottom-24 md:bottom-4 z-40 flex flex-col gap-3 max-w-[calc(100vw-2rem)] pointer-events-none"
     >
       {due.map((t) => (
         <ReminderToast
