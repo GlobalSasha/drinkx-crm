@@ -130,8 +130,10 @@ is the canonical truth.
   `infra/production/deploy.sh` from there — `docker compose build` of `web`,
   `api`, `worker`, `beat`, health checks, then a check that the running
   containers came from the images this build produced. The server never talks
-  to GitHub and nothing is `git pull`ed there. Secrets live in
-  `/opt/drinkx-crm/shared/.env`, outside every release tree. Details and
+  to GitHub and nothing is `git pull`ed there. Secrets live outside every
+  release tree: `deploy.sh` takes `/opt/drinkx-crm/shared/.env` if it exists,
+  else `/opt/drinkx-crm/infra/production/.env`. Today the server has no
+  `shared/` folder, so production reads `infra/production/.env`. Details and
   rollback: `infra/production/RELEASE_GATE.md`.
 - **Frontend (`apps/web`)**: Next.js 15 inside the `web` container; built via
   `pnpm build` during `docker compose build`.

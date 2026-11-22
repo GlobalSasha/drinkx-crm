@@ -126,7 +126,8 @@ Vercel/Railway.
   unpacks it into a clean `/opt/drinkx-crm/releases/<sha>/`, and runs
   `infra/production/deploy.sh` from there — `docker compose build` of `web`, `api`,
   `worker`, `beat`, health checks, then an image-identity check. No `git pull` on the
-  server. Secrets: `/opt/drinkx-crm/shared/.env`. See `infra/production/RELEASE_GATE.md`.
+  server. Secrets: `/opt/drinkx-crm/shared/.env` if it exists, else
+  `/opt/drinkx-crm/infra/production/.env` — the one in use today (no `shared/` yet). See `infra/production/RELEASE_GATE.md`.
 - **Frontend** (`apps/web`): Next.js 15 in the `web` container.
 - **Backend** (`apps/api`): FastAPI in `api`; Celery worker in `worker`; Celery beat in
   `beat` — all three share one image.
