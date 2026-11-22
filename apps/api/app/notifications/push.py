@@ -6,8 +6,8 @@ it on the session → only after a successful COMMIT the Celery task
 → the worker signs with VAPID and posts to every subscription of the user.
 
 Off while VAPID keys are empty: subscriptions are stored, nothing is sent.
-Keys: `python -m app.notifications.push keys` — prints a fresh pair for
-`/opt/drinkx-crm/shared/.env`.
+Keys: `python -m app.notifications.push keys` — prints a fresh pair for the
+env file deploy.sh uses (`shared/.env`, else `infra/production/.env`).
 """
 from __future__ import annotations
 
