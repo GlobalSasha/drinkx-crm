@@ -39,6 +39,7 @@ function type(value: string) {
 describe("FeedComposer: @-упоминания", () => {
   beforeEach(() => {
     send.mockClear();
+    window.localStorage.clear(); // drafts must not leak between tests
     render(<FeedComposer leadId="lead" />);
   });
   afterEach(cleanup);
@@ -78,5 +79,51 @@ describe("FeedComposer: @-упоминания", () => {
     expect(field().value).toBe("@");
     fireEvent.click(screen.getByText("Влада"));
     expect(field().value).toBe("@Влада ");
+  });
+});
+
+describe("FeedComposer: телефон и черновик", () => {
+  const originalMatchMedia = window.matchMedia;
+  beforeEach(() => {
+    send.mockReset();
+    send.mockResolvedValue({});
+    window.localStorage.clear();
+  });
+  afterEach(() => {
+    cleanup();
+    window.matchMedia = originalMatchMedia;
+  });
+
+  it("на сенсорном экране Enter переносит строку, а не отправляет", () => {
+    window.matchMedia = vi.fn().mockReturnValue({ matches: true }) as never;
+    render(<FeedComposer leadId="lead" />);
+    type("привет");
+    fireEvent.keyDown(field(), { key: "Enter" });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("несохранённый комментарий возвращается после повторного открытия", async () => {
+    const first = render(<FeedComposer leadId="lead-d" />);
+    type("перезвонить в пятницу");
+    first.unmount();
+    render(<FeedComposer leadId="lead-d" />);
+    await waitFor(() => expect(field().value).toBe("перезвонить в пятницу"));
+  });
+
+  it("при ошибке отправки текст остаётся в поле", async () => {
+    send.mockRejectedValueOnce(new Error("offline"));
+    render(<FeedComposer leadId="lead-e" />);
+    type("важно");
+    fireEvent.keyDown(field(), { key: "Enter" });
+    await waitFor(() => expect(send).toHaveBeenCalled());
+    expect(field().value).toBe("важно");
+  });
+
+  it("после успешной отправки черновик удаляется", async () => {
+    render(<FeedComposer leadId="lead-f" />);
+    type("готово");
+    fireEvent.keyDown(field(), { key: "Enter" });
+    await waitFor(() => expect(field().value).toBe(""));
+    expect(window.localStorage.getItem("drinkx:comment-draft:lead-f")).toBeNull();
   });
 });
