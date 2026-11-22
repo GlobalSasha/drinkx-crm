@@ -114,6 +114,10 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: '${SMTP_FROM:-DrinkX CRM <noreply@crm.drinkx.tech>}'
       DIGEST_RECIPIENTS: ${DIGEST_RECIPIENTS:-}
+      # Web Push to phones. Empty keys keep it off (see app/notifications/push.py).
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@drinkx.tech}
       # Structured JSON logs → /app/logs/app-<SERVICE_NAME>.log, read back by
       # GET /admin/logs. SERVICE_NAME is overridden per service below.
       LOG_DIR: /app/logs

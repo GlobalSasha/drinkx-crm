@@ -57,3 +57,30 @@ class Notification(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     read_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+
+class PushSubscription(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
+    """One browser / installed app that agreed to receive Web Push.
+
+    A user may have several (phone + laptop). The endpoint is unique per
+    device; re-subscribing from the same device under another user moves
+    it over. Rows the push service reports gone (404/410) are deleted.
+    """
+
+    __tablename__ = "push_subscriptions"
+    __table_args__ = (Index("ix_push_subscriptions_user", "user_id"),)
+
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    endpoint: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    p256dh: Mapped[str] = mapped_column(String(200), nullable=False)
+    auth: Mapped[str] = mapped_column(String(100), nullable=False)
+    user_agent: Mapped[str | None] = mapped_column(String(300), nullable=True)
