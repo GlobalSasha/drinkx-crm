@@ -527,6 +527,27 @@ async def process_message(
                             },
                         )
 
+                    # Bell for the lead's owner (not the mailbox owner) on a
+                    # NEW inbound email. Re-syncs never reach here
+                    # (_already_processed above); outbound mail is the
+                    # manager's own action. Subject only — no body text.
+                    if (
+                        direction == "inbound"
+                        and matched_lead is not None
+                        and matched_lead.assigned_to is not None
+                    ):
+                        from app.notifications.services import safe_notify
+
+                        await safe_notify(
+                            session,
+                            workspace_id=workspace_id,
+                            user_id=matched_lead.assigned_to,
+                            kind="email_inbound",
+                            title=f"Письмо: {matched_lead.company_name}",
+                            body=subject or "Без темы",
+                            lead_id=target_lead_id,
+                        )
+
                     await session.commit()
                     bound_log.info(
                         "inbox.process_message.attached_to_lead",
