@@ -91,6 +91,13 @@ class Settings(BaseSettings):
     # active user. Lets the digest roll out to one person first.
     digest_recipients: str = ""
 
+    # Web Push (phone notifications with the CRM closed). Off while the
+    # keys are empty: subscriptions are still stored, nothing is sent.
+    # Generate once: `python -m app.notifications.push keys`.
+    vapid_public_key: str = ""
+    vapid_private_key: str = ""
+    vapid_subject: str = "mailto:admin@drinkx.tech"
+
     # Public-facing URLs — used to build OAuth redirect_uri and to send
     # the user back to the SPA after callback.
     api_base_url: str = "http://localhost:8000"

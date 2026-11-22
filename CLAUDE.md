@@ -107,6 +107,7 @@ CLAUDE.md      # this file
 | Apify | (Phase 1.5+) scrapers | env: `APIFY_TOKEN` |
 | Google OAuth | Sign-in | env: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
 | Sentry | Errors | env: `SENTRY_DSN` |
+| Web Push | Уведомления на телефон при закрытой CRM | env: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`; пара ключей — `python -m app.notifications.push keys`; пустые ключи = выключено |
 
 Локально фронтенд читает `apps/web/.env.local` (конвенция Next.js), а API —
 `apps/api/.env`: `pydantic-settings` подхватывает файл ровно с этим именем

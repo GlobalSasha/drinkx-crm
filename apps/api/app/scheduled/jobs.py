@@ -1398,6 +1398,24 @@ async def _run_gmail_history_sync(user_id: UUID) -> dict:
     }
 
 
+@celery_app.task(name="app.scheduled.jobs.send_push")
+def send_push(notification_id: str) -> dict:
+    """Web Push for one committed notification — enqueued by
+    app.notifications.push after COMMIT. No audit row: it runs per event."""
+    return asyncio.run(_send_push(UUID(notification_id)))
+
+
+async def _send_push(notification_id: UUID) -> dict:
+    engine, factory = _build_task_engine_and_factory()
+    try:
+        async with factory() as session:
+            from app.notifications.push import send_push_for_notification
+
+            return await send_push_for_notification(session, notification_id)
+    finally:
+        await engine.dispose()
+
+
 async def _run_one_user_regen(user_id: UUID, plan_date: date) -> dict:
     engine, factory = _build_task_engine_and_factory()
     try:

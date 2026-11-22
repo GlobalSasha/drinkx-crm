@@ -147,6 +147,10 @@ async def notify(
     )
     db.add(row)
     await db.flush()
+    # Phone push goes out only after the caller's COMMIT (see push.py).
+    from app.notifications.push import queue_push_after_commit
+
+    queue_push_after_commit(db, row)
     return row
 
 
