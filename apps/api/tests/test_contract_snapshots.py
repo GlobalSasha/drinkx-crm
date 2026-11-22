@@ -27,6 +27,8 @@ LEAD_LIST_ITEM_KEYS = {
     "deal_amount", "deal_quantity", "deal_equipment", "deal_brand", "needs_review",
     # Одно число вместо всего ai_data — см. test_arch03_ai_confidence.py.
     "ai_confidence",
+    # «Мои лиды» на телефоне — см. test_leads_list_next_task.py.
+    "next_task_due_at", "has_open_task", "primary_contact_phone",
     "created_at", "updated_at",
 }
 
