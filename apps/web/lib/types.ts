@@ -344,6 +344,7 @@ export interface CompanyInflow {
 
 /** `/company/brands` — active leads per brand. */
 export interface CompanyCitiesProducts {
+  from_date: string; // YYYY-MM-DD — leads created since this day
   total: number;
   cities: { name: string; count: number }[];
   no_city: number;

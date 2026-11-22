@@ -1,7 +1,7 @@
 "use client";
 
-// «Города и продукты» on the head/admin /today: the whole lead base by city and
-// by product. Data: GET /company/cities-products.
+// «Города и продукты» on the head/admin /today: leads created over the last
+// three months, by city and by product. Data: GET /company/cities-products.
 
 import { useState } from "react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -21,6 +21,7 @@ export function CitiesProductsCard() {
       <CardHeader>
         <CardTitle>Города и продукты</CardTitle>
       </CardHeader>
+      <p className="type-hint not-italic text-brand-muted -mt-2 mb-4">Новые лиды за последние 3 месяца</p>
 
       {isError ? (
         <p className="type-body text-rose py-6 text-center">Не удалось загрузить статистику — обновите страницу.</p>
@@ -48,12 +49,17 @@ export function CitiesProductsCard() {
             </section>
           </div>
           <p className="type-hint text-brand-muted mt-3">
-            Вся база, {data.total} лидов. Данные из карточки и заявки клиента. Один лид может считаться в нескольких продуктах.
+            С {formatDay(data.from_date)}: {data.total} лидов. Данные из карточки и заявки клиента. Один лид может считаться в нескольких продуктах.
           </p>
         </>
       )}
     </Card>
   );
+}
+
+function formatDay(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  return `${d}.${m}.${y}`;
 }
 
 function Rows({ rows, muted }: { rows: { name: string; count: number }[]; muted: string }) {

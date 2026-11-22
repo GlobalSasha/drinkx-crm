@@ -154,6 +154,7 @@ class NamedCount(BaseModel):
 
 
 class CompanyCitiesProductsOut(BaseModel):
+    from_date: date  # leads created on or after this day are counted
     total: int
     cities: list[NamedCount]  # most leads first
     no_city: int

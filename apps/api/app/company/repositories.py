@@ -135,17 +135,18 @@ async def brand_counts(db: AsyncSession, *, workspace_id: uuid.UUID) -> dict:
 
 
 async def leads_for_city_product_stats(
-    db: AsyncSession, *, workspace_id: uuid.UUID
+    db: AsyncSession, *, workspace_id: uuid.UUID, from_: datetime
 ) -> tuple[list, list]:
-    """The whole live base, closed leads included, and its web-form requests,
-    newest first. Parsing them is left to the service."""
+    """Live leads created since `from_`, closed ones included, and their
+    web-form requests, newest first. Parsing them is left to the service."""
     leads = (await db.execute(text("""
         SELECT l.id, l.city, l.deal_equipment, l.deal_brand
         FROM leads l
         WHERE l.workspace_id = :wid
           AND l.deleted_at IS NULL AND l.archived_at IS NULL
           AND l.assignment_status <> 'deleted'
-    """), {"wid": workspace_id})).all()
+          AND l.created_at >= :from_
+    """), {"wid": workspace_id, "from_": from_})).all()
     # Through the ORM: a raw text() query would hand back the JSON as a string.
     submissions = (await db.execute(
         select(FormSubmission.lead_id, FormSubmission.raw_payload)
@@ -155,6 +156,7 @@ async def leads_for_city_product_stats(
             Lead.deleted_at.is_(None),
             Lead.archived_at.is_(None),
             Lead.assignment_status != "deleted",
+            Lead.created_at >= from_,
         )
         .order_by(FormSubmission.created_at.desc())
     )).all()

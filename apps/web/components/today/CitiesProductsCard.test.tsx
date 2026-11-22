@@ -21,6 +21,7 @@ describe("CitiesProductsCard", () => {
   beforeEach(() => {
     query.current = {
       data: {
+        from_date: "2026-08-24",
         total: 100,
         cities,
         no_city: 40,
@@ -40,6 +41,12 @@ describe("CitiesProductsCard", () => {
     expect(row("Город не указан").getByText("40")).toBeInTheDocument();
     expect(row("S400").getByText("7")).toBeInTheDocument();
     expect(row("Продукт не указан").getByText("90")).toBeInTheDocument();
+  });
+
+  it("says which period the numbers cover", () => {
+    render(<CitiesProductsCard />);
+    expect(screen.getByText("Новые лиды за последние 3 месяца")).toBeInTheDocument();
+    expect(screen.getByText(/С 24\.08\.2026: 100 лидов\./)).toBeInTheDocument();
   });
 
   it("shows the top ten cities and expands to all", () => {
