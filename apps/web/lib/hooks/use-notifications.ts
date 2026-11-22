@@ -10,14 +10,19 @@ import type {
 
 const POLL_MS = 30_000;
 
-/** Poll the bell badge — counts unread on every tick. */
+/** Poll the bell badge — counts unread on every tick. Keeps polling in a
+ *  hidden tab (one tiny request per 30 s) so the tab-title counter stays
+ *  current, and refetches at once when the manager returns to the tab or
+ *  the network comes back. */
 export function useNotificationsBadge() {
   return useQuery({
     queryKey: ["notifications", "badge"],
     queryFn: () =>
       api.get<NotificationListOut>("/notifications?unread=true&page=1&page_size=1"),
     refetchInterval: POLL_MS,
-    refetchIntervalInBackground: false,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: "always",
+    refetchOnReconnect: "always",
   });
 }
 
@@ -32,6 +37,8 @@ export function useNotificationsList(opts: { unread: boolean }) {
       ),
     refetchInterval: POLL_MS,
     refetchIntervalInBackground: false,
+    refetchOnWindowFocus: "always",
+    refetchOnReconnect: "always",
   });
 }
 
