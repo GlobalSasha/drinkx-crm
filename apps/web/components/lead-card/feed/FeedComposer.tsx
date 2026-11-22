@@ -151,6 +151,9 @@ export function FeedComposer({
     if (mode === "comment") {
       try {
         await create.mutateAsync({ type: "comment", body: value });
+        // Drop the draft right away — not one render later via the save
+        // effect — so a quick reload after sending can't bring it back.
+        saveDraft(leadId, "");
         reset();
       } catch {
         /* keep text */
