@@ -7,7 +7,8 @@ Key invariants:
   with the same normalized_name exists; client may retry with
   `?force=true`.
 - Renaming a company propagates to `leads.company_name` for ACTIVE
-  leads only. Closed/archived leads keep their historical snapshot
+  leads whose title still equals the old name (a title a manager edited
+  by hand is kept). Closed/archived leads keep their historical snapshot
   — the spec's `is_archived = false` filter is implemented here as
   `archived_at IS NULL` (the actual lead column; see Phase 0 §7).
 """
@@ -89,6 +90,7 @@ async def update_company(
         raise CompanyNotFound(company_id)
 
     new_name: str | None = None
+    old_name = company.name
     if data.name is not None and data.name != company.name:
         new_name = data.name
         company.name = data.name
@@ -104,16 +106,18 @@ async def update_company(
     for key, value in payload.items():
         setattr(company, key, value)
 
-    # Name-sync rule: only ACTIVE leads inherit a renamed company.
+    # Name-sync rule: only ACTIVE leads inherit a renamed company, and only
+    # those whose title was never changed by hand.
     # `leads` schema has `archived_at` not `is_archived` — substitution
     # per Phase 0 feasibility note.
     if new_name is not None:
         await db.execute(
             text(
                 "UPDATE leads SET company_name = :n, updated_at = now() "
-                "WHERE company_id = :id AND archived_at IS NULL"
+                "WHERE company_id = :id AND archived_at IS NULL "
+                "AND company_name = :old"
             ),
-            {"n": new_name, "id": company_id},
+            {"n": new_name, "id": company_id, "old": old_name},
         )
 
     await db.flush()

@@ -250,12 +250,6 @@ async def list_selection_ids(
     return await repo.list_selection_ids(db, workspace_id, selection)
 
 
-class CompanyNameLocked(Exception):
-    """Sprint 3.3: direct edit of `company_name` is rejected when the
-    lead is linked to a company. The frontend renames via PATCH
-    /companies/{id} instead, which then propagates to active leads."""
-
-
 async def update_lead(
     db: AsyncSession,
     workspace_id: uuid.UUID,
@@ -267,10 +261,14 @@ async def update_lead(
         raise LeadNotFound(lead_id)
     _validate_enum_fields(payload.priority, payload.deal_type)
     patch = payload.model_dump(exclude_unset=True)
-    # ADR-022 sync rule: company_name is a snapshot; rename a linked
-    # lead's name only via the company-rename code path.
-    if "company_name" in patch and lead.company_id is not None:
-        raise CompanyNameLocked()
+    # `company_name` is the card title. It starts as the company's name, but
+    # managers rename it to carry segment, volume and the like — linked or
+    # not. A company rename only follows titles nobody changed by hand.
+    if "company_name" in patch:
+        title = (patch["company_name"] or "").strip()
+        if not title:
+            raise ValueError("Название лида не может быть пустым")
+        patch["company_name"] = title
     # company_profile is the manager-editable AI brief narrative. It lives
     # inside the ai_data JSON, not as a column — merge it so AI signals
     # (coffee/growth/triggers) aren't clobbered. New dict assignment so
