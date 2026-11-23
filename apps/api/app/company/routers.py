@@ -5,7 +5,7 @@
   GET /api/company/inflow                       — new leads by day / month and source
   GET /api/company/manager-speed                — per-manager handling speed, today / week
   GET /api/company/brands                       — active leads per brand
-  GET /api/company/cities-products              — whole base by city and product
+  GET /api/company/cities-products              — last 3 months by city and product
 """
 from __future__ import annotations
 

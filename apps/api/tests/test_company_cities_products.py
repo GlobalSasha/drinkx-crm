@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -93,7 +93,7 @@ async def _lead(db, workspace_id, payloads=(), **fields):
 
 
 @skip_no_pg
-async def test_counts_the_whole_live_base(db, workspace):
+async def test_counts_live_leads_of_the_last_three_months(db, workspace):
     now = datetime.now(timezone.utc)
     await _lead(db, workspace.id, city="москва", deal_equipment="S100 S400")
     # Поле карточки важнее заявки; повторное упоминание продукта — один лид.
@@ -104,9 +104,14 @@ async def test_counts_the_whole_live_base(db, workspace):
     await _lead(db, workspace.id, won_at=now, deal_equipment="S200")  # закрытые — тоже база
     await _lead(db, workspace.id, city="Удалённый", deal_equipment="S300", deleted_at=now)
     await _lead(db, workspace.id, city="Архивный", deal_equipment="S300", archived_at=now)
+    # Старше 90 дней — не считается, и его заявка тоже.
+    await _lead(db, workspace.id, city="Старый", deal_equipment="S300",
+                created_at=now - timedelta(days=91),
+                payloads=[{"comment": "Имя: В\nГород: Сочи\nИнтересует модель: S300"}])
 
     out = await svc.cities_products(db, workspace_id=workspace.id)
 
+    assert out["from_date"] == (now - timedelta(days=90)).date()
     assert out["total"] == 4
     assert out["cities"] == [{"name": "Москва", "count": 2}, {"name": "Казань", "count": 1}]
     assert out["no_city"] == 1

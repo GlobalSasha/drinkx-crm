@@ -339,9 +339,15 @@ async def brands(db: AsyncSession, *, workspace_id: uuid.UUID) -> dict:
     return await repo.brand_counts(db, workspace_id=workspace_id)
 
 
+# «Города и продукты» counts leads that came in over roughly the last three
+# months, not the whole base: the old base would drown out recent demand.
+CITIES_PRODUCTS_DAYS = 90
+
+
 async def cities_products(db: AsyncSession, *, workspace_id: uuid.UUID) -> dict:
+    from_ = datetime.now(timezone.utc) - timedelta(days=CITIES_PRODUCTS_DAYS)
     leads, submissions = await repo.leads_for_city_product_stats(
-        db, workspace_id=workspace_id
+        db, workspace_id=workspace_id, from_=from_
     )
     form_city: dict[uuid.UUID, str] = {}
     form_products: dict[uuid.UUID, set[str]] = {}
@@ -372,6 +378,7 @@ async def cities_products(db: AsyncSession, *, workspace_id: uuid.UUID) -> dict:
             no_product += 1
 
     return {
+        "from_date": from_.date(),
         "total": len(leads),
         "cities": [
             {"name": name, "count": count}
