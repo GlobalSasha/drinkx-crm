@@ -385,6 +385,12 @@ archived leads keep their historical snapshot). Direct edit of
 `leads.company_name` via PATCH /leads/{id} is REJECTED with 409
 `company_name_locked` when `lead.company_id IS NOT NULL`.
 
+**Amended 2026-11-23:** the lock is gone. Every manually created lead is
+linked to a company, so managers could not rename cards at all (the UI
+silently reverted). `leads.company_name` is now the card title, editable
+on any lead; a company rename propagates only to active leads whose title
+still equals the old company name.
+
 **Dedup is by `normalized_name`,** computed in
 `app/companies/utils.py:normalize_company_name`: lowercase + strip
 quotes + strip RU/EN org-forms (ООО / ПАО / LLC / GmbH / …) +

@@ -37,7 +37,7 @@
 - `GET /leads/pool` → пул, сортировка `fit_score DESC NULLS LAST`, фильтр `needs_review`.
 - `POST /leads/sprint` → claim N лидов из пула (`FOR UPDATE SKIP LOCKED`, по городам/сегменту).
 - `GET /leads/{id}` → с `primary_contact_name`, `open_counts`.
-- `PATCH /leads/{id}` → update (запрет переименовать `company_name`, если linked → `CompanyNameLocked`).
+- `PATCH /leads/{id}` → update (`company_name` — название карточки, правится и у linked-лида; пустое → 400).
 - `DELETE /leads/{id}`.
 - `POST /leads/{id}/claim` · `/unclaim` · `/transfer` — race-safe `UPDATE`, transfer логируется + уведомление.
 - `POST /leads/{id}/move-stage` → через `automation.move_stage`, обработка gate-violations.
@@ -56,8 +56,8 @@
 `notifications`, `forms` (резолв формы по slug из `source`), `audit`, `auth`.
 
 **⚠️ Подводные камни.**
-- **Снимок имени компании (ADR-022):** менять `company_name` у linked-лида можно только через
-  переименование компании, иначе `CompanyNameLocked`.
+- **Название карточки (ADR-022, с 23.11.2026):** `company_name` правится напрямую; переименование
+  компании не трогает названия, которые менеджер уже изменил вручную.
 - **Два пути к контактам:** `lead.contacts` (через `Contact.lead_id`) и `lead.primary_contact_id`
   (LEFT JOIN без ORM-relationship). Не путать.
 - **Загрузка списка:** `primary_contact_name`, `open_tasks_count`, `open_followups_count` резолвятся

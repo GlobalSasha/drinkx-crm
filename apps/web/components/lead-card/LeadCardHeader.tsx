@@ -209,6 +209,8 @@ export function LeadCardHeader({
               ref={nameInputRef}
               value={nameValue}
               onChange={(e) => setNameValue(e.target.value)}
+              maxLength={255}
+              aria-label="Название лида"
               onBlur={commitName}
               onKeyDown={(e) => {
                 if (e.key === "Enter") commitName();
@@ -220,7 +222,7 @@ export function LeadCardHeader({
             <h1
               onClick={startEditName}
               className="min-w-0 type-page-title text-brand-primary cursor-text hover:text-brand-accent-text transition-colors truncate"
-              title="Нажмите для редактирования"
+              title={`${lead.company_name} — нажмите, чтобы изменить`}
             >
               {lead.company_name}
             </h1>

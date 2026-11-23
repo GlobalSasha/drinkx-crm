@@ -285,7 +285,12 @@ function EditableLeadCard({ leadId }: Props) {
             onFindDuplicates={() => setDupOpen(true)}
             onDelete={() => setDeleteOpen(true)}
             onStageSelect={handleStageSelect}
-            onRename={(name) => updateLead.mutate({ company_name: name })}
+            onRename={(name) =>
+              updateLead.mutate(
+                { company_name: name },
+                { onError: () => showToast("Не удалось сохранить название") },
+              )
+            }
           >
             {/* Funnel progress — self-fetching, so it doesn't bloat this
                 component; sits in the title column of the header. */}
