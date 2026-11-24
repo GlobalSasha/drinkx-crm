@@ -488,7 +488,7 @@ function DeleteUserModal({
 // Invite modal
 // ---------------------------------------------------------------------------
 
-function InviteModal({
+export function InviteModal({
   open,
   canGrantAdmin,
   onClose,

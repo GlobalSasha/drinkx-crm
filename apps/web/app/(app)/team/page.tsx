@@ -7,11 +7,12 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Users, Loader2, ShieldAlert } from "lucide-react";
+import { Users, Loader2, ShieldAlert, Plus } from "lucide-react";
 
 import { useMe } from "@/lib/hooks/use-me";
 import { useTeamStats } from "@/lib/hooks/use-team-stats";
 import { WorkloadTable } from "@/components/team/WorkloadTable";
+import { InviteModal } from "@/components/settings/TeamSection";
 import { pageContainerVariants } from "@/components/ui/PageContainer";
 import { PageHeader } from "@/components/ui/PageHeader";
 import {
@@ -58,6 +59,7 @@ export default function TeamPage() {
   const [period, setPeriod] = useState<TeamPeriod>("week");
   const [view, setView] = useState<"activity" | "workload">("workload");
   const stats = useTeamStats(period);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   if (me.isLoading || !me.data) {
     return (
@@ -104,6 +106,14 @@ export default function TeamPage() {
                 {formatRange(stats.data.from, stats.data.to)}
               </span>
             )}
+            <button
+              type="button"
+              onClick={() => setInviteOpen(true)}
+              className="inline-flex items-center gap-1.5 bg-brand-accent text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-brand-accent/90 active:scale-[0.98] transition duration-300"
+            >
+              <Plus size={14} />
+              Пригласить
+            </button>
             <div className="flex gap-1 bg-brand-panel rounded-full p-1">
               {VIEWS.map((v) => (
                 <button
@@ -188,6 +198,12 @@ export default function TeamPage() {
           )}
         </>
       )}
+
+      <InviteModal
+        open={inviteOpen}
+        canGrantAdmin={me.data.role === "admin"}
+        onClose={() => setInviteOpen(false)}
+      />
     </div>
   );
 }
