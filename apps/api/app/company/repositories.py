@@ -1,10 +1,10 @@
 """Raw-SQL aggregates for the company overview. Workspace-scoped, read-only.
 
-«Qualified» = a lead that has left the intake stage (stage.position > 0) — the
-intake stage is always position 0 (get_default_first_stage). «Stuck» = an open
+«Qualified» = a lead that is past the entry stage and not on «Не отвечает» — the
+intake stage is the pipeline's entry stage (app/pipelines/entry.py). «Stuck» = an open
 assigned lead on a non-terminal stage with no touch for 7+ days, where a touch
-is what `_LAST_TOUCH` lists. Leads still on the first stage of their pipeline
-are not «stuck deals» yet: they are counted apart (`first_stage_idle_count`).
+is what `_LAST_TOUCH` lists. Leads on the entry stage or the «Не отвечает»
+holding stage are not «stuck deals» yet: they are counted apart (`first_stage_idle_count`).
 """
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.forms.models import FormSubmission
 from app.leads.models import Lead
+from app.pipelines.entry import NOT_A_DEAL_YET_SQL
 
 STUCK_DAYS = 7
 
@@ -47,11 +48,10 @@ _LAST_TOUCH = f"""GREATEST(
 )"""
 
 
-# The lead sits on the first stage of its pipeline. Positions don't start at 0
-# in production, so «first» is the earliest stage of the same pipeline.
-_ON_FIRST_STAGE = """s.position = (
-    SELECT min(s2.position) FROM stages s2 WHERE s2.pipeline_id = s.pipeline_id
-)"""
+# The lead is not a deal yet: it sits on the entry stage of its pipeline or on
+# the «Не отвечает» holding stage (see app/pipelines/entry.py). Column order
+# alone can't tell: the holding stage was moved to the far left in production.
+_ON_FIRST_STAGE = NOT_A_DEAL_YET_SQL
 
 
 async def pulse_counts(
@@ -176,7 +176,7 @@ async def source_breakdown(
     sql = text(f"""
         SELECT ls.id AS source_id, ls.name AS name, COALESCE(ls.is_paid, false) AS is_paid,
                count(*)                          AS leads,
-               count(*) FILTER (WHERE s.position > 0) AS qualified
+               count(*) FILTER (WHERE NOT {_ON_FIRST_STAGE}) AS qualified
         FROM leads l
         LEFT JOIN lead_sources ls ON ls.id = l.source_id
         LEFT JOIN stages s ON s.id = l.stage_id

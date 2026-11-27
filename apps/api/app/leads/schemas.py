@@ -507,8 +507,8 @@ class ForecastOut(BaseModel):
 class LeadPipelineChangeIn(BaseModel):
     """Перенос лида в другую воронку.
 
-    `stage_id` необязателен: если он не указан, лид встаёт на первый этап
-    (position == 0) целевой воронки.
+    `stage_id` необязателен: если он не указан, лид встаёт на входной этап
+    целевой воронки (app/pipelines/entry.py).
     """
 
     pipeline_id: UUID

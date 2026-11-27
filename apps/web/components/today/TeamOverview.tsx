@@ -93,7 +93,7 @@ function alertText(a: ManagerAlert): string {
     return `${a.name} не заходил ${d} ${pluralRu(d, "день", "дня", "дней")}`;
   }
   const c = a.count ?? 0;
-  return `${c} ${pluralRu(c, "лид", "лида", "лидов")} застряли 7+ дней у ${a.name}`;
+  return `${c} ${pluralRu(c, "лид застрял", "лида застряли", "лидов застряло")} 7+ дней у ${a.name}`;
 }
 
 // ── page ────────────────────────────────────────────────────────────

@@ -14,6 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.pipelines.entry import pick_entry_stage
 from app.pipelines.models import Pipeline, Stage
 
 if TYPE_CHECKING:
@@ -112,21 +113,18 @@ async def get_default_pipeline_id(
 async def get_default_first_stage(
     db: AsyncSession, workspace_id: uuid.UUID
 ) -> tuple[uuid.UUID, uuid.UUID] | None:
-    """Find (pipeline_id, stage_id) for position-0 stage of the
-    workspace's default pipeline. Returns None if no default exists or
+    """Find (pipeline_id, stage_id) for the entry stage of the workspace's
+    default pipeline (app/pipelines/entry.py: the leftmost stage except
+    «Не отвечает» and closed ones). Returns None if no default exists or
     it has no stages."""
     pipeline_id = await get_default_pipeline_id(db, workspace_id=workspace_id)
     if pipeline_id is None:
         return None
-    result = await db.execute(
-        select(Stage.id)
-        .where(Stage.pipeline_id == pipeline_id, Stage.position == 0)
-        .limit(1)
-    )
-    stage_id = result.scalar_one_or_none()
-    if stage_id is None:
+    result = await db.execute(select(Stage).where(Stage.pipeline_id == pipeline_id))
+    stage = pick_entry_stage(list(result.scalars().all()))
+    if stage is None:
         return None
-    return pipeline_id, stage_id
+    return pipeline_id, stage.id
 
 
 # ---------------------------------------------------------------------------
