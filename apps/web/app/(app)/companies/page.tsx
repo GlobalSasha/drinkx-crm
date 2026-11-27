@@ -77,6 +77,7 @@ const columns: ColumnDef<CompanyOut, unknown>[] = [
 
 export default function CompaniesPage() {
   const [search, setSearch] = useState("");
+  const [countryFilters, setCountryFilters] = useState<string[]>([]);
   const [cityFilters, setCityFilters] = useState<string[]>([]);
   const [segmentFilters, setSegmentFilters] = useState<string[]>([]);
   const router = useRouter();
@@ -87,6 +88,18 @@ export default function CompaniesPage() {
   // Build dropdown option lists + counts from the unfiltered pool, so the
   // user can always see which segments/cities exist regardless of current
   // narrowing — same pattern as /leads-pool.
+  const countryOptions = useMemo(
+    () =>
+      Array.from(new Set(allRows.map((c) => c.country).filter(Boolean) as string[])).sort(
+        (a, b) => a.localeCompare(b, "ru"),
+      ),
+    [allRows],
+  );
+  const countryCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const c of allRows) if (c.country) m[c.country] = (m[c.country] ?? 0) + 1;
+    return m;
+  }, [allRows]);
   const cityOptions = useMemo(
     () =>
       Array.from(new Set(allRows.map((c) => c.city).filter(Boolean) as string[])).sort(
@@ -124,6 +137,7 @@ export default function CompaniesPage() {
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const countrySet = new Set(countryFilters);
     const citySet = new Set(cityFilters);
     const segSet = new Set(segmentFilters);
     return allRows.filter((c) => {
@@ -134,6 +148,7 @@ export default function CompaniesPage() {
           (c.city ?? "").toLowerCase().includes(q);
         if (!hit) return false;
       }
+      if (countrySet.size > 0 && (!c.country || !countrySet.has(c.country))) return false;
       if (citySet.size > 0 && (!c.city || !citySet.has(c.city))) return false;
       if (segSet.size > 0) {
         // Filter values are human labels; translate the row's slug before comparing.
@@ -142,13 +157,14 @@ export default function CompaniesPage() {
       }
       return true;
     });
-  }, [allRows, search, cityFilters, segmentFilters]);
+  }, [allRows, search, countryFilters, cityFilters, segmentFilters]);
 
   const activeFilterCount =
-    (search.trim() ? 1 : 0) + (cityFilters.length > 0 ? 1 : 0) + (segmentFilters.length > 0 ? 1 : 0);
+    (search.trim() ? 1 : 0) + (countryFilters.length > 0 ? 1 : 0) + (cityFilters.length > 0 ? 1 : 0) + (segmentFilters.length > 0 ? 1 : 0);
 
   function resetFilters() {
     setSearch("");
+    setCountryFilters([]);
     setCityFilters([]);
     setSegmentFilters([]);
   }
@@ -178,6 +194,14 @@ export default function CompaniesPage() {
             className="w-full pl-8 pr-3 py-2 type-caption bg-white border border-brand-border rounded-full outline-none focus:border-brand-accent"
           />
         </div>
+        <MultiSelectDropdown
+          label="Страна"
+          options={countryOptions}
+          selected={countryFilters}
+          onChange={setCountryFilters}
+          counts={countryCounts}
+          emptyText="Нет стран"
+        />
         <MultiSelectDropdown
           label="Город"
           options={cityOptions}

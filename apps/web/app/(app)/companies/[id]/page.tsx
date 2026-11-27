@@ -7,6 +7,8 @@ import {
   Phone,
   Mail,
   MapPin,
+  Flag,
+  Navigation,
   Globe,
   Hash,
   AlertTriangle,
@@ -434,7 +436,29 @@ export default function CompanyCardPage({ params }: Props) {
             cancel={() => setEditField(null)}
           />
           <DataRow
+            icon={<Flag size={14} />}
+            label="Страна"
+            value={company.country}
+            onEdit={() => startEdit("country", company.country)}
+            editing={editField === "country"}
+            draft={draft}
+            setDraft={setDraft}
+            commit={commit}
+            cancel={() => setEditField(null)}
+          />
+          <DataRow
             icon={<MapPin size={14} />}
+            label="Город"
+            value={company.city}
+            onEdit={() => startEdit("city", company.city)}
+            editing={editField === "city"}
+            draft={draft}
+            setDraft={setDraft}
+            commit={commit}
+            cancel={() => setEditField(null)}
+          />
+          <DataRow
+            icon={<Navigation size={14} />}
             label="Адрес"
             value={company.address}
             onEdit={() => startEdit("address", company.address)}
