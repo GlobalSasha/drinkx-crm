@@ -128,8 +128,8 @@ export default function FormsPage() {
 
         {items.length > 0 && (
           <div className="rounded-card border border-brand-border bg-white overflow-hidden overflow-x-auto">
-            <div className="min-w-2xl">
-              <div className={`grid grid-cols-[1fr_180px_90px_110px_140px_100px] items-center gap-3 px-4 py-2.5 bg-brand-bg border-b border-brand-border ${T.mono} uppercase text-brand-muted`}>
+            <div className="min-w-4xl">
+              <div className={`grid grid-cols-[minmax(200px,1fr)_180px_90px_110px_140px_100px] items-center gap-3 px-4 py-2.5 bg-brand-bg border-b border-brand-border ${T.mono} uppercase text-brand-muted`}>
                 <span>Название</span>
                 <span>Slug</span>
                 <span className="text-right">Подач</span>
@@ -203,7 +203,7 @@ function FormRow({
   return (
     <div
       onClick={onClick}
-      className="grid grid-cols-[1fr_180px_90px_110px_140px_100px] items-center gap-3 px-4 py-3 cursor-pointer hover:bg-brand-bg/50 transition-colors"
+      className="grid grid-cols-[minmax(200px,1fr)_180px_90px_110px_140px_100px] items-center gap-3 px-4 py-3 cursor-pointer hover:bg-brand-bg/50 transition-colors"
     >
       <div className="min-w-0">
         <div className="text-sm font-semibold text-brand-primary truncate">{form.name}</div>
