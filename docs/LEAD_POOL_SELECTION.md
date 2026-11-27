@@ -50,7 +50,7 @@
 
 ### Поля и логика
 
-Города, сегменты, приоритеты, tier, типы сделок, источники, теги,
+Страны (`countries`, параметр `country`), города, сегменты, приоритеты, tier, типы сделок, источники, теги,
 `fit_min`, `has_email`, `has_phone`, `form_id`, `needs_review`, `q`.
 Плюс `assignment_status`, `stage_id`, `assigned_to` — ими пользуется
 экспорт с других экранов.
@@ -151,4 +151,5 @@
 | `GET /leads/pool` | одиночные `city`, `segment`, `fit_min`, `form_id`, `needs_review`; `page_size` до 500 | тринадцать фильтров, множественный выбор повторением параметра, `page_size` до 200 |
 | `GET /leads/pool/facets` | — | новый |
 | `POST /leads/assign` (`mode=filter`) | `cities`, `segment`, `fit_min` | весь набор фильтров |
+| Страна (27.11.2026) | — | у лида поля `country` и `address`; фильтр `country` / `countries` и фасет `countries` наравне с городом |
 | `filters_json` экспорта | набор одиночных ключей | то же описание выборки; прежние одиночные ключи (`city`, `segment`, …) читаются по-прежнему, поэтому задачи, созданные до правки, не ломаются |

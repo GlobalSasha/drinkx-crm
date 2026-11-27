@@ -99,6 +99,8 @@ export interface LeadOut {
   company_name: string;
   segment: string | null;
   city: string | null;
+  country: string | null;
+  address: string | null;
   email: string | null;
   phone: string | null;
   website: string | null;
@@ -428,6 +430,8 @@ export interface LeadUpdate {
   company_name?: string;
   segment?: string | null;
   city?: string | null;
+  country?: string | null;
+  address?: string | null;
   email?: string | null;
   phone?: string | null;
   deal_type?: DealType | null;
@@ -752,6 +756,7 @@ export interface LeadSelectionBody {
   /** Область выборки. У базы лидов всегда `"pool"`. */
   assignment_status?: string;
   cities?: string[];
+  countries?: string[];
   segments?: string[];
   priorities?: string[];
   tiers?: string[];
@@ -973,6 +978,7 @@ export interface FacetValue {
  */
 export interface PoolFacets {
   cities: FacetValue[];
+  countries: FacetValue[];
   segments: FacetValue[];
   priorities: FacetValue[];
   tiers: FacetValue[];

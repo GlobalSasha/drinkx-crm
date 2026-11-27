@@ -15,7 +15,7 @@ import app.main  # noqa: F401  — настраивает мапперы SQLAlch
 
 LEAD_LIST_ITEM_KEYS = {
     "id", "workspace_id", "pipeline_id", "stage_id", "company_name", "segment",
-    "city", "email", "phone", "website", "inn", "source", "source_id",
+    "city", "country", "address", "email", "phone", "website", "inn", "source", "source_id",
     "tags_json", "deal_type", "priority", "priority_label", "score",
     "fit_score", "blocker", "next_step", "next_action_at",
     "assignment_status", "assigned_to", "assigned_at", "transferred_from",

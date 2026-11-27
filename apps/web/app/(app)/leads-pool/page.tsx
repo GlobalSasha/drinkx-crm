@@ -171,6 +171,7 @@ function LeadsPoolPageInner() {
     [],
   );
 
+  const countries = useMemo(() => facetValues(facets?.countries), [facets, facetValues]);
   const cities = useMemo(() => facetValues(facets?.cities), [facets, facetValues]);
   const segments = useMemo(() => {
     const extras = facetValues(facets?.segments).filter(
@@ -182,6 +183,7 @@ function LeadsPoolPageInner() {
   const sources = useMemo(() => facetValues(facets?.sources), [facets, facetValues]);
   const tags = useMemo(() => facetValues(facets?.tags), [facets, facetValues]);
 
+  const countryCounts = useMemo(() => facetCounts(facets?.countries), [facets, facetCounts]);
   const cityCounts = useMemo(() => facetCounts(facets?.cities), [facets, facetCounts]);
   const segmentCounts = useMemo(() => facetCounts(facets?.segments), [facets, facetCounts]);
   const priorityCounts = useMemo(() => facetCounts(facets?.priorities), [facets, facetCounts]);
@@ -393,6 +395,10 @@ function LeadsPoolPageInner() {
           segmentFilters={filters.segments}
           setSegmentFilters={setField("segments")}
           segmentCounts={segmentCounts}
+          countries={countries}
+          countryFilters={filters.countries}
+          setCountryFilters={setField("countries")}
+          countryCounts={countryCounts}
           cities={cities}
           cityFilters={filters.cities}
           setCityFilters={setField("cities")}

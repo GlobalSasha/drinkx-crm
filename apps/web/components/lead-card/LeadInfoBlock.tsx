@@ -10,6 +10,8 @@ import {
   TrendingUp,
   Layers,
   MapPin,
+  Flag,
+  Navigation,
   Globe,
   Mail,
   Phone,
@@ -263,12 +265,28 @@ export function LeadInfoBlock({ lead }: Props) {
           options={segmentOptions}
         />
         <Row
+          icon={<Flag size={15} className={C.color.muted} />}
+          label="Страна"
+          value={lead.country ?? null}
+          placeholder="Не указана"
+          onSave={onLeadField("country")}
+          inputProps={{ maxLength: 80, placeholder: "Россия" }}
+        />
+        <Row
           icon={<MapPin size={15} className={C.color.muted} />}
           label="Город"
           value={lead.city ?? null}
           placeholder="Не указан"
           onSave={onLeadField("city")}
           inputProps={{ maxLength: 120, placeholder: "Москва" }}
+        />
+        <Row
+          icon={<Navigation size={15} className={C.color.muted} />}
+          label="Адрес"
+          value={lead.address ?? null}
+          placeholder="Не указан"
+          onSave={onLeadField("address")}
+          inputProps={{ maxLength: 500, placeholder: "ул. Тверская, 1" }}
         />
         <Row
           icon={<Fingerprint size={15} className={C.color.muted} />}

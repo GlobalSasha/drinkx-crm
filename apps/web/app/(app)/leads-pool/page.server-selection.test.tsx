@@ -37,6 +37,7 @@ vi.mock("@/lib/hooks/use-forms", () => ({
 import LeadsPoolPage from "./page";
 
 const FACETS = {
+  countries: [],
   cities: [
     { value: "Москва", count: 900 },
     { value: "Казань", count: 300 },

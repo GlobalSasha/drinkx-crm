@@ -162,6 +162,7 @@ _MULTI = Annotated[list[str] | None, Query()]
 def _pool_selection(
     *,
     city: list[str] | None,
+    country: list[str] | None = None,
     segment: list[str] | None,
     priority: list[str] | None,
     tier: list[str] | None,
@@ -180,6 +181,7 @@ def _pool_selection(
 
     return LeadSelection.from_params(
         cities=city,
+        countries=country,
         segments=segment,
         priorities=priority,
         tiers=tier,
@@ -200,6 +202,7 @@ def _pool_selection(
 @router.get("/pool", response_model=LeadListOut)
 async def list_pool(
     city: _MULTI = None,
+    country: _MULTI = None,
     segment: _MULTI = None,
     priority: _MULTI = None,
     tier: _MULTI = None,
@@ -229,7 +232,7 @@ async def list_pool(
     каждый выбранный.
     """
     selection = _pool_selection(
-        city=city, segment=segment, priority=priority, tier=tier,
+        city=city, country=country, segment=segment, priority=priority, tier=tier,
         deal_type=deal_type, deal_brand=deal_brand, source=source, tag=tag, fit_min=fit_min,
         has_email=has_email, has_phone=has_phone, form_id=form_id,
         needs_review=needs_review, q=q,

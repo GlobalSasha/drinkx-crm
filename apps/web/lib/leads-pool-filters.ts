@@ -16,6 +16,7 @@ import type { LeadSelectionBody } from "@/lib/types";
 
 /** Состояние фильтров экрана. Ровно то, что человек выбрал. */
 export interface PoolFilterState {
+  countries: string[];
   cities: string[];
   segments: string[];
   priorities: string[];
@@ -33,6 +34,7 @@ export interface PoolFilterState {
 }
 
 export const EMPTY_POOL_FILTERS: PoolFilterState = {
+  countries: [],
   cities: [],
   segments: [],
   priorities: [],
@@ -52,6 +54,7 @@ export const EMPTY_POOL_FILTERS: PoolFilterState = {
 /** Сколько фильтров активно — для подписи «Сбросить (N)». */
 export function activeFilterCount(f: PoolFilterState): number {
   return (
+    (f.countries.length > 0 ? 1 : 0) +
     (f.cities.length > 0 ? 1 : 0) +
     (f.segments.length > 0 ? 1 : 0) +
     (f.priorities.length > 0 ? 1 : 0) +
@@ -78,6 +81,7 @@ export function poolQueryParams(f: PoolFilterState): URLSearchParams {
   const multi = (name: string, values: string[]) => {
     for (const v of values) if (v) p.append(name, v);
   };
+  multi("country", f.countries);
   multi("city", f.cities);
   multi("segment", f.segments);
   multi("priority", f.priorities);
@@ -106,6 +110,7 @@ export function poolQueryParams(f: PoolFilterState): URLSearchParams {
  */
 export function poolFilterBody(f: PoolFilterState): LeadSelectionBody {
   const body: LeadSelectionBody = { assignment_status: "pool" };
+  if (f.countries.length) body.countries = f.countries;
   if (f.cities.length) body.cities = f.cities;
   if (f.segments.length) body.segments = f.segments;
   if (f.priorities.length) body.priorities = f.priorities;

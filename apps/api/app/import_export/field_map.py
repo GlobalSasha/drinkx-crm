@@ -42,6 +42,16 @@ LEAD_IMPORT_FIELDS: dict[str, FieldDef] = {
         label_ru="Город",
         aliases=("город", "city", "регион", "region"),
     ),
+    "country": FieldDef(
+        key="country",
+        label_ru="Страна",
+        aliases=("страна", "country"),
+    ),
+    "address": FieldDef(
+        key="address",
+        label_ru="Адрес",
+        aliases=("адрес", "address", "фактический адрес", "адрес точки", "улица"),
+    ),
     "email": FieldDef(
         key="email",
         label_ru="Email",
@@ -99,7 +109,7 @@ LEAD_IMPORT_FIELDS: dict[str, FieldDef] = {
 # notes) are attached to the new lead as an import-Activity comment so
 # we don't drop user data on import.
 DIRECT_LEAD_COLUMNS: frozenset[str] = frozenset({
-    "company_name", "segment", "city", "email", "phone",
+    "company_name", "segment", "city", "country", "address", "email", "phone",
     "website", "inn", "source", "priority", "deal_type",
 })
 

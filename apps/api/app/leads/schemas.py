@@ -24,6 +24,8 @@ class LeadBase(BaseModel):
     company_name: str
     segment: str | None = None
     city: str | None = None
+    country: str | None = Field(None, max_length=80)
+    address: str | None = Field(None, max_length=500)
     email: str | None = None
     phone: str | None = None
     website: str | None = None
@@ -58,6 +60,8 @@ class LeadUpdate(BaseModel):
     company_name: str | None = None
     segment: str | None = None
     city: str | None = None
+    country: str | None = Field(None, max_length=80)
+    address: str | None = Field(None, max_length=500)
     email: str | None = None
     phone: str | None = None
     website: str | None = None
@@ -241,6 +245,7 @@ class PoolFacetsOut(BaseModel):
     """
 
     cities: list[FacetValueOut] = Field(default_factory=list)
+    countries: list[FacetValueOut] = Field(default_factory=list)
     segments: list[FacetValueOut] = Field(default_factory=list)
     priorities: list[FacetValueOut] = Field(default_factory=list)
     tiers: list[FacetValueOut] = Field(default_factory=list)
@@ -287,6 +292,7 @@ class LeadAssignIn(BaseModel):
     # поля из тринадцати, поэтому действие «Выдать по фильтру» работало по
     # выборке, которой человек на экране не видел.
     cities: list[str] = Field(default_factory=list)
+    countries: list[str] = Field(default_factory=list)
     segments: list[str] = Field(default_factory=list)
     priorities: list[str] = Field(default_factory=list)
     tiers: list[str] = Field(default_factory=list)
@@ -309,6 +315,7 @@ class LeadAssignIn(BaseModel):
 
         return LeadSelection.from_params(
             cities=self.cities,
+            countries=self.countries,
             segments=self.segments,
             priorities=self.priorities,
             tiers=self.tiers,
