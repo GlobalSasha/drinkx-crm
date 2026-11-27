@@ -181,8 +181,8 @@ export function PipelineList({ stages, leads }: Props) {
                     className="w-2 h-2 rounded-full shrink-0"
                     style={{ backgroundColor: stage.color }}
                   />
-                  <h3 className="type-caption font-semibold text-brand-primary truncate">
-                    {stage.name}
+                  <h3 className="text-sm font-bold tracking-tight text-brand-primary truncate">
+                    {stage.name.replace(/_/g, " ")}
                   </h3>
                   <span className={`${T.mono} text-brand-muted tabular-nums`}>
                     {stageLeads.length}

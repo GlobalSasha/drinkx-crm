@@ -7,6 +7,7 @@ import { PipelineBoard } from "@/components/pipeline/PipelineBoard";
 import { PipelineList } from "@/components/pipeline/PipelineList";
 import { SprintModal } from "@/components/pipeline/SprintModal";
 import { CreateLeadModal } from "@/components/pipeline/CreateLeadModal";
+import { OwnerScopeDropdown } from "@/components/pipeline/OwnerScopeDropdown";
 import { usePipelines } from "@/lib/hooks/use-pipelines";
 import { useLeads } from "@/lib/hooks/use-leads";
 import { useMe } from "@/lib/hooks/use-me";
@@ -164,23 +165,24 @@ function PipelinePageInner() {
           to from the /team workload table via ?assigned_to=<id>. */}
       {!meQuery.isLoading && isPrivileged && (
         <div className="flex items-center gap-2 px-4 sm:px-6 py-2 bg-white border-b border-brand-border">
-          <label htmlFor="owner-scope" className="text-brand-muted text-xs">
-            Ответственный
-          </label>
-          <select
-            id="owner-scope"
+          <OwnerScopeDropdown
             value={ownerScope}
-            onChange={(e) => changeOwnerScope(e.target.value)}
-            className="h-8 px-3 text-sm bg-brand-bg border border-brand-border rounded-full outline-none focus:border-brand-accent/40 focus:bg-white transition duration-300"
-          >
-            <option value="">Мои</option>
-            <option value="all">Все</option>
-            {(usersQuery.data?.items ?? []).map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name || u.email}
-              </option>
-            ))}
-          </select>
+            onChange={changeOwnerScope}
+            me={
+              meQuery.data
+                ? {
+                    id: meQuery.data.id,
+                    name: meQuery.data.name || meQuery.data.email,
+                    avatarUrl: meQuery.data.avatar_url,
+                  }
+                : null
+            }
+            users={(usersQuery.data?.items ?? []).map((u) => ({
+              id: u.id,
+              name: u.name || u.email,
+              avatarUrl: u.avatar_url,
+            }))}
+          />
         </div>
       )}
 

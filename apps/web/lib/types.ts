@@ -1652,6 +1652,7 @@ export interface UserListItemOut {
   name: string;
   role: UserRole | string;
   last_login_at: string | null;
+  avatar_url?: string | null;
 }
 
 export interface UserListOut {

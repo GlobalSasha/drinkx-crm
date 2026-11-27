@@ -23,6 +23,7 @@ class UserListItemOut(BaseModel):
     role: str
     can_access_lead_pool: bool = False
     last_login_at: datetime | None
+    avatar_url: str | None = None
 
 
 class UserListOut(BaseModel):
