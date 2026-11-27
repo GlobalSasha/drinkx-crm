@@ -68,6 +68,7 @@ async def create_company(
         phone=data.phone,
         email=data.email,
         city=data.city,
+        country=data.country,
         address=data.address,
         primary_segment=data.primary_segment,
         employee_range=data.employee_range,

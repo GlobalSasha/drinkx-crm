@@ -2062,6 +2062,7 @@ export interface CompanyOut {
   phone: string | null;
   email: string | null;
   city: string | null;
+  country: string | null;
   address: string | null;
   primary_segment: string | null;
   employee_range: string | null;
@@ -2121,6 +2122,7 @@ export interface CompanyCreate {
   phone?: string | null;
   email?: string | null;
   city?: string | null;
+  country?: string | null;
   address?: string | null;
   primary_segment?: string | null;
   employee_range?: string | null;

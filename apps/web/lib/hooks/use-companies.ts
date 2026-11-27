@@ -23,6 +23,9 @@ export function useCompanies(params?: {
   is_archived?: boolean;
 }) {
   const qs = new URLSearchParams();
+  // The /companies page filters and searches in the browser, so it needs the
+  // whole list, not the server's default first 100 (was «100 из 100» of 439).
+  qs.set("limit", "500");
   if (params?.city) qs.set("city", params.city);
   if (params?.primary_segment) qs.set("primary_segment", params.primary_segment);
   if (params?.is_archived !== undefined)

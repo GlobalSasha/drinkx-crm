@@ -18,6 +18,7 @@ class CompanyBase(BaseModel):
     phone: str | None = Field(default=None, max_length=50)
     email: str | None = None
     city: str | None = None
+    country: str | None = Field(None, max_length=80)
     address: str | None = None
     primary_segment: str | None = None
     employee_range: str | None = None
@@ -40,6 +41,7 @@ class CompanyUpdate(BaseModel):
     phone: str | None = Field(default=None, max_length=50)
     email: str | None = None
     city: str | None = None
+    country: str | None = Field(None, max_length=80)
     address: str | None = None
     primary_segment: str | None = None
     employee_range: str | None = None

@@ -33,6 +33,7 @@ class Company(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     city: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(80), nullable=True)
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     primary_segment: Mapped[str | None] = mapped_column(String(50), nullable=True)
     employee_range: Mapped[str | None] = mapped_column(String(30), nullable=True)
