@@ -39,12 +39,16 @@ function PipelineColumnImpl({ stage, leads }: Props) {
           style={{ backgroundColor: stage.color }}
         />
         <div className="flex items-center justify-between gap-2">
-          <p className={`type-caption ${C.color.text} truncate flex items-center gap-1.5`}>
+          <h3
+            className={`text-sm font-bold tracking-tight leading-5 ${C.color.text} truncate flex items-center gap-1.5`}
+            title={stage.name}
+          >
             {stage.is_won && (
               <DrinkXMark className="w-3 h-3 shrink-0 fill-brand-accent" />
             )}
-            <span className="truncate">{stage.name}</span>
-          </p>
+            {/* «Встреча_презентация» в справочнике этапов — показываем с пробелом */}
+            <span className="truncate">{stage.name.replace(/_/g, " ")}</span>
+          </h3>
           <div className="flex items-center gap-1 shrink-0">
             {stage.rot_days > 0 && (
               <span className="text-xs font-mono text-brand-muted bg-brand-panel px-1.5 py-0.5 rounded-full">
