@@ -91,7 +91,7 @@ export function headSummary(d: HeadDay): string {
     out.push(`Сегодня ${d.leadsToday} ${plural(d.leadsToday, "новая заявка", "новые заявки", "новых заявок")}${y}.`);
   }
   if (d.stuck) {
-    out.push(`${d.stuck} ${plural(d.stuck, "сделка застряла", "сделки застряли", "сделок застряли")} больше 7 дней.`);
+    out.push(`${d.stuck} ${plural(d.stuck, "сделка застряла", "сделки застряли", "сделок застряло")} больше 7 дней.`);
   }
   if (d.firstStageIdle) {
     const more = d.stuck ? "Ещё " : "";
