@@ -31,6 +31,7 @@ _FOLLOWUP_KINDS = ("auto_email", "ai_hint")
 # считаются отдельно: первый — вычисляемый, вторые лежат массивом.
 _FACET_COLUMNS = {
     "cities": Lead.city,
+    "countries": Lead.country,
     "segments": Lead.segment,
     "priorities": Lead.priority,
     "deal_types": Lead.deal_type,

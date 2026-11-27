@@ -115,14 +115,16 @@ function PipelinePageInner() {
 
   const allLeads = useMemo(() => {
     const segSet = new Set(filters.segments);
+    const countrySet = new Set(filters.countries);
     const citySet = new Set(filters.cities);
     return rawLeads.filter((l) => {
       if (l.stage_id && lostStageIds.has(l.stage_id)) return false;
       if (segSet.size > 0 && (!l.segment || !segSet.has(l.segment))) return false;
+      if (countrySet.size > 0 && (!l.country || !countrySet.has(l.country))) return false;
       if (citySet.size > 0 && (!l.city || !citySet.has(l.city))) return false;
       return true;
     });
-  }, [rawLeads, filters.segments, filters.cities, lostStageIds]);
+  }, [rawLeads, filters.segments, filters.countries, filters.cities, lostStageIds]);
 
   const isLoading =
     meQuery.isLoading || pipelinesQuery.isLoading || leadsQuery.isLoading;

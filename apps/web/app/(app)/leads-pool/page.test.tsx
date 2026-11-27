@@ -29,6 +29,7 @@ vi.mock("@/lib/hooks/use-leads", () => ({
   // Значения фильтров и их размеры приходят с сервера (аудит G6).
   usePoolFacets: () => ({
     data: {
+      countries: [],
       cities: [{ value: "Москва", count: 1 }],
       segments: [{ value: "Ритейл", count: 1 }],
       priorities: [{ value: "A", count: 1 }],
@@ -67,6 +68,8 @@ const mockLeads = [
     company_name: "Альфа Ритейл",
     segment: "Ритейл",
     city: "Москва",
+    country: null,
+    address: null,
     email: "sales@alpha.example",
     phone: "+7 495 111-22-33",
     website: "https://alpha.example",
@@ -119,6 +122,8 @@ const mockLeads = [
     company_name: "Бета Кофе",
     segment: "Кофейни и кафе",
     city: "Санкт-Петербург",
+    country: null,
+    address: null,
     email: "hello@beta.example",
     phone: "+7 812 444-55-66",
     website: "https://beta.example",

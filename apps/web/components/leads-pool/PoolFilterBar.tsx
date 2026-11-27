@@ -16,6 +16,10 @@ interface Props {
   segmentFilters: string[];
   setSegmentFilters: (v: string[]) => void;
   segmentCounts: Record<string, number>;
+  countries: string[];
+  countryFilters: string[];
+  setCountryFilters: (v: string[]) => void;
+  countryCounts: Record<string, number>;
   cities: string[];
   cityFilters: string[];
   setCityFilters: (v: string[]) => void;
@@ -70,6 +74,10 @@ export function PoolFilterBar({
   segmentFilters,
   setSegmentFilters,
   segmentCounts,
+  countries,
+  countryFilters,
+  setCountryFilters,
+  countryCounts,
   cities,
   cityFilters,
   setCityFilters,
@@ -156,6 +164,15 @@ export function PoolFilterBar({
             selected={segmentFilters}
             onChange={setSegmentFilters}
             counts={segmentCounts}
+          />
+
+          <MultiSelectDropdown
+            triggerClassName="h-10 text-sm"
+            label="Страна"
+            options={countries}
+            selected={countryFilters}
+            onChange={setCountryFilters}
+            counts={countryCounts}
           />
 
           <MultiSelectDropdown

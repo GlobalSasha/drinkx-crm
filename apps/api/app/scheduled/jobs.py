@@ -1266,6 +1266,8 @@ async def _run_bulk_import(job_id: UUID) -> dict:
                         v = row.get(col)
                         if v:
                             lead_kwargs[col] = v
+                    if "country" in lead_kwargs:
+                        lead_kwargs["country"] = str(lead_kwargs["country"])[:80]
                     if "priority" in lead_kwargs:
                         # Validators already gated values to A/B/C/D
                         lead_kwargs["priority"] = str(

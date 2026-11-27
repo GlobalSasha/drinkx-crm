@@ -14,7 +14,9 @@ export function PoolLeadPreview({ lead }: { lead: LeadOut }) {
   const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const fields = [
+    ["Страна", lead.country],
     ["Город", lead.city],
+    ["Адрес", lead.address],
     ["Сегмент", lead.segment ? segmentLabel(lead.segment) : null],
     ["Email", lead.email],
     ["Телефон", lead.phone],

@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 interface PipelineFilters {
   segments: string[];
+  countries: string[];
   cities: string[];
   q: string;
 }
@@ -46,6 +47,7 @@ interface PipelineStore {
   // Filters
   filters: PipelineFilters;
   setSegments: (segments: string[]) => void;
+  setCountries: (countries: string[]) => void;
   setCities: (cities: string[]) => void;
   setQ: (q: string) => void;
 
@@ -79,9 +81,11 @@ interface PipelineStore {
 }
 
 export const usePipelineStore = create<PipelineStore>((set, get) => ({
-  filters: { segments: [], cities: [], q: "" },
+  filters: { segments: [], countries: [], cities: [], q: "" },
   setSegments: (segments) =>
     set((s) => ({ filters: { ...s.filters, segments } })),
+  setCountries: (countries) =>
+    set((s) => ({ filters: { ...s.filters, countries } })),
   setCities: (cities) =>
     set((s) => ({ filters: { ...s.filters, cities } })),
   setQ: (q) => set((s) => ({ filters: { ...s.filters, q } })),

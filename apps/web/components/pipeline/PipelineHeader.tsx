@@ -22,6 +22,7 @@ export function PipelineHeader({ leads, totalCount }: Props) {
   const {
     filters,
     setSegments,
+    setCountries,
     setCities,
     setQ,
     openSprintModal,
@@ -35,6 +36,14 @@ export function PipelineHeader({ leads, totalCount }: Props) {
     const m: Record<string, number> = {};
     for (const l of leads) {
       if (l.segment) m[l.segment] = (m[l.segment] ?? 0) + 1;
+    }
+    return m;
+  }, [leads]);
+
+  const countryCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const l of leads) {
+      if (l.country) m[l.country] = (m[l.country] ?? 0) + 1;
     }
     return m;
   }, [leads]);
@@ -58,6 +67,14 @@ export function PipelineHeader({ leads, totalCount }: Props) {
     }
     return [...SEGMENT_OPTIONS, ...Array.from(extras).sort()];
   }, [leads]);
+
+  const countryOptions = useMemo(
+    () =>
+      Array.from(new Set(leads.map((l) => l.country).filter(Boolean) as string[])).sort(
+        (a, b) => a.localeCompare(b, "ru"),
+      ),
+    [leads],
+  );
 
   const cityOptions = useMemo(
     () =>
@@ -160,6 +177,14 @@ export function PipelineHeader({ leads, totalCount }: Props) {
           selected={filters.segments}
           onChange={setSegments}
           counts={segmentCounts}
+        />
+
+        <MultiSelectDropdown
+          label="Страна"
+          options={countryOptions}
+          selected={filters.countries}
+          onChange={setCountries}
+          counts={countryCounts}
         />
 
         <MultiSelectDropdown

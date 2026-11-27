@@ -16,6 +16,7 @@ import {
 } from "./leads-pool-filters";
 
 const FULL: PoolFilterState = {
+  countries: [],
   cities: ["Москва", "Казань"],
   segments: ["Кофейни и кафе"],
   priorities: ["A", "B"],

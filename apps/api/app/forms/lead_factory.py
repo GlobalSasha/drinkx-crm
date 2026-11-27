@@ -57,6 +57,11 @@ FORM_FIELD_TO_LEAD: dict[str, str] = {
     # City
     "city":          "city",
     "город":         "city",
+    # Country / address — own columns, not squeezed into city
+    "country":       "country",
+    "страна":        "country",
+    "address":       "address",
+    "адрес":         "address",
     # INN
     "inn":           "inn",
     "инн":           "inn",
@@ -315,6 +320,10 @@ async def create_lead_from_submission(
             v = projected.get(col)
             if v:
                 lead_kwargs[col] = v[:300]
+        if projected.get("country"):
+            lead_kwargs["country"] = projected["country"][:80]
+        if projected.get("address"):
+            lead_kwargs["address"] = projected["address"][:500]
 
         lead = Lead(**lead_kwargs)
         session.add(lead)

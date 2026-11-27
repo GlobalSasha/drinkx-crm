@@ -160,6 +160,7 @@ class LeadSelection:
     """
 
     cities: tuple[str, ...] = ()
+    countries: tuple[str, ...] = ()
     segments: tuple[str, ...] = ()
     priorities: tuple[str, ...] = ()
     tiers: tuple[str, ...] = ()
@@ -187,7 +188,7 @@ class LeadSelection:
         прошедшее через JSON и обратно, равно исходному.
         """
         for key in (
-            "cities", "segments", "priorities", "tiers",
+            "cities", "countries", "segments", "priorities", "tiers",
             "deal_types", "deal_brands", "sources", "tags",
         ):
             object.__setattr__(self, key, _clean(getattr(self, key)))
@@ -235,7 +236,7 @@ class LeadSelection:
     def to_json(self) -> dict[str, Any]:
         out: dict[str, Any] = {}
         for key in (
-            "cities", "segments", "priorities", "tiers",
+            "cities", "countries", "segments", "priorities", "tiers",
             "deal_types", "deal_brands", "sources", "tags",
         ):
             value = getattr(self, key)
@@ -304,6 +305,7 @@ class LeadSelection:
         needs_review = data.get("needs_review")
         return LeadSelection(
             cities=_list("cities", "city"),
+            countries=_list("countries", "country"),
             segments=_list("segments", "segment"),
             priorities=_list("priorities", "priority"),
             tiers=_list("tiers", "tier"),
@@ -326,6 +328,7 @@ class LeadSelection:
     def from_params(
         *,
         cities: Sequence[str] | None = None,
+        countries: Sequence[str] | None = None,
         segments: Sequence[str] | None = None,
         priorities: Sequence[str] | None = None,
         tiers: Sequence[str] | None = None,
@@ -346,6 +349,7 @@ class LeadSelection:
         text = (q or "").strip()
         return LeadSelection(
             cities=_clean(cities),
+            countries=_clean(countries),
             segments=_clean(segments),
             priorities=_clean(priorities),
             tiers=_clean(tiers),
@@ -436,6 +440,8 @@ async def selection_conditions(
     # ИЛИ внутри фасета, И между фасетами.
     if selection.cities:
         conds.append(Lead.city.in_(selection.cities))
+    if selection.countries:
+        conds.append(Lead.country.in_(selection.countries))
     if selection.segments:
         conds.append(Lead.segment.in_(selection.segments))
     if selection.priorities:

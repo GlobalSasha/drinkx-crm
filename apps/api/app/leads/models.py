@@ -89,6 +89,10 @@ class Lead(Base, UUIDPrimaryKeyMixin, TimestampedMixin):
     company_name: Mapped[str] = mapped_column(String(255), nullable=False)
     segment: Mapped[str | None] = mapped_column(String(60), nullable=True)
     city: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # Страна и полный адрес — отдельно от города, чтобы в «Город» не писали
+    # адрес целиком (в фильтрах каждый адрес становился «городом»).
+    country: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    address: Mapped[str | None] = mapped_column(Text, nullable=True)
     email: Mapped[str | None] = mapped_column(String(254), nullable=True)
     # Normalized email + corporate-domain key (Odoo dedup pattern). Auto-filled
     # from `email` via the validator below; used to detect duplicate leads.
