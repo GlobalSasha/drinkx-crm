@@ -168,8 +168,6 @@ export function PipelineHeader({ leads, totalCount }: Props) {
 
         {/* Segment/city filters: desktop only — on a phone the stage chips
             and «Срочные» in the list do the narrowing. */}
-        <span className="hidden md:inline text-brand-muted text-xs">|</span>
-
         <div className="hidden md:contents">
         <MultiSelectDropdown
           label="Сегмент"
