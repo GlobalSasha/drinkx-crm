@@ -386,11 +386,6 @@ function LeadsPoolPageInner() {
             </label>
           </div>
         </div>
-        {canAssign && <AIBulkUpdateModal
-          open={aiUpdateOpen}
-          onClose={() => setAiUpdateOpen(false)}
-        />}
-
         <PoolFilterBar
           search={searchInput}
           setSearch={setSearchInput}
@@ -570,6 +565,13 @@ function LeadsPoolPageInner() {
           </>
         )}
       </div>
+
+      {/* Outside the sticky header: its z-10 stacking context would trap the
+          modal under the mobile top bar (z-20). */}
+      {canAssign && <AIBulkUpdateModal
+        open={aiUpdateOpen}
+        onClose={() => setAiUpdateOpen(false)}
+      />}
 
       {canAssign && assignMode && (
         <AssignLeadsModal

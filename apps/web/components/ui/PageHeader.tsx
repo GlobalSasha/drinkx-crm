@@ -37,7 +37,7 @@ export function PageHeader({ title, subtitle, icon, actions, className }: PageHe
         {subtitle ? <p className="type-body text-brand-muted mt-1">{subtitle}</p> : null}
       </div>
       {actions ? (
-        <div className="flex flex-wrap items-center gap-2 shrink-0">{actions}</div>
+        <div className="flex flex-wrap items-center gap-2 max-w-full">{actions}</div>
       ) : null}
     </div>
   );

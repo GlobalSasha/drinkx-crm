@@ -188,7 +188,7 @@ export function ExportPopover({
         <div
           role="dialog"
           aria-label="Экспорт лидов"
-          className="absolute right-0 top-full mt-2 w-[20rem] sm:w-[22rem] bg-white rounded-card border border-brand-border shadow-overlay p-4 z-30 max-w-[calc(100vw-2rem)]"
+          className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 w-[20rem] sm:w-[22rem] bg-white rounded-card border border-brand-border shadow-overlay p-4 z-30 max-w-[calc(100vw-2rem)]"
           onMouseDown={(e) => e.stopPropagation()}
         >
           <div className="mb-3">

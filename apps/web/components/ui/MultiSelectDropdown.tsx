@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown, Check } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -26,6 +26,20 @@ export function MultiSelectDropdown({
 }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  // Flip to the other side when the menu would run off the screen edge
+  // (phones: a filter chip near the right edge widened the whole page).
+  const [flip, setFlip] = useState(false);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setFlip(false);
+      return;
+    }
+    const r = menuRef.current?.getBoundingClientRect();
+    if (!r) return;
+    if (align === "left" ? r.right > window.innerWidth - 8 : r.left < 8) setFlip(true);
+  }, [open, align]);
 
   useEffect(() => {
     if (!open) return;
@@ -81,8 +95,9 @@ export function MultiSelectDropdown({
 
       {open && (
         <div
+          ref={menuRef}
           className={`absolute top-full mt-1.5 z-30 min-w-[14rem] max-w-[min(20rem,calc(100vw-2rem))] max-h-[20rem] flex flex-col bg-white border border-brand-border rounded-xl shadow-[0_8px_32px_-4px_rgba(0,0,0,0.12)] overflow-hidden ${
-            align === "right" ? "right-0" : "left-0"
+            (align === "right") !== flip ? "right-0" : "left-0"
           }`}
           role="listbox"
         >

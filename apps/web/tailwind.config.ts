@@ -68,9 +68,9 @@ const config: Config = {
       // контейнер страницы и сайдбар — единственные размеры вне шкалы Tailwind.
       maxWidth: { page: "1760px" },
       width: { sidebar: "220px" },
-      // min-w-md / xl / 2xl / 3xl — те же именованные ширины, что у max-w,
+      // min-w-md / xl / 2xl / 3xl / 4xl — те же именованные ширины, что у max-w,
       // для таблиц с горизонтальной прокруткой.
-      minWidth: { md: "28rem", xl: "36rem", "2xl": "42rem", "3xl": "48rem" },
+      minWidth: { md: "28rem", xl: "36rem", "2xl": "42rem", "3xl": "48rem", "4xl": "56rem" },
       borderRadius: {
         // md переопределён (Tailwind-дефолт 6px чужероден мягкой системе):
         // мелкие вложенные элементы — пункты меню, миниатюры, строки-ховеры.

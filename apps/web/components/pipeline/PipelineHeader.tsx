@@ -85,8 +85,11 @@ export function PipelineHeader({ leads, totalCount }: Props) {
           </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <PipelineSwitcher />
+        {/* Phone: one row — pipeline name left, actions right, «План» as an icon. */}
+        <div className="flex items-center gap-2 w-full md:w-auto md:flex-wrap">
+          <div className="min-w-0 mr-auto md:mr-0">
+            <PipelineSwitcher />
+          </div>
           <Button
             variant="primary"
             onClick={openCreateLeadModal}
@@ -119,11 +122,12 @@ export function PipelineHeader({ leads, totalCount }: Props) {
           <Button
             variant="ghost"
             onClick={openSprintModal}
+            aria-label="Сформировать план на неделю"
+            title="Сформировать план на неделю"
             className="text-brand-accent border-brand-accent/40 font-semibold hover:bg-brand-soft hover:border-brand-accent"
           >
             <CalendarRange size={15} />
             <span className="hidden sm:inline">Сформировать план на неделю</span>
-            <span className="sm:hidden">План на неделю</span>
           </Button>
         )}
         </div>

@@ -521,7 +521,7 @@ function SettingsTab({
           )}
         </div>
         <div className="rounded-card border border-brand-border bg-white">
-          <div className="grid grid-cols-[1fr_140px_90px_24px] items-center gap-2 px-3 py-2 bg-brand-bg border-b border-brand-border text-xs font-mono uppercase tracking-wider text-brand-muted">
+          <div className="hidden sm:grid grid-cols-[1fr_140px_90px_24px] items-center gap-2 px-3 py-2 bg-brand-bg border-b border-brand-border text-xs font-mono uppercase tracking-wider text-brand-muted">
             <span>Заголовок</span>
             <span>Тип</span>
             <span>Обязательное</span>
@@ -750,17 +750,18 @@ function FieldRowEditor({
   onRemove: () => void;
 }) {
   return (
-    <div className="grid grid-cols-[1fr_140px_90px_24px] items-center gap-2 px-3 py-2">
+    // Phone: label on its own row, then type · required · delete underneath.
+    <div className="grid grid-cols-[1fr_90px_24px] sm:grid-cols-[1fr_140px_90px_24px] items-center gap-2 px-3 py-2">
       <input
         value={field.label}
         onChange={(e) => onPatch({ label: e.target.value })}
         placeholder="Например: Имя"
-        className="text-sm bg-brand-bg border border-brand-border rounded-lg px-2.5 py-1.5 outline-none focus:border-brand-accent"
+        className="col-span-3 sm:col-span-1 min-w-0 text-sm bg-brand-bg border border-brand-border rounded-lg px-2.5 py-1.5 outline-none focus:border-brand-accent"
       />
       <select
         value={field.type}
         onChange={(e) => onPatch({ type: e.target.value as FieldType })}
-        className="text-sm bg-brand-bg border border-brand-border rounded-lg px-2.5 py-1.5 outline-none focus:border-brand-accent"
+        className="min-w-0 text-sm bg-brand-bg border border-brand-border rounded-lg px-2.5 py-1.5 outline-none focus:border-brand-accent"
       >
         {FIELD_TYPES.map((t) => (
           <option key={t.value} value={t.value}>
@@ -778,6 +779,8 @@ function FieldRowEditor({
         )}
         aria-pressed={field.required}
       >
+        {/* The column header is hidden on phones, so say what Да/Нет means. */}
+        <span className="sm:hidden">Обяз.: </span>
         {field.required ? "Да" : "Нет"}
       </button>
       <button

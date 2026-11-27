@@ -118,7 +118,7 @@ export function CreateLeadModal() {
         onClick={closeCreateLeadModal}
       />
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-card border border-brand-border shadow-overlay w-full max-w-md p-6">
+        <div className="bg-white rounded-card border border-brand-border shadow-overlay w-full max-w-md p-6 max-h-[90dvh] overflow-y-auto">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold tracking-tight">Новый лид</h2>
             <button

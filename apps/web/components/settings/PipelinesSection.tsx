@@ -332,7 +332,7 @@ function DeleteModal({
           role="alertdialog"
           aria-modal="true"
           aria-label={title}
-          className="bg-white rounded-card border border-brand-border shadow-overlay w-full max-w-md p-6"
+          className="bg-white rounded-card border border-brand-border shadow-overlay w-full max-w-md p-6 max-h-[90dvh] overflow-y-auto"
         >
           <h3 className="type-card-title text-brand-primary mb-2">
             {title}

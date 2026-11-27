@@ -35,7 +35,7 @@ export function CallOutcomeSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby="call-outcome-title"
-        className="relative w-full md:max-w-sm bg-white rounded-t-card md:rounded-card shadow-overlay px-4 pt-6"
+        className="relative w-full md:max-w-sm bg-white rounded-t-card md:rounded-card shadow-overlay px-4 pt-6 max-h-[90dvh] overflow-y-auto"
         style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
       >
         <h2 id="call-outcome-title" className="type-card-title text-brand-primary">

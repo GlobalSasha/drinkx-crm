@@ -125,7 +125,7 @@ export function SprintModal({ isOpen: isOpenProp, onClose: onCloseProp }: Props 
 
       {/* Dialog */}
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-card border border-brand-border shadow-overlay w-full max-w-md p-6 relative">
+        <div className="bg-white rounded-card border border-brand-border shadow-overlay w-full max-w-md p-6 relative max-h-[90dvh] overflow-y-auto">
           {/* Header */}
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-lg font-semibold tracking-tight">
@@ -176,7 +176,7 @@ export function SprintModal({ isOpen: isOpenProp, onClose: onCloseProp }: Props 
             {poolCities.length === 0 && !facetsQuery.isLoading ? (
               <p className="text-xs text-brand-muted">Нет доступных городов в пуле</p>
             ) : (
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5 max-h-60 overflow-y-auto">
                 {poolCities.map((city) => (
                   <button
                     key={city}
