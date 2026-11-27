@@ -390,7 +390,7 @@ function ConfirmDeleteModal({
         <div
           role="dialog"
           aria-modal="true"
-          className="bg-white rounded-card border border-brand-border w-full max-w-md p-5"
+          className="bg-white rounded-card border border-brand-border w-full max-w-md p-5 max-h-[90dvh] overflow-y-auto"
         >
           <h2 className="type-card-title text-brand-primary">
             Удалить форму?

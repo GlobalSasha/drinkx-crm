@@ -447,7 +447,7 @@ function DeleteUserModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="bg-white rounded-card shadow-overlay max-w-md w-full p-6">
+      <div className="bg-white rounded-card shadow-overlay max-w-md w-full p-6 max-h-[90dvh] overflow-y-auto">
         <h3 className="type-card-title text-brand-primary mb-2">
           Удалить {name}?
         </h3>
@@ -573,7 +573,7 @@ export function InviteModal({
           role="dialog"
           aria-modal="true"
           aria-label="Пригласить пользователя"
-          className="bg-white rounded-card border border-brand-border shadow-overlay w-full max-w-md overflow-hidden"
+          className="bg-white rounded-card border border-brand-border shadow-overlay w-full max-w-md max-h-[90dvh] overflow-y-auto"
         >
           <div className="px-6 py-4 border-b border-brand-border flex items-start justify-between gap-4">
             <div>
