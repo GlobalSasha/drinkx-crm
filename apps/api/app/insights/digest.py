@@ -20,6 +20,7 @@ from app.insights.services import _COMMENT_TEXT, _COMMENT_WHERE, scrub
 DIGEST_DAYS = 5
 DIGEST_STALE_HOURS = 36  # the worker runs nightly; more than a day and a half means it broke
 MAX_LINE = 400
+MAX_CLIENT = 80
 
 # Fixed sections, in display order. The AI may use only these keys.
 SECTIONS: dict[str, str] = {
@@ -75,13 +76,16 @@ async def store_digest(db: AsyncSession, *, workspace_id: uuid.UUID, payload: Di
     for section in payload.sections:
         for item in section.items:
             line = " ".join((item.text or "").split())
+            client = " ".join((item.client or "").split())
             lead_ids = list(dict.fromkeys(i for i in item.lead_ids if i in allowed))
             if section.key not in SECTIONS or not line or len(line) > MAX_LINE or not lead_ids:
                 dropped += 1
                 continue
-            sections.setdefault(section.key, []).append(
-                {"text": line, "lead_ids": [str(i) for i in lead_ids]}
-            )
+            sections.setdefault(section.key, []).append({
+                "client": client if len(client) <= MAX_CLIENT else "",
+                "text": line,
+                "lead_ids": [str(i) for i in lead_ids],
+            })
             accepted += 1
     db.add(CommentDigest(
         workspace_id=workspace_id,
@@ -120,7 +124,8 @@ async def company_digest(db: AsyncSession, *, workspace_id: uuid.UUID) -> dict:
                 leads = [{"id": uuid.UUID(i), "company_name": names[uuid.UUID(i)]}
                          for i in it["lead_ids"] if uuid.UUID(i) in names]
                 if leads:  # a line about a lead deleted since is dropped
-                    items.append({"text": it["text"], "leads": leads})
+                    items.append({"client": it.get("client") or None, "text": it["text"],
+                                  "leads": leads})
             if items and s["key"] in SECTIONS:
                 sections.append({"key": s["key"], "title": SECTIONS[s["key"]], "items": items})
         digest = {
