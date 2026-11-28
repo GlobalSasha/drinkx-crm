@@ -280,6 +280,33 @@ export interface VoiceGroup {
   items: VoiceItem[];
 }
 
+/** `/company/digest` — «Сводка за 5 дней». */
+export interface DigestItem {
+  text: string;
+  leads: { id: string; company_name: string }[];
+}
+
+export interface CompanyDigest {
+  digest: {
+    created_at: string;
+    period_from: string;
+    period_to: string;
+    comments: number;
+    leads: number;
+    sections: { key: string; title: string; items: DigestItem[] }[];
+  } | null;
+  stale: boolean;
+  new_leads_from: string;
+  new_leads: {
+    id: string;
+    company_name: string;
+    city: string | null;
+    source: string | null;
+    manager: string | null;
+    created_at: string;
+  }[];
+}
+
 export interface CompanyVoice {
   period: "week" | "month";
   days: number;
