@@ -3,6 +3,7 @@ import { api } from "@/lib/api-client";
 import type {
   CompanyBrands,
   CompanyCitiesProducts,
+  CompanyDigest,
   CompanySummary,
   CompanyInflow,
   CompanyManagerSpeed,
@@ -39,6 +40,15 @@ export function useCompanyManagerSpeed() {
 }
 
 /** «Голос клиентов»: what clients say, from AI tags on comments. Admin/head only. */
+/** «Сводка за 5 дней»: the AI digest of comments + new leads. Admin/head only. */
+export function useCompanyDigest() {
+  return useQuery({
+    queryKey: ["company-digest"],
+    queryFn: () => api.get<CompanyDigest>("/company/digest"),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function useCompanyVoice(period: "week" | "month") {
   return useQuery({
     queryKey: ["company-voice", period],

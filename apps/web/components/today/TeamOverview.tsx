@@ -17,6 +17,7 @@ import { useMe } from "@/lib/hooks/use-me";
 import { TodayHero } from "@/components/today/TodayHero";
 import { BrandsCard } from "@/components/today/BrandsCard";
 import { CitiesProductsCard } from "@/components/today/CitiesProductsCard";
+import { DigestCard } from "@/components/today/DigestCard";
 import { InflowCard } from "@/components/today/InflowCard";
 import { ReactionCard } from "@/components/today/ReactionCard";
 import { ManagerSpeedCard } from "@/components/today/ManagerSpeedCard";
@@ -150,6 +151,7 @@ export function TeamOverview() {
         secondary={{ href: "/pipeline", label: "Воронка" }}
       />
 
+      <DigestCard />
       <InflowCard />
       <ReactionCard />
       <ManagerSpeedCard />

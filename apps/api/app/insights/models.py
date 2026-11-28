@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.common.models import Base, UUIDPrimaryKeyMixin
@@ -54,4 +54,23 @@ class CommentInsightScan(Base):
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     scanned_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class CommentDigest(Base, UUIDPrimaryKeyMixin):
+    """«Сводка за 5 дней»: the AI's retelling of recent manager comments,
+    already checked by the CRM. The card shows the newest one."""
+
+    __tablename__ = "comment_digests"
+    __table_args__ = (Index("ix_comment_digests_ws_created", "workspace_id", "created_at"),)
+
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    period_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    period_to: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    # [{"key": "progress", "items": [{"text": "...", "lead_ids": ["..."]}]}]
+    sections: Mapped[list] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
