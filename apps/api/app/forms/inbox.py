@@ -6,10 +6,14 @@ UI needs. The "new" state is per-user: a submission is new when it was
 created after the caller's `users.forms_inbox_seen_at`.
 
 The inbox is a to-do list, not an archive: a submission stays only while
-its lead is alive and still on the entry stage of its pipeline
-(app/pipelines/entry.py). Once a
+its lead is alive and still on the first stage of its pipeline. Once a
 manager moves the lead on (or closes / deletes it) it leaves the inbox;
 the history lives on the lead card and in /today stats.
+
+In production the leftmost stage is «Не отвечает»: new requests land there
+and a manager moves them to «Первый контакт» once handled. So «still on the
+first stage» means «on the leftmost column», not «on Первый контакт»
+(PR #248 got this wrong for a day, 27–28.11.2026).
 
 One card per lead: when a client submits the form again, only the latest
 submission is shown.
@@ -35,18 +39,23 @@ from app.forms.lead_factory import (
 )
 from app.forms.models import FormSubmission, WebForm
 from app.leads.models import Lead
-from app.pipelines.entry import on_entry_stage
 from app.pipelines.models import Stage
 
 
 def _pending(q):
     """Keep only submissions still waiting for a manager (see module doc)."""
+    first_position = (
+        select(func.min(Stage.position))
+        .where(Stage.pipeline_id == Lead.pipeline_id)
+        .correlate(Lead)
+        .scalar_subquery()
+    )
     return (
         q.join(Lead, FormSubmission.lead_id == Lead.id)
         .outerjoin(Stage, Lead.stage_id == Stage.id)
         .where(
             Lead.deleted_at.is_(None),
-            (Lead.stage_id.is_(None)) | on_entry_stage(Stage, Lead.pipeline_id),
+            (Lead.stage_id.is_(None)) | (Stage.position == first_position),
         )
     )
 

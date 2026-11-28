@@ -1,10 +1,10 @@
 """Raw-SQL aggregates for the company overview. Workspace-scoped, read-only.
 
-«Qualified» = a lead that is past the entry stage and not on «Не отвечает» — the
-intake stage is the pipeline's entry stage (app/pipelines/entry.py). «Stuck» = an open
+«Qualified» = a lead that has left the intake stage (stage.position > 0) — the
+intake stage is always position 0 (get_default_first_stage). «Stuck» = an open
 assigned lead on a non-terminal stage with no touch for 7+ days, where a touch
-is what `_LAST_TOUCH` lists. Leads on the entry stage or the «Не отвечает»
-holding stage are not «stuck deals» yet: they are counted apart (`first_stage_idle_count`).
+is what `_LAST_TOUCH` lists. Leads on the intake stage («Не отвечает» in
+production) or on «Первый контакт» are not «stuck deals» yet: they are counted apart (`first_stage_idle_count`).
 """
 from __future__ import annotations
 
@@ -48,9 +48,8 @@ _LAST_TOUCH = f"""GREATEST(
 )"""
 
 
-# The lead is not a deal yet: it sits on the entry stage of its pipeline or on
-# the «Не отвечает» holding stage (see app/pipelines/entry.py). Column order
-# alone can't tell: the holding stage was moved to the far left in production.
+# The lead is not a deal yet: «Не отвечает» or the first stage after it
+# (see app/pipelines/entry.py).
 _ON_FIRST_STAGE = NOT_A_DEAL_YET_SQL
 
 
@@ -176,7 +175,7 @@ async def source_breakdown(
     sql = text(f"""
         SELECT ls.id AS source_id, ls.name AS name, COALESCE(ls.is_paid, false) AS is_paid,
                count(*)                          AS leads,
-               count(*) FILTER (WHERE NOT {_ON_FIRST_STAGE}) AS qualified
+               count(*) FILTER (WHERE s.position > 0) AS qualified
         FROM leads l
         LEFT JOIN lead_sources ls ON ls.id = l.source_id
         LEFT JOIN stages s ON s.id = l.stage_id
