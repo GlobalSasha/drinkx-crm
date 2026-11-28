@@ -112,6 +112,7 @@ class DigestSourceOut(BaseModel):
 
 
 class DigestItemIn(BaseModel):
+    client: str = ""  # short client label for the left column, e.g. «Гуру кофе (СПб)»
     text: str = ""
     lead_ids: list[uuid.UUID] = Field(default_factory=list)
 
@@ -138,6 +139,7 @@ class DigestLead(BaseModel):
 
 
 class DigestItemOut(BaseModel):
+    client: str | None  # None in digests written before the label existed
     text: str
     leads: list[DigestLead]
 

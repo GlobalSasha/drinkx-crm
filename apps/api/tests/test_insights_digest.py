@@ -45,7 +45,7 @@ async def test_only_checked_lines_are_kept(db, workspace, user):
         period_from=now - timedelta(days=5), period_to=now,
         sections=[
             {"key": "progress", "items": [
-                {"text": "  Винегрет: в марте  берут 4 AeroMilk ", "lead_ids": [lead.id, lead.id]},
+                {"client": " Винегрет ", "text": "  в марте  берут 4 AeroMilk ", "lead_ids": [lead.id, lead.id]},
                 {"text": "Тишина: всё отлично", "lead_ids": [quiet.id]},  # нет комментариев
                 {"text": "Кто-то купил", "lead_ids": [uuid.uuid4()]},  # чужой лид
                 {"text": "   ", "lead_ids": [lead.id]},  # пусто
@@ -59,7 +59,7 @@ async def test_only_checked_lines_are_kept(db, workspace, user):
     d = card["digest"]
     assert d["comments"] == 1 and d["leads"] == 1
     assert d["sections"] == [{"key": "progress", "title": "Продвинулись", "items": [
-        {"text": "Винегрет: в марте берут 4 AeroMilk",
+        {"client": "Винегрет", "text": "в марте берут 4 AeroMilk",
          "leads": [{"id": lead.id, "company_name": "Винегрет"}]},
     ]}]
     assert card["stale"] is False

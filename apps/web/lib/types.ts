@@ -282,6 +282,7 @@ export interface VoiceGroup {
 
 /** `/company/digest` — «Сводка за 5 дней». */
 export interface DigestItem {
+  client: string | null; // null in digests written before the label existed
   text: string;
   leads: { id: string; company_name: string }[];
 }

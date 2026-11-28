@@ -8,6 +8,7 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
+  ChevronRight,
   Hourglass,
   MessageSquareWarning,
   TrendingUp,
@@ -19,11 +20,32 @@ import { useCompanyDigest } from "@/lib/hooks/use-company";
 import type { CompanyDigest, DigestItem } from "@/lib/types";
 
 const SECTION_ICON: Record<string, ReactNode> = {
-  progress: <TrendingUp size={16} aria-hidden />,
-  objections: <MessageSquareWarning size={16} aria-hidden />,
-  postponed: <Hourglass size={16} aria-hidden />,
-  attention: <AlertTriangle size={16} aria-hidden />,
+  progress: <TrendingUp size={18} aria-hidden />,
+  objections: <MessageSquareWarning size={18} aria-hidden />,
+  postponed: <Hourglass size={18} aria-hidden />,
+  attention: <AlertTriangle size={18} aria-hidden />,
 };
+
+// Good news green, objections red, delays amber, «look at this» blue.
+const SECTION_COLOR: Record<string, string> = {
+  progress: "text-success",
+  objections: "text-rose",
+  postponed: "text-warning",
+  attention: "text-info",
+};
+
+const SECTION_TITLE = "inline-flex items-center gap-2 type-button mb-2";
+
+/** Client label for the left column. Older digests had it glued to the
+ *  front of the text («Гуру кофе (СПб): …») — split it off there. */
+export function splitClient(item: DigestItem): { client: string; text: string } {
+  if (item.client) return { client: item.client, text: item.text };
+  const cut = item.text.indexOf(": ");
+  if (cut > 0 && cut <= 60) {
+    return { client: item.text.slice(0, cut), text: item.text.slice(cut + 2) };
+  }
+  return { client: item.leads[0]?.company_name ?? "", text: item.text };
+}
 
 const NEW_LEADS_SHOWN = 8;
 
@@ -94,11 +116,11 @@ function Body({ data }: { data: CompanyDigest }) {
       )}
       {sections.map((s) => (
         <section key={s.key} aria-label={s.title}>
-          <h4 className="inline-flex items-center gap-2 type-caption text-brand-muted mb-2">
+          <h4 className={`${SECTION_TITLE} ${SECTION_COLOR[s.key] ?? "text-brand-primary"}`}>
             {SECTION_ICON[s.key]}
             {s.title}
           </h4>
-          <ul className="space-y-2">
+          <ul>
             {s.items.map((it, i) => (
               <DigestLine key={i} item={it} />
             ))}
@@ -110,22 +132,52 @@ function Body({ data }: { data: CompanyDigest }) {
   );
 }
 
+// One row: client on the left, what happened on the right, the same grid in
+// every section. The whole row opens the lead card.
+const ROW_GRID =
+  "grid grid-cols-1 sm:grid-cols-[200px_minmax(0,1fr)_16px] gap-x-4 gap-y-1 py-2 px-2 -mx-2 rounded-md";
+
 function DigestLine({ item }: { item: DigestItem }) {
+  const { client, text } = splitClient(item);
+  const [first, ...more] = item.leads;
   return (
-    <li className="type-body text-brand-primary">
-      {item.text}{" "}
-      <span className="inline-flex flex-wrap gap-x-2">
-        {item.leads.map((l) => (
-          <Link
-            key={l.id}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            href={`/leads/${l.id}` as any}
-            className={`type-hint not-italic text-brand-accent-text hover:underline rounded-md ${C.focusRing}`}
-          >
-            {l.company_name} →
-          </Link>
-        ))}
-      </span>
+    <li className="border-t border-brand-border first:border-t-0">
+      <Link
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        href={`/leads/${first.id}` as any}
+        title={`Открыть карточку: ${first.company_name}`}
+        className={`group ${ROW_GRID} items-baseline hover:bg-brand-bg transition-colors ${C.focusRing}`}
+      >
+        <span className="type-body font-medium text-brand-primary group-hover:text-brand-accent-text">
+          {client}
+        </span>
+        <span className="type-body text-brand-primary">{text}</span>
+        <ChevronRight
+          size={16}
+          className="hidden sm:block self-center text-brand-muted group-hover:text-brand-accent-text"
+          aria-hidden
+        />
+      </Link>
+      {more.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-[200px_minmax(0,1fr)] gap-x-4 px-2 -mx-2 pb-2">
+        <span className="hidden sm:block" aria-hidden />
+        <p className="type-hint not-italic text-brand-muted">
+          Ещё:{" "}
+          {more.map((l, i) => (
+            <span key={l.id}>
+              {i > 0 && ", "}
+              <Link
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                href={`/leads/${l.id}` as any}
+                className={`text-brand-accent-text hover:underline rounded-md ${C.focusRing}`}
+              >
+                {l.company_name}
+              </Link>
+            </span>
+          ))}
+        </p>
+        </div>
+      )}
     </li>
   );
 }
@@ -136,8 +188,8 @@ function NewLeads({ data }: { data: CompanyDigest }) {
   const shown = all ? leads : leads.slice(0, NEW_LEADS_SHOWN);
   return (
     <section aria-label="Новые лиды">
-      <h4 className="inline-flex items-center gap-2 type-caption text-brand-muted mb-2">
-        <UserPlus size={16} aria-hidden />
+      <h4 className={`${SECTION_TITLE} text-brand-primary`}>
+        <UserPlus size={18} aria-hidden />
         Новые лиды · {leads.length}
       </h4>
       {leads.length === 0 ? (
@@ -149,17 +201,19 @@ function NewLeads({ data }: { data: CompanyDigest }) {
               <Link
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 href={`/leads/${l.id}` as any}
-                className={`flex items-baseline justify-between gap-3 py-2 rounded-md hover:bg-brand-bg transition-colors ${C.focusRing}`}
+                className={`group ${ROW_GRID} items-baseline hover:bg-brand-bg transition-colors ${C.focusRing}`}
               >
-                <span className="min-w-0">
-                  <span className="block truncate type-body text-brand-primary">{l.company_name}</span>
-                  <span className="block truncate type-hint not-italic text-brand-muted">
-                    {[l.city, l.source, l.manager].filter(Boolean).join(" · ") || "—"}
-                  </span>
+                <span className="type-body font-medium text-brand-primary group-hover:text-brand-accent-text">
+                  {l.company_name}
                 </span>
-                <span className="shrink-0 type-hint not-italic text-brand-muted tabular-nums">
-                  {shortDate(l.created_at)}
+                <span className="type-body text-brand-muted">
+                  {[shortDate(l.created_at), l.city, l.source, l.manager].filter(Boolean).join(" · ")}
                 </span>
+                <ChevronRight
+                  size={16}
+                  className="hidden sm:block self-center text-brand-muted group-hover:text-brand-accent-text"
+                  aria-hidden
+                />
               </Link>
             </li>
           ))}

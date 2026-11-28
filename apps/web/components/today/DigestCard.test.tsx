@@ -13,7 +13,7 @@ vi.mock("@/lib/hooks/use-company", () => ({
   useCompanyDigest: () => query.current,
 }));
 
-import { DigestCard, periodLabel } from "./DigestCard";
+import { DigestCard, periodLabel, splitClient } from "./DigestCard";
 
 const newLeads = Array.from({ length: 10 }, (_, i) => ({
   id: `n${i}`,
@@ -34,7 +34,9 @@ const digest = {
     {
       key: "progress",
       title: "Продвинулись",
-      items: [{ text: "Гуру кофе: рассрочка на 3 месяца", leads: [{ id: "l1", company_name: "Гуру кофе" }] }],
+      items: [
+        { client: "Гуру кофе (СПб)", text: "рассрочка на 3 месяца", leads: [{ id: "l1", company_name: "Петр Гуру кофе" }] },
+      ],
     },
   ],
 };
@@ -52,15 +54,15 @@ describe("DigestCard", () => {
     render(<DigestCard />);
     expect(screen.getByText(/57 комментариев по 34 лидам/)).toBeInTheDocument();
     expect(screen.getByText("Продвинулись")).toBeInTheDocument();
-    expect(screen.getByText(/рассрочка на 3 месяца/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Гуру кофе →" })).toHaveAttribute("href", "/leads/l1");
+    const row = screen.getByRole("link", { name: /Гуру кофе \(СПб\).*рассрочка на 3 месяца/ });
+    expect(row).toHaveAttribute("href", "/leads/l1");
     expect(screen.queryByText(/не обновлялась/)).not.toBeInTheDocument();
   });
 
   it("lists new leads, eight first, and expands to all", () => {
     render(<DigestCard />);
     expect(screen.getByText("Новые лиды · 10")).toBeInTheDocument();
-    expect(screen.getByText("Казань · Сайт · Дмитрий")).toBeInTheDocument();
+    expect(screen.getByText("27.11 · Казань · Сайт · Дмитрий")).toBeInTheDocument();
     expect(screen.queryByText("Новый 9")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Все новые лиды (10)" }));
     expect(screen.getByText("Новый 10")).toBeInTheDocument();
@@ -85,6 +87,18 @@ describe("DigestCard", () => {
     };
     render(<DigestCard />);
     expect(screen.getByText(/Сводки ещё нет/)).toBeInTheDocument();
+  });
+
+  it("splits the client off the text in older digests", () => {
+    const leads = [{ id: "l1", company_name: "Петр Гуру кофе" }];
+    expect(splitClient({ client: null, text: "Гуру кофе (СПб): ждём реквизиты", leads })).toEqual({
+      client: "Гуру кофе (СПб)",
+      text: "ждём реквизиты",
+    });
+    expect(splitClient({ client: null, text: "без двоеточия", leads })).toEqual({
+      client: "Петр Гуру кофе",
+      text: "без двоеточия",
+    });
   });
 
   it("formats the period within one month and across two", () => {
