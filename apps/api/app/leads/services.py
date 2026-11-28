@@ -17,7 +17,6 @@ from app.leads import repositories as repo
 from app.leads.models import DealType, Lead, Priority
 from app.leads.selection import LeadSelection  # noqa: F401
 from app.leads.schemas import LeadCreate, LeadUpdate
-from app.pipelines.entry import pick_entry_stage
 from app.pipelines.models import Stage
 
 # NOTE: app.followups.services is imported lazily inside create_lead() to avoid
@@ -940,7 +939,7 @@ async def change_pipeline(
 ) -> Lead:
     """Перенести лида в другую воронку.
 
-    Если `stage_id` не указан, лид встаёт на входной этап (app/pipelines/entry.py) целевой
+    Если `stage_id` не указан, лид встаёт на первый этап (position == 0) целевой
     воронки. `lead.pipeline_id` выставляется ДО вызова движка переходов: гейт
     `check_pipeline_match` сверяет воронку лида с воронкой целевого этапа и иначе
     отклонит переход.
@@ -969,8 +968,13 @@ async def change_pipeline(
         if to_stage is None:
             raise StageNotFound(stage_id)
     else:
-        result = await db.execute(select(Stage).where(Stage.pipeline_id == pipeline_id))
-        to_stage = pick_entry_stage(list(result.scalars().all()))
+        result = await db.execute(
+            select(Stage).where(
+                Stage.pipeline_id == pipeline_id,
+                Stage.position == 0,
+            )
+        )
+        to_stage = result.scalar_one_or_none()
         if to_stage is None:
             raise StageNotFound(pipeline_id)
 

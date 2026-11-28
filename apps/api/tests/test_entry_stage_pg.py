@@ -1,10 +1,12 @@
-"""Входной этап воронки, когда «Не отвечает» стоит самым левым.
+"""Воронка, где «Не отвечает» стоит самым левым (так в рабочей CRM).
 
-27.11.2026: в рабочей воронке столбец «Не отвечает» переставили в начало.
-Сводка на «Сегодня» стала писать «265 сделок застряли» — туда попали все
-лиды на «Первом контакте». Здесь закреплено: «Не отвечает» и входной этап —
-ещё не сделки, новые лиды встают на «Первый контакт», а заявка на нём
-остаётся во «Входящих». Needs PostgreSQL.
+Новая заявка встаёт на «Не отвечает», обработанную менеджер переводит на
+«Первый контакт». Закреплено:
+- «Не отвечает» и «Первый контакт» — ещё не сделки, в «застрявшие» не идут
+  (27.11.2026 сводка писала «265 сделок застряли»);
+- новые лиды встают на самый левый столбец, а во «Входящих» висят только
+  заявки на нём (28.11.2026 после PR #248 туда вернулись 76 обработанных
+  заявок с «Первого контакта»). Needs PostgreSQL.
 """
 from __future__ import annotations
 
@@ -56,17 +58,17 @@ async def test_stuck_count_skips_entry_and_holding_stages(db, workspace, user):
 
 @skip_no_pg
 @pytest.mark.asyncio
-async def test_new_leads_land_on_first_contact_not_on_holding_stage(db, workspace):
+async def test_new_leads_land_on_the_leftmost_stage(db, workspace):
     from app.pipelines.repositories import get_default_first_stage
 
     p, stages = await _pipeline(db, workspace)
 
-    assert await get_default_first_stage(db, workspace.id) == (p.id, stages["Первый контакт"].id)
+    assert await get_default_first_stage(db, workspace.id) == (p.id, stages["Не отвечает"].id)
 
 
 @skip_no_pg
 @pytest.mark.asyncio
-async def test_inbox_keeps_request_on_first_contact(db, workspace):
+async def test_inbox_drops_request_moved_to_first_contact(db, workspace):
     from app.forms import inbox
     from app.forms.models import FormSubmission, WebForm
     from app.leads.models import Lead
@@ -83,7 +85,7 @@ async def test_inbox_keeps_request_on_first_contact(db, workspace):
             workspace_id=workspace.id, company_name=name, assignment_status="pool",
             pipeline_id=p.id, stage_id=stages[stage].id,
         )
-        for name, stage in (("Ждёт звонка", "Первый контакт"), ("Не дозвонились", "Не отвечает"))
+        for name, stage in (("Ждёт звонка", "Не отвечает"), ("Уже обработали", "Первый контакт"))
     }
     db.add_all(leads.values())
     await db.flush()
@@ -95,11 +97,3 @@ async def test_inbox_keeps_request_on_first_contact(db, workspace):
     assert [it["company_name"] for it in items] == ["Ждёт звонка"]
     assert total == 1
 
-
-def test_pick_entry_stage_without_holding_stage_is_the_leftmost():
-    from app.pipelines.entry import pick_entry_stage
-    from app.pipelines.models import Stage
-
-    stages = [Stage(name="Квалификация", position=1), Stage(name="Новый контакт", position=0)]
-
-    assert pick_entry_stage(stages).name == "Новый контакт"
